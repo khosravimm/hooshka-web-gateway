@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Optional, List
 
 
 def ensure_file_exists(file_path: str) -> None:
@@ -34,14 +34,15 @@ def build_chunked_messages(text: str, chunk_size: int = 2048, overlap: int = 200
     return chunks
 
 
-def extract_download_links(page) -> list:
+async def extract_download_links(page) -> List[dict]:
     links = []
     anchors = page.locator("a[href]")
-    for i in range(anchors.count()):
-        href = anchors.nth(i).get_attribute("href") or ""
+    count = await anchors.count()
+    for i in range(count):
+        href = await anchors.nth(i).get_attribute("href") or ""
         if href.startswith("https://") and any(
             token in href.lower() for token in ["download", "file", "export", "blob"]
         ):
-            text = anchors.nth(i).inner_text().strip()
+            text = (await anchors.nth(i).inner_text()).strip()
             links.append({"href": href, "text": text})
     return links

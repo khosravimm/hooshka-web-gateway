@@ -1,0 +1,62 @@
+server:
+  host: 0.0.0.0
+  port: 5000
+  debug: false
+cdp:
+  url: http://127.0.0.1:9222
+  timeout: 30000
+chatgpt:
+  url: https://chatgpt.com
+  adapter: network
+  long_text_chunk_size: 2048
+  request_timeout: 120
+providers:
+- id: chatgpt-web
+  type: chatgpt_web
+  enabled: true
+  priority: 100
+  config:
+    cdp_url: http://127.0.0.1:9222
+    chatgpt_url: https://chatgpt.com
+    adapter: dom
+    headless: false
+    timeout: 120
+    long_text_chunk_size: 2048
+  capabilities:
+    chat_completion: true
+    streaming: false
+    tools: false
+    vision: false
+    embeddings: false
+    max_context_tokens: 128000
+    supported_models:
+    - gpt-4
+    - gpt-4o
+    - gpt-3.5-turbo
+    - chatgpt-web
+governance:
+  auth:
+    enabled: true
+    api_keys:
+      _Ux_LNv1N4LSNnSyNsXVIXaCm7Amlds3: user-b3cdc8
+  rate_limiting:
+    enabled: true
+    default_requests_per_minute: 60
+    per_provider:
+      chatgpt-web:
+        requests_per_minute: 20
+  audit:
+    enabled: true
+    output: logs/audit.log
+    format: json
+    retention_days: 90
+  policies:
+    enabled: false
+    engine: opa
+    bundle_path: policies/
+logging:
+  level: INFO
+  file: logs/bridge.log
+  format: '%(asctime)s - %(levelname)s - %(message)s'
+  max_bytes: 10485760
+  backup_count: 5
