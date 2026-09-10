@@ -1,6 +1,6 @@
 # Hooshka Web Gateway — Practical Usage Guide
 
-**Release baseline:** 0.5.1
+**Release baseline:** 0.6.0
 
 This guide covers day-to-day use from PowerShell, Python, scripts and Hooshka-compatible clients.
 
@@ -37,7 +37,7 @@ Invoke-RestMethod http://127.0.0.1:5000/modes -Headers $Headers
 Invoke-RestMethod http://127.0.0.1:5000/v1/models -Headers $Headers
 ```
 
-Current canonical models are `chatgpt-web`, `qwen-web`, and `zai-web`.
+Current canonical models include `chatgpt-web`, `qwen-web`, `qwen:qwen3.8-max`, `zai-web`, and `zai:glm-5.3`.
 
 ## 4. Send a basic request from PowerShell
 
@@ -117,7 +117,7 @@ Only send tools when `/modes` reports `tools=true` for the selected provider. Ch
 
 ## 10. Safe provider selection
 
-Good: explicit `model: zai-web`.
+For exact model selection use `model: zai:glm-5.3` or `model: qwen:qwen3.8-max`. Generic `zai-web` / `qwen-web` are compatibility aliases and may use the provider/default active model.
 
 Do not request "any available AI" and do not build silent cross-provider fallback. The caller must make any cross-provider policy decision before submission.
 

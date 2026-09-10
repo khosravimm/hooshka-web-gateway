@@ -2,7 +2,7 @@
 
 > Repository-level discovery starts at `../HOOSHKA_WEB_GATEWAY_START_HERE.md`. Agents and humans should read that file first.
 
-**Release:** 0.5.1
+**Release:** 0.6.0
 **Canonical project:** `hooshka-web-gateway`
 **Module:** `web_gateway`
 
@@ -35,8 +35,9 @@
 - `SECURITY_GOVERNANCE.md` — trust boundaries, secrets, data governance, risk controls and incident classes.
 - `HOOSHKA_INTEGRATION_GUIDE.md` — stable `web_gateway` contract for Hooshka.
 - `DEVELOPMENT_GUIDE.md` — repository map, provider development workflow and release gates.
-- `TROUBLESHOOTING_CURRENT.md` — current 0.5.1 diagnostic playbook.
+- `TROUBLESHOOTING_CURRENT.md` — current diagnostic playbook.
 - `FINAL_REPORT_2026-09-10.md` — 0.5.0 release-level handoff.
+- `EXPLICIT_MODEL_SELECTION_EVIDENCE_2026-09-10.md` — strict E2/default-routing evidence, dynamic catalog verification, and current Qwen quota state.
 
 ## Research, evidence and history
 

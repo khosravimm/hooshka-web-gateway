@@ -2,6 +2,28 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## 0.6.0 - 2026-09-10
+
+### Added
+- Dynamic provider model catalogs for Qwen Web and Z.ai Web. `/v1/models` now exposes provider-discovered namespaced ids instead of a small manually curated alias set.
+- Configurable `default_upstream_model` policy for each Web provider. Current defaults are `qwen3.8-max` for `qwen-web` and `glm-5.3` for `zai-web`.
+- Exact namespaced routing with provider-side catalog validation: `qwen:<upstream-id>` and `zai:<upstream-id>`.
+- Safe backend model provenance diagnostics that record model ids only and do not retain tokens, cookies, signatures or CAPTCHA proof.
+
+### Fixed
+- Z.ai response polling now re-bootstraps runtime stores after provider navigation changes the page execution context.
+- Browser-controller `backend_request_model` is no longer synthesized from the requested/default model when no backend request was observed.
+- Qwen empty assistant completions caused by provider errors are no longer accepted as successful responses; current guest-quota exhaustion is classified as `rate_limit`.
+
+### Evidence
+- Deterministic regression suite: 58/58 PASS.
+- `git diff --check`: PASS.
+- Windows service restart: PASS; `HooshkaWebGateway` remained Running.
+- Live `/v1/models`: 20 routable ids in the current session: 16 Z.ai, 3 Qwen, 1 ChatGPT Web.
+- Z.ai generic-default E2: PASS with `zai-web -> glm-5.3`, selector `GLM-5.3`, backend request `glm-5.3`, and exact completion `ZAI_DEFAULT_MODEL_OK`.
+- Qwen generic-default routing evidence: `qwen-web -> qwen3.8-max` reached the actual backend request and frontend selection. Completion is currently blocked by the provider's daily guest quota (`RateLimited`); no further live Qwen completion retries are claimed in this window.
+- No E3 reliability claim is made.
+
 ## 0.5.1 - 2026-09-10
 
 ### Documentation

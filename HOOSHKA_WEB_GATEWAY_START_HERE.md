@@ -9,7 +9,7 @@
 - **Product:** Hooshka Web Gateway
 - **Technical id:** `hooshka-web-gateway`
 - **Hooshka module id:** `web_gateway`
-- **Current baseline:** `0.5.1`
+- **Current baseline:** `0.6.0`
 - **Local path:** `D:\Code\hooshka-web-gateway`
 - **Windows service:** `HooshkaWebGateway`
 - **Local API:** `http://127.0.0.1:5000`
@@ -30,8 +30,8 @@ Hooshka itself should consume the gateway API and must not depend directly on pr
 | Provider | Canonical model | Basic chat | Stream API | Tools | Evidence/status |
 |---|---|---:|---:|---:|---|
 | ChatGPT Web | `chatgpt-web` | PASS | supported, buffered compatibility | PASS | E2 operational |
-| Qwen Web | `qwen-web` | PASS | reconstructed | disabled | E2 operational |
-| Z.ai Web | `zai-web` | PASS | reconstructed | disabled | E2 operational |
+| Qwen Web | `qwen-web`, `qwen:qwen3.8-max` | PASS | reconstructed | disabled | E2 operational; explicit Qwen3.8-Max routing accepted |
+| Z.ai Web | `zai-web`, `zai:glm-5.3` | PASS | reconstructed | disabled | E2 operational; explicit GLM-5.3 routing accepted |
 | DeepSeek Web | `deepseek-web` | blocked | blocked | blocked | account-state circuit breaker |
 
 **Evidence levels**
@@ -82,6 +82,7 @@ Canonical current documents:
 - `docs/DEVELOPMENT_GUIDE.md`
 - `docs/TROUBLESHOOTING_CURRENT.md`
 - `docs/FINAL_REPORT_2026-09-10.md`
+- `docs/EXPLICIT_MODEL_SELECTION_EVIDENCE_2026-09-10.md`
 
 ## Architecture at a glance
 
@@ -215,10 +216,10 @@ git diff --check
 git status --short --branch
 ```
 
-Accepted 0.5.1 deterministic baseline:
+Accepted 0.6.0 deterministic baseline:
 
 ```text
-54 passed
+56 passed
 ```
 
 Do not run repeated live provider tests unless the change actually requires provider E2 validation.
@@ -277,7 +278,7 @@ Stop testing immediately on:
 Current release:
 
 ```text
-v0.5.1
+v0.6.0
 ```
 
 Pre-canonical-migration rollback reference:

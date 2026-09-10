@@ -7,19 +7,32 @@ from core.providers import ChatCompletionRequest, ProviderError
 class FakeZaiTransport:
     frontend_version = "prod-fe-test"
     last_session_mode = "test"
+    last_selected_model_label = None
+    last_backend_request_model = None
 
     def __init__(self):
         self.closed = False
+        self._catalog = [
+            {"id": "x-preview-l", "name": "GLM-5.3-Flash"},
+            {"id": "glm-5.3", "name": "GLM-5.3"},
+            {"id": "glm-4.7", "name": "GLM-4.7"},
+        ]
 
     async def health(self):
         return True
 
     async def model_ids(self):
-        return ["x-preview-l", "glm-4.7"]
+        return [x["id"] for x in self._catalog]
 
-    async def stream_text(self, prompt):
-        yield {"type": "text_delta", "text": "ZAI_", "chat_id": "chat-1", "model": "glm-4.7"}
-        yield {"type": "text_delta", "text": "OK", "chat_id": "chat-1", "model": "glm-4.7"}
+    async def model_catalog(self):
+        return list(self._catalog)
+
+    async def stream_text(self, prompt, *, upstream_model=None):
+        self.last_selected_model_label = "GLM-5.3" if upstream_model == "glm-5.3" else None
+        self.last_backend_request_model = upstream_model
+        model = upstream_model
+        yield {"type": "text_delta", "text": "ZAI_", "chat_id": "chat-1", "model": model}
+        yield {"type": "text_delta", "text": "OK", "chat_id": "chat-1", "model": model}
 
     async def close(self):
         self.closed = True
@@ -32,7 +45,7 @@ async def test_zai_model_discovery_exposes_canonical_model():
 
     models = await provider.list_models()
 
-    assert [m.id for m in models] == ["zai-web"]
+    assert [m.id for m in models] == ["zai-web", "zai:x-preview-l", "zai:glm-5.3", "zai:glm-4.7"]
 
 
 @pytest.mark.asyncio
@@ -46,6 +59,35 @@ async def test_zai_completion_uses_transport_stream():
     assert response.choices[0].message.content == "ZAI_OK"
     assert response.provider_meta["transport_mode"] == "browser_backend_controller"
     assert response.provider_meta["conversation_id"] == "chat-1"
+    assert response.provider_meta["requested_upstream_model"] == "glm-5.3"
+    assert response.provider_meta["backend_request_model"] == "glm-5.3"
+
+
+@pytest.mark.asyncio
+async def test_zai_explicit_glm53_routes_exact_upstream_model():
+    provider = create_zai_web_provider(provider_id="zai-web")
+    provider._browser = FakeZaiTransport()
+    req = ChatCompletionRequest(model="zai:glm-5.3", messages=[{"role": "user", "content": "hello"}])
+
+    response = await provider.chat_completion(req)
+
+    assert response.model == "zai:glm-5.3"
+    assert response.provider_meta["upstream_model"] == "glm-5.3"
+    assert response.provider_meta["selected_model_label"] == "GLM-5.3"
+    assert response.provider_meta["backend_request_model"] == "glm-5.3"
+
+
+@pytest.mark.asyncio
+async def test_zai_default_web_model_uses_configured_strongest_model():
+    provider = create_zai_web_provider(provider_id="zai-web", default_upstream_model="glm-5.3")
+    provider._browser = FakeZaiTransport()
+    req = ChatCompletionRequest(model="zai-web", messages=[{"role": "user", "content": "hello"}])
+
+    response = await provider.chat_completion(req)
+
+    assert response.model == "zai-web"
+    assert response.provider_meta["requested_upstream_model"] == "glm-5.3"
+    assert response.provider_meta["backend_request_model"] == "glm-5.3"
 
 
 @pytest.mark.asyncio
@@ -77,3 +119,5 @@ async def test_zai_stream_emits_text_and_terminal_chunk():
     text = "".join((c.choices[0].delta.content or "") for c in chunks)
     assert text == "ZAI_OK"
     assert chunks[-1].choices[0].finish_reason == "stop"
+    assert chunks[-1].provider_meta["requested_upstream_model"] == "glm-5.3"
+    assert chunks[-1].provider_meta["backend_request_model"] == "glm-5.3"

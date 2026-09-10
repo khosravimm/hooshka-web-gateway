@@ -33,6 +33,7 @@ providers:
   priority: 90
   config:
     transport_mode: browser_controller
+    default_upstream_model: qwen3.8-max
     profile_dir: .runtime\qwen-profile
     runtime_label: HWG-Qwen-Web-Controller
     browser_channel: chrome
@@ -64,6 +65,7 @@ providers:
   config:
     base_url: https://chat.z.ai
     frontend_version: prod-fe-1.1.93
+    default_upstream_model: glm-5.3
     runtime_label: HWG-Zai-Web-SSE-Capture
     profile_dir: .runtime\zai-profile
     transport_mode: browser_ui_capture

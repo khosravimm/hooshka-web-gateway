@@ -173,6 +173,15 @@ class Provider(ABC):
     @property
     def config(self) -> ProviderConfig:
         return self._config
+
+    def supports_model(self, model: str) -> bool:
+        """Return whether this provider can resolve the canonical model id.
+
+        Static providers use capabilities.supported_models. Dynamic Web providers
+        may override this for a provider-owned namespace and validate the exact
+        upstream id against live discovery before submission.
+        """
+        return model in self._capabilities.supported_models
     
     @abstractmethod
     async def health_check(self) -> bool:

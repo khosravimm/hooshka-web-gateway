@@ -111,12 +111,10 @@ class ProviderRouter:
             candidates = [p for p in candidates if p.capabilities.tools]
         
         if model:
-            # Exact, fail-closed model resolution. An empty model list means the
-            # provider has declared no routable model ids, not "match anything".
-            candidates = [
-                p for p in candidates
-                if model in p.capabilities.supported_models
-            ]
+            # Exact, fail-closed model resolution. Dynamic Web providers may
+            # accept a provider-owned namespace such as qwen:* or zai:* and then
+            # validate the upstream id against their live/catalog state.
+            candidates = [p for p in candidates if p.supports_model(model)]
         
         if not candidates:
             return None

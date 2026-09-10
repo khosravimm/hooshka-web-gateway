@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import re
 import time
@@ -60,6 +61,8 @@ class QwenBrowserControllerTransport:
         self.main_module_url: Optional[str] = None
         self.last_session_mode: str = "unknown"
         self._network_events: list[dict] = []
+        self.last_selected_models: list[str] = []
+        self.last_backend_request_model: Optional[str] = None
 
     def _record_network_event(self, event: dict) -> None:
         self._network_events.append(event)
@@ -73,7 +76,21 @@ class QwenBrowserControllerTransport:
 
         def on_request(req):
             if "/api/v2/chats/new" in req.url or "/api/v2/chat/completions" in req.url:
-                self._record_network_event({"kind": "request", "url": req.url.split("?")[0][-80:]})
+                event = {"kind": "request", "url": req.url.split("?")[0][-80:]}
+                if "/api/v2/chat/completions" in req.url:
+                    try:
+                        payload = json.loads(req.post_data or "{}")
+                        model = payload.get("model") if isinstance(payload, dict) else None
+                        if not model and isinstance(payload, dict):
+                            messages = payload.get("messages") or []
+                            if messages and isinstance(messages[0], dict):
+                                models = messages[0].get("models") or []
+                                model = models[0] if models else None
+                        self.last_backend_request_model = str(model) if model else None
+                        event["model"] = self.last_backend_request_model
+                    except Exception:
+                        self.last_backend_request_model = None
+                self._record_network_event(event)
 
         def on_response(resp):
             if "/api/v2/chats/new" in resp.url or "/api/v2/chat/completions" in resp.url:
@@ -266,15 +283,19 @@ class QwenBrowserControllerTransport:
             }"""
         )
 
-    async def _apply_features_and_send(self, page: Page, prompt: str, *, thinking: bool, search: bool) -> str:
+    async def _apply_features_and_send(self, page: Page, prompt: str, *, thinking: bool, search: bool, upstream_model: Optional[str] = None) -> str:
         return str(
             await page.evaluate(
-                """async ({prompt, thinking, search}) => {
+                """async ({prompt, thinking, search, upstreamModel}) => {
                   const x = window.__mwbQwenController;
                   if (!x) throw new Error('controller_not_ready');
                   await x.openNewChat({hideToast:true, sendEventTrack:false});
                   const fm = window.__mwbQwenFeatureManager;
                   const fe = window.__mwbQwenFeatureEnum;
+                  if (upstreamModel && fm?.setSingleModel) {
+                    const mr = fm.setSingleModel(upstreamModel);
+                    if (mr && mr.success === false) throw new Error('model_select_failed:' + (mr.message || upstreamModel));
+                  }
                   const chatStore = window.__mwbQwenChatStore?.getState?.();
                   const runtimeStore = window.__mwbQwenRuntimeStore?.getState?.();
                   if (fm && fe) {
@@ -319,20 +340,26 @@ class QwenBrowserControllerTransport:
                     }
                   }
                   window.__mwbQwenSendError = null;
+                  window.__mwbQwenSelectedModels = [...(fm?.currentSelection?.selectedModels || [])];
                   await x.beforeSendMessage({inputText:prompt});
                   return x.currentInstanceId || '';
                 }""",
-                {"prompt": prompt, "thinking": thinking, "search": search},
+                {"prompt": prompt, "thinking": thinking, "search": search, "upstreamModel": upstream_model},
             )
             or ""
         )
 
-    async def _start_send(self, prompt: str, *, thinking: bool, search: bool) -> str:
+    async def _start_send(self, prompt: str, *, thinking: bool, search: bool, upstream_model: Optional[str] = None) -> str:
         page = await self._ensure()
         for attempt in range(2):
             try:
                 await self.session_status()
-                return await self._apply_features_and_send(page, prompt, thinking=thinking, search=search)
+                self.last_backend_request_model = None
+                result = await self._apply_features_and_send(page, prompt, thinking=thinking, search=search, upstream_model=upstream_model)
+                self.last_selected_models = await page.evaluate(
+                    "() => [...(window.__mwbQwenFeatureManager?.getSelectedModels?.() || window.__mwbQwenFeatureManager?.currentSelection?.selectedModels || [])].map(x => typeof x === 'string' ? x : x?.id).filter(Boolean)"
+                )
+                return result
             except Exception as exc:
                 if not self._is_transient_navigation_error(exc) or attempt == 1:
                     raise
@@ -340,48 +367,90 @@ class QwenBrowserControllerTransport:
                 page = await self._ensure()
         raise RuntimeError("Qwen send did not start")
 
-    async def _snapshot(self) -> dict:
+    async def _snapshot(self, prompt: str) -> dict:
         page = await self._ensure()
-        script = """() => {
+        script = """(prompt) => {
           const x = window.__mwbQwenController;
           const s = x?.getPool?.().currentSession;
           if (!s) return {state:'missing', chat_id:'', answer:'', thinking:'', terminal:false, error:window.__mwbQwenSendError || null};
           const h = s.history || {};
-          const ids = Array.isArray(h.currentResponseIds) ? h.currentResponseIds : [];
           let msg = null;
-          for (let i=ids.length-1;i>=0;i--) {
-            const candidate = h.messages?.[ids[i]];
-            if (candidate?.role === 'assistant') { msg=candidate; break; }
+          let matched = false;
+          let id = h.currentId;
+          for (let i=0; i<16 && id; i++) {
+            const candidate = h.messages?.[id];
+            if (!candidate) break;
+            if (!msg && candidate?.role === 'assistant') msg = candidate;
+            if (candidate?.role === 'user' && (candidate?.content || '') === prompt) {
+              matched = !!msg;
+              break;
+            }
+            id = candidate?.parentId;
           }
-          if (!msg && h.currentId) {
-            const candidate = h.messages?.[h.currentId];
-            if (candidate?.role === 'assistant') msg=candidate;
+          if (!matched) {
+            const rows = Object.values(h.messages || {});
+            const user = rows.find(v => v?.role === 'user' && (v?.content || '') === prompt);
+            if (user) {
+              const ids = Array.isArray(user?.childrenIds) ? user.childrenIds : [];
+              for (const childId of ids) {
+                const candidate = h.messages?.[childId];
+                if (candidate?.role === 'assistant') { msg = candidate; matched = true; break; }
+              }
+            }
           }
           let answer='', thinking='', answerStatus='', thinkingStatus='';
           for (const part of (msg?.content_list || [])) {
             if (part?.phase === 'answer') { answer = typeof part.content === 'string' ? part.content : answer; answerStatus=part.status || answerStatus; }
             else if (part?.phase === 'thinking_summary' || part?.phase === 'thinking') { thinking = typeof part.content === 'string' ? part.content : thinking; thinkingStatus=part.status || thinkingStatus; }
           }
-          const terminal = !!msg && (msg.done === true || answerStatus === 'finished') && s.sessionState === 'ready';
+          if (!answer && typeof msg?.content === 'string') answer = msg.content;
+          const terminal = matched && !!msg && (msg.done === true || answerStatus === 'finished') && s.sessionState === 'ready';
+          const rows = Object.values(h.messages || {});
+          const debug = {
+            current_id: h.currentId || '',
+            response_ids: Array.isArray(h.currentResponseIds) ? h.currentResponseIds.length : 0,
+            message_count: rows.length,
+            roles: rows.slice(-12).map(v => v?.role || ''),
+            current_role: h.messages?.[h.currentId]?.role || '',
+            assistant_done: msg?.done === true,
+            assistant_phase: msg?.phase || '',
+            assistant_status: msg?.status || '',
+            assistant_keys: msg ? Object.keys(msg).sort() : [],
+            assistant_error_type: typeof msg?.error,
+            assistant_error_present: !!msg?.error,
+            assistant_error_keys: msg?.error && typeof msg.error === 'object' ? Object.keys(msg.error).sort() : [],
+            assistant_error_code: msg?.error?.code ?? msg?.error?.status ?? msg?.error?.errorCode ?? '',
+            assistant_error_message: typeof msg?.error?.message === 'string' ? msg.error.message.slice(0, 240) : (typeof msg?.error?.errorMessage === 'string' ? msg.error.errorMessage.slice(0, 240) : ''),
+            assistant_content_type: typeof msg?.content,
+            assistant_content_len: typeof msg?.content === 'string' ? msg.content.length : 0,
+            part_meta: (msg?.content_list || []).map(p => ({
+              phase: p?.phase || '',
+              status: p?.status || '',
+              content_type: typeof p?.content,
+              content_len: typeof p?.content === 'string' ? p.content.length : 0
+            }))
+          };
           return {
             state: s.sessionState || '',
             chat_id: s.chatId || '',
             answer, thinking, answer_status:answerStatus, thinking_status:thinkingStatus,
-            has_event: !!msg || s.sessionState !== 'ready',
+            matched,
+            has_event: matched && !!msg,
             terminal,
+            debug,
             error: window.__mwbQwenSendError || null
           };
         }"""
         for attempt in range(3):
             try:
-                return await page.evaluate(script)
+                return await page.evaluate(script, prompt)
             except Exception as exc:
                 if not self._is_transient_navigation_error(exc) or attempt == 2:
                     raise
                 await page.wait_for_timeout(150)
         raise RuntimeError("unreachable")
 
-    async def stream_text(self, prompt: str, *, thinking: bool = True, search: bool = False) -> AsyncIterator[dict]:
+    async def stream_text(self, prompt: str, *, thinking: bool = True, search: bool = False, upstream_model: Optional[str] = None) -> AsyncIterator[dict]:
         async with self._lock:
             started = time.monotonic()
             last_meaningful = started
@@ -389,36 +458,62 @@ class QwenBrowserControllerTransport:
             emitted = ""
             thinking_emitted = ""
             chat_id = ""
-            await self._start_send(prompt, thinking=thinking, search=search)
+            await self._start_send(prompt, thinking=thinking, search=search, upstream_model=upstream_model)
             while True:
                 now = time.monotonic()
                 if now - started > self.total_timeout:
                     raise ProviderTimeoutError(self.provider_id, "Qwen total stream timeout")
-                snap = await self._snapshot()
+                snap = await self._snapshot(prompt)
                 chat_id = snap.get("chat_id") or chat_id
                 if snap.get("error"):
                     raise ProviderError("Qwen controller send failed", "upstream_error", self.provider_id)
+                debug = snap.get("debug") or {}
+                if debug.get("assistant_error_present"):
+                    upstream_code = str(debug.get("assistant_error_code") or "")
+                    error_code = "rate_limit" if upstream_code.lower() == "ratelimited" else "upstream_error"
+                    raise ProviderError(
+                        "Qwen frontend reported an upstream error",
+                        error_code,
+                        self.provider_id,
+                        {
+                            "upstream_code": upstream_code,
+                            "message": str(debug.get("assistant_error_message") or "")[:240],
+                        },
+                    )
+                if self.last_backend_request_model and not saw_event:
+                    saw_event = True
+                    last_meaningful = now
                 if snap.get("has_event"):
                     if not saw_event:
                         saw_event = True
                         last_meaningful = now
                     elif snap.get("answer") != emitted or snap.get("thinking") != thinking_emitted:
                         last_meaningful = now
-                elif now - started > self.first_event_timeout:
+                elif not self.last_backend_request_model and now - started > self.first_event_timeout:
                     raise ProviderTimeoutError(self.provider_id, "Qwen first event timeout")
 
                 full_thinking = snap.get("thinking") or ""
                 if full_thinking.startswith(thinking_emitted) and len(full_thinking) > len(thinking_emitted):
                     delta = full_thinking[len(thinking_emitted):]
                     thinking_emitted = full_thinking
-                    yield {"type": "reasoning_delta", "text": delta, "chat_id": chat_id}
+                    yield {
+                        "type": "reasoning_delta",
+                        "text": delta,
+                        "chat_id": chat_id,
+                        "model": self.last_backend_request_model or upstream_model or "",
+                    }
 
                 full = snap.get("answer") or ""
                 if full.startswith(emitted) and len(full) > len(emitted):
                     delta = full[len(emitted):]
                     emitted = full
                     last_meaningful = now
-                    yield {"type": "text_delta", "text": delta, "chat_id": chat_id}
+                    yield {
+                        "type": "text_delta",
+                        "text": delta,
+                        "chat_id": chat_id,
+                        "model": self.last_backend_request_model or upstream_model or "",
+                    }
                 elif full and full != emitted:
                     raise ProviderError("Qwen reconstructed stream became non-monotonic", "protocol_error", self.provider_id)
 
@@ -434,8 +529,20 @@ class QwenBrowserControllerTransport:
                         self._network_events[-8:],
                     )
                     raise ProviderTimeoutError(self.provider_id, "Qwen meaningful idle timeout")
-                if snap.get("terminal"):
-                    yield {"type": "done", "text": "", "chat_id": chat_id}
+                if snap.get("terminal") and self.last_backend_request_model:
+                    if not emitted and not thinking_emitted:
+                        raise ProviderError(
+                            "Qwen backend request completed without extractable assistant content",
+                            "protocol_error",
+                            self.provider_id,
+                            {"snapshot": snap.get("debug") or {}},
+                        )
+                    yield {
+                        "type": "done",
+                        "text": "",
+                        "chat_id": chat_id,
+                        "model": self.last_backend_request_model or upstream_model or "",
+                    }
                     return
                 await asyncio.sleep(self.poll_interval)
 

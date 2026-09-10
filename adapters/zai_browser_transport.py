@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import re
 import time
@@ -50,11 +51,32 @@ class ZaiBrowserControllerTransport:
         self.frontend_version: Optional[str] = None
         self.main_module_url: Optional[str] = None
         self.last_session_mode: str = "unknown"
+        self.last_selected_model_label: Optional[str] = None
+        self.last_backend_request_model: Optional[str] = None
+        self.last_requested_model: Optional[str] = None
+
+    def _attach_safe_model_diagnostics(self, page: Page) -> None:
+        if getattr(page, "_hwg_zai_model_diag", False):
+            return
+        setattr(page, "_hwg_zai_model_diag", True)
+
+        def on_request(req):
+            if "/api/v2/chat/completions" not in req.url and "/api/chat/completions" not in req.url:
+                return
+            try:
+                payload = json.loads(req.post_data or "{}")
+                model = payload.get("model") if isinstance(payload, dict) else None
+                self.last_backend_request_model = str(model) if model else None
+            except Exception:
+                self.last_backend_request_model = None
+
+        page.on("request", on_request)
 
     async def _ensure(self) -> Page:
         if self._page and not self._page.is_closed():
             try:
                 if await self._page.evaluate("() => location.hostname === 'chat.z.ai'"):
+                    self._attach_safe_model_diagnostics(self._page)
                     await self._bootstrap_runtime(self._page)
                     return self._page
             except Exception:
@@ -72,6 +94,7 @@ class ZaiBrowserControllerTransport:
                 raise RuntimeError("No browser context available on Z.ai CDP browser")
             self._context = contexts[0]
             self._page = await self._context.new_page()
+            self._attach_safe_model_diagnostics(self._page)
             await self._page.goto(
                 self.base_url,
                 wait_until="domcontentloaded",
@@ -199,7 +222,7 @@ class ZaiBrowserControllerTransport:
             "mode": self.last_session_mode,
         }
 
-    async def model_ids(self) -> list[str]:
+    async def model_catalog(self) -> list[dict]:
         page = await self._ensure()
         result = await page.evaluate(
             """async () => {
@@ -214,7 +237,11 @@ class ZaiBrowserControllerTransport:
               let j = null;
               try { j = await r.json(); } catch (_) {}
               const rows = Array.isArray(j) ? j : (j?.data || []);
-              return {status:r.status, ids:Array.isArray(rows) ? rows.map(x => x?.id).filter(Boolean) : []};
+              const models = Array.isArray(rows) ? rows.map(x => ({
+                id: x?.id || '',
+                name: x?.name || x?.display_name || x?.id || ''
+              })).filter(x => x.id) : [];
+              return {status:r.status, models};
             }"""
         )
         status = int(result.get("status") or 0)
@@ -227,7 +254,14 @@ class ZaiBrowserControllerTransport:
                 self.provider_id,
                 {"http_status": status},
             )
-        return [str(x) for x in result.get("ids", [])]
+        return [
+            {"id": str(x.get("id")), "name": str(x.get("name") or x.get("id"))}
+            for x in result.get("models", [])
+            if isinstance(x, dict) and x.get("id")
+        ]
+
+    async def model_ids(self) -> list[str]:
+        return [x["id"] for x in await self.model_catalog()]
 
     async def health(self) -> bool:
         try:
@@ -237,6 +271,16 @@ class ZaiBrowserControllerTransport:
             return False
 
     async def _snapshot(self, page: Page, prompt: str) -> dict:
+        try:
+            runtime_ready = bool(await page.evaluate("() => !!window.__mwbZaiHistoryStore"))
+        except Exception:
+            runtime_ready = False
+        if not runtime_ready:
+            try:
+                await page.wait_for_load_state("domcontentloaded", timeout=int(self.launch_timeout * 1000))
+            except Exception:
+                pass
+            await self._bootstrap_runtime(page)
         return await page.evaluate(
             """(prompt) => {
               const store = window.__mwbZaiHistoryStore;
@@ -283,17 +327,73 @@ class ZaiBrowserControllerTransport:
             prompt,
         )
 
-    async def stream_text(self, prompt: str) -> AsyncIterator[dict]:
+    async def _select_model(self, page: Page, upstream_model: Optional[str]) -> None:
+        if not upstream_model:
+            return
+        catalog = await self.model_catalog()
+        match = next((x for x in catalog if x.get("id") == upstream_model), None)
+        if not match:
+            raise ProviderError(
+                "Requested Z.ai model is not available in the current session",
+                "invalid_model",
+                self.provider_id,
+                {"model": upstream_model},
+            )
+        display_name = str(match.get("name") or upstream_model)
+
+        button = page.locator("button.modelSelectorButton").first
+        try:
+            await button.wait_for(state="visible", timeout=int(self.launch_timeout * 1000))
+            current = (await button.inner_text()).strip()
+            if current != display_name:
+                await button.click()
+                option = page.locator(
+                    "button, [role=option], [role=menuitem], [role=button]"
+                ).filter(has_text=re.compile(f"^{re.escape(display_name)}$", re.I)).first
+                await option.wait_for(state="visible", timeout=int(self.launch_timeout * 1000))
+                await option.click()
+                await page.wait_for_timeout(900)
+            selected = (await page.locator("button.modelSelectorButton").first.inner_text()).strip()
+        except Exception as exc:
+            raise ProviderError(
+                "Z.ai explicit model selection failed",
+                "model_select_error",
+                self.provider_id,
+                {"model": upstream_model, "exception": type(exc).__name__},
+            ) from exc
+        self.last_selected_model_label = selected
+        if selected != display_name:
+            raise ProviderError(
+                "Z.ai explicit model selection was not retained",
+                "model_select_error",
+                self.provider_id,
+                {"model": upstream_model, "selected": selected[:80]},
+            )
+        if "Flash" in selected and "Flash" not in display_name:
+            raise ProviderError(
+                "Z.ai explicit model selection resolved to Flash variant",
+                "model_select_error",
+                self.provider_id,
+                {"model": upstream_model, "selected": selected[:80]},
+            )
+
+    async def stream_text(self, prompt: str, *, upstream_model: Optional[str] = None) -> AsyncIterator[dict]:
         if not prompt.strip():
             raise ProviderError("Z.ai prompt is empty", "invalid_request", self.provider_id)
 
         async with self._lock:
             page = await self._ensure()
             await self._prepare_new_chat(page)
+            await self._select_model(page, upstream_model)
+
             status = await self.session_status()
             if not status.get("authenticated"):
                 raise ProviderError("Z.ai Web requires an authenticated browser session", "auth_required", self.provider_id)
 
+            self.last_requested_model = upstream_model
+            # Evidence must reflect an observed backend request, not the requested
+            # model. The request listener sets this only when it sees the payload.
+            self.last_backend_request_model = None
             start = time.monotonic()
             first_deadline = start + self.first_event_timeout
             total_deadline = start + self.total_timeout
@@ -338,7 +438,7 @@ class ZaiBrowserControllerTransport:
                                     "type": "text_delta",
                                     "text": delta,
                                     "chat_id": snap.get("chatId") or "",
-                                    "model": snap.get("model") or "",
+                                    "model": snap.get("model") or self.last_backend_request_model or upstream_model or "",
                                 }
 
                         error = snap.get("error")

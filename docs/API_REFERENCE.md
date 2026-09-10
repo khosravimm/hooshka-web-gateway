@@ -76,13 +76,24 @@ Important capability fields include:
 
 ## GET /v1/models
 
-Returns canonical routable models. In the current baseline the expected canonical models are:
+Returns canonical aliases plus provider-discovered routable models.
 
-- `chatgpt-web`
-- `qwen-web`
-- `zai-web`
+Current naming policy:
 
-Do not route to raw upstream model names unless the gateway explicitly exposes them as supported canonical aliases.
+- `chatgpt-web` — canonical ChatGPT Web model id;
+- `qwen-web` — configurable Qwen default model;
+- `qwen:<upstream-id>` — exact Qwen model discovered from the active provider catalog;
+- `zai-web` — configurable Z.ai default model;
+- `zai:<upstream-id>` — exact Z.ai model discovered from the active provider catalog.
+
+Current tracked defaults are:
+
+```text
+qwen-web -> qwen3.8-max
+zai-web  -> glm-5.3
+```
+
+The list is dynamic: newly advertised upstream ids may appear without a gateway code change. Namespaced models are validated against the current provider/session catalog before submit.
 
 ## POST /v1/chat/completions
 

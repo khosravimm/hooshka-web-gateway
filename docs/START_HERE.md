@@ -1,6 +1,6 @@
 # Hooshka Web Gateway — Start Here
 
-**Current baseline:** 0.5.1
+**Current baseline:** 0.6.0
 **Module id:** `web_gateway`
 **Local path:** `D:\Code\hooshka-web-gateway`
 **Windows service:** `HooshkaWebGateway`
@@ -13,8 +13,8 @@ Hooshka Web Gateway is the single local gateway for governed access to supported
 | Provider | Canonical model | Basic chat | Stream API | Tools | Notes |
 |---|---|---:|---:|---:|---|
 | ChatGPT Web | `chatgpt-web` | E2 PASS | supported, buffered compatibility | E2 PASS | uses existing ChatGPT Web/CDP runtime |
-| Qwen Web | `qwen-web` | E2 PASS | supported, reconstructed | disabled | backend/controller path |
-| Z.ai Web | `zai-web` | E2 PASS | supported, reconstructed | disabled | backend/controller path, provider-owned session/proof |
+| Qwen Web | `qwen-web`, `qwen:qwen3.8-max` | E2 PASS | supported, reconstructed | disabled | explicit Qwen3.8-Max routing accepted |
+| Z.ai Web | `zai-web`, `zai:glm-5.3` | E2 PASS | supported, reconstructed | disabled | explicit GLM-5.3 routing accepted |
 | DeepSeek Web | `deepseek-web` | blocked | blocked | blocked | current account-state circuit breaker |
 
 E2 means a real Web-chat end-to-end test passed. It does not mean long-duration/E3 reliability.
@@ -38,7 +38,7 @@ Run the deterministic test suite:
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Expected 0.5.1 baseline: **54 passed**.
+Expected 0.6.0 baseline: **56 passed**.
 
 ## Read next
 
@@ -53,6 +53,7 @@ Expected 0.5.1 baseline: **54 passed**.
 - Troubleshooting: `TROUBLESHOOTING_CURRENT.md`
 - Architecture: `ARCHITECTURE_CURRENT.md`
 - Release handoff: `FINAL_REPORT_2026-09-10.md`
+- Exact model evidence: `EXPLICIT_MODEL_SELECTION_EVIDENCE_2026-09-10.md`
 
 ## Core operating rules
 

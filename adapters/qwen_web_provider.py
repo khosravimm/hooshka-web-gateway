@@ -53,7 +53,7 @@ class QwenWebProvider(Provider):
         self._sidecar_url = c.get("sidecar_url", "http://127.0.0.1:5011").rstrip("/")
         self._sidecar_token_file = c.get("sidecar_token_file", r".runtime\qwen-sidecar.token")
         self._frontend_version = c.get("frontend_version", "0.2.91")
-        self._default_upstream_model = c.get("upstream_model", "qwen3.7-plus")
+        self._default_upstream_model = c.get("default_upstream_model") or c.get("upstream_model", "qwen3.8-max")
         self._token_env = c.get("token_env", "QWEN_WEB_TOKEN")
         self._token_file = c.get("token_file")
         self._connect_timeout = float(c.get("connect_timeout", 10))
@@ -235,8 +235,9 @@ class QwenWebProvider(Provider):
             return False
 
     async def list_models(self) -> list[ModelInfo]:
+        models = [ModelInfo(id="qwen-web", owned_by="qwen-web", provider=self.provider_id)]
         if self._transport_mode == "browser_sidecar":
-            return [ModelInfo(id="qwen-web", owned_by="qwen-web", provider=self.provider_id)]
+            return models
         if self._transport_mode == "browser_controller":
             try:
                 self._last_upstream_models = await self._browser.model_ids()
@@ -244,12 +245,43 @@ class QwenWebProvider(Provider):
                 # Canonical mapping remains discoverable even when upstream
                 # model enumeration is temporarily unavailable.
                 self._last_upstream_models = []
-            return [ModelInfo(id="qwen-web", owned_by="qwen-web", provider=self.provider_id)]
+            return models + [ModelInfo(id=f"qwen:{mid}", owned_by="qwen-web", provider=self.provider_id) for mid in self._last_upstream_models]
         if self._token():
             data = await asyncio.to_thread(self._request_json, "GET", "/api/v2/models/")
             upstream = data.get("data", {}).get("data", []) if isinstance(data, dict) else []
             self._last_upstream_models = [m.get("id") for m in upstream if isinstance(m, dict) and m.get("id")]
-        return [ModelInfo(id="qwen-web", owned_by="qwen-web", provider=self.provider_id)]
+        return models + [ModelInfo(id=f"qwen:{mid}", owned_by="qwen-web", provider=self.provider_id) for mid in self._last_upstream_models]
+
+    def supports_model(self, model: str) -> bool:
+        return model == "qwen-web" or model.startswith("qwen:")
+
+    def _resolve_upstream_model(self, request: ChatCompletionRequest) -> str:
+        if request.model == "qwen-web":
+            return (request.provider_options or {}).get("upstream_model") or self._default_upstream_model
+        if request.model.startswith("qwen:"):
+            return request.model.split(":", 1)[1]
+        raise ProviderError("Unsupported Qwen model", "invalid_model", self.provider_id)
+
+    async def _resolve_and_validate_upstream_model(self, request: ChatCompletionRequest) -> str:
+        upstream_model = self._resolve_upstream_model(request)
+        if self._transport_mode == "browser_controller":
+            available = await self._browser.model_ids()
+            self._last_upstream_models = list(available)
+        elif self._token():
+            data = await asyncio.to_thread(self._request_json, "GET", "/api/v2/models/")
+            upstream = data.get("data", {}).get("data", []) if isinstance(data, dict) else []
+            available = [m.get("id") for m in upstream if isinstance(m, dict) and m.get("id")]
+            self._last_upstream_models = list(available)
+        else:
+            available = self._last_upstream_models
+        if available and upstream_model not in available:
+            raise ProviderError(
+                "Requested Qwen model is not available in the current session",
+                "invalid_model",
+                self.provider_id,
+                {"model": upstream_model},
+            )
+        return upstream_model
 
     def _create_chat(self, upstream_model: str) -> str:
         body = {
@@ -463,7 +495,7 @@ class QwenWebProvider(Provider):
         request: ChatCompletionRequest,
         session: Optional[SessionContext] = None,
     ) -> ChatCompletionResponse:
-        if request.model != "qwen-web":
+        if not self.supports_model(request.model):
             raise ProviderError("Unsupported Qwen model", "invalid_model", self.provider_id)
         if request.tools:
             raise ProviderError("Qwen tools are not enabled until E2 validation passes", "unsupported_tools", self.provider_id)
@@ -483,7 +515,7 @@ class QwenWebProvider(Provider):
             return ChatCompletionResponse(
                 id=self._generate_id(),
                 created=self._current_timestamp(),
-                model="qwen-web",
+                model=request.model,
                 choices=[Choice(index=0, message=Message(role="assistant", content=data.get("text") or ""), finish_reason="stop")],
                 usage=Usage(),
                 provider_meta={
@@ -497,12 +529,18 @@ class QwenWebProvider(Provider):
             )
         if self._transport_mode == "browser_controller":
             opts = request.provider_options or {}
+            upstream_model = await self._resolve_and_validate_upstream_model(request)
+            if hasattr(self._browser, "last_selected_models"):
+                self._browser.last_selected_models = []
+            if hasattr(self._browser, "last_backend_request_model"):
+                self._browser.last_backend_request_model = None
             pieces: list[str] = []
             chat_id = ""
             async for event in self._browser.stream_text(
                 self._request_text(request),
                 thinking=opts.get("thinking", True),
                 search=bool(opts.get("search", False)),
+                upstream_model=upstream_model,
             ):
                 chat_id = event.get("chat_id") or chat_id
                 if event.get("type") == "text_delta":
@@ -510,7 +548,7 @@ class QwenWebProvider(Provider):
             return ChatCompletionResponse(
                 id=self._generate_id(),
                 created=self._current_timestamp(),
-                model="qwen-web",
+                model=request.model,
                 choices=[Choice(index=0, message=Message(role="assistant", content="".join(pieces)), finish_reason="stop")],
                 usage=Usage(),
                 provider_meta={
@@ -520,9 +558,12 @@ class QwenWebProvider(Provider):
                     "frontend_version": self._browser.frontend_version,
                     "session_mode": self._browser.last_session_mode,
                     "conversation_id": chat_id or None,
+                    "upstream_model": upstream_model,
+                    "selected_models": list(getattr(self._browser, "last_selected_models", [])),
+                    "backend_request_model": getattr(self._browser, "last_backend_request_model", None),
                 },
             )
-        upstream_model = (request.provider_options or {}).get("upstream_model") or self._default_upstream_model
+        upstream_model = await self._resolve_and_validate_upstream_model(request)
         chat_id = await asyncio.to_thread(self._create_chat, upstream_model)
         pieces = []
         try:
@@ -535,7 +576,7 @@ class QwenWebProvider(Provider):
         return ChatCompletionResponse(
             id=self._generate_id(),
             created=self._current_timestamp(),
-            model="qwen-web",
+            model=request.model,
             choices=[Choice(index=0, message=Message(role="assistant", content=content), finish_reason="stop")],
             usage=Usage(),
             provider_meta={
@@ -543,6 +584,8 @@ class QwenWebProvider(Provider):
                 "transport_mode": "direct_http",
                 "streaming_mode": "native",
                 "upstream_model": upstream_model,
+                "selected_models": [],
+                "backend_request_model": upstream_model,
                 "frontend_version": self._frontend_version,
             },
         )
@@ -552,7 +595,7 @@ class QwenWebProvider(Provider):
         request: ChatCompletionRequest,
         session: Optional[SessionContext] = None,
     ) -> AsyncIterator[ChatCompletionChunk]:
-        if request.model != "qwen-web":
+        if not self.supports_model(request.model):
             raise ProviderError("Unsupported Qwen model", "invalid_model", self.provider_id)
         if request.tools:
             raise ProviderError("Qwen tools are not enabled until E2 validation passes", "unsupported_tools", self.provider_id)
@@ -564,26 +607,32 @@ class QwenWebProvider(Provider):
                 yield ChatCompletionChunk(
                     id=chunk_id,
                     created=self._current_timestamp(),
-                    model="qwen-web",
+                    model=request.model,
                     choices=[ChunkChoice(index=0, delta=Delta(content=text), finish_reason=None)],
                     provider_meta=response.provider_meta,
                 )
             yield ChatCompletionChunk(
                 id=chunk_id,
                 created=self._current_timestamp(),
-                model="qwen-web",
+                model=request.model,
                 choices=[ChunkChoice(index=0, delta=Delta(), finish_reason="stop")],
                 provider_meta=response.provider_meta,
             )
             return
         if self._transport_mode == "browser_controller":
             opts = request.provider_options or {}
+            upstream_model = await self._resolve_and_validate_upstream_model(request)
+            if hasattr(self._browser, "last_selected_models"):
+                self._browser.last_selected_models = []
+            if hasattr(self._browser, "last_backend_request_model"):
+                self._browser.last_backend_request_model = None
             chunk_id = self._generate_id()
             chat_id = ""
             async for event in self._browser.stream_text(
                 self._request_text(request),
                 thinking=opts.get("thinking", True),
                 search=bool(opts.get("search", False)),
+                upstream_model=upstream_model,
             ):
                 chat_id = event.get("chat_id") or chat_id
                 if event.get("type") != "text_delta":
@@ -591,7 +640,7 @@ class QwenWebProvider(Provider):
                 yield ChatCompletionChunk(
                     id=chunk_id,
                     created=self._current_timestamp(),
-                    model="qwen-web",
+                    model=request.model,
                     choices=[ChunkChoice(index=0, delta=Delta(content=event.get("text") or ""), finish_reason=None)],
                     provider_meta={
                         "provider": self.provider_id,
@@ -600,12 +649,15 @@ class QwenWebProvider(Provider):
                         "frontend_version": self._browser.frontend_version,
                         "session_mode": self._browser.last_session_mode,
                         "conversation_id": chat_id or None,
+                        "upstream_model": upstream_model,
+                        "selected_models": list(getattr(self._browser, "last_selected_models", [])),
+                        "backend_request_model": getattr(self._browser, "last_backend_request_model", None),
                     },
                 )
             yield ChatCompletionChunk(
                 id=chunk_id,
                 created=self._current_timestamp(),
-                model="qwen-web",
+                model=request.model,
                 choices=[ChunkChoice(index=0, delta=Delta(), finish_reason="stop")],
                 provider_meta={
                     "provider": self.provider_id,
@@ -614,10 +666,13 @@ class QwenWebProvider(Provider):
                     "frontend_version": self._browser.frontend_version,
                     "session_mode": self._browser.last_session_mode,
                     "conversation_id": chat_id or None,
+                    "upstream_model": upstream_model,
+                    "selected_models": list(getattr(self._browser, "last_selected_models", [])),
+                    "backend_request_model": getattr(self._browser, "last_backend_request_model", None),
                 },
             )
             return
-        upstream_model = (request.provider_options or {}).get("upstream_model") or self._default_upstream_model
+        upstream_model = await self._resolve_and_validate_upstream_model(request)
         chat_id = await asyncio.to_thread(self._create_chat, upstream_model)
         chunk_id = self._generate_id()
         try:
@@ -625,25 +680,29 @@ class QwenWebProvider(Provider):
                 yield ChatCompletionChunk(
                     id=chunk_id,
                     created=self._current_timestamp(),
-                    model="qwen-web",
+                    model=request.model,
                     choices=[ChunkChoice(index=0, delta=Delta(content=text), finish_reason=None)],
                     provider_meta={
                         "provider": self.provider_id,
                         "transport_mode": "direct_http",
                         "streaming_mode": "native",
                         "upstream_model": upstream_model,
+                        "selected_models": [],
+                        "backend_request_model": upstream_model,
                     },
                 )
             yield ChatCompletionChunk(
                 id=chunk_id,
                 created=self._current_timestamp(),
-                model="qwen-web",
+                model=request.model,
                 choices=[ChunkChoice(index=0, delta=Delta(), finish_reason="stop")],
                 provider_meta={
                     "provider": self.provider_id,
                     "transport_mode": "direct_http",
                     "streaming_mode": "native",
                     "upstream_model": upstream_model,
+                    "selected_models": [],
+                    "backend_request_model": upstream_model,
                 },
             )
         finally:
