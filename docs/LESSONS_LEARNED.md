@@ -31,6 +31,9 @@ This document records stable engineering lessons that should survive individual 
 25. **Retry policy must distinguish account-local from provider-wide failures.** Repeating the same provider-wide stream-idle failure across every account multiplies latency without improving success. Use bounded retry budgets and equivalent-failure fingerprints.
 26. **Volatile Web-backend identifiers need runtime discovery.** Build IDs, frontend versions and similar RPC parameters should be isolated in provider-specific discovery/refresh logic rather than hard-coded into the gateway contract.
 27. **OpenAI Responses is a protocol layer, not merely another endpoint alias.** Instructions, typed input items, function-call items, parallel tools and stream event sequencing require explicit conversion above the provider transport.
+28. **A frontend controller can be a backend transport without becoming DOM automation.** When anti-bot/session logic is encapsulated by the official Web frontend, invoking its controller APIs inside an isolated browser context preserves backend-first semantics better than typing/clicking UI controls.
+29. **Do not copy a user's whole browser storage to bootstrap a provider.** Browser storage can contain unrelated-site credentials. Prefer an isolated provider profile or an explicitly scoped session mechanism; Qwen guest mode proved sufficient for the current basic-chat path.
+30. **A request flag is not evidence that a Web feature was activated.** Parameters such as thinking/search must be traced to the provider's actual feature state or payload. Capability advertisement stays off until that mapping is independently demonstrated.
 
 ## Reuse sources
 

@@ -45,3 +45,14 @@ Append-only dated engineering observations. Stable conclusions are promoted to `
 - gemini-web2api demonstrates provider-specific runtime discovery of volatile backend build identifiers and isolation of positional/RPC-style web payloads from the outward API schema.
 - OmniRoute demonstrates that anti-bot clearance, User-Agent/client hints, TLS/JA3 and IP/proxy can form one coupled fingerprint bundle. It also tests origin + normalized-path scoping before injecting provider credentials, preventing same-prefix/suffix-spoof leakage.
 - The resulting architectural policy is documented in `BACKEND_FIRST_PLAYBOOK.md`; detailed provenance and project-by-project transfer decisions are in `TOOL_BANK_EXPERIENCE_MINING_2026-09-10.md`.
+
+## 2026-09-10 — Qwen backend-first implementation
+
+- Live Qwen network research observed frontend version `0.2.91`, `/api/v1/auths/`, `/api/v2/models/`, `/api/v2/chats/new`, and SSE completion on `/api/v2/chat/completions?chat_id=...`.
+- Raw same-origin `fetch()` for chat creation encountered Alibaba/BX/WAF challenge behavior. The bridge therefore did not declare direct HTTP or raw browser-fetch operational.
+- Qwen's current frontend exports its chat controller from the dynamically discovered `main.js`. Calling `openNewChat()` and `beforeSendMessage()` invokes the normal backend/session/anti-bot path without typing or clicking the DOM.
+- A dedicated headless Chrome profile under ignored runtime state successfully completed real guest-mode Qwen chats even while `/api/v1/auths/` returned 401. This avoids copying credentials from the user's personal browser profile.
+- The controller-backed provider passed direct provider E2 and gateway E2 for non-stream and stream paths. The outward stream is classified `reconstructed` because bridge deltas are derived from controller in-memory message state even though the Qwen frontend itself receives native SSE.
+- Initial implementation accepted `thinking/search` parameters but did not change frontend feature state. Source/runtime inspection found Qwen's exported feature manager and its `selectFeature`, `deselectFeature`, and `setThinkingMode` methods; the transport now uses those official frontend APIs instead of DOM controls.
+- Thinking on/off passed E2 after that correction. A search-enabled request also completed, but search remains unadvertised pending independent evidence that a search phase/event actually occurred.
+- Qwen tool support remains fail-closed (`tools=false`) until tool dialect, multiple calls, malformed dialect, empty allowlist, and full round-trip are independently E2-tested.

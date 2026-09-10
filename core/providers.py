@@ -8,6 +8,7 @@ import uuid
 
 class ProviderType(Enum):
     CHATGPT_WEB = "chatgpt_web"
+    QWEN_WEB = "qwen_web"
     OPENAI_API = "openai_api"
     ANTHROPIC = "anthropic"
     LOCAL_LLM = "local_llm"
@@ -24,6 +25,10 @@ class ProviderCapabilities:
     embeddings: bool = False
     max_context_tokens: int = 4096
     supported_models: list[str] = field(default_factory=list)
+    search: bool = False
+    reasoning: bool = False
+    files: bool = False
+    transport_mode: str = "unknown"
 
 
 @dataclass

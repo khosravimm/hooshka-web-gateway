@@ -116,3 +116,41 @@ After adding provider close-before-loop-stop, a live request was performed and t
 - Integrate existing DeepSeek Web implementation as a provider.
 - Implement and E2-test Qwen Web and Z.ai Web providers.
 - Define E3 acceptance thresholds and repeat tests across independent time windows.
+
+## Qwen Web provider evidence — 0.4.0
+
+Evidence level: **E2 for basic chat/non-stream/stream and thinking controls; E1/E0 or pending for remaining acceptance items.** No E3 claim.
+
+Observed current Web protocol:
+- frontend version: `0.2.91`;
+- auth probe: `/api/v1/auths/`;
+- model endpoint: `/api/v2/models/`;
+- create chat: `POST /api/v2/chats/new`;
+- completion: `POST /api/v2/chat/completions?chat_id=<id>`;
+- completion content type: `text/event-stream`;
+- observed SSE phases: `thinking_summary`, `answer`.
+
+Transport decision:
+- direct HTTP: researched, not operationally accepted due browser/BX/WAF coupling;
+- raw browser-context fetch: chat creation encountered challenge behavior;
+- selected transport: `browser_backend_controller` using Qwen's own frontend controller inside a dedicated headless profile;
+- DOM typing/clicking: not used for the implemented inference path.
+
+Live service evidence after restart:
+```text
+42 passed
+service=Running
+listener=127.0.0.1:5000
+/ready=ready
+qwen-web transport=browser_backend_controller
+qwen-web streaming_mode=reconstructed
+qwen-web tools=false
+non-stream exact marker=PASS
+stream SSE data + [DONE]=PASS
+thinking=false exact marker=PASS
+thinking=true exact marker=PASS
+unknown model HTTP 400=PASS
+tools requested while tools=false HTTP 400=PASS
+```
+
+Search-enabled request completed, but search capability intentionally remains `false` until a search-specific network/event trace proves the feature was actually exercised. Tool calling, multiple tools, malformed tool dialects, session expiry/authenticated-session behavior, upstream 429/401/403 fault injection, cancellation/cleanup, and repeated E3 reliability windows remain acceptance work and must not be represented as passed.

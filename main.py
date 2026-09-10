@@ -23,6 +23,7 @@ from core.mcp import mcp_translator, mcp_normalizer, mcp_session_manager
 from core.governance import init_governance, auth_manager, rate_limiter
 from core.config import load_config
 from adapters.chatgpt_web_provider import create_chatgpt_web_provider
+from adapters.qwen_web_provider import create_qwen_web_provider
 from control_panel import control_panel_bp
 
 
@@ -306,6 +307,14 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             )
             provider_registry.register(provider)
             rate_limiter.set_rate(pconfig.provider_id, pconfig.config.get("requests_per_minute", 20))
+        elif pconfig.provider_type == ProviderType.QWEN_WEB:
+            provider = create_qwen_web_provider(
+                provider_id=pconfig.provider_id,
+                priority=pconfig.priority,
+                **pconfig.config,
+            )
+            provider_registry.register(provider)
+            rate_limiter.set_rate(pconfig.provider_id, pconfig.config.get("requests_per_minute", 12))
     
     server_config = config["server"]
     
@@ -346,6 +355,9 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                 "language": data.get("language"),
                 "code_only": data.get("code_only", False),
                 "save_to": data.get("save_to"),
+                "thinking": data.get("thinking", True),
+                "search": data.get("search", False),
+                "upstream_model": data.get("upstream_model"),
             },
         )
     
@@ -525,6 +537,10 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                         "embeddings": p.capabilities.embeddings,
                         "max_context_tokens": p.capabilities.max_context_tokens,
                         "supported_models": p.capabilities.supported_models,
+                        "search": p.capabilities.search,
+                        "reasoning": p.capabilities.reasoning,
+                        "files": p.capabilities.files,
+                        "transport_mode": p.capabilities.transport_mode,
                     },
                 }
                 for p in providers

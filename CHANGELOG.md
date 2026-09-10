@@ -2,6 +2,31 @@
 
 All notable changes to mcp-web-bridge are recorded here.
 
+## 0.4.0 - 2026-09-10
+
+### Added
+- `qwen-web` provider with a backend-first browser-controller transport using Qwen's own frontend controller rather than DOM chat automation.
+- Dedicated ignored Qwen browser profile suitable for headless service execution; no personal-browser credential export is required for guest-mode chat.
+- Runtime frontend discovery for the current Qwen `main.js` module and frontend version.
+- Qwen phase-specific first-event, meaningful-idle, and total timeouts for reconstructed streaming.
+- Qwen thinking/search feature state is driven through the frontend's own feature manager API rather than UI controls.
+
+### Changed
+- Unified provider registry now wires `qwen_web` alongside the existing ChatGPT provider.
+- `/modes` exposes search/reasoning/files/transport provenance in addition to existing capability metadata.
+- Qwen streaming provenance is explicitly `reconstructed`; the browser controller consumes the provider's native SSE internally, while the bridge emits deltas reconstructed from controller state.
+
+### Evidence
+- Deterministic regression suite: 42/42 PASS after Qwen wiring and feature-state remediation.
+- Windows service restart: PASS; service remained `Running` and listener remained restricted to `127.0.0.1:5000`.
+- Gateway `/ready`, `/modes`, `/v1/models`: PASS with `qwen-web` advertised as `browser_backend_controller`, `reconstructed`, `tools=false`.
+- Qwen gateway non-stream E2E: PASS (`QWEN_GATEWAY_NONSTREAM_OK`).
+- Qwen gateway SSE E2E: PASS (`QWEN_GATEWAY_STREAM_DIAG` plus terminal `[DONE]`).
+- Qwen thinking off/on E2E: PASS.
+- Unknown model and unsupported Qwen tools: fail closed with HTTP 400.
+- Search request completed E2E, but search capability remains disabled until independent search-event provenance is captured.
+- No E3 claim is made.
+
 ## 0.3.0 - 2026-09-10
 
 ### Added
