@@ -31,11 +31,11 @@ from control_panel import control_panel_bp
 SWAGGER_TEMPLATE = {
     "swagger": "2.0",
     "info": {
-        "title": "Web LLM Bridge API",
+        "title": "Hooshka Web Gateway API",
         "description": "Virtual LLM API Gateway with Model Compatibility Proxy (MCP)\n\nRoutes requests to ChatGPT Web via Chrome DevTools Protocol.\n\n**Architecture**: Agent → Virtual LLM API → MCP Layer → Provider Registry → ChatGPT Web Provider",
         "version": "0.3.0",
         "contact": {
-            "name": "Web LLM Bridge",
+            "name": "Hooshka Web Gateway",
         },
         "license": {
             "name": "MIT",
@@ -492,7 +492,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             schema:
               $ref: '#/definitions/HealthResponse'
         """
-        return jsonify({"status": "ok", "service": "mcp-web-bridge"})
+        return jsonify({"status": "ok", "service": "hooshka-web-gateway", "legacy_service": "mcp-web-bridge"})
 
     @app.route("/ready", methods=["GET"])
     def ready():

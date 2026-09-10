@@ -1,6 +1,13 @@
 # Changelog
 
-All notable changes to mcp-web-bridge are recorded here.
+All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
+
+## Unreleased
+
+### Project identity
+- Canonical product name is now **Hooshka Web Gateway** (`hooshka-web-gateway`).
+- Hooshka module id is `web_gateway`.
+- API metadata and control-panel branding use the canonical identity while filesystem path and Windows service name remain temporarily compatible.
 
 ## 0.4.3 - 2026-09-10
 

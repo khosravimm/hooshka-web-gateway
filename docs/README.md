@@ -1,6 +1,6 @@
 # Documentation Index
 
-Start here for the operational and architectural record of `mcp-web-bridge`.
+Start here for the operational and architectural record of **Hooshka Web Gateway** (`hooshka-web-gateway`). The current repository/path name `Hooshka Web Gateway` (`hooshka-web-gateway`; legacy repository id: `mcp-web-bridge`) is retained temporarily as a legacy compatibility identity during migration.
 
 - `../VERSION` — current project version.
 - `../CHANGELOG.md` — versioned change history.

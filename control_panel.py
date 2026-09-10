@@ -64,7 +64,7 @@ DASHBOARD_HTML = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web LLM Bridge - Control Panel</title>
+    <title>Hooshka Web Gateway - Control Panel</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
@@ -72,7 +72,7 @@ DASHBOARD_HTML = """
 <body class="bg-gray-100 min-h-screen">
     <nav class="bg-gray-900 text-white p-4 shadow-lg">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <h1 class="text-2xl font-bold"><i class="fas fa-server mr-2"></i>Web LLM Bridge Control Panel</h1>
+            <h1 class="text-2xl font-bold"><i class="fas fa-server mr-2"></i>Hooshka Web Gateway Control Panel</h1>
             <div class="flex items-center space-x-4">
                 <span id="service-status" class="px-3 py-1 rounded-full text-sm font-medium bg-gray-700">Checking...</span>
                 <button onclick="location.reload()" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm">

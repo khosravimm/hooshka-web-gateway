@@ -1,6 +1,11 @@
-# Web LLM Bridge
+# Hooshka Web Gateway
 
-Minimal gateway that routes local HTTP requests to the active ChatGPT Web session through Chrome DevTools Protocol.
+Unified Web Chat API gateway for Hooshka. It exposes one governed, OpenAI-compatible local API and routes requests to supported Web-chat providers through provider-specific transports.
+
+> **Canonical product name:** Hooshka Web Gateway
+> **Technical id:** `hooshka-web-gateway`
+> **Hooshka module id:** `web_gateway`
+> **Legacy compatibility id:** `mcp-web-bridge`
 
 ## Architecture
 
