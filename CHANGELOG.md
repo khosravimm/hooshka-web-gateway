@@ -2,6 +2,22 @@
 
 All notable changes to mcp-web-bridge are recorded here.
 
+## 0.4.2 - 2026-09-10
+
+### Fixed
+- Qwen `openNewChat()` is now isolated as a pre-submit phase; navigation/context loss is recovered before submission, so `beforeSendMessage()` is never replayed after the commitment boundary.
+- Qwen frontend controller bootstrap now performs bounded pre-submit retries when the dynamically imported `main.js` module transiently fails to load from the frontend CDN.
+- Qwen `thinking=false` now maps to the frontend-supported `Fast` mode while retaining the Thinking feature context; `thinking=true` maps to `Auto`.
+- Qwen request metadata refreshes session state before submit so guest/authenticated provenance is not left as `unknown` after service restart.
+
+### Evidence
+- Deterministic suite: 50/50 PASS.
+- Three independent fresh Qwen browser bootstrap checks: 3/3 PASS.
+- Windows service restart: PASS; listener remained `127.0.0.1:5000`.
+- Gateway Qwen non-stream repeated smoke: 3/3 PASS, guest session provenance observed.
+- Gateway Qwen SSE smoke: PASS with terminal `[DONE]`.
+- Wire-level thinking verification: `false -> Fast, thinking_enabled=false, auto_thinking=false`; `true -> Auto, thinking_enabled=true, auto_thinking=true`; both requests completed E2E.
+- Evidence is E2 within this execution window only; no E3 reliability claim.
 ## 0.4.1 - 2026-09-10
 
 ### Added

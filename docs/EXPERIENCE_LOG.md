@@ -74,3 +74,12 @@ Append-only dated engineering observations. Stable conclusions are promoted to `
 - Live browser-context model discovery against `/api/models` returned HTTP 200 with 15 model records. Observed current models include GLM-5.3-Flash, GLM-5.3, GLM-5.2, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7 and others; returned capability metadata explicitly describes thinking, MCP/function-call, vision, file-QA and web-search support per model.
 - A single UI submission was used only as a network-capture probe. `POST /api/v1/chats/new` returned 200, after which the current Web flow invoked Aliyun CAPTCHA before completion. The bridge did not bypass the challenge and did not downgrade to a DOM transport.
 - Transfer decision: Z.ai direct/browser-context model discovery is E2; completion protocol is E0/E2-partial discovery only and remains non-operational until signature/captcha/session behavior can be exercised through an allowed provider-owned path.
+
+## 2026-09-10 - Qwen service reliability remediation 0.4.2
+
+- Repeated service testing exposed two pre-submit failure modes: `openNewChat()` can navigate and destroy the current execution context, and the dynamically discovered Qwen `main.js` module can transiently fail to import from the frontend CDN.
+- The transport now treats new-chat navigation as a pre-submit lifecycle phase. Controller bootstrap is re-established before the single `beforeSendMessage()` invocation; post-submit replay is not used.
+- Frontend module import uses a bounded three-attempt retry before submission. Three fresh-profile bootstrap checks passed consecutively after this change.
+- Current Qwen frontend reports thinking modes `Auto`, `Thinking`, and `Fast`. Wire capture confirmed `thinking=false` maps to `Fast` with `thinking_enabled=false` and `auto_thinking=false`; `thinking=true` maps to `Auto` with both fields true.
+- After restart, three gateway non-stream Qwen turns passed consecutively and one gateway SSE turn completed with `[DONE]`. This is E2 evidence for the tested window, not E3.
+- Search remains unadvertised and tools remain fail-closed until their dedicated acceptance cases are completed.

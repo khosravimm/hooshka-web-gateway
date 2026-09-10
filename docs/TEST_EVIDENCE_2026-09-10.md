@@ -195,3 +195,23 @@ live completion probe: stopped at Aliyun CAPTCHA challenge
 CAPTCHA bypass: NOT ATTEMPTED
 operational completion: NOT ESTABLISHED
 ```
+
+## Qwen reliability remediation - 0.4.2
+
+Evidence level: **E2 for the tested runtime paths in this execution window; E1 for deterministic regression tests. No E3 claim.**
+
+Observed and validated:
+- `openNewChat()` may trigger navigation/context destruction before submit. The transport now completes/reconciles that pre-submit transition, re-bootstraps the controller, and invokes `beforeSendMessage()` only once.
+- Transient dynamic-import failure of the discovered Qwen frontend `main.js` was reproduced. Bounded pre-submit retry was added; three fresh-profile bootstrap runs then passed 3/3.
+- Full deterministic suite after remediation: 50/50 PASS.
+- Windows service restart: PASS; listener remained bound to `127.0.0.1:5000`.
+- Gateway non-stream smoke after restart: 3/3 PASS with `session_mode=guest`.
+- Gateway SSE smoke: exact response marker PASS and terminal `[DONE]` observed.
+- Wire-level thinking capture: `thinking=false` produced `thinking_mode=Fast`, `thinking_enabled=false`, `auto_thinking=false`; `thinking=true` produced `thinking_mode=Auto`, `thinking_enabled=true`, `auto_thinking=true`. Both completed E2E.
+
+Still pending before broader Qwen operational acceptance:
+- search-specific event/provenance verification;
+- Qwen tool call, multi-tool, full tool round-trip, malformed dialect and empty-tool allowlist E2;
+- controlled 401/403/429/session-expiry fault paths;
+- cancellation and cleanup/delete-chat acceptance;
+- independent-time-window E3 reliability runs.

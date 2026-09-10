@@ -45,3 +45,7 @@ This document records stable engineering lessons that should survive individual 
 - `D:\Tools` research bank: backend-first Web protocols, Qwen/DeepSeek/Gemini wire contracts, multi-dialect tool recovery, browser-context backend access, stream failure semantics, retry/failure fingerprinting, anti-bot fingerprint coupling, and multi-protocol gateway conversion. Detailed source provenance is recorded in `TOOL_BANK_EXPERIENCE_MINING_2026-09-10.md`.
 
 Every reused lesson must be independently validated in this repository before being treated as implementation evidence.
+
+34. **Separate navigational bootstrap from the commitment boundary.** A frontend controller may navigate while creating a conversation. Recovering or retrying that phase is safe only before the actual user-message submit; after submit, automatic replay remains forbidden.
+35. **Dynamic frontend module loading needs bounded pre-submit resilience.** A discovered module URL can be correct while CDN import fails transiently. Retry the bootstrap dependency with a small budget, but never convert that into replay of a committed user turn.
+36. **Use provider-native mode semantics, not invented booleans.** Qwen currently exposes `Auto`, `Thinking`, and `Fast`; wire-level validation showed that the non-thinking path is represented by `Fast`, not an invented `Disabled` mode.
