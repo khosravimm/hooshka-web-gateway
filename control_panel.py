@@ -675,7 +675,7 @@ def _get_initial_health():
         try:
             import urllib.request
             config = load_config()
-            cdp_url = config.get("cdp", {}).get("url", "http://127.0.0.1:9222")
+            cdp_url = config.get("cdp", {}).get("url", "http://127.0.0.1:9224")
             req = urllib.request.urlopen(cdp_url + "/json", timeout=2)
             cdp_connected = req.status == 200
         except Exception:
@@ -800,7 +800,7 @@ def api_health():
     from core.config import load_config
     
     config = load_config()
-    cdp_url = config.get("cdp", {}).get("url", "http://127.0.0.1:9222")
+    cdp_url = config.get("cdp", {}).get("url", "http://127.0.0.1:9224")
     
     status = "running"
     

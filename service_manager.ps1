@@ -13,11 +13,72 @@ $PythonExe = Join-Path $ScriptDir '.venv\Scripts\python.exe'
 $MainScript = Join-Path $ScriptDir 'main.py'
 $Nssm = 'D:\nssm-2.24-103-gdee49fc\win64\nssm.exe'
 $EnvFile = Join-Path $ScriptDir '.env'
+$ChatGPTProfile = Join-Path $ScriptDir '.runtime\chatgpt-profile'
+$ChatGPTRuntimeLabel = 'HWG-ChatGPT-Web-CDP'
+$ChatGPTCdpPort = 9224
 $QwenProfile = Join-Path $ScriptDir '.runtime\qwen-profile'
 $ZaiProfile = Join-Path $ScriptDir '.runtime\zai-profile'
 $ZaiLegacyProfile = Join-Path $ScriptDir '.runtime\zai-cdp-profile'
 $ZaiRuntimeLabel = 'HWG-Zai-Web-SSE-Capture'
 $ZaiCdpPort = 9223
+
+function Get-ChromeExecutable {
+  $chromeCandidates = @(
+    (Join-Path $env:ProgramFiles 'Google\Chrome\Application\chrome.exe'),
+    (Join-Path ${env:ProgramFiles(x86)} 'Google\Chrome\Application\chrome.exe'),
+    (Join-Path $env:LOCALAPPDATA 'Google\Chrome\Application\chrome.exe')
+  )
+  return ($chromeCandidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1)
+}
+
+function Get-PortOwnerProcess([int]$Port) {
+  $listener = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+  if (-not $listener) { return $null }
+  return Get-CimInstance Win32_Process -Filter "ProcessId=$($listener.OwningProcess)" -ErrorAction SilentlyContinue
+}
+
+function Assert-ProjectChromeOwnership([int]$Port, [string]$Profile, [string]$Label) {
+  $owner = Get-PortOwnerProcess $Port
+  if (-not $owner) { return $false }
+  $profileNeedle = [Regex]::Escape($Profile)
+  $isOwned = $owner.Name -eq 'chrome.exe' -and $owner.CommandLine -and $owner.CommandLine -match $profileNeedle
+  if (-not $isOwned) {
+    throw "$Label CDP port $Port is owned by a non-project process (pid=$($owner.ProcessId), name=$($owner.Name)); refusing to attach"
+  }
+  return $true
+}
+
+function Ensure-ChatGPTChromeCdp {
+  if (Assert-ProjectChromeOwnership $ChatGPTCdpPort $ChatGPTProfile $ChatGPTRuntimeLabel) { return }
+
+  $chrome = Get-ChromeExecutable
+  if (-not $chrome) { throw 'Chrome not found for ChatGPT Web CDP runtime' }
+
+  New-Item -ItemType Directory -Force $ChatGPTProfile | Out-Null
+  Start-Process -FilePath $chrome -ArgumentList @(
+    "--remote-debugging-port=$ChatGPTCdpPort",
+    '--remote-debugging-address=127.0.0.1',
+    "--user-data-dir=$ChatGPTProfile",
+    '--no-first-run',
+    '--disable-default-apps',
+    '--new-window',
+    'https://chatgpt.com/'
+  ) | Out-Null
+  Start-Sleep -Seconds 5
+  if (-not (Assert-ProjectChromeOwnership $ChatGPTCdpPort $ChatGPTProfile $ChatGPTRuntimeLabel)) {
+    throw 'ChatGPT Web project-owned Chrome CDP runtime did not start'
+  }
+}
+
+function Stop-ChatGPTChromeCdp {
+  $needle = [Regex]::Escape($ChatGPTProfile)
+  $procs = Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -and $_.CommandLine -match $needle }
+  foreach ($proc in $procs) {
+    Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
+  }
+  if ($procs) { Start-Sleep -Milliseconds 500 }
+}
 
 function Assert-Prereqs {
   if (-not (Test-Path $Nssm)) { throw "NSSM not found: $Nssm" }
@@ -58,15 +119,9 @@ function Stop-OrphanQwenBrowsers {
 }
 
 function Ensure-ZaiChromeCdp {
-  $existing = Get-NetTCPConnection -LocalPort $ZaiCdpPort -State Listen -ErrorAction SilentlyContinue
-  if ($existing) { return }
+  if (Assert-ProjectChromeOwnership $ZaiCdpPort $ZaiProfile $ZaiRuntimeLabel) { return }
 
-  $chromeCandidates = @(
-    (Join-Path $env:ProgramFiles 'Google\Chrome\Application\chrome.exe'),
-    (Join-Path ${env:ProgramFiles(x86)} 'Google\Chrome\Application\chrome.exe'),
-    (Join-Path $env:LOCALAPPDATA 'Google\Chrome\Application\chrome.exe')
-  )
-  $chrome = $chromeCandidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+  $chrome = Get-ChromeExecutable
   if (-not $chrome) { throw 'Chrome not found for Z.ai CDP runtime' }
 
   New-Item -ItemType Directory -Force $ZaiProfile | Out-Null
@@ -80,6 +135,9 @@ function Ensure-ZaiChromeCdp {
     'https://chat.z.ai/'
   ) | Out-Null
   Start-Sleep -Seconds 5
+  if (-not (Assert-ProjectChromeOwnership $ZaiCdpPort $ZaiProfile $ZaiRuntimeLabel)) {
+    throw 'Z.ai project-owned Chrome CDP runtime did not start'
+  }
 }
 
 function Stop-ZaiChromeCdp {
@@ -108,6 +166,7 @@ switch ($Command) {
    Write-Output "RUNTIME_CREDENTIAL_READY source=.env+nssm_environment"
  }
  'start' {
+   Ensure-ChatGPTChromeCdp
    Ensure-ZaiChromeCdp
    Start-Service $ServiceName
    (Get-Service $ServiceName) | Format-Table -AutoSize
@@ -115,13 +174,16 @@ switch ($Command) {
  'stop' {
    Stop-Service $ServiceName -Force
    Stop-OrphanQwenBrowsers
+   Stop-ChatGPTChromeCdp
    Stop-ZaiChromeCdp
    (Get-Service $ServiceName) | Format-Table -AutoSize
  }
  'restart' {
    Stop-Service $ServiceName -Force
    Stop-OrphanQwenBrowsers
+   Stop-ChatGPTChromeCdp
    Stop-ZaiChromeCdp
+   Ensure-ChatGPTChromeCdp
    Ensure-ZaiChromeCdp
    Start-Service $ServiceName
    Start-Sleep -Seconds 1
@@ -137,6 +199,7 @@ switch ($Command) {
      }
    }
    Stop-OrphanQwenBrowsers
+   Stop-ChatGPTChromeCdp
    Stop-ZaiChromeCdp
  }
  'logs' { Get-Content (Join-Path $ScriptDir 'logs\bridge.log') -Tail 80 }
@@ -151,6 +214,8 @@ switch ($Command) {
      nssm=$Nssm
      runtime_credential_source='.env+nssm_environment'
      bind='127.0.0.1:5000'
+     chatgpt_cdp="127.0.0.1:$ChatGPTCdpPort"
+     chatgpt_profile=$ChatGPTProfile
      zai_cdp="127.0.0.1:$ZaiCdpPort"
      zai_profile=$ZaiProfile
    } | ConvertTo-Json

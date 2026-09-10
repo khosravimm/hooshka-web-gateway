@@ -35,7 +35,7 @@ def get_default_config() -> Dict[str, Any]:
             "debug": False,
         },
         "cdp": {
-            "url": os.getenv("BRIDGE_CDP_URL", "http://127.0.0.1:9222"),
+            "url": os.getenv("BRIDGE_CDP_URL", "http://127.0.0.1:9224"),
             "timeout": 30000,
         },
         "chatgpt": {
@@ -51,9 +51,10 @@ def get_default_config() -> Dict[str, Any]:
                 "enabled": True,
                 "priority": 100,
                 "config": {
-                    "cdp_url": os.getenv("BRIDGE_CDP_URL", "http://127.0.0.1:9222"),
+                    "cdp_url": os.getenv("BRIDGE_CDP_URL", "http://127.0.0.1:9224"),
                     "chatgpt_url": os.getenv("BRIDGE_CHATGPT_URL", "https://chatgpt.com"),
                     "adapter": os.getenv("BRIDGE_ADAPTER", "dom"),
+                    "require_authenticated": True,
                     "headless": False,
                     "timeout": 120,
                     "long_text_chunk_size": 2048,

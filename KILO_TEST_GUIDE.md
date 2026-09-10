@@ -7,136 +7,85 @@ This guide configures Kilo to test Hooshka Web Gateway as an OpenAI-compatible l
 ```text
 Base URL: http://127.0.0.1:5000/v1
 Service:  HooshkaWebGateway
-Auth:     Bearer token from .env / BRIDGE_API_KEY
+Auth:     Kilo auth-store credential for provider `hooshka`, sourced from BRIDGE_API_KEY
 ```
 
-Do not paste the real gateway key into shared chats, screenshots, issues, or Git.
+Do not paste the real gateway key into shared chats, screenshots, issues, shell transcripts, or Git.
 
-## Recommended first test model
-
-Use this first because it is the most likely to validate Kilo compatibility quickly:
+## Current validated Kilo paths
 
 ```text
-chatgpt-web
+kilo run -m hooshka/chatgpt-web "Reply exactly: KILO_HWG_CHATGPT_OK"
+# PASS: KILO_HWG_CHATGPT_OK
+
+kilo run --agent summary -m hooshka/zai:glm-5.3 "Reply exactly: KILO_HWG_ZAI_GLM53_OK"
+# PASS: KILO_HWG_ZAI_GLM53_OK
 ```
 
-Then test:
+Use the Kilo `summary` agent for Z.ai text-only validation because Z.ai currently advertises `tools=false`. The default Kilo `code` agent sends tool schemas; the gateway correctly rejects Z.ai for tool-required requests until Z.ai tool protocol has independent E2 evidence.
+
+## Provider settings
+
+Kilo provider id:
 
 ```text
-qwen:qwen3.8-max
-qwen-web
-zai:glm-5.3
-zai-web
+hooshka
 ```
 
-Notes:
-
-- `qwen-web` defaults to `qwen3.8-max`, but the current Qwen guest session may be daily-quota limited.
-- `zai-web` defaults to `glm-5.3`, which can be slow in Think Max mode. Use a long timeout and do not retry quickly.
-- If Z.ai is still thinking, wait. Fast retries can create several half-finished conversations.
-
-## Kilo provider settings
-
-In Kilo, create or edit an OpenAI-compatible provider:
+Provider package/schema:
 
 ```text
-Provider type: OpenAI Compatible / OpenAI API-compatible
-Base URL:      http://127.0.0.1:5000/v1
-API key:       value of BRIDGE_API_KEY from D:\Code\hooshka-web-gateway\.env
-Model:         chatgpt-web
+@ai-sdk/openai-compatible
+options.baseURL = http://127.0.0.1:5000/v1
 ```
 
-If Kilo has separate fields:
+Credential must live in Kilo's auth store, not in a public config block. `kilo auth list` should show `hooshka` as an API credential without printing the credential value.
+
+## Recommended test order
+
+1. `hooshka/chatgpt-web` with the default `code` agent.
+2. `hooshka/zai:glm-5.3` with `--agent summary`.
+3. `hooshka/zai-web` with `--agent summary`.
+4. `hooshka/qwen:qwen3.8-max` only after Qwen profile authentication is verified.
+
+Current Qwen status:
 
 ```text
-Host:     http://127.0.0.1:5000
-Base API: /v1
-Models:   use manual/custom model id
+session_status: guest
+http_status: 401
+completion: not executed
 ```
-
-## Get the gateway key locally without printing it
-
-PowerShell:
-
-```powershell
-cd D:\Code\hooshka-web-gateway
-$GatewayKey = (Get-Content .\.env | Where-Object { $_ -match '^BRIDGE_API_KEY=' } | Select-Object -First 1) -replace '^BRIDGE_API_KEY=', ''
-```
-
-Then paste the value into Kilo's API key field only if you are working locally and not sharing the screen/log.
-
-## Pre-check from PowerShell
-
-```powershell
-cd D:\Code\hooshka-web-gateway
-.\service_manager.ps1 status
-Invoke-RestMethod http://127.0.0.1:5000/health
-```
-
-Authenticated model list:
-
-```powershell
-$GatewayKey = (Get-Content .\.env | Where-Object { $_ -match '^BRIDGE_API_KEY=' } | Select-Object -First 1) -replace '^BRIDGE_API_KEY=', ''
-$Headers = @{ Authorization = "Bearer $GatewayKey" }
-(Invoke-RestMethod http://127.0.0.1:5000/v1/models -Headers $Headers).data.id
-```
-
-## Minimal Kilo prompt
-
-Use this prompt for the first Kilo smoke test:
-
-```text
-Reply exactly: KILO_HWG_OK
-```
-
-Expected successful result:
-
-```text
-KILO_HWG_OK
-```
-
-## Test sequence
-
-1. Start with `chatgpt-web`.
-2. If Kilo can call the gateway and return `KILO_HWG_OK`, provider compatibility is OK.
-3. Switch model to `zai:glm-5.3` or `zai-web` and use a longer wait because Think Max is slow.
-4. Switch model to `qwen:qwen3.8-max` only after Qwen guest quota is available or you have a logged-in Qwen session.
 
 ## Interpreting failures
 
 ### 401 Unauthorized
 
-The API key in Kilo is missing or wrong. Use the value of `BRIDGE_API_KEY` from `.env`.
+The Kilo credential for provider `hooshka` is missing or wrong. Register the local gateway key through Kilo's auth flow; do not write it into tracked project files.
 
-### Model not found
+### No provider supports model with requested capabilities
 
-Kilo may be using a model id not returned by `/v1/models`. Re-check the current model list.
+Kilo requested a capability that the target Web provider does not advertise. This is expected for Z.ai/Qwen when the default `code` agent sends tools. Use `--agent summary` for text-only validation, or implement and validate provider tool support before advertising it.
 
-### Timeout on Z.ai
+### ChatGPT large prompt failures
 
-GLM-5.3 / Think Max can take several minutes. Do not retry immediately. Check the Z.ai browser window and wait if it is still thinking.
+Kilo agent requests can exceed 60KB because they include system context and tool manifests. ChatGPT Web uses a backend-intercept transport for large agent payloads: the official frontend still performs prepare/session/proof generation, and the gateway only replaces the final conversation request body. No auth/proof values are read, logged, or stored.
 
-### Qwen rate limit
+### Qwen guest/auth errors
 
-The current guest session has shown daily quota exhaustion. This is a provider quota state, not necessarily a gateway/Kilo configuration error.
+Guest mode is intentionally blocked. Complete official login in `.runtime\qwen-profile`, then verify `session_status.authenticated=true` before running Qwen through Kilo.
 
-### Empty answer
-
-Empty answers should be treated as failure. The gateway has fail-closed checks for known Qwen empty-response/rate-limit cases.
-
-## Evidence to record after test
+## Evidence to record
 
 Record only non-secret evidence:
 
 ```text
-Kilo provider type:
-Base URL:
-Model id:
-Prompt:
+Kilo agent:
+Kilo model id:
+Prompt marker:
 Observed response:
-HTTP/status/error shown by Kilo:
 Gateway version:
-Provider metadata if visible:
+Provider session mode:
+Model evidence fields, when available:
 ```
 
-Never record API keys, cookies, bearer headers, session tokens, signatures, or CAPTCHA proof.
+Never record API keys, cookies, bearer headers, session tokens, signatures, CAPTCHA proof, or full provider request bodies.

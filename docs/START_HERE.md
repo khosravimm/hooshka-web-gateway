@@ -1,6 +1,6 @@
 # Hooshka Web Gateway Ã¢â‚¬â€ Start Here
 
-**Current baseline:** 0.6.3
+**Current baseline:** 0.6.4
 **Module id:** `web_gateway`
 **Local path:** `D:\Code\hooshka-web-gateway`
 **Windows service:** `HooshkaWebGateway`
@@ -12,9 +12,9 @@ Hooshka Web Gateway is the single local gateway for governed access to supported
 
 | Provider | Canonical model | Basic chat | Stream API | Tools | Notes |
 |---|---|---:|---:|---:|---|
-| ChatGPT Web | `chatgpt-web` | E2 PASS | supported, buffered compatibility | E2 PASS | uses existing ChatGPT Web/CDP runtime |
-| Qwen Web | `qwen-web`, `qwen:qwen3.8-max` | E2 PASS | supported, reconstructed | disabled | explicit Qwen3.8-Max routing accepted |
-| Z.ai Web | `zai-web`, `zai:glm-5.3` | E2 PASS | supported, reconstructed | disabled | explicit GLM-5.3 routing accepted |
+| ChatGPT Web | `chatgpt-web` | E2 PASS | supported, buffered compatibility | E2 PASS | project-owned ChatGPT CDP runtime on 9224; Kilo large-prompt E2 PASS |
+| Qwen Web | `qwen-web`, `qwen:qwen3.8-max` | blocked | supported, reconstructed | disabled | authenticated login pending; guest rejected |
+| Z.ai Web | `zai-web`, `zai:glm-5.3` | E2 PASS | supported, reconstructed | disabled | Kilo text-only `summary` agent E2 PASS; tools disabled |
 | DeepSeek Web | `deepseek-web` | blocked | blocked | blocked | current account-state circuit breaker |
 
 E2 means a real Web-chat end-to-end test passed. It does not mean long-duration/E3 reliability.
@@ -38,12 +38,13 @@ Run the deterministic test suite:
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Expected 0.6.3 baseline: **63 passed**.
+Expected 0.6.4 baseline: **63 passed**. Current Kilo E2 evidence: `chatgpt-web` PASS; `zai:glm-5.3` PASS with `summary` agent; Qwen not executed because the profile is still guest/401.
 
 ## Read next
 
 - Operator: `OPERATIONS_RUNBOOK.md`
-- Official login/session persistence: `../LOGIN_SESSION_GUIDE.md`\n- Browser/runtime diagnostics: `BROWSER_OBSERVABILITY.md`
+- Official login/session persistence: `../LOGIN_SESSION_GUIDE.md`
+- Browser/runtime diagnostics: `BROWSER_OBSERVABILITY.md`
 - API consumer: `API_REFERENCE.md`
 - Practical examples: `PRACTICAL_USAGE.md`
 - Hooshka integrator: `HOOSHKA_INTEGRATION_GUIDE.md`

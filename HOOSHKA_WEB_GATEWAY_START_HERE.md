@@ -9,7 +9,7 @@
 - **Product:** Hooshka Web Gateway
 - **Technical id:** `hooshka-web-gateway`
 - **Hooshka module id:** `web_gateway`
-- **Current baseline:** `0.6.3`
+- **Current baseline:** `0.6.4`
 - **Local path:** `D:\Code\hooshka-web-gateway`
 - **Windows service:** `HooshkaWebGateway`
 - **Local API:** `http://127.0.0.1:5000`
@@ -29,9 +29,9 @@ Hooshka itself should consume the gateway API and must not depend directly on pr
 
 | Provider | Canonical model | Basic chat | Stream API | Tools | Evidence/status |
 |---|---|---:|---:|---:|---|
-| ChatGPT Web | `chatgpt-web` | PASS | supported, buffered compatibility | PASS | E2 operational |
-| Qwen Web | `qwen-web`, `qwen:qwen3.8-max` | PASS | reconstructed | disabled | E2 operational; explicit Qwen3.8-Max routing accepted |
-| Z.ai Web | `zai-web`, `zai:glm-5.3` | PASS | reconstructed | disabled | E2 operational; explicit GLM-5.3 routing accepted |
+| ChatGPT Web | `chatgpt-web` | PASS | supported, buffered compatibility | PASS | E2 operational through Kilo; large agent prompt transport accepted |
+| Qwen Web | `qwen-web`, `qwen:qwen3.8-max` | blocked | reconstructed | disabled | authenticated login pending; guest session rejected |
+| Z.ai Web | `zai-web`, `zai:glm-5.3` | PASS | reconstructed | disabled | E2 operational through Kilo `summary` agent; explicit GLM-5.3 evidence accepted |
 | DeepSeek Web | `deepseek-web` | blocked | blocked | blocked | account-state circuit breaker |
 
 **Evidence levels**
@@ -72,7 +72,8 @@ For current behavior, use these in this order:
 Canonical current documents:
 
 - `docs/ARCHITECTURE_CURRENT.md`
-- `LOGIN_SESSION_GUIDE.md`\n- `docs/BROWSER_OBSERVABILITY.md`
+- `LOGIN_SESSION_GUIDE.md`
+- `docs/BROWSER_OBSERVABILITY.md`
 - `docs/API_REFERENCE.md`
 - `docs/PRACTICAL_USAGE.md`
 - `docs/CONFIGURATION_REFERENCE.md`
@@ -217,10 +218,18 @@ git diff --check
 git status --short --branch
 ```
 
-Accepted 0.6.3 deterministic baseline:
+Accepted 0.6.4 deterministic baseline:
 
 ```text
 63 passed
+```
+
+Accepted 0.6.4 Kilo E2 evidence:
+
+```text
+Kilo -> hooshka/chatgpt-web -> KILO_HWG_CHATGPT_OK
+Kilo --agent summary -> hooshka/zai:glm-5.3 -> KILO_HWG_ZAI_GLM53_OK
+Qwen -> not executed because session_status is guest/401
 ```
 
 Do not run repeated live provider tests unless the change actually requires provider E2 validation.
@@ -279,7 +288,7 @@ Stop testing immediately on:
 Current release:
 
 ```text
-v0.6.3
+v0.6.4
 ```
 
 Pre-canonical-migration rollback reference:

@@ -33,20 +33,27 @@ from core.tool_protocol import serialize_messages, parse_tool_envelope, strong_a
 logger = logging.getLogger(__name__)
 
 INPUT_SELECTOR = "#prompt-textarea"
+INPUT_SELECTORS = (
+    "#prompt-textarea[contenteditable='true']",
+    "[contenteditable='true'][role='textbox'][aria-label*='Chat']",
+    "textarea[aria-label*='Chat']",
+)
 SEND_SELECTOR = "button[data-testid='send-button']"
 ASSISTANT_SELECTOR = "[data-message-author-role='assistant']"
 FILE_INPUT_SELECTOR = "input[type='file']"
 UPLOAD_READY_SELECTOR = "button[data-testid='send-button'], text=Upload complete, .upload-complete"
 MAX_FILE_UPLOAD_TIMEOUT = 600000
 LONG_TEXT_CHUNK_SIZE = 2048
+COMPOSER_FILL_THRESHOLD = 8192
 
 
 class ChatGPTWebProvider(Provider):
     def __init__(self, config: ProviderConfig):
         super().__init__(config)
-        self._cdp_url = config.config.get("cdp_url", "http://127.0.0.1:9222")
+        self._cdp_url = config.config.get("cdp_url", "http://127.0.0.1:9224")
         self._chatgpt_url = config.config.get("chatgpt_url", "https://chatgpt.com")
         self._adapter = config.config.get("adapter", "dom")
+        self._require_authenticated = bool(config.config.get("require_authenticated", True))
         self._headless = config.config.get("headless", False)
         self._timeout = config.config.get("timeout", 120)
         self._long_text_chunk_size = config.config.get("long_text_chunk_size", LONG_TEXT_CHUNK_SIZE)
@@ -58,6 +65,58 @@ class ChatGPTWebProvider(Provider):
         # The lock is created lazily because asyncio primitives belong to the
         # persistent provider event loop used by the Flask bridge.
         self._request_lock = None
+
+    async def _session_status(self) -> dict:
+        """Return non-secret authentication/UI readiness evidence."""
+        if self._page is None:
+            return {"authenticated": False, "composer_ready": False}
+        try:
+            status = await self._page.evaluate(
+                """() => {
+                  const visible = (el) => !!el && !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+                  const profile = [...document.querySelectorAll("[data-testid='accounts-profile-button']")].some(visible);
+                  const login = [...document.querySelectorAll("a,button")].some((el) => {
+                    if (!visible(el)) return false;
+                    const text = (el.innerText || el.textContent || "").trim();
+                    return /^(log in|sign up)$/i.test(text);
+                  });
+                  const composer = [...document.querySelectorAll(
+                    "#prompt-textarea[contenteditable='true'],[contenteditable='true'][role='textbox'][aria-label*='Chat'],textarea[aria-label*='Chat']"
+                  )].some(visible);
+                  return {authenticated: profile && !login, composer_ready: composer};
+                }"""
+            )
+            return {
+                "authenticated": bool(status.get("authenticated")),
+                "composer_ready": bool(status.get("composer_ready")),
+            }
+        except Exception:
+            return {"authenticated": False, "composer_ready": False}
+
+    async def _require_authenticated_session(self) -> dict:
+        status = await self._session_status()
+        if self._require_authenticated and not status["authenticated"]:
+            raise ProviderError(
+                "ChatGPT Web requires an authenticated browser session",
+                "auth_required",
+                self.provider_id,
+            )
+        return status
+
+    async def _resolve_composer(self):
+        if self._page is None:
+            raise ProviderError("Page is not initialized", "page_not_initialized", self.provider_id)
+        deadline = asyncio.get_running_loop().time() + 30
+        while asyncio.get_running_loop().time() < deadline:
+            for selector in INPUT_SELECTORS:
+                loc = self._page.locator(selector)
+                try:
+                    if await loc.count() and await loc.first.is_visible():
+                        return loc.first
+                except Exception:
+                    pass
+            await asyncio.sleep(0.25)
+        raise PlaywrightTimeout("Timed out waiting for a visible ChatGPT composer")
     
     @property
     def capabilities(self) -> ProviderCapabilities:
@@ -142,24 +201,163 @@ class ChatGPTWebProvider(Provider):
     async def _send_message(self, message: str):
         if self._page is None:
             raise ProviderError("Page is not initialized", "page_not_initialized", self.provider_id)
-        await self._page.wait_for_selector(INPUT_SELECTOR, timeout=30000)
-        input_box = self._page.locator(INPUT_SELECTOR)
+        await self._require_authenticated_session()
+
+        if len(message) > COMPOSER_FILL_THRESHOLD:
+            await self._send_message_via_backend_intercept(message)
+            return
+
+        input_box = await self._resolve_composer()
         await input_box.click()
         try:
-            # `fill` is dramatically faster for the large serialized tool
-            # manifests sent by agent clients such as Kilo and works for both
-            # input/textarea and contenteditable composers.
             await input_box.fill(message)
-        except Exception:
-            await input_box.press("Control+a")
-            await input_box.press("Delete")
-            await input_box.press_sequentially(message)
-        
+        except Exception as exc:
+            raise ProviderError(
+                "Failed to populate ChatGPT composer",
+                "composer_input_failed",
+                self.provider_id,
+            ) from exc
+
+        input_box = await self._resolve_composer()
+        actual_length = await input_box.evaluate(
+            """el => {
+              if (el.value !== undefined) return String(el.value || "").length;
+              const children = [...el.children];
+              if (children.length) {
+                const nl = String.fromCharCode(10);
+                return children.map(x => x.textContent || "").join(nl).length;
+              }
+              return String(el.textContent || "").length;
+            }"""
+        )
+        if int(actual_length or 0) != len(message):
+            logger.warning(
+                "ChatGPT composer verification failed: expected_len=%s actual_len=%s",
+                len(message),
+                actual_length,
+            )
+            raise ProviderError(
+                "ChatGPT composer content verification failed",
+                "composer_verification_failed",
+                self.provider_id,
+            )
+
         send_btn = self._page.locator(SEND_SELECTOR)
         if await send_btn.count() > 0 and await send_btn.is_visible():
             await send_btn.click()
         else:
-            await input_box.press("Enter")
+            raise ProviderError(
+                "ChatGPT send button is unavailable",
+                "send_button_unavailable",
+                self.provider_id,
+            )
+
+    async def _send_message_via_backend_intercept(self, message: str):
+        """Submit a large prompt through the authenticated frontend backend request.
+
+        The real ChatGPT frontend still performs its normal prepare flow and
+        generates all session/Sentinel/proof headers. The gateway only replaces
+        the textual message body in the final conversation POST, so large agent
+        payloads never have to survive React/ProseMirror composer reconciliation.
+        No authentication or proof-token values are read, logged, or persisted.
+        """
+        if self._page is None:
+            raise ProviderError("Page is not initialized", "page_not_initialized", self.provider_id)
+
+        intercepted = asyncio.Event()
+        route_pattern = "**/backend-api/f/conversation*"
+        carrier = "Hooshka agent request"
+
+        async def replace_final_request(route):
+            request = route.request
+            try:
+                path = request.url.split("chatgpt.com", 1)[-1].split("?", 1)[0]
+                if request.method.upper() != "POST" or path != "/backend-api/f/conversation":
+                    await route.continue_()
+                    return
+
+                import json
+
+                payload = json.loads(request.post_data or "{}")
+                messages = payload.get("messages") or []
+                if not messages or not isinstance(messages[0], dict):
+                    raise ValueError("conversation request has no message payload")
+                content = messages[0].get("content") or {}
+                parts = content.get("parts") if isinstance(content, dict) else None
+                if not isinstance(parts, list) or not parts:
+                    raise ValueError("conversation request has no text parts")
+
+                if isinstance(parts[0], str):
+                    parts[0] = message
+                elif isinstance(parts[0], dict) and "text" in parts[0]:
+                    parts[0]["text"] = message
+                else:
+                    raise ValueError("unsupported ChatGPT message-part shape")
+
+                body = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+                await route.continue_(post_data=body)
+                intercepted.set()
+            except Exception as exc:
+                logger.warning("ChatGPT backend-intercept failed: %s", type(exc).__name__)
+                try:
+                    await route.abort()
+                finally:
+                    intercepted.set()
+
+        await self._page.route(route_pattern, replace_final_request)
+        try:
+            focused = await self._page.evaluate(
+                """() => {
+                  const selectors = [
+                    "#prompt-textarea[contenteditable='true']",
+                    "[contenteditable='true'][role='textbox'][aria-label*='Chat']",
+                    "textarea[aria-label*='Chat']"
+                  ];
+                  const visible = (el) => !!el && !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+                  for (const selector of selectors) {
+                    for (const el of document.querySelectorAll(selector)) {
+                      if (!visible(el)) continue;
+                      el.focus();
+                      return document.activeElement === el || el.contains(document.activeElement);
+                    }
+                  }
+                  return false;
+                }"""
+            )
+            if not focused:
+                raise ProviderError(
+                    "ChatGPT visible composer could not be focused for backend intercept",
+                    "composer_focus_failed",
+                    self.provider_id,
+                )
+            await self._page.keyboard.press("Control+A")
+            await self._page.keyboard.press("Backspace")
+            await self._page.keyboard.insert_text(carrier)
+
+            send_btn = self._page.locator(SEND_SELECTOR)
+            await send_btn.wait_for(state="visible", timeout=15000)
+            for _ in range(60):
+                if await send_btn.is_enabled():
+                    break
+                await asyncio.sleep(0.1)
+            if not await send_btn.is_enabled():
+                raise ProviderError(
+                    "ChatGPT send button is unavailable for backend intercept",
+                    "send_button_unavailable",
+                    self.provider_id,
+                )
+
+            await send_btn.click(timeout=15000)
+            try:
+                await asyncio.wait_for(intercepted.wait(), timeout=20)
+            except asyncio.TimeoutError as exc:
+                raise ProviderError(
+                    "ChatGPT backend conversation request was not intercepted",
+                    "backend_intercept_timeout",
+                    self.provider_id,
+                ) from exc
+        finally:
+            await self._page.unroute(route_pattern, replace_final_request)
     
     async def _wait_for_assistant(self, timeout: int = 120000):
         await self._page.wait_for_selector(ASSISTANT_SELECTOR, timeout=timeout)
@@ -761,6 +959,8 @@ class ChatGPTWebProvider(Provider):
             self._page.remove_listener("response", on_response)
     
     async def list_models(self) -> list[ModelInfo]:
+        await self._ensure_page()
+        await self._require_authenticated_session()
         return [
             ModelInfo(id="chatgpt-web", owned_by="chatgpt-web", provider=self.provider_id),
         ]
@@ -781,7 +981,7 @@ class ChatGPTWebProvider(Provider):
 def create_chatgpt_web_provider(
     provider_id: str = "chatgpt-web",
     adapter: str = "dom",
-    cdp_url: str = "http://127.0.0.1:9222",
+    cdp_url: str = "http://127.0.0.1:9224",
     chatgpt_url: str = "https://chatgpt.com",
     priority: int = 100,
 ) -> ChatGPTWebProvider:
@@ -794,6 +994,7 @@ def create_chatgpt_web_provider(
             "cdp_url": cdp_url,
             "chatgpt_url": chatgpt_url,
             "adapter": adapter,
+            "require_authenticated": True,
             "headless": False,
             "timeout": 120,
             "long_text_chunk_size": LONG_TEXT_CHUNK_SIZE,

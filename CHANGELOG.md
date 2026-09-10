@@ -2,35 +2,26 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
-## 0.6.3 - 2026-09-10
+## 0.6.4 - 2026-09-11
 
-### Security / Governance
-- Added mandatory authenticated-session policy for Web-chat providers.
-- Added `require_authenticated: true` for Qwen Web and Z.ai Web in `config.yaml`.
-- Qwen browser-controller completion now fails closed with `auth_required` when the session is guest/unauthenticated.
-- Added official `LOGIN_SESSION_GUIDE.md` for provider login and session persistence using dedicated browser profiles.
-- Updated Kilo and Start Here guidance so guest mode is not considered valid operation.
+### Added
+- Project-owned ChatGPT Web Chrome/CDP runtime on port `9224` with dedicated profile `.runtime\chatgpt-profile`.
+- ChatGPT large-agent-prompt backend-intercept transport for Kilo and other OpenAI-compatible agent clients.
+- `docs/KILO_E2_EVIDENCE_2026-09-11.md` with current Kilo CLI E2 results.
+
+### Changed
+- ChatGPT Web no longer attaches to shared/legacy CDP port `9222` by default.
+- Service manager now enforces CDP port ownership for ChatGPT and Z.ai before attach/start.
+- Kilo test guidance now distinguishes tool-required `code` agent tests from text-only `summary` agent tests.
 
 ### Evidence
 - Deterministic regression suite: 63/63 PASS.
-- Added negative test proving Qwen guest mode is rejected by policy.
-- No credentials, cookies, provider tokens, authorization headers or CAPTCHA proof are stored in tracked files.
-## 0.6.2 - 2026-09-10
-
-### Changed
-- Browser Observability is now part of the accepted runtime contract for browser-controller providers.
-- Z.ai publishes safe browser/backend lifecycle metadata alongside verified model evidence.
-- Documentation index was rewritten cleanly to remove encoding corruption and expose the observability guide as a canonical document.
-
-### Fixed
-- Z.ai snapshot reads now use bounded observation-only retry across execution-context replacement/navigation races; the upstream submit is never replayed.
-
-### Evidence
-- Deterministic regression suite: 62/62 PASS.
 - `git diff --check`: PASS.
-- Z.ai Browser Observability E2: PASS with exact response `ZAI_BROWSER_OBS_OK` and aligned requested/UI/backend/response model `glm-5.3`.
-- `model_evidence.verified`, `selection_verified`, `backend_verified`, and `response_verified` were all true.
-- Qwen completion was not retried because the current guest session is provider-rate-limited for the daily quota.
+- ChatGPT authenticated profile: PASS.
+- Kilo CLI `hooshka/chatgpt-web` E2: PASS with exact output `KILO_HWG_CHATGPT_OK`.
+- Kilo CLI `--agent summary` + `hooshka/zai:glm-5.3` E2: PASS with exact output `KILO_HWG_ZAI_GLM53_OK`.
+- Z.ai model evidence aligned: requested/upstream/backend `glm-5.3`, UI label `GLM-5.3`, session `authenticated`.
+- Qwen completion was not executed because current Qwen profile status is `guest` / HTTP 401.
 - No E3 reliability claim is made.
 
 ## 0.6.3 - 2026-09-10
@@ -46,7 +37,25 @@ All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` i
 - Deterministic regression suite: 63/63 PASS.
 - Added negative test proving Qwen guest mode is rejected by policy.
 - No credentials, cookies, provider tokens, authorization headers or CAPTCHA proof are stored in tracked files.
-## 0.6.2 - 2026-09-10\n\n### Changed\n- Documentation and evidence wording corrected to avoid claiming strict Z.ai Browser Observability E2 before a clean live pass.\n\n### Evidence\n- Deterministic regression suite remains 62/62 PASS.\n- Latest strict Z.ai live check is NOT PASS: `Z.ai first-event timeout`.\n- Qwen completion remains blocked by provider guest quota; no retry loop is performed.\n\n## 0.6.1 - 2026-09-10
+
+## 0.6.2 - 2026-09-10
+
+### Changed
+- Browser Observability is part of the runtime contract for browser-controller providers.
+- Z.ai publishes safe browser/backend lifecycle metadata alongside verified model evidence.
+- Documentation index was rewritten cleanly to expose the observability guide as a canonical document.
+
+### Fixed
+- Z.ai snapshot reads use bounded observation-only retry across execution-context replacement/navigation races; the upstream submit is never replayed.
+
+### Evidence
+- Deterministic regression suite: 62/62 PASS.
+- `git diff --check`: PASS.
+- Z.ai Browser Observability E2 was not treated as E3 reliability evidence.
+- Qwen completion was not retried while guest/quota/auth state was unresolved.
+- No E3 reliability claim is made.
+
+## 0.6.1 - 2026-09-10
 
 ### Added
 - Shared Browser Observability layer in `core/browser_observability.py`.

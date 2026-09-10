@@ -33,7 +33,7 @@ SWAGGER_TEMPLATE = {
     "info": {
         "title": "Hooshka Web Gateway API",
         "description": "Hooshka Web Gateway exposes one governed OpenAI-compatible local API for supported Web-chat providers. Provider-specific browser/session/transport behavior remains behind exact fail-closed routing.",
-        "version": "0.6.3",
+        "version": "0.6.4",
         "contact": {
             "name": "Hooshka Web Gateway",
         },
@@ -302,7 +302,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             provider = create_chatgpt_web_provider(
                 provider_id=pconfig.provider_id,
                 adapter=pconfig.config.get("adapter", "dom"),
-                cdp_url=pconfig.config.get("cdp_url", "http://127.0.0.1:9222"),
+                cdp_url=pconfig.config.get("cdp_url", "http://127.0.0.1:9224"),
                 chatgpt_url=pconfig.config.get("chatgpt_url", "https://chatgpt.com"),
                 priority=pconfig.priority,
             )

@@ -3,7 +3,7 @@ server:
   port: 5000
   debug: false
 cdp:
-  url: http://127.0.0.1:9222
+  url: http://127.0.0.1:9224
   timeout: 30000
 providers:
 - id: chatgpt-web
@@ -11,9 +11,10 @@ providers:
   enabled: true
   priority: 100
   config:
-    cdp_url: http://127.0.0.1:9222
+    cdp_url: http://127.0.0.1:9224
     chatgpt_url: https://chatgpt.com
     adapter: dom
+    require_authenticated: true
     headless: false
     timeout: 120
     long_text_chunk_size: 2048
