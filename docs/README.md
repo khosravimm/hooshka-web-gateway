@@ -8,6 +8,8 @@ Start here for the operational and architectural record of `mcp-web-bridge`.
 - `EXPERIENCE_LOG.md` — append-only dated findings and incidents.
 - `LESSONS_LEARNED.md` — stable lessons promoted from operational experience.
 - `AWA_REUSE_AUDIT_2026-09-10.md` — what was learned/reused from `D:\Code\ai-web-adapter`, with independent-validation status.
+- `TOOL_BANK_EXPERIENCE_MINING_2026-09-10.md` — source-inspected experience mining from the `D:\Tools` research bank, including Qwen, DeepSeek, Gemini, Grok, FreeLLMAPI, WebAI-to-API and OmniRoute.
+- `BACKEND_FIRST_PLAYBOOK.md` — executable discovery and implementation policy: direct backend first, browser-context fetch second, network capture third, DOM fallback last.
 - `UNIFIED_PROVIDER_ARCHITECTURE.md` — target architecture for ChatGPT Web, DeepSeek Web, Qwen Web and Z.ai Web behind one API.
 - `ARCHITECTURE.md` — earlier architecture notes; use the unified architecture document for current provider-routing invariants.
 - `USAGE.md` — API usage examples.
