@@ -2,12 +2,23 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
-## Unreleased
+## 0.5.0 - 2026-09-10
 
 ### Project identity
-- Canonical product name is now **Hooshka Web Gateway** (`hooshka-web-gateway`).
+- Canonical product name is **Hooshka Web Gateway** (`hooshka-web-gateway`).
 - Hooshka module id is `web_gateway`.
-- API metadata and control-panel branding use the canonical identity while filesystem path and Windows service name remain temporarily compatible.
+- Local repository path migrated to `D:\Code\hooshka-web-gateway`.
+- GitHub repository migrated to `khosravimm/hooshka-web-gateway`.
+- Windows service migrated from legacy `WebLLMBridge` to `HooshkaWebGateway`.
+- Runtime labels use the canonical `HWG-` prefix.
+
+### Evidence
+- Deterministic suite: 54/54 PASS.
+- `/health`, `/ready`, `/modes`, and `/v1/models`: PASS after migration.
+- Post-migration exact smoke: ChatGPT Web PASS, Qwen Web PASS, Z.ai Web PASS.
+- DeepSeek Web remains blocked by current account state; no bypass attempted.
+- Rollback ref: `rollback/pre-hooshka-web-gateway-migration`.
+- No E3 reliability claim is made.
 
 ## 0.4.3 - 2026-09-10
 

@@ -1,81 +1,67 @@
-# Hooshka Web Gateway ? Canonical Identity and Migration Plan
+# Hooshka Web Gateway — Canonical Identity and Migration Plan
 
 ## Decision
 
-The unified Web-chat integration project is henceforth named **Hooshka Web Gateway**.
+The unified Web-chat integration project is named **Hooshka Web Gateway**.
 
 Canonical identifiers:
 
 - Product name: `Hooshka Web Gateway`
-- Repository target name: `hooshka-web-gateway`
+- Repository: `khosravimm/hooshka-web-gateway`
+- Local path: `D:\Code\hooshka-web-gateway`
 - Hooshka module id: `web_gateway`
 - Python namespace target: `hooshka_web_gateway`
-- Windows service target: `HooshkaWebGateway`
+- Windows service: `HooshkaWebGateway`
 - API identity: `hooshka-web-gateway`
-- Legacy project/repository id: `mcp-web-bridge`
-- Legacy Windows service name: `WebLLMBridge`
+- Legacy repository id: `mcp-web-bridge`
+- Legacy Windows service: `WebLLMBridge`
 
 ## Mission boundary
 
-Hooshka Web Gateway is the single governed adapter/gateway for Web-chat providers. It owns:
+Hooshka Web Gateway is the single governed adapter/gateway for Web-chat providers. It owns OpenAI-compatible gateway endpoints, provider routing, Web-chat transports, browser/CDP runtime ownership, Web-session/account-state controls, stream normalization, capability declarations and provider-specific evidence.
 
-- OpenAI-compatible gateway endpoints;
-- provider registry and exact/fail-closed routing;
-- provider transports for ChatGPT Web, Qwen Web, Z.ai Web, DeepSeek Web and future Web-chat providers;
-- browser/CDP runtime ownership and lifecycle;
-- Web-session/captcha/account-state controls;
-- SSE normalization and provider capability declarations;
-- Web-chat-specific test evidence, rate budgets and operational circuit breakers.
-
-It does **not** own Hooshka orchestration, project management, RAG/knowledge-bank logic or unrelated browser automation. Those remain separate Hooshka modules.
+Hooshka orchestration, RAG/knowledge-bank logic and unrelated browser automation remain outside this module.
 
 ## Provider ids
-
-Provider ids remain stable and are not prefixed with Hooshka:
 
 - `chatgpt-web`
 - `qwen-web`
 - `zai-web`
 - `deepseek-web`
 
-This keeps client routing compact while the gateway itself supplies the Hooshka module boundary.
+## Migration status
 
-## Migration policy
+### Phase A — canonical identity: COMPLETE
 
-Migration is deliberately non-breaking.
+Documentation, API metadata and control-panel branding use Hooshka Web Gateway.
 
-### Phase A ? canonical identity (current)
+### Phase B — runtime/repository rename: COMPLETE
 
-- Public documentation, API metadata and control-panel branding use `Hooshka Web Gateway`.
-- `mcp-web-bridge` is marked legacy compatibility identity.
-- Existing filesystem path and Windows service remain unchanged while regression/E2 evidence is collected.
+- local repository path: `D:\Code\hooshka-web-gateway`;
+- GitHub repository: `khosravimm/hooshka-web-gateway`;
+- Windows service: `HooshkaWebGateway`;
+- legacy `WebLLMBridge` service removed;
+- rollback ref: `rollback/pre-hooshka-web-gateway-migration`.
 
-### Phase B ? runtime rename
+### Phase C — Hooshka integration: READY FOR INTEGRATION
 
-After a clean migration gate:
+Hooshka should consume module `web_gateway` through the local API contract rather than provider internals.
 
-- repository/folder target becomes `D:\\Code\\hooshka-web-gateway`;
-- Windows service target becomes `HooshkaWebGateway`;
-- compatibility scripts may recognize `WebLLMBridge` temporarily for upgrade/uninstall;
-- no provider profile is migrated by URL matching; only explicit owned profile paths are moved/reused.
+## Migration gate result
 
-### Phase C ? Hooshka integration
+- deterministic suite: PASS, 54/54;
+- `git diff --check`: PASS before final documentation commit;
+- secret scan: PASS before migration;
+- canonical service installation/start: PASS;
+- localhost listeners: PASS;
+- `/health`: PASS;
+- `/ready`: PASS;
+- `/modes`: PASS;
+- `/v1/models`: PASS;
+- post-migration ChatGPT Web smoke: PASS;
+- post-migration Qwen Web smoke: PASS;
+- post-migration Z.ai Web smoke: PASS.
 
-Hooshka imports/launches this project as module `web_gateway` through a stable local API boundary rather than importing provider internals. The module exposes health, readiness, provider capabilities, models and chat/stream endpoints.
+## Naming rule
 
-## Migration gate
-
-Physical repo/service rename is allowed only when all are true:
-
-1. deterministic suite PASS;
-2. `git diff --check` PASS;
-3. secret scan PASS;
-4. service restart PASS;
-5. `/health`, `/ready`, `/modes`, `/v1/models` PASS;
-6. existing operational provider smoke tests remain PASS;
-7. rollback reference is recorded before renaming the filesystem/service;
-8. no ordinary user Chrome profile/window will be renamed, moved or stopped.
-
-## Naming rule going forward
-
-Do not introduce new product-level names such as `Web LLM Bridge`, `MCP Web Bridge`, `Universal Web API`, or provider-specific gateway names. They may appear only in historical/evidence context. New product documentation must use **Hooshka Web Gateway**.
+New product-level work must use **Hooshka Web Gateway**. Legacy names may appear only in compatibility, historical evidence or migration cleanup.

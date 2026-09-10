@@ -4,6 +4,8 @@ Start here for the operational and architectural record of **Hooshka Web Gateway
 
 - `../VERSION` — current project version.
 - `../CHANGELOG.md` — versioned change history.
+- `FINAL_REPORT_2026-09-10.md` — release-level handoff report for Hooshka Web Gateway 0.5.0.
+- `HOOSHKA_WEB_GATEWAY_MIGRATION.md` — canonical naming, repository/service migration status and Hooshka module boundary.
 - `TEST_EVIDENCE_2026-09-10.md` — E1/E2 evidence for the 0.3.0 ChatGPT Web operational baseline.
 - `EXPERIENCE_LOG.md` — append-only dated findings and incidents.
 - `LESSONS_LEARNED.md` — stable lessons promoted from operational experience.
