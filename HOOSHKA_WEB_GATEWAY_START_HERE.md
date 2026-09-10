@@ -9,7 +9,7 @@
 - **Product:** Hooshka Web Gateway
 - **Technical id:** `hooshka-web-gateway`
 - **Hooshka module id:** `web_gateway`
-- **Current baseline:** `0.6.1`
+- **Current baseline:** `0.6.2`
 - **Local path:** `D:\Code\hooshka-web-gateway`
 - **Windows service:** `HooshkaWebGateway`
 - **Local API:** `http://127.0.0.1:5000`
@@ -217,7 +217,7 @@ git diff --check
 git status --short --branch
 ```
 
-Accepted 0.6.1 deterministic baseline:
+Accepted 0.6.2 deterministic baseline:
 
 ```text
 62 passed
@@ -279,7 +279,7 @@ Stop testing immediately on:
 Current release:
 
 ```text
-v0.6.1
+v0.6.2
 ```
 
 Pre-canonical-migration rollback reference:

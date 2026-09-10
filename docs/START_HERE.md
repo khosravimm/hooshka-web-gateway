@@ -1,6 +1,6 @@
 # Hooshka Web Gateway â€” Start Here
 
-**Current baseline:** 0.6.1
+**Current baseline:** 0.6.2
 **Module id:** `web_gateway`
 **Local path:** `D:\Code\hooshka-web-gateway`
 **Windows service:** `HooshkaWebGateway`
@@ -38,7 +38,7 @@ Run the deterministic test suite:
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Expected 0.6.1 baseline: **62 passed**.
+Expected 0.6.2 baseline: **62 passed**.
 
 ## Read next
 

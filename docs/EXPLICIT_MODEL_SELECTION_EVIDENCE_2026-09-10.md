@@ -172,3 +172,28 @@ Disposition:
 ## Evidence integrity correction
 
 `backend_request_model` is now populated only from an observed provider backend request in browser-controller transports. The requested/default model is kept separately and is not substituted as backend evidence when no backend request was observed.
+
+## Browser Observability verification — 0.6.2 patch window
+
+A controlled Z.ai request was executed after the shared Browser Observability layer and navigation-race handling were active.
+
+Observed chain:
+
+```text
+gateway_model=zai-web
+expected_upstream_model=glm-5.3
+ui_selected_model=GLM-5.3
+backend_request_model=glm-5.3
+response_model=glm-5.3
+content=ZAI_BROWSER_OBS_OK
+model_evidence.verified=true
+selection_verified=true
+backend_verified=true
+response_verified=true
+```
+
+Disposition: **E2 PASS for the full Z.ai model-evidence chain.**
+
+The transport also records safe backend lifecycle metadata (request/response event type, model id, HTTP status and content type only). It does not record provider credentials, cookies, signatures, CAPTCHA proof or raw request bodies.
+
+Qwen was intentionally not re-run for completion in this patch window because the current guest session had already returned provider `RateLimited` for the daily guest quota. Existing routing evidence remains valid; completion availability remains quota-blocked for that session.

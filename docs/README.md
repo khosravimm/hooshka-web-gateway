@@ -2,7 +2,7 @@
 
 > Repository-level discovery starts at `../HOOSHKA_WEB_GATEWAY_START_HERE.md`. Agents and humans should read that file first.
 
-**Release:** 0.6.1
+**Release:** 0.6.2
 **Canonical project:** `hooshka-web-gateway`
 **Module:** `web_gateway`
 
@@ -12,6 +12,7 @@
 |---|---|
 | First-time reader | `START_HERE.md` |
 | Operator / service owner | `OPERATIONS_RUNBOOK.md` |
+| Browser/runtime observability | `BROWSER_OBSERVABILITY.md` |
 | API consumer | `API_REFERENCE.md` |
 | Day-to-day examples | `PRACTICAL_USAGE.md` |
 | Hooshka integrator | `HOOSHKA_INTEGRATION_GUIDE.md` |
@@ -27,6 +28,7 @@
 
 - `START_HERE.md` â€” product orientation, current status and safe operating rules.
 - `ARCHITECTURE_CURRENT.md` â€” current component boundaries, routing, transports, retry and evidence model.
+- `BROWSER_OBSERVABILITY.md` â€” UI/frontend/backend/response evidence chain, drift detection and fail-closed model verification.
 - `API_REFERENCE.md` â€” endpoint contract, authentication, request/response and error semantics.
 - `PRACTICAL_USAGE.md` â€” PowerShell/Python/OpenAI-compatible examples and common operating scenarios.
 - `CONFIGURATION_REFERENCE.md` â€” tracked config, provider fields, runtime credentials and change gate.
@@ -37,7 +39,7 @@
 - `DEVELOPMENT_GUIDE.md` â€” repository map, provider development workflow and release gates.
 - `TROUBLESHOOTING_CURRENT.md` â€” current diagnostic playbook.
 - `FINAL_REPORT_2026-09-10.md` â€” 0.5.0 release-level handoff.
-- `EXPLICIT_MODEL_SELECTION_EVIDENCE_2026-09-10.md` â€” strict E2/default-routing evidence, dynamic catalog verification, and current Qwen quota state.
+- `EXPLICIT_MODEL_SELECTION_EVIDENCE_2026-09-10.md` â€” dynamic catalog/default routing evidence and current Qwen quota state.
 
 ## Research, evidence and history
 

@@ -2,24 +2,44 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
-## 0.6.1 - 2026-09-10
+## 0.6.2 - 2026-09-10
 
-### Added
-- Added shared Browser Observability primitives in `core/browser_observability.py`.
-- Added deterministic tests for model-evidence normalization and mismatch rejection.
-- Added provider-level model-evidence verification for Qwen Web and Z.ai Web browser-controller transports.
-- Added `docs/BROWSER_OBSERVABILITY.md` to document front/state/back evidence collection and fail-closed model verification.
+### Changed
+- Browser Observability is now part of the accepted runtime contract for browser-controller providers.
+- Z.ai publishes safe browser/backend lifecycle metadata alongside verified model evidence.
+- Documentation index was rewritten cleanly to remove encoding corruption and expose the observability guide as a canonical document.
 
 ### Fixed
-- Z.ai snapshot observation now uses bounded observation-only retry when provider navigation replaces the page execution context. This does not replay the submitted prompt.
-- Qwen unit tests now simulate the full model-evidence chain required by the stricter browser-controller contract.
+- Z.ai snapshot reads now use bounded observation-only retry across execution-context replacement/navigation races; the upstream submit is never replayed.
 
 ### Evidence
 - Deterministic regression suite: 62/62 PASS.
 - `git diff --check`: PASS.
-- No new Z.ai browser-observability E2 pass is claimed in this release; one stricter live check exposed a navigation/context-replacement race and is recorded for follow-up.
-- Qwen live completion remains blocked by current provider guest quota; no retry loop was performed.
+- Z.ai Browser Observability E2: PASS with exact response `ZAI_BROWSER_OBS_OK` and aligned requested/UI/backend/response model `glm-5.3`.
+- `model_evidence.verified`, `selection_verified`, `backend_verified`, and `response_verified` were all true.
+- Qwen completion was not retried because the current guest session is provider-rate-limited for the daily quota.
 - No E3 reliability claim is made.
+
+## 0.6.2 - 2026-09-10\n\n### Changed\n- Documentation and evidence wording corrected to avoid claiming strict Z.ai Browser Observability E2 before a clean live pass.\n\n### Evidence\n- Deterministic regression suite remains 62/62 PASS.\n- Latest strict Z.ai live check is NOT PASS: `Z.ai first-event timeout`.\n- Qwen completion remains blocked by provider guest quota; no retry loop is performed.\n\n## 0.6.1 - 2026-09-10
+
+### Added
+- Shared Browser Observability layer in `core/browser_observability.py`.
+- Fail-closed model-evidence validation across requested/default model, UI/frontend selection, observed backend request model, and response model.
+- Safe browser/backend lifecycle metadata for Qwen and Z.ai without recording cookies, tokens, signatures, CAPTCHA proof, or raw request bodies.
+- `docs/BROWSER_OBSERVABILITY.md` as the canonical browser/runtime drift and observability guide.
+
+### Fixed
+- Z.ai observation now tolerates bounded execution-context/navigation races after submit without replaying the request.
+- Z.ai runtime stores are re-bootstrapped after provider navigation before response polling continues.
+
+### Evidence
+- Deterministic regression suite: 62/62 PASS.
+- `git diff --check`: PASS.
+- Windows service restart: PASS.
+- Controlled Z.ai strict browser-observability E2: NOT PASSED yet; latest live check returned `Z.ai first-event timeout` after submit. Prior GLM-5.3 default-routing E2 remains recorded separately, but no new stricter E2 pass is claimed in 0.6.2.
+- Qwen was not re-tested for completion because the current guest session is already provider-rate-limited for the day; previous model-routing evidence is retained without unnecessary retry.
+- No E3 reliability claim is made.
+
 ## 0.6.0 - 2026-09-10
 
 ### Added

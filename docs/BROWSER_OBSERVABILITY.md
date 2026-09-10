@@ -1,6 +1,6 @@
 ﻿# Hooshka Web Gateway - Browser Observability Layer
 
-**Baseline:** 0.6.1
+**Baseline:** 0.6.2
 
 ## Purpose
 
