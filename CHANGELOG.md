@@ -2,6 +2,19 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## 0.5.1 - 2026-09-10
+
+### Documentation
+- Added canonical technical and practical documentation set: Start Here, current architecture, API reference, configuration reference, operations runbook, provider guide, security/governance guide, Hooshka integration guide, development guide, current troubleshooting guide, and practical usage recipes.
+- Replaced the root README and documentation index with current multi-provider 0.5.x guidance.
+- Updated Swagger metadata to the current product identity/version.
+- Historical research/evidence documents remain preserved and explicitly separated from canonical current documentation.
+
+### Evidence
+- Documentation file-presence gate added to the release workflow for this update.
+- Deterministic regression suite remains 54/54 PASS.
+- No provider capability claim was expanded by this documentation release.
+
 ## 0.5.0 - 2026-09-10
 
 ### Project identity

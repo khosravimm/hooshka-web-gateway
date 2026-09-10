@@ -1,225 +1,122 @@
 # Hooshka Web Gateway
 
-Unified Web Chat API gateway for Hooshka. It exposes one governed, OpenAI-compatible local API and routes requests to supported Web-chat providers through provider-specific transports.
+**Canonical id:** `hooshka-web-gateway`
+**Hooshka module:** `web_gateway`
+**Current release:** `0.5.1`
 
-> **Canonical product name:** Hooshka Web Gateway
-> **Technical id:** `hooshka-web-gateway`
-> **Hooshka module id:** `web_gateway`
-> **Legacy compatibility id:** `mcp-web-bridge`
+Hooshka Web Gateway is the unified local API gateway for governed access to supported Web-chat providers. It gives Hooshka, local agents and compatible clients one OpenAI-style interface while isolating provider-specific browser, session, frontend and transport behavior.
+
+## Current provider baseline
+
+| Provider | Canonical model | Status | Current accepted scope |
+|---|---|---|---|
+| ChatGPT Web | `chatgpt-web` | E2 operational | chat, stream compatibility, tool-call path |
+| Qwen Web | `qwen-web` | E2 operational | chat, reconstructed stream, reasoning mode |
+| Z.ai Web | `zai-web` | E2 operational | basic chat, reconstructed stream |
+| DeepSeek Web | `deepseek-web` | blocked | current account state prevents live E2 |
+
+This release is an **E2 baseline**, not an E3/production-reliability claim.
 
 ## Architecture
 
-This project implements a **Virtual LLM API Gateway** with a **Model Compatibility Proxy (MCP)** layer.
-
-```
-Agent Runtime
-      |
-Virtual LLM API (OpenAI-compatible)
-      |
-      v
-+---------------------+
-|      MCP Layer      |  Request Translation / Response Normalization
-|  (Compatibility     |
-|   Proxy)            |
-+---------------------+
-      |
-      v
-+---------------------+
-|  Provider Registry  |  Dynamic provider selection
-+---------------------+
-      |
-      v
-ChatGPT Web Provider (DOM / Network adapters)
+```text
+Hooshka / local client
+        |
+        v
+OpenAI-compatible localhost API
+        |
+        v
+Exact fail-closed router
+   |        |        |
+ChatGPT    Qwen     Z.ai
+ Web       Web      Web
 ```
 
-### Key Components
+Provider-specific fallback stays within a provider. There is no silent cross-provider fallback.
 
-- **Provider Interface** (`core/providers.py`): Abstract base class for all LLM providers
-- **MCP Layer** (`core/mcp.py`): Request translation, response normalization, session management
-- **Provider Registry** (`core/provider_registry.py`): Dynamic provider registration and routing
-- **Governance** (`core/governance.py`): Auth, rate limiting, audit logging
-- **ChatGPT Web Provider** (`adapters/chatgpt_web_provider.py`): Implements Provider interface with DOM/Network variants
+## Start
 
-## Status
-
-- MVP-001: PASS
-- MVP-002 Gateway: PASS
-- Multi-provider architecture: **Foundation complete** (ChatGPT Web provider implemented)
-
-## Endpoints
-
-- `GET /health` - Health check
-- `GET /modes` - List available providers and capabilities
-- `GET /v1/models` - List available models across providers
-- `POST /v1/chat/completions` - OpenAI-compatible chat completions
-- `POST /v1/chat/completions` (stream=true) - Streaming responses
-- `POST /v1/chat/code` - Code generation with extraction
-- `POST /v1/chat/conversation` - Conversation continuity
-
-## Quick Start
-
-```bash
-pip install -r requirements.txt
-playwright install chromium
-python main.py
+```powershell
+cd D:\Code\hooshka-web-gateway
+.\service_manager.ps1 status
+.\service_manager.ps1 start
 ```
 
-```bash
-# Standard chat completion
-curl -X POST http://localhost:5000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{"messages":[{"role":"user","content":"Reply only with BRIDGE_TEST_OK"}]}'
+Service:
 
-# Streaming
-curl -X POST http://localhost:5000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{"messages":[{"role":"user","content":"Count to 10"}],"stream":true}'
-
-# Code generation
-curl -X POST http://localhost:5000/v1/chat/code \
-  -H "Content-Type: application/json" \
-  -d '{"messages":[{"role":"user","content":"Write a Python hello world"}],"language":"python"}'
-
-# Conversation continuity
-curl -X POST http://localhost:5000/v1/chat/conversation \
-  -H "Content-Type: application/json" \
-  -d '{"conversation_id":"my-conv-1","messages":[{"role":"user","content":"Remember: my name is Alice"}]}'
-curl -X POST http://localhost:5000/v1/chat/conversation \
-  -H "Content-Type: application/json" \
-  -d '{"conversation_id":"my-conv-1","messages":[{"role":"user","content":"What is my name?"}]}'
+```text
+HooshkaWebGateway
 ```
 
-## Configuration
+API bind:
 
-Environment variables:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `BRIDGE_CDP_URL` | `http://127.0.0.1:9222` | Chrome DevTools Protocol URL |
-| `BRIDGE_CHATGPT_URL` | `https://chatgpt.com` | ChatGPT Web URL |
-| `BRIDGE_ADAPTER` | `dom` | Adapter: `dom` or `network` |
-| `BRIDGE_RATE_LIMIT` | `60` | Default requests per minute |
-| `BRIDGE_AUTH_ENABLED` | `false` | Enable API key authentication |
-
-## Provider Adapters
-
-| Adapter | Mode | Streaming | Use Case |
-|---------|------|-----------|----------|
-| `dom` | DOM-based automation with Playwright selectors | ❌ | Reliable, non-streaming |
-| `network` | Network/WebSocket interception via CDP | ✅ | Streaming, faster response |
-
-Set via `BRIDGE_ADAPTER` env var or `provider` field in request.
-
-## Governance
-
-### Authentication
-```bash
-export BRIDGE_AUTH_ENABLED=true
-# Add API keys in GOVERNANCE_CONFIG in main.py
-curl -H "Authorization: Bearer YOUR_KEY" ...
+```text
+http://127.0.0.1:5000
 ```
 
-### Rate Limiting
-Default: 60 req/min globally, 20 req/min for ChatGPT Web.
-Response headers:
-```
-X-RateLimit-Limit: 20
-X-RateLimit-Remaining: 15
-X-RateLimit-Reset: 1699300000
-```
+## Main API endpoints
 
-### Audit Logging
-Structured JSON logs in `logs/audit.log`:
-```json
-{
-  "timestamp": 1699300000.123,
-  "request_id": "req_123",
-  "event": "request_complete",
-  "identity": "user_123",
-  "provider": "chatgpt-web",
-  "model": "gpt-4",
-  "endpoint": "/v1/chat/completions",
-  "status_code": 200,
-  "latency_ms": 2450,
-  "total_tokens": 230
-}
+- `GET /health`
+- `GET /ready`
+- `GET /health/deep`
+- `GET /modes`
+- `GET /v1/models`
+- `POST /v1/chat/completions`
+- `POST /v1/chat/code`
+- `POST /v1/chat/conversation`
+
+Authenticated operational calls require the runtime bearer key.
+
+## Documentation
+
+Start with:
+
+```text
+docs/START_HERE.md
 ```
 
-## Files
+Then use:
 
-Supports single or multiple file uploads through the ChatGPT Web composer. Long texts are chunked automatically.
+- `docs/ARCHITECTURE_CURRENT.md`
+- `docs/API_REFERENCE.md`
+- `docs/CONFIGURATION_REFERENCE.md`
+- `docs/OPERATIONS_RUNBOOK.md`
+- `docs/PROVIDERS.md`
+- `docs/SECURITY_GOVERNANCE.md`
+- `docs/HOOSHKA_INTEGRATION_GUIDE.md`
+- `docs/DEVELOPMENT_GUIDE.md`
+- `docs/TROUBLESHOOTING_CURRENT.md`
+- `docs/FINAL_REPORT_2026-09-10.md`
 
-```bash
-curl -X POST http://localhost:5000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{"messages":[{"role":"user","content":"Analyze this file"}],"file_paths":["/path/to/file.txt"]}'
+Historical research/evidence documents remain under `docs/`.
+
+## Development gate
+
+```powershell
+.\.venv\Scripts\python.exe -m compileall -q .
+.\.venv\Scripts\python.exe -m pytest -q
+git diff --check
 ```
 
-## Code Generation
+Accepted 0.5.0 deterministic baseline: **54 passed**.
 
-`POST /v1/chat/code` extracts code blocks and can return code-only payloads.
+## Security rules
 
-```bash
-curl -X POST http://localhost:5000/v1/chat/code \
-  -H "Content-Type: application/json" \
-  -d '{"messages":[{"role":"user","content":"Write a REST API in FastAPI"}],"language":"python","code_only":true}'
+- Loopback only by default.
+- Runtime secrets outside Git.
+- Browser profiles are security boundaries.
+- No CAPTCHA/WAF/account-suspension bypass.
+- No silent provider substitution.
+- No post-commit automatic replay.
+- No stress/load testing against personal Web-chat accounts.
+- Do not send organizational/sensitive SUMS data through unofficial Web-chat transports without an explicit governance decision.
+
+## Repository
+
+Canonical GitHub repository:
+
+```text
+khosravimm/hooshka-web-gateway
 ```
 
-## Requirements
-
-- Windows
-- Chrome running with remote debugging on `http://127.0.0.1:9222`
-  ```bash
-  chrome.exe --remote-debugging-port=9222 --user-data-dir="C:\chrome-debug"
-  ```
-- Active ChatGPT session at `https://chatgpt.com`
-
-## Project Structure
-
-```
-mcp-web-bridge/
-├── main.py                    # Flask app entry point
-├── requirements.txt
-├── README.md
-├── docs/architecture/         # Architecture documentation
-│   ├── ADR-001-virtual-llm-gateway.md
-│   ├── mcp-definition.md
-│   ├── provider-adapter-contract.md
-│   └── governance-model.md
-├── adapters/
-│   ├── chatgpt_dom.py         # Legacy DOM adapter (kept for reference)
-│   ├── chatgpt_network.py     # Legacy Network adapter (kept for reference)
-│   └── chatgpt_web_provider.py # New Provider interface implementation
-├── core/
-│   ├── providers.py           # Provider abstract base class
-│   ├── mcp.py                 # Model Compatibility Proxy
-│   ├── provider_registry.py   # Provider registry & router
-│   ├── governance.py          # Auth, rate limiting, audit
-│   ├── code_parser.py         # Code block extraction
-│   ├── files.py               # File upload handling
-│   ├── parser.py              # SSE parsing
-│   └── session.py             # Browser session management
-├── api/
-│   └── openai_compat.py       # Legacy OpenAI-compatible endpoints
-└── logs/                      # Runtime logs
-```
-
-## Adding New Providers
-
-1. Create adapter in `adapters/<provider_name>.py` implementing `Provider` interface
-2. Register in `main.py`:
-   ```python
-   from adapters.my_provider import MyProvider
-   provider_registry.register(MyProvider(config))
-   ```
-3. Add configuration and rate limits
-
-See `docs/architecture/provider-adapter-contract.md` for full interface specification.
-
-## MCP vs Model Context Protocol
-
-**This project's MCP = Model Compatibility Proxy** (internal translation layer)
-
-**NOT** Model Context Protocol (Anthropic's open standard for LLM-tool integration)
-
-See `docs/architecture/mcp-definition.md` for details.
+Legacy project name `mcp-web-bridge` is retained only in historical/migration compatibility records.

@@ -32,8 +32,8 @@ SWAGGER_TEMPLATE = {
     "swagger": "2.0",
     "info": {
         "title": "Hooshka Web Gateway API",
-        "description": "Virtual LLM API Gateway with Model Compatibility Proxy (MCP)\n\nRoutes requests to ChatGPT Web via Chrome DevTools Protocol.\n\n**Architecture**: Agent → Virtual LLM API → MCP Layer → Provider Registry → ChatGPT Web Provider",
-        "version": "0.3.0",
+        "description": "Hooshka Web Gateway exposes one governed OpenAI-compatible local API for supported Web-chat providers. Provider-specific browser/session/transport behavior remains behind exact fail-closed routing.",
+        "version": "0.5.1",
         "contact": {
             "name": "Hooshka Web Gateway",
         },
