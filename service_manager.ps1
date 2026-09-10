@@ -17,6 +17,8 @@ $ChatGPTProfile = Join-Path $ScriptDir '.runtime\chatgpt-profile'
 $ChatGPTRuntimeLabel = 'HWG-ChatGPT-Web-CDP'
 $ChatGPTCdpPort = 9224
 $QwenProfile = Join-Path $ScriptDir '.runtime\qwen-profile'
+$QwenRuntimeLabel = 'HWG-Qwen-Web-Controller'
+$QwenCdpPort = 9225
 $ZaiProfile = Join-Path $ScriptDir '.runtime\zai-profile'
 $ZaiLegacyProfile = Join-Path $ScriptDir '.runtime\zai-cdp-profile'
 $ZaiRuntimeLabel = 'HWG-Zai-Web-SSE-Capture'
@@ -118,6 +120,48 @@ function Stop-OrphanQwenBrowsers {
   if ($procs) { Start-Sleep -Milliseconds 500 }
 }
 
+
+function Ensure-QwenChromeCdp {
+  if (Assert-ProjectChromeOwnership $QwenCdpPort $QwenProfile $QwenRuntimeLabel) { return }
+
+  $chrome = Get-ChromeExecutable
+  if (-not $chrome) { throw 'Chrome not found for Qwen Web CDP runtime' }
+
+  New-Item -ItemType Directory -Force $QwenProfile | Out-Null
+  Start-Process -FilePath $chrome -ArgumentList @(
+    "--remote-debugging-port=$QwenCdpPort",
+    '--remote-debugging-address=127.0.0.1',
+    "--user-data-dir=$QwenProfile",
+    '--no-first-run',
+    '--disable-default-apps',
+    '--new-window',
+    'https://chat.qwen.ai/'
+  ) | Out-Null
+  Start-Sleep -Seconds 6
+  if (-not (Assert-ProjectChromeOwnership $QwenCdpPort $QwenProfile $QwenRuntimeLabel)) {
+    throw 'Qwen Web project-owned Chrome CDP runtime did not start'
+  }
+}
+
+function Stop-QwenChromeCdp {
+  # Prefer graceful CDP browser close so cookies/local storage/session state
+  # are flushed. Force kill is only a final fallback for remaining project-owned
+  # processes after a short grace period.
+  if (Assert-ProjectChromeOwnership $QwenCdpPort $QwenProfile $QwenRuntimeLabel) {
+    try {
+      Invoke-RestMethod "http://127.0.0.1:$QwenCdpPort/json/close" -TimeoutSec 3 | Out-Null
+      Start-Sleep -Seconds 2
+    } catch { }
+  }
+  $needle = [Regex]::Escape($QwenProfile)
+  $procs = Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -and $_.CommandLine -match $needle }
+  foreach ($proc in $procs) {
+    Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
+  }
+  if ($procs) { Start-Sleep -Milliseconds 500 }
+}
+
 function Ensure-ZaiChromeCdp {
   if (Assert-ProjectChromeOwnership $ZaiCdpPort $ZaiProfile $ZaiRuntimeLabel) { return }
 
@@ -167,23 +211,27 @@ switch ($Command) {
  }
  'start' {
    Ensure-ChatGPTChromeCdp
+   Ensure-QwenChromeCdp
    Ensure-ZaiChromeCdp
    Start-Service $ServiceName
    (Get-Service $ServiceName) | Format-Table -AutoSize
  }
  'stop' {
    Stop-Service $ServiceName -Force
-   Stop-OrphanQwenBrowsers
+   Stop-QwenChromeCdp
    Stop-ChatGPTChromeCdp
    Stop-ZaiChromeCdp
    (Get-Service $ServiceName) | Format-Table -AutoSize
  }
  'restart' {
    Stop-Service $ServiceName -Force
-   Stop-OrphanQwenBrowsers
+   # Keep Qwen's authenticated CDP runtime alive across service restarts so
+   # the official-login session is not disturbed. Ensure-* verifies ownership
+   # and starts it only when it is missing.
    Stop-ChatGPTChromeCdp
    Stop-ZaiChromeCdp
    Ensure-ChatGPTChromeCdp
+   Ensure-QwenChromeCdp
    Ensure-ZaiChromeCdp
    Start-Service $ServiceName
    Start-Sleep -Seconds 1
@@ -198,7 +246,7 @@ switch ($Command) {
        Write-Output "REMOVED $name"
      }
    }
-   Stop-OrphanQwenBrowsers
+   Stop-QwenChromeCdp
    Stop-ChatGPTChromeCdp
    Stop-ZaiChromeCdp
  }
@@ -216,6 +264,8 @@ switch ($Command) {
      bind='127.0.0.1:5000'
      chatgpt_cdp="127.0.0.1:$ChatGPTCdpPort"
      chatgpt_profile=$ChatGPTProfile
+     qwen_cdp="127.0.0.1:$QwenCdpPort"
+     qwen_profile=$QwenProfile
      zai_cdp="127.0.0.1:$ZaiCdpPort"
      zai_profile=$ZaiProfile
    } | ConvertTo-Json

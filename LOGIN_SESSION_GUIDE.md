@@ -1,6 +1,6 @@
 # Hooshka Web Gateway - Official Login and Session Persistence Guide
 
-**Policy baseline:** 0.6.4
+**Policy baseline:** 0.6.5
 
 This repository does not store provider usernames, passwords, cookies, tokens, authorization headers, CAPTCHA proof, or browser-storage secrets in source control.
 

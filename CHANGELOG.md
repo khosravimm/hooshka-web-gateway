@@ -2,6 +2,26 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## 0.6.5 - 2026-09-11
+
+### Added
+- Project-owned Qwen Web Chrome/CDP runtime on port `9225` with dedicated profile `.runtime\qwen-profile`.
+- Qwen CDP transport reuse path so the authenticated project browser session is not relaunched as a separate headless profile.
+- Qwen authenticated Kilo CLI E2 evidence for `qwen:qwen3.8-max`.
+
+### Changed
+- Qwen profile shutdown now prefers graceful CDP close before force cleanup to reduce session persistence risk.
+- Kilo Hooshka model map now includes authenticated Qwen upstream model ids.
+- Removed Hooshka API key from Kilo provider options; credential remains in Kilo auth store.
+
+### Evidence
+- Qwen official-login session check: `authenticated=true`, HTTP 200.
+- Direct Gateway `qwen:qwen3.8-max` completion: PASS with `QWEN_LOGIN_PERSIST_OK`.
+- Kilo CLI `--agent summary` + `hooshka/qwen:qwen3.8-max` E2: PASS with exact output `KILO_HWG_QWEN_MAX_OK`.
+- Qwen model evidence aligned: upstream/backend `qwen3.8-max`, session `authenticated`.
+- No password, cookie, bearer token, provider token, signature, CAPTCHA proof, or full provider request body is stored in tracked files.
+- No E3 reliability claim is made.
+
 ## 0.6.4 - 2026-09-11
 
 ### Added

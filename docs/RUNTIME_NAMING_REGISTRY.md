@@ -15,7 +15,7 @@ This registry assigns stable operational names to Web-chat runtimes used by **Ho
 | Canonical provider id | Runtime label | Browser profile / connection | Status label |
 |---|---|---|---|
 | `chatgpt-web` | `HWG-ChatGPT-Web-CDP` | `.runtime\\chatgpt-profile`, CDP port `9224` | `operational-e2-kilo` |
-| `qwen-web` | `HWG-Qwen-Web-Controller` | `.runtime\\qwen-profile` | `blocked-auth-required` |
+| `qwen-web` | `HWG-Qwen-Web-Controller` | `.runtime\\qwen-profile`, CDP port `9225` | `operational-e2-kilo-text` |
 | `zai-web` | `HWG-Zai-Web-SSE-Capture` | `.runtime\\zai-profile` or legacy `.runtime\\zai-cdp-profile`, CDP port `9223` | `operational-e2-kilo-text` |
 | `deepseek-web` | `HWG-DeepSeek-Web-Frozen` | none while current account is suspended/muted | `blocked-account-state` |
 
@@ -26,6 +26,7 @@ This registry assigns stable operational names to Web-chat runtimes used by **Ho
 | `9222` | non-bridge/legacy CDP | not assumed bridge-owned |
 | `9223` | `HWG-Zai-Web-SSE-Capture` | bridge-owned only when profile path matches `.runtime\\zai-profile` or `.runtime\\zai-cdp-profile` |
 | `9224` | `HWG-ChatGPT-Web-CDP` | bridge-owned only when profile path matches `.runtime\\chatgpt-profile` |
+| `9225` | `HWG-Qwen-Web-Controller` | bridge-owned only when profile path matches `.runtime\\qwen-profile` |
 
 ## Test labels
 
@@ -37,6 +38,7 @@ This registry assigns stable operational names to Web-chat runtimes used by **Ho
 | `KILO_HWG_CHATGPT_OK` | Kilo CLI `code` agent through `hooshka/chatgpt-web`; large agent prompt path |
 | `KILO_HWG_ZAI_GLM53_OK` | Kilo CLI `summary` agent through `hooshka/zai:glm-5.3`; text-only capability path |
 | `HWG-QWEN-NONSTREAM-E2` | Qwen non-stream chat completion through `/v1/chat/completions` |
+| `KILO_HWG_QWEN_MAX_OK` | Kilo CLI `summary` agent through `hooshka/qwen:qwen3.8-max`; authenticated session path |
 | `HWG-QWEN-STREAM-E2` | Qwen stream-compatible response through `/v1/chat/completions` |
 | `HWG-DEEPSEEK-ACCOUNT-BLOCK` | DeepSeek current account-state circuit breaker |
 

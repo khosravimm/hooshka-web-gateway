@@ -46,14 +46,14 @@ Credential must live in Kilo's auth store, not in a public config block. `kilo a
 1. `hooshka/chatgpt-web` with the default `code` agent.
 2. `hooshka/zai:glm-5.3` with `--agent summary`.
 3. `hooshka/zai-web` with `--agent summary`.
-4. `hooshka/qwen:qwen3.8-max` only after Qwen profile authentication is verified.
+4. `hooshka/qwen:qwen3.8-max` with `--agent summary` after Qwen profile authentication is verified.
 
 Current Qwen status:
 
 ```text
-session_status: guest
-http_status: 401
-completion: not executed
+session_status: authenticated
+http_status: 200
+completion: KILO_HWG_QWEN_MAX_OK PASS
 ```
 
 ## Interpreting failures

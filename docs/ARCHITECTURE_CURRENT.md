@@ -122,7 +122,7 @@ Timeouts should distinguish connection/header timeout, first meaningful event ti
 ## Runtime ownership
 
 - ChatGPT Web: dedicated project-owned Chrome CDP runtime/profile under `.runtime\chatgpt-profile`, port 9224. Ordinary user tabs and legacy/shared CDP ports are not assumed bridge-owned.
-- Qwen Web: dedicated runtime/profile under `.runtime\qwen-profile`; completion is blocked until this profile is authenticated.
+- Qwen Web: dedicated project-owned Chrome CDP runtime/profile under `.runtime\qwen-profile`, port 9225; completion is blocked unless this profile is authenticated.
 - Z.ai Web: dedicated CDP runtime/profile under `.runtime\zai-profile`, port 9223.
 - Owned runtime labels use `HWG-`.
 

@@ -76,17 +76,38 @@ Accepted conclusions:
 - UI label, requested upstream model, backend request model and response model align on `glm-5.3`.
 - Z.ai tools remain disabled until independent E2 tool protocol validation exists.
 
-## Qwen status
+## Qwen Qwen3.8-Max Kilo E2
 
-Current Qwen profile status:
+Command shape:
 
 ```text
-authenticated: false
-http_status: 401
-mode: guest
+kilo run --agent summary -m hooshka/qwen:qwen3.8-max "Reply exactly: KILO_HWG_QWEN_MAX_OK"
 ```
 
-Qwen completion was not executed. This is the expected fail-closed behavior under the mandatory authenticated-session policy.
+Observed result:
+
+```text
+> summary · qwen:qwen3.8-max
+KILO_HWG_QWEN_MAX_OK
+exit_code: 0
+```
+
+Additional direct model-evidence check:
+
+```text
+model: qwen:qwen3.8-max
+content: QWEN_LOGIN_PERSIST_OK
+upstream_model: qwen3.8-max
+backend_request_model: qwen3.8-max
+session_mode: authenticated
+```
+
+Accepted conclusions:
+
+- Qwen login was completed through the official Qwen frontend in the dedicated project profile.
+- The Qwen session is reused through the project-owned CDP runtime on port `9225`.
+- Kilo can select `qwen:qwen3.8-max` through provider `hooshka` when using a text-only agent.
+- Qwen tools remain disabled until independent E2 tool protocol validation exists.
 
 ## Non-claims
 

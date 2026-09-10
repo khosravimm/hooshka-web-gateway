@@ -2,7 +2,7 @@
 
 **Canonical id:** `hooshka-web-gateway`
 **Hooshka module:** `web_gateway`
-**Current release:** `0.6.4`
+**Current release:** `0.6.5`
 
 Hooshka Web Gateway is the unified local API gateway for governed access to supported Web-chat providers. It gives Hooshka, local agents and compatible clients one OpenAI-style interface while isolating provider-specific browser, session, frontend and transport behavior.
 
@@ -11,7 +11,7 @@ Hooshka Web Gateway is the unified local API gateway for governed access to supp
 | Provider | Canonical model | Status | Current accepted scope |
 |---|---|---|---|
 | ChatGPT Web | `chatgpt-web` | E2 operational via Kilo | chat, stream compatibility, tool-call path, large agent prompt transport |
-| Qwen Web | `qwen-web`, `qwen:<upstream-id>` | blocked until authenticated login | dynamic catalog, configurable default, reconstructed stream; guest rejected |
+| Qwen Web | `qwen-web`, `qwen:<upstream-id>` | E2 operational via Kilo text-only agent | dynamic catalog, configurable default, reconstructed stream; guest rejected |
 | Z.ai Web | `zai-web`, `zai:<upstream-id>` | E2 operational via Kilo text-only agent | dynamic catalog, configurable default, reconstructed stream; tools disabled until E2 |
 | DeepSeek Web | `deepseek-web` | blocked | current account state prevents live E2 |
 
@@ -100,7 +100,7 @@ Historical research/evidence documents remain under `docs/`.
 git diff --check
 ```
 
-Accepted 0.6.4 deterministic baseline: **63 passed**. Current Kilo E2: `chatgpt-web` PASS and `zai:glm-5.3` PASS with Kilo `summary` agent. Qwen remains blocked until authenticated login.
+Accepted 0.6.5 deterministic baseline: **63 passed**. Current Kilo E2: `chatgpt-web` PASS, `zai:glm-5.3` PASS with Kilo `summary` agent, and `qwen:qwen3.8-max` PASS with Kilo `summary` agent.
 
 ## Security rules
 

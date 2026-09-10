@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import json
 import logging
 import os
@@ -96,6 +96,7 @@ class QwenWebProvider(Provider):
             base_url=self._base_url + "/",
             channel=c.get("browser_channel", "chrome"),
             headless=bool(c.get("headless", True)),
+            cdp_url=c.get("cdp_url"),
             launch_timeout=float(c.get("launch_timeout", 45)),
             first_event_timeout=self._first_event_timeout,
             idle_timeout=self._idle_timeout,

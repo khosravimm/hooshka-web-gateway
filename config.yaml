@@ -38,8 +38,9 @@ providers:
     require_authenticated: true
     profile_dir: .runtime\qwen-profile
     runtime_label: HWG-Qwen-Web-Controller
+    cdp_url: http://127.0.0.1:9225
     browser_channel: chrome
-    headless: true
+    headless: false
     launch_timeout: 45
     first_event_timeout: 30
     idle_timeout: 45

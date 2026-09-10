@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import json
 import logging
 import re
@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 from typing import AsyncIterator, Optional
 
-from playwright.async_api import async_playwright, BrowserContext, Page, Playwright
+from playwright.async_api import async_playwright, Browser, BrowserContext, Page, Playwright
 
 from core.providers import ProviderError, ProviderTimeoutError
 
@@ -37,6 +37,7 @@ class QwenBrowserControllerTransport:
         base_url: str = "https://chat.qwen.ai/",
         channel: str = "chrome",
         headless: bool = True,
+        cdp_url: str | None = None,
         launch_timeout: float = 45.0,
         first_event_timeout: float = 30.0,
         idle_timeout: float = 45.0,
@@ -48,13 +49,16 @@ class QwenBrowserControllerTransport:
         self.base_url = base_url
         self.channel = channel
         self.headless = headless
+        self.cdp_url = cdp_url
         self.launch_timeout = launch_timeout
         self.first_event_timeout = first_event_timeout
         self.idle_timeout = idle_timeout
         self.total_timeout = total_timeout
         self.poll_interval = poll_interval
         self._pw: Optional[Playwright] = None
+        self._browser: Optional[Browser] = None
         self._context: Optional[BrowserContext] = None
+        self._owns_context = False
         self._page: Optional[Page] = None
         self._lock = asyncio.Lock()
         self.frontend_version: Optional[str] = None
@@ -135,19 +139,30 @@ class QwenBrowserControllerTransport:
         Path(self.profile_dir).mkdir(parents=True, exist_ok=True)
         try:
             self._pw = await async_playwright().start()
-            self._context = await self._pw.chromium.launch_persistent_context(
-                self.profile_dir,
-                channel=self.channel,
-                headless=self.headless,
-                args=[
-                    "--disable-default-apps",
-                    "--disable-dev-shm-usage",
-                    "--disable-gpu",
-                    "--no-first-run",
-                ],
-                timeout=int(self.launch_timeout * 1000),
-            )
-            self._page = self._context.pages[0] if self._context.pages else await self._context.new_page()
+            if self.cdp_url:
+                self._browser = await self._pw.chromium.connect_over_cdp(
+                    self.cdp_url,
+                    timeout=int(self.launch_timeout * 1000),
+                )
+                self._context = self._browser.contexts[0] if self._browser.contexts else await self._browser.new_context()
+                self._owns_context = False
+                pages = [p for p in self._context.pages if "chat.qwen.ai" in (p.url or "")]
+                self._page = pages[0] if pages else (self._context.pages[0] if self._context.pages else await self._context.new_page())
+            else:
+                self._context = await self._pw.chromium.launch_persistent_context(
+                    self.profile_dir,
+                    channel=self.channel,
+                    headless=self.headless,
+                    args=[
+                        "--disable-default-apps",
+                        "--disable-dev-shm-usage",
+                        "--disable-gpu",
+                        "--no-first-run",
+                    ],
+                    timeout=int(self.launch_timeout * 1000),
+                )
+                self._owns_context = True
+                self._page = self._context.pages[0] if self._context.pages else await self._context.new_page()
             self._attach_network_diagnostics(self._page)
             await self._page.goto(
                 self.base_url,
@@ -551,19 +566,23 @@ class QwenBrowserControllerTransport:
 
     async def _reset(self) -> None:
         page, context, pw = self._page, self._context, self._pw
+        owns_context = self._owns_context
         self._page = None
         self._context = None
+        self._browser = None
         self._pw = None
-        try:
-            if page and not page.is_closed():
-                await page.close()
-        except Exception:
-            pass
-        try:
-            if context:
-                await context.close()
-        except Exception:
-            pass
+        self._owns_context = False
+        if owns_context:
+            try:
+                if page and not page.is_closed():
+                    await page.close()
+            except Exception:
+                pass
+            try:
+                if context:
+                    await context.close()
+            except Exception:
+                pass
         try:
             if pw:
                 await pw.stop()
