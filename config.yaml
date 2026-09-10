@@ -56,6 +56,34 @@ providers:
     reasoning: true
     files: false
     transport_mode: browser_backend_controller
+- id: zai-web
+  type: zai_web
+  enabled: true
+  priority: 80
+  config:
+    base_url: https://chat.z.ai
+    frontend_version: prod-fe-1.1.93
+    transport_mode: browser_ui_capture
+    cdp_url: http://127.0.0.1:9223
+    total_timeout: 180
+    poll_interval: 0.25
+    connect_timeout: 10
+    header_timeout: 30
+    requests_per_minute: 6
+  capabilities:
+    chat_completion: true
+    streaming: true
+    streaming_mode: buffered_sse_capture
+    tools: false
+    vision: false
+    embeddings: false
+    max_context_tokens: 128000
+    supported_models:
+    - zai-web
+    search: false
+    reasoning: true
+    files: false
+    transport_mode: browser_frontend_backend_sse_capture
 governance:
   auth:
     enabled: true
@@ -70,6 +98,8 @@ governance:
         requests_per_minute: 20
       qwen-web:
         requests_per_minute: 12
+      zai-web:
+        requests_per_minute: 6
   audit:
     enabled: true
     output: logs/audit.log

@@ -83,3 +83,25 @@ Append-only dated engineering observations. Stable conclusions are promoted to `
 - Current Qwen frontend reports thinking modes `Auto`, `Thinking`, and `Fast`. Wire capture confirmed `thinking=false` maps to `Fast` with `thinking_enabled=false` and `auto_thinking=false`; `thinking=true` maps to `Auto` with both fields true.
 - After restart, three gateway non-stream Qwen turns passed consecutively and one gateway SSE turn completed with `[DONE]`. This is E2 evidence for the tested window, not E3.
 - Search remains unadvertised and tools remain fail-closed until their dedicated acceptance cases are completed.
+
+
+## 2026-09-10 � DeepSeek account-suspension investigation
+
+- The controlled Chrome session showed an explicit DeepSeek temporary-suspension notice until 2026-09-11 15:35.
+- A same-origin session-create probe during suspension returned HTTP 200 with application `code=40002` and no session id.
+- Local `deepseek-api-kit-poc` logs contained 25 completion requests on 2026-09-10; 23 occurred before 15:35, including bursts of 5 requests in ~34 seconds and 8 requests in ~84 seconds.
+- DeepSeek''s public agreement supports suspension for usage-agreement violations but does not expose the exact automated risk-control signal for this account.
+- Cause classification is therefore: **confirmed provider enforcement; exact trigger unknown; automated high-frequency Web-backend usage is a plausible contributing factor, not a proven sole cause**.
+- Preventive controls were adopted: account-state circuit breaker, concurrency 1, conservative rate budget with jitter, no load/stress testing on personal Web accounts, bounded retries only before commitment, no CAPTCHA/WAF bypass or account/IP rotation, session reuse, metadata-only evidence logging, and human review before re-enable.
+- DeepSeek live E2 is frozen for this account during the suspension window. Work may continue at E0/E1 only.
+
+## 2026-09-10 � Z.ai operational browser-backend SSE capture
+
+- Z.ai frontend build remains `prod-fe-1.1.93`.
+- Same-origin `/api/models` returned 15 upstream model records in the browser context. Direct Python `requests` to the same endpoint returned HTTP 403, so service discovery falls back to browser-context fetch when direct HTTP is blocked.
+- Live frontend capture showed completion uses `POST /api/v2/chat/completions?...` with `X-FE-Version`, `X-Signature`, `X-Device-Id`, browser/device URL parameters, and body fields including `stream`, `model`, `messages`, `signature_prompt`, `features`, `chat_id`, message ids, background tasks, and `captcha_verify_param`.
+- The provider does not compute/bypass CAPTCHA or copy tokens. It lets the official frontend generate provider-owned signature and CAPTCHA proof, then captures/parses the resulting backend SSE stream from `fetch().clone()`.
+- Observed Z.ai SSE phases: `thinking`, `answer`, and `done`; answer text is derived from `phase=answer` deltas.
+- A dedicated Chrome CDP profile was launched on `127.0.0.1:9223` for Z.ai. The first launch attempt failed due a malformed `--user-data-dir` argument; corrected launch made `/json/version` return Chrome/152.0.7977.84.
+- Service E2 passed: `/ready` reported `zai-web`, `qwen-web`, and `chatgpt-web` ready; `/v1/models` returned 16 Z.ai provider models including canonical `zai-web`; non-stream `zai-web` completion exactly matched `ZAI_SERVICE_E2_OK`; streaming `zai-web` completion returned HTTP 200, 2 SSE frames, `[DONE]`, and exact content `ZAI_STREAM_E2_OK`.
+- Z.ai tools/search/files remain unadvertised. The operational claim is limited to basic chat completion and buffered outward stream compatibility through backend-SSE capture.

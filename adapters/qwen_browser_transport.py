@@ -59,6 +59,35 @@ class QwenBrowserControllerTransport:
         self.frontend_version: Optional[str] = None
         self.main_module_url: Optional[str] = None
         self.last_session_mode: str = "unknown"
+        self._network_events: list[dict] = []
+
+    def _record_network_event(self, event: dict) -> None:
+        self._network_events.append(event)
+        if len(self._network_events) > 20:
+            self._network_events = self._network_events[-20:]
+
+    def _attach_network_diagnostics(self, page: Page) -> None:
+        if getattr(page, "_mwb_qwen_netdiag", False):
+            return
+        setattr(page, "_mwb_qwen_netdiag", True)
+
+        def on_request(req):
+            if "/api/v2/chats/new" in req.url or "/api/v2/chat/completions" in req.url:
+                self._record_network_event({"kind": "request", "url": req.url.split("?")[0][-80:]})
+
+        def on_response(resp):
+            if "/api/v2/chats/new" in resp.url or "/api/v2/chat/completions" in resp.url:
+                self._record_network_event(
+                    {
+                        "kind": "response",
+                        "url": resp.url.split("?")[0][-80:],
+                        "status": resp.status,
+                        "content_type": resp.headers.get("content-type", "")[:80],
+                    }
+                )
+
+        page.on("request", on_request)
+        page.on("response", on_response)
 
     @staticmethod
     def _is_transient_navigation_error(exc: Exception) -> bool:
@@ -102,11 +131,13 @@ class QwenBrowserControllerTransport:
                 timeout=int(self.launch_timeout * 1000),
             )
             self._page = self._context.pages[0] if self._context.pages else await self._context.new_page()
+            self._attach_network_diagnostics(self._page)
             await self._page.goto(
                 self.base_url,
                 wait_until="domcontentloaded",
                 timeout=int(self.launch_timeout * 1000),
             )
+            await self._page.wait_for_timeout(2500)
             await self._bootstrap_controller(self._page)
             return self._page
         except Exception as exc:
@@ -241,6 +272,7 @@ class QwenBrowserControllerTransport:
                 """async ({prompt, thinking, search}) => {
                   const x = window.__mwbQwenController;
                   if (!x) throw new Error('controller_not_ready');
+                  await x.openNewChat({hideToast:true, sendEventTrack:false});
                   const fm = window.__mwbQwenFeatureManager;
                   const fe = window.__mwbQwenFeatureEnum;
                   const chatStore = window.__mwbQwenChatStore?.getState?.();
@@ -287,8 +319,7 @@ class QwenBrowserControllerTransport:
                     }
                   }
                   window.__mwbQwenSendError = null;
-                  Promise.resolve(x.beforeSendMessage({inputText:prompt}))
-                    .catch(e => { window.__mwbQwenSendError = String(e?.message || e || 'send_failed'); });
+                  await x.beforeSendMessage({inputText:prompt});
                   return x.currentInstanceId || '';
                 }""",
                 {"prompt": prompt, "thinking": thinking, "search": search},
@@ -300,21 +331,13 @@ class QwenBrowserControllerTransport:
         page = await self._ensure()
         for attempt in range(2):
             try:
-                await self._open_new_chat(page)
+                await self.session_status()
+                return await self._apply_features_and_send(page, prompt, thinking=thinking, search=search)
             except Exception as exc:
                 if not self._is_transient_navigation_error(exc) or attempt == 1:
                     raise
                 await self._reset()
                 page = await self._ensure()
-                continue
-            try:
-                await page.wait_for_load_state("domcontentloaded", timeout=5000)
-            except Exception:
-                pass
-            await page.wait_for_timeout(250)
-            await self._bootstrap_controller(page)
-            await self.session_status()
-            return await self._apply_features_and_send(page, prompt, thinking=thinking, search=search)
         raise RuntimeError("Qwen send did not start")
 
     async def _snapshot(self) -> dict:
@@ -400,6 +423,16 @@ class QwenBrowserControllerTransport:
                     raise ProviderError("Qwen reconstructed stream became non-monotonic", "protocol_error", self.provider_id)
 
                 if saw_event and now - last_meaningful > self.idle_timeout and not snap.get("terminal"):
+                    logger.warning(
+                        "Qwen meaningful idle timeout state=%s chat_id=%s answer_len=%s thinking_len=%s answer_status=%s thinking_status=%s net=%s",
+                        snap.get("state"),
+                        snap.get("chat_id"),
+                        len(snap.get("answer") or ""),
+                        len(snap.get("thinking") or ""),
+                        snap.get("answer_status"),
+                        snap.get("thinking_status"),
+                        self._network_events[-8:],
+                    )
                     raise ProviderTimeoutError(self.provider_id, "Qwen meaningful idle timeout")
                 if snap.get("terminal"):
                     yield {"type": "done", "text": "", "chat_id": chat_id}

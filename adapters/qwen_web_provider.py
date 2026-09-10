@@ -50,6 +50,8 @@ class QwenWebProvider(Provider):
         c = config.config
         self._base_url = c.get("base_url", "https://chat.qwen.ai").rstrip("/")
         self._transport_mode = c.get("transport_mode", "browser_controller")
+        self._sidecar_url = c.get("sidecar_url", "http://127.0.0.1:5011").rstrip("/")
+        self._sidecar_token_file = c.get("sidecar_token_file", r".runtime\qwen-sidecar.token")
         self._frontend_version = c.get("frontend_version", "0.2.91")
         self._default_upstream_model = c.get("upstream_model", "qwen3.7-plus")
         self._token_env = c.get("token_env", "QWEN_WEB_TOKEN")
@@ -79,13 +81,49 @@ class QwenWebProvider(Provider):
             poll_interval=float(c.get("poll_interval", 0.08)),
         )
 
+    def _sidecar_headers(self) -> dict:
+        try:
+            token = open(self._sidecar_token_file, "r", encoding="utf-8").read().strip()
+        except OSError as e:
+            raise ProviderError("Qwen sidecar token is unavailable", "sidecar_unavailable", self.provider_id) from e
+        if not token:
+            raise ProviderError("Qwen sidecar token is empty", "sidecar_unavailable", self.provider_id)
+        return {"X-MWB-Sidecar-Token": token, "Content-Type": "application/json"}
+
+    def _sidecar_request(self, method: str, path: str, *, body: Optional[dict] = None, timeout: float = 210.0) -> dict:
+        try:
+            resp = requests.request(
+                method,
+                self._sidecar_url + path,
+                headers=self._sidecar_headers(),
+                json=body,
+                timeout=(5, timeout),
+            )
+        except requests.Timeout as e:
+            raise ProviderTimeoutError(self.provider_id, "Qwen sidecar request timed out") from e
+        except requests.RequestException as e:
+            raise ProviderError("Qwen sidecar transport failure", "sidecar_unavailable", self.provider_id) from e
+        try:
+            data = resp.json()
+        except ValueError as e:
+            raise ProviderError("Qwen sidecar returned non-JSON response", "protocol_error", self.provider_id) from e
+        if not resp.ok or not data.get("ok"):
+            raise ProviderError(
+                "Qwen sidecar request failed",
+                "sidecar_upstream_error",
+                self.provider_id,
+                {"http_status": resp.status_code, "error": data.get("error")},
+            )
+        return data
+
     @property
     def capabilities(self) -> ProviderCapabilities:
         browser_mode = self._transport_mode == "browser_controller"
+        sidecar_mode = self._transport_mode == "browser_sidecar"
         return ProviderCapabilities(
             chat_completion=True,
             streaming=True,
-            streaming_mode="reconstructed" if browser_mode else "native",
+            streaming_mode="buffered" if sidecar_mode else ("reconstructed" if browser_mode else "native"),
             tools=False,
             vision=False,
             embeddings=False,
@@ -96,7 +134,7 @@ class QwenWebProvider(Provider):
             search=False,
             reasoning=True,
             files=False,
-            transport_mode="browser_backend_controller" if browser_mode else "direct_http",
+            transport_mode="browser_backend_sidecar" if sidecar_mode else ("browser_backend_controller" if browser_mode else "direct_http"),
         )
 
     def _token(self) -> Optional[str]:
@@ -180,6 +218,12 @@ class QwenWebProvider(Provider):
         return data
 
     async def health_check(self) -> bool:
+        if self._transport_mode == "browser_sidecar":
+            try:
+                await asyncio.to_thread(self._sidecar_request, "GET", "/health", timeout=70)
+                return True
+            except ProviderError:
+                return False
         if self._transport_mode == "browser_controller":
             return await self._browser.health()
         if not self._token():
@@ -191,6 +235,8 @@ class QwenWebProvider(Provider):
             return False
 
     async def list_models(self) -> list[ModelInfo]:
+        if self._transport_mode == "browser_sidecar":
+            return [ModelInfo(id="qwen-web", owned_by="qwen-web", provider=self.provider_id)]
         if self._transport_mode == "browser_controller":
             try:
                 self._last_upstream_models = await self._browser.model_ids()
@@ -421,6 +467,34 @@ class QwenWebProvider(Provider):
             raise ProviderError("Unsupported Qwen model", "invalid_model", self.provider_id)
         if request.tools:
             raise ProviderError("Qwen tools are not enabled until E2 validation passes", "unsupported_tools", self.provider_id)
+        if self._transport_mode == "browser_sidecar":
+            opts = request.provider_options or {}
+            data = await asyncio.to_thread(
+                self._sidecar_request,
+                "POST",
+                "/chat",
+                body={
+                    "prompt": self._request_text(request),
+                    "thinking": opts.get("thinking", True),
+                    "search": bool(opts.get("search", False)),
+                },
+                timeout=self._total_timeout + 30,
+            )
+            return ChatCompletionResponse(
+                id=self._generate_id(),
+                created=self._current_timestamp(),
+                model="qwen-web",
+                choices=[Choice(index=0, message=Message(role="assistant", content=data.get("text") or ""), finish_reason="stop")],
+                usage=Usage(),
+                provider_meta={
+                    "provider": self.provider_id,
+                    "transport_mode": "browser_backend_sidecar",
+                    "streaming_mode": "buffered",
+                    "frontend_version": data.get("frontend_version"),
+                    "session_mode": data.get("session_mode"),
+                    "conversation_id": data.get("conversation_id"),
+                },
+            )
         if self._transport_mode == "browser_controller":
             opts = request.provider_options or {}
             pieces: list[str] = []
@@ -482,6 +556,26 @@ class QwenWebProvider(Provider):
             raise ProviderError("Unsupported Qwen model", "invalid_model", self.provider_id)
         if request.tools:
             raise ProviderError("Qwen tools are not enabled until E2 validation passes", "unsupported_tools", self.provider_id)
+        if self._transport_mode == "browser_sidecar":
+            response = await self.chat_completion(request, session)
+            chunk_id = self._generate_id()
+            text = response.choices[0].message.content or ""
+            if text:
+                yield ChatCompletionChunk(
+                    id=chunk_id,
+                    created=self._current_timestamp(),
+                    model="qwen-web",
+                    choices=[ChunkChoice(index=0, delta=Delta(content=text), finish_reason=None)],
+                    provider_meta=response.provider_meta,
+                )
+            yield ChatCompletionChunk(
+                id=chunk_id,
+                created=self._current_timestamp(),
+                model="qwen-web",
+                choices=[ChunkChoice(index=0, delta=Delta(), finish_reason="stop")],
+                provider_meta=response.provider_meta,
+            )
+            return
         if self._transport_mode == "browser_controller":
             opts = request.provider_options or {}
             chunk_id = self._generate_id()
@@ -557,7 +651,8 @@ class QwenWebProvider(Provider):
                 await asyncio.to_thread(self._delete_chat, chat_id)
 
     async def close(self) -> None:
-        await self._browser.close()
+        if self._transport_mode == "browser_controller":
+            await self._browser.close()
 
 
 def create_qwen_web_provider(
@@ -566,6 +661,7 @@ def create_qwen_web_provider(
     **config_values,
 ) -> QwenWebProvider:
     browser_mode = config_values.get("transport_mode", "browser_controller") == "browser_controller"
+    sidecar_mode = config_values.get("transport_mode") == "browser_sidecar"
     config = ProviderConfig(
         provider_id=provider_id,
         provider_type=ProviderType.QWEN_WEB,
@@ -575,7 +671,7 @@ def create_qwen_web_provider(
         capabilities=ProviderCapabilities(
             chat_completion=True,
             streaming=True,
-            streaming_mode="reconstructed" if browser_mode else "native",
+            streaming_mode="buffered" if sidecar_mode else ("reconstructed" if browser_mode else "native"),
             tools=False,
             vision=False,
             embeddings=False,
@@ -584,7 +680,7 @@ def create_qwen_web_provider(
             search=False,
             reasoning=True,
             files=False,
-            transport_mode="browser_backend_controller" if browser_mode else "direct_http",
+            transport_mode="browser_backend_sidecar" if sidecar_mode else ("browser_backend_controller" if browser_mode else "direct_http"),
         ),
     )
     return QwenWebProvider(config)

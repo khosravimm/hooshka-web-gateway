@@ -2,6 +2,29 @@
 
 All notable changes to mcp-web-bridge are recorded here.
 
+## 0.4.3 - 2026-09-10
+
+### Added
+- `zai-web` provider with browser-frontend/backend-SSE capture transport.
+- `zai_web` provider type and service wiring.
+- Z.ai model discovery through browser-context fallback when direct HTTP receives provider/session rejection.
+- Dedicated Z.ai Chrome CDP runtime management on `127.0.0.1:9223` via `service_manager.ps1`.
+- DeepSeek account-suspension incident document and Web-chat risk-budget controls.
+
+### Changed
+- Z.ai is now enabled for basic chat completion and buffered stream compatibility only; tools, search, vision and files remain disabled until dedicated E2 acceptance.
+- VERSION bumped to 0.4.3 for the first three-provider service baseline: ChatGPT Web, Qwen Web, and Z.ai Web.
+
+### Evidence
+- Deterministic suite: 53/53 PASS.
+- Service restart starts/verifies dedicated Z.ai Chrome CDP; `/json/version` returned Chrome/152.0.7977.84.
+- `/ready`: PASS with `zai-web`, `qwen-web`, and `chatgpt-web` all ready.
+- `/v1/models`: PASS with 16 Z.ai provider models.
+- Z.ai gateway non-stream E2: PASS (`ZAI_SERVICE_E2_OK`).
+- Z.ai gateway SSE compatibility E2: PASS (`ZAI_STREAM_E2_OK`, 2 data frames plus `[DONE]`).
+- No DeepSeek completion E2 claim is made while the current account is suspended/muted.
+- No E3 long-duration reliability claim is made.
+
 ## 0.4.2 - 2026-09-10
 
 ### Fixed

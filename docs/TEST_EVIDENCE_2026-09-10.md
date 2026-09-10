@@ -215,3 +215,24 @@ Still pending before broader Qwen operational acceptance:
 - controlled 401/403/429/session-expiry fault paths;
 - cancellation and cleanup/delete-chat acceptance;
 - independent-time-window E3 reliability runs.
+
+## Qwen Web � service acceptance refresh
+
+- Service restart: PASS; `WebLLMBridge` reached Running.
+- `/health`: PASS.
+- `/ready`: PASS; `qwen-web` and `chatgpt-web` both ready.
+- Three consecutive non-stream `qwen-web` requests through `POST /v1/chat/completions`: PASS with exact expected responses.
+- Streaming `qwen-web` request through the same unified endpoint: HTTP 200, 2 SSE data frames, `[DONE]` observed, reconstructed content exactly matched `QWEN_STREAM_PASS`.
+- Transport provenance: `browser_backend_controller`; outward streaming provenance: `reconstructed`; session mode: guest.
+- This is E2 acceptance for the tested window, not E3 long-duration reliability.
+
+## Z.ai Web � service acceptance
+
+- Frontend build: `prod-fe-1.1.93`.
+- CDP runtime: dedicated Chrome on `127.0.0.1:9223`, `/json/version` returned Chrome/152.0.7977.84.
+- `/ready`: PASS; `zai-web`, `qwen-web`, and `chatgpt-web` all ready.
+- `/v1/models`: PASS; 16 Z.ai provider models returned, including canonical `zai-web` and upstream metadata ids such as `zai:x-preview-l`, `zai:glm-5.3`, `zai:glm-5.2`, `zai:GLM-5-Turbo`, `zai:GLM-5v-Turbo`, `zai:glm-4.7`, and `zai:glm-4.6v`.
+- Non-stream E2: `POST /v1/chat/completions` with `model=zai-web` returned exact content `ZAI_SERVICE_E2_OK`.
+- Stream E2: `POST /v1/chat/completions` with `stream=true` returned HTTP 200, 2 SSE data frames, `[DONE]`, and exact reconstructed content `ZAI_STREAM_E2_OK`.
+- Provider metadata: `transport_mode=browser_frontend_backend_sse_capture`, `streaming_mode=buffered_sse_capture`, `frontend_version=prod-fe-1.1.93`.
+- Tool calling, search, vision and file workflows remain outside the accepted capability set.

@@ -24,6 +24,7 @@ from core.governance import init_governance, auth_manager, rate_limiter
 from core.config import load_config
 from adapters.chatgpt_web_provider import create_chatgpt_web_provider
 from adapters.qwen_web_provider import create_qwen_web_provider
+from adapters.zai_web_provider import create_zai_web_provider
 from control_panel import control_panel_bp
 
 
@@ -315,6 +316,14 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             )
             provider_registry.register(provider)
             rate_limiter.set_rate(pconfig.provider_id, pconfig.config.get("requests_per_minute", 12))
+        elif pconfig.provider_type == ProviderType.ZAI_WEB:
+            provider = create_zai_web_provider(
+                provider_id=pconfig.provider_id,
+                priority=pconfig.priority,
+                **pconfig.config,
+            )
+            provider_registry.register(provider)
+            rate_limiter.set_rate(pconfig.provider_id, pconfig.config.get("requests_per_minute", 6))
     
     server_config = config["server"]
     
