@@ -56,3 +56,21 @@ Append-only dated engineering observations. Stable conclusions are promoted to `
 - Initial implementation accepted `thinking/search` parameters but did not change frontend feature state. Source/runtime inspection found Qwen's exported feature manager and its `selectFeature`, `deselectFeature`, and `setThinkingMode` methods; the transport now uses those official frontend APIs instead of DOM controls.
 - Thinking on/off passed E2 after that correction. A search-enabled request also completed, but search remains unadvertised pending independent evidence that a search phase/event actually occurred.
 - Qwen tool support remains fail-closed (`tools=false`) until tool dialect, multiple calls, malformed dialect, empty allowlist, and full round-trip are independently E2-tested.
+
+## 2026-09-10 — DeepSeek live failure classification
+
+- Re-ran the existing `D:\Code\deepseek-api-kit-poc` against the current DeepSeek Web backend without exposing its runtime credential.
+- `POST /api/v0/chat_session/create` succeeded, confirming the credential/session path was accepted at session creation time.
+- Completion did **not** return SSE. The live response was HTTP 200 with `Content-Type: application/json` and an application envelope indicating an account-local muted state (`biz_code=5`, `is_muted=1`).
+- The legacy PoC parser treated HTTP 200 as if it implied an SSE stream and therefore yielded zero events. This is a protocol/failure-classification bug, not a successful empty response.
+- Transfer decision: added a shared pre-stream classifier in `core/upstream_response.py`. Providers must inspect HTTP status, content type, and application envelope before entering an SSE parser.
+- Evidence: source inspection E0 + live DeepSeek Web observation E2 for the failure path. Normal DeepSeek completion E2 remains blocked by the current account state and is **not** claimed.
+
+## 2026-09-10 — Z.ai backend-first discovery
+
+- Current Web frontend asset path identifies build `prod-fe-1.1.93`.
+- Source inspection shows same-origin backend roots (`/api`, `/api/v1`) and current completion path `/api/chat/completions`.
+- Current completion source attaches `Authorization`, `X-FE-Version: prod-fe-1.1.93`, `X-Signature`, language, and a device identifier when available. Payload includes model, messages, feature flags, session/chat/message identifiers, optional MCP servers, thinking/search state, files, and stream options.
+- Live browser-context model discovery against `/api/models` returned HTTP 200 with 15 model records. Observed current models include GLM-5.3-Flash, GLM-5.3, GLM-5.2, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7 and others; returned capability metadata explicitly describes thinking, MCP/function-call, vision, file-QA and web-search support per model.
+- A single UI submission was used only as a network-capture probe. `POST /api/v1/chats/new` returned 200, after which the current Web flow invoked Aliyun CAPTCHA before completion. The bridge did not bypass the challenge and did not downgrade to a DOM transport.
+- Transfer decision: Z.ai direct/browser-context model discovery is E2; completion protocol is E0/E2-partial discovery only and remains non-operational until signature/captcha/session behavior can be exercised through an allowed provider-owned path.

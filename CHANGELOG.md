@@ -2,6 +2,22 @@
 
 All notable changes to mcp-web-bridge are recorded here.
 
+## 0.4.1 - 2026-09-10
+
+### Added
+- Shared `core.upstream_response` classifier for HTTP status, content type, and application-level envelopes before SSE parsing.
+- Explicit `account_local_muted`, `application_error`, `rate_limit`, `provider_wide`, and `unexpected_content_type` dispositions.
+- Technology/Experience Matrix covering all 80 unique GitHub repositories in the current `D:\Tools` metadata inventory, with technical fields populated only where source inspection has actually occurred.
+
+### Research
+- DeepSeek live PoC session creation still succeeds, but current completion returns HTTP 200 with `application/json` and an account-local muted envelope rather than SSE. This is now treated as a terminal application failure, not an empty successful stream.
+- Z.ai current frontend observed as `prod-fe-1.1.93`. Live `/api/models` returned 15 models and capability metadata; current completion source uses `/api/chat/completions`, `X-FE-Version`, `X-Signature`, and device/session context.
+- A controlled Z.ai UI submission for network discovery created `/api/v1/chats/new` successfully, then entered Aliyun CAPTCHA before completion. No CAPTCHA bypass was attempted and Z.ai completion is not declared operational.
+
+### Tests
+- Deterministic suite: 47/47 PASS.
+- No DeepSeek or Z.ai E2 completion claim is made in this release.
+
 ## 0.4.0 - 2026-09-10
 
 ### Added

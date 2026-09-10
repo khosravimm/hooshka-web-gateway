@@ -34,6 +34,9 @@ This document records stable engineering lessons that should survive individual 
 28. **A frontend controller can be a backend transport without becoming DOM automation.** When anti-bot/session logic is encapsulated by the official Web frontend, invoking its controller APIs inside an isolated browser context preserves backend-first semantics better than typing/clicking UI controls.
 29. **Do not copy a user's whole browser storage to bootstrap a provider.** Browser storage can contain unrelated-site credentials. Prefer an isolated provider profile or an explicitly scoped session mechanism; Qwen guest mode proved sufficient for the current basic-chat path.
 30. **A request flag is not evidence that a Web feature was activated.** Parameters such as thinking/search must be traced to the provider's actual feature state or payload. Capability advertisement stays off until that mapping is independently demonstrated.
+31. **HTTP 200 is not a stream-success signal.** A Web backend may return an application-level terminal error as JSON with status 200. Content type and application envelope must be classified before the SSE state machine starts.
+32. **Account-local failure must not be promoted to provider-wide failure.** DeepSeek's live muted response is tied to the current account/session state; retrying every account or declaring the provider down would be incorrect without equivalent failure evidence.
+33. **Signature/captcha dependencies belong to the provider transport boundary.** Z.ai completion currently couples `X-Signature`, device/session context and CAPTCHA. Shared gateway code should classify the resulting challenge, while provider-specific code owns any legitimate bootstrap needed to satisfy it.
 
 ## Reuse sources
 

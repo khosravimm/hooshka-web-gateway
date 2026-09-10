@@ -154,3 +154,44 @@ tools requested while tools=false HTTP 400=PASS
 ```
 
 Search-enabled request completed, but search capability intentionally remains `false` until a search-specific network/event trace proves the feature was actually exercised. Tool calling, multiple tools, malformed tool dialects, session expiry/authenticated-session behavior, upstream 429/401/403 fault injection, cancellation/cleanup, and repeated E3 reliability windows remain acceptance work and must not be represented as passed.
+
+## Shared upstream failure classifier — 0.4.1
+
+Deterministic evidence: **E1, 5 new tests; full suite 47/47 PASS.**
+
+Covered cases:
+- HTTP 200 + `text/event-stream` enters stream state.
+- DeepSeek-style HTTP 200 JSON muted envelope becomes terminal `account_local_muted` and is non-retryable for that account/attempt.
+- HTTP 200 JSON with non-zero business code becomes terminal `application_error`.
+- HTTP 429 becomes terminal-for-attempt `rate_limit` with retryable classification for bounded policy above the transport.
+- Unexpected HTTP 200 content type fails closed rather than being parsed as SSE.
+
+## DeepSeek live check
+
+Evidence level: **E2 for the observed failure path only.**
+
+```text
+chat_session/create: accepted
+completion HTTP status: 200
+completion content-type: application/json
+application state: account-local muted
+normal SSE completion: NOT ESTABLISHED
+```
+
+The current DeepSeek credential/account state therefore cannot support a truthful basic-chat E2 acceptance run. No operational provider claim is made.
+
+## Z.ai discovery check
+
+Evidence level: **E0 source inspection + E2 model/session discovery + partial E2 network capture.**
+
+```text
+frontend build: prod-fe-1.1.93
+GET /api/models: 200
+model count observed: 15
+POST /api/v1/chats/new: 200
+completion path in current source: /api/chat/completions
+completion prerequisites observed in source: X-FE-Version, X-Signature, device/session context
+live completion probe: stopped at Aliyun CAPTCHA challenge
+CAPTCHA bypass: NOT ATTEMPTED
+operational completion: NOT ESTABLISHED
+```
