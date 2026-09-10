@@ -1,4 +1,4 @@
-<# Web LLM Bridge Service Manager (NSSM) #>
+<# Hooshka Web Gateway Service Manager (NSSM) #>
 param(
  [Parameter(Mandatory=$true,Position=0)]
  [ValidateSet('install','uninstall','start','stop','restart','status','logs','config')]
@@ -7,7 +7,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$ServiceName = 'WebLLMBridge'
+$ServiceName = 'HooshkaWebGateway'
+$LegacyServiceName = 'WebLLMBridge'
 $PythonExe = Join-Path $ScriptDir '.venv\Scripts\python.exe'
 $MainScript = Join-Path $ScriptDir 'main.py'
 $Nssm = 'D:\nssm-2.24-103-gdee49fc\win64\nssm.exe'
@@ -15,7 +16,7 @@ $EnvFile = Join-Path $ScriptDir '.env'
 $QwenProfile = Join-Path $ScriptDir '.runtime\qwen-profile'
 $ZaiProfile = Join-Path $ScriptDir '.runtime\zai-profile'
 $ZaiLegacyProfile = Join-Path $ScriptDir '.runtime\zai-cdp-profile'
-$ZaiRuntimeLabel = 'MWB-Zai-Web-SSE-Capture'
+$ZaiRuntimeLabel = 'HWG-Zai-Web-SSE-Capture'
 $ZaiCdpPort = 9223
 
 function Assert-Prereqs {
@@ -128,19 +129,22 @@ switch ($Command) {
  }
  'status' { Get-Service $ServiceName }
  'uninstall' {
-   if (Get-Service $ServiceName -ErrorAction SilentlyContinue) {
-     Stop-Service $ServiceName -Force -ErrorAction SilentlyContinue
-     Stop-OrphanQwenBrowsers
-     Stop-ZaiChromeCdp
-     & $Nssm remove $ServiceName confirm | Out-Null
+   foreach ($name in @($ServiceName, $LegacyServiceName)) {
+     if (Get-Service $name -ErrorAction SilentlyContinue) {
+       Stop-Service $name -Force -ErrorAction SilentlyContinue
+       & $Nssm remove $name confirm | Out-Null
+       Write-Output "REMOVED $name"
+     }
    }
-   Write-Output "REMOVED $ServiceName"
+   Stop-OrphanQwenBrowsers
+   Stop-ZaiChromeCdp
  }
  'logs' { Get-Content (Join-Path $ScriptDir 'logs\bridge.log') -Tail 80 }
  'config' {
    Assert-Prereqs
    [ordered]@{
      service=$ServiceName
+     legacy_service=$LegacyServiceName
      python=$PythonExe
      app=$MainScript
      directory=$ScriptDir
