@@ -1,4 +1,4 @@
-# Hooshka Web Gateway — Security and Governance
+# Hooshka Web Gateway â€” Security and Governance
 
 ## Security objective
 

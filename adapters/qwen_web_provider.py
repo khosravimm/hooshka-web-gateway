@@ -75,6 +75,7 @@ class QwenWebProvider(Provider):
         self._sidecar_token_file = c.get("sidecar_token_file", r".runtime\qwen-sidecar.token")
         self._frontend_version = c.get("frontend_version", "0.2.91")
         self._default_upstream_model = c.get("default_upstream_model") or c.get("upstream_model", "qwen3.8-max")
+        self._require_authenticated = bool(c.get("require_authenticated", True))
         self._token_env = c.get("token_env", "QWEN_WEB_TOKEN")
         self._token_file = c.get("token_file")
         self._connect_timeout = float(c.get("connect_timeout", 10))
@@ -246,6 +247,12 @@ class QwenWebProvider(Provider):
             except ProviderError:
                 return False
         if self._transport_mode == "browser_controller":
+            if self._require_authenticated:
+                try:
+                    status = await self._browser.session_status()
+                    return bool(status.get("authenticated"))
+                except ProviderError:
+                    return False
             return await self._browser.health()
         if not self._token():
             return False
@@ -260,6 +267,10 @@ class QwenWebProvider(Provider):
         if self._transport_mode == "browser_sidecar":
             return models
         if self._transport_mode == "browser_controller":
+            if self._require_authenticated:
+                status = await self._browser.session_status()
+                if not status.get("authenticated"):
+                    return models
             try:
                 self._last_upstream_models = await self._browser.model_ids()
             except ProviderError:
@@ -286,6 +297,15 @@ class QwenWebProvider(Provider):
     async def _resolve_and_validate_upstream_model(self, request: ChatCompletionRequest) -> str:
         upstream_model = self._resolve_upstream_model(request)
         if self._transport_mode == "browser_controller":
+            if self._require_authenticated:
+                status = await self._browser.session_status()
+                if not status.get("authenticated"):
+                    raise ProviderError(
+                        "Qwen Web requires an authenticated browser session; guest mode is disabled by policy",
+                        "auth_required",
+                        self.provider_id,
+                        {"session_mode": "guest_disabled"},
+                    )
             available = await self._browser.model_ids()
             self._last_upstream_models = list(available)
         elif self._token():

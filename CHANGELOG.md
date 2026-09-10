@@ -2,6 +2,19 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## 0.6.3 - 2026-09-10
+
+### Security / Governance
+- Added mandatory authenticated-session policy for Web-chat providers.
+- Added `require_authenticated: true` for Qwen Web and Z.ai Web in `config.yaml`.
+- Qwen browser-controller completion now fails closed with `auth_required` when the session is guest/unauthenticated.
+- Added official `LOGIN_SESSION_GUIDE.md` for provider login and session persistence using dedicated browser profiles.
+- Updated Kilo and Start Here guidance so guest mode is not considered valid operation.
+
+### Evidence
+- Deterministic regression suite: 63/63 PASS.
+- Added negative test proving Qwen guest mode is rejected by policy.
+- No credentials, cookies, provider tokens, authorization headers or CAPTCHA proof are stored in tracked files.
 ## 0.6.2 - 2026-09-10
 
 ### Changed
@@ -20,6 +33,19 @@ All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` i
 - Qwen completion was not retried because the current guest session is provider-rate-limited for the daily quota.
 - No E3 reliability claim is made.
 
+## 0.6.3 - 2026-09-10
+
+### Security / Governance
+- Added mandatory authenticated-session policy for Web-chat providers.
+- Added `require_authenticated: true` for Qwen Web and Z.ai Web in `config.yaml`.
+- Qwen browser-controller completion now fails closed with `auth_required` when the session is guest/unauthenticated.
+- Added official `LOGIN_SESSION_GUIDE.md` for provider login and session persistence using dedicated browser profiles.
+- Updated Kilo and Start Here guidance so guest mode is not considered valid operation.
+
+### Evidence
+- Deterministic regression suite: 63/63 PASS.
+- Added negative test proving Qwen guest mode is rejected by policy.
+- No credentials, cookies, provider tokens, authorization headers or CAPTCHA proof are stored in tracked files.
 ## 0.6.2 - 2026-09-10\n\n### Changed\n- Documentation and evidence wording corrected to avoid claiming strict Z.ai Browser Observability E2 before a clean live pass.\n\n### Evidence\n- Deterministic regression suite remains 62/62 PASS.\n- Latest strict Z.ai live check is NOT PASS: `Z.ai first-event timeout`.\n- Qwen completion remains blocked by provider guest quota; no retry loop is performed.\n\n## 0.6.1 - 2026-09-10
 
 ### Added

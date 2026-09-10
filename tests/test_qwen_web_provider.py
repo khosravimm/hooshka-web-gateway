@@ -19,6 +19,14 @@ async def _fake_model_ids():
     return ["qwen3.8-max", "qwen3.7-plus"]
 
 
+async def _fake_authenticated_session():
+    return {"authenticated": True, "session_mode": "authenticated", "status": 200}
+
+
+async def _fake_guest_session():
+    return {"authenticated": False, "session_mode": "guest", "status": 200}
+
+
 def test_qwen_browser_provider_preserves_false_thinking_option(monkeypatch):
     provider = create_qwen_web_provider(
         provider_id="qwen-web",
@@ -40,6 +48,7 @@ def test_qwen_browser_provider_preserves_false_thinking_option(monkeypatch):
 
     monkeypatch.setattr(provider._browser, "stream_text", fake_stream_text)
     monkeypatch.setattr(provider._browser, "model_ids", _fake_model_ids)
+    monkeypatch.setattr(provider._browser, "session_status", _fake_authenticated_session)
 
     request = ChatCompletionRequest(
         model="qwen-web",
@@ -77,6 +86,7 @@ def test_qwen_browser_stream_preserves_false_thinking_option(monkeypatch):
 
     monkeypatch.setattr(provider._browser, "stream_text", fake_stream_text)
     monkeypatch.setattr(provider._browser, "model_ids", _fake_model_ids)
+    monkeypatch.setattr(provider._browser, "session_status", _fake_authenticated_session)
 
     request = ChatCompletionRequest(
         model="qwen-web",
@@ -109,6 +119,7 @@ def test_qwen_explicit_max_routes_exact_upstream_model(monkeypatch):
 
     monkeypatch.setattr(provider._browser, "stream_text", fake_stream_text)
     monkeypatch.setattr(provider._browser, "model_ids", _fake_model_ids)
+    monkeypatch.setattr(provider._browser, "session_status", _fake_authenticated_session)
     request = ChatCompletionRequest(
         model="qwen:qwen3.8-max",
         messages=[{"role": "user", "content": "hello"}],
@@ -140,6 +151,7 @@ def test_qwen_default_web_model_uses_configured_strongest_model(monkeypatch):
 
     monkeypatch.setattr(provider._browser, "stream_text", fake_stream_text)
     monkeypatch.setattr(provider._browser, "model_ids", _fake_model_ids)
+    monkeypatch.setattr(provider._browser, "session_status", _fake_authenticated_session)
     request = ChatCompletionRequest(
         model="qwen-web",
         messages=[{"role": "user", "content": "hello"}],
@@ -150,6 +162,28 @@ def test_qwen_default_web_model_uses_configured_strongest_model(monkeypatch):
     assert response.model == "qwen-web"
     assert captured["upstream_model"] == "qwen3.8-max"
     assert response.provider_meta["upstream_model"] == "qwen3.8-max"
+    asyncio_run(provider.close())
+
+
+def test_qwen_rejects_guest_session_by_policy(monkeypatch):
+    provider = create_qwen_web_provider(
+        provider_id="qwen-web",
+        transport_mode="browser_controller",
+        profile_dir=".runtime/test-qwen-profile",
+        require_authenticated=True,
+    )
+    monkeypatch.setattr(provider._browser, "session_status", _fake_guest_session)
+    monkeypatch.setattr(provider._browser, "model_ids", _fake_model_ids)
+
+    request = ChatCompletionRequest(
+        model="qwen-web",
+        messages=[{"role": "user", "content": "hello"}],
+    )
+
+    with pytest.raises(ProviderError) as exc:
+        asyncio_run(provider.chat_completion(request))
+    assert exc.value.code == "auth_required"
+    assert "guest mode is disabled" in str(exc.value)
     asyncio_run(provider.close())
 
 
