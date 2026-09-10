@@ -4,51 +4,76 @@ from adapters.zai_web_provider import create_zai_web_provider
 from core.providers import ChatCompletionRequest, ProviderError
 
 
-class FakeResponse:
-    def __init__(self, status_code=200, data=None, content_type="application/json"):
-        self.status_code = status_code
-        self._data = data or {"data": []}
-        self.headers = {"content-type": content_type}
-        self.ok = 200 <= status_code < 300
+class FakeZaiTransport:
+    frontend_version = "prod-fe-test"
+    last_session_mode = "test"
 
-    def json(self):
-        return self._data
+    def __init__(self):
+        self.closed = False
+
+    async def health(self):
+        return True
+
+    async def model_ids(self):
+        return ["x-preview-l", "glm-4.7"]
+
+    async def stream_text(self, prompt):
+        yield {"type": "text_delta", "text": "ZAI_", "chat_id": "chat-1", "model": "glm-4.7"}
+        yield {"type": "text_delta", "text": "OK", "chat_id": "chat-1", "model": "glm-4.7"}
+
+    async def close(self):
+        self.closed = True
 
 
 @pytest.mark.asyncio
-async def test_zai_model_discovery_maps_upstream_models(monkeypatch):
+async def test_zai_model_discovery_exposes_canonical_model():
     provider = create_zai_web_provider(provider_id="zai-web")
-
-    def fake_get(url, headers, timeout):
-        assert url == "https://chat.z.ai/api/models"
-        assert headers["X-FE-Version"] == "prod-fe-1.1.93"
-        return FakeResponse(data={"data": [{"id": "x-preview-l"}, {"id": "glm-4.7"}]})
-
-    monkeypatch.setattr("adapters.zai_web_provider.requests.get", fake_get)
+    provider._browser = FakeZaiTransport()
 
     models = await provider.list_models()
-    assert [m.id for m in models] == ["zai-web", "zai:x-preview-l", "zai:glm-4.7"]
+
+    assert [m.id for m in models] == ["zai-web"]
 
 
 @pytest.mark.asyncio
-async def test_zai_completion_is_fail_closed():
-    provider = create_zai_web_provider(provider_id="zai-web", transport_mode="backend_discovery_only")
+async def test_zai_completion_uses_transport_stream():
+    provider = create_zai_web_provider(provider_id="zai-web")
+    provider._browser = FakeZaiTransport()
     req = ChatCompletionRequest(model="zai-web", messages=[{"role": "user", "content": "hello"}])
+
+    response = await provider.chat_completion(req)
+
+    assert response.choices[0].message.content == "ZAI_OK"
+    assert response.provider_meta["transport_mode"] == "browser_backend_controller"
+    assert response.provider_meta["conversation_id"] == "chat-1"
+
+
+@pytest.mark.asyncio
+async def test_zai_rejects_tools_until_e2_validation():
+    provider = create_zai_web_provider(provider_id="zai-web")
+    provider._browser = FakeZaiTransport()
+    req = ChatCompletionRequest(
+        model="zai-web",
+        messages=[{"role": "user", "content": "hello"}],
+        tools=[{"type": "function", "function": {"name": "x"}}],
+    )
 
     with pytest.raises(ProviderError) as exc:
         await provider.chat_completion(req)
 
-    assert exc.value.code == "challenge_required"
-    assert exc.value.details["completion_path"] == "/api/v2/chat/completions"
+    assert exc.value.code == "unsupported_tools"
 
 
 @pytest.mark.asyncio
-async def test_zai_stream_is_fail_closed():
-    provider = create_zai_web_provider(provider_id="zai-web", transport_mode="backend_discovery_only")
+async def test_zai_stream_emits_text_and_terminal_chunk():
+    provider = create_zai_web_provider(provider_id="zai-web")
+    provider._browser = FakeZaiTransport()
     req = ChatCompletionRequest(model="zai-web", messages=[{"role": "user", "content": "hello"}], stream=True)
 
-    with pytest.raises(ProviderError) as exc:
-        async for _ in provider.chat_completion_stream(req):
-            pass
+    chunks = []
+    async for chunk in provider.chat_completion_stream(req):
+        chunks.append(chunk)
 
-    assert exc.value.code == "challenge_required"
+    text = "".join((c.choices[0].delta.content or "") for c in chunks)
+    assert text == "ZAI_OK"
+    assert chunks[-1].choices[0].finish_reason == "stop"

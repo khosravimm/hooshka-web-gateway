@@ -13,7 +13,9 @@ $MainScript = Join-Path $ScriptDir 'main.py'
 $Nssm = 'D:\nssm-2.24-103-gdee49fc\win64\nssm.exe'
 $EnvFile = Join-Path $ScriptDir '.env'
 $QwenProfile = Join-Path $ScriptDir '.runtime\qwen-profile'
-$ZaiProfile = Join-Path $ScriptDir '.runtime\zai-cdp-profile'
+$ZaiProfile = Join-Path $ScriptDir '.runtime\zai-profile'
+$ZaiLegacyProfile = Join-Path $ScriptDir '.runtime\zai-cdp-profile'
+$ZaiRuntimeLabel = 'MWB-Zai-Web-SSE-Capture'
 $ZaiCdpPort = 9223
 
 function Assert-Prereqs {
@@ -80,15 +82,17 @@ function Ensure-ZaiChromeCdp {
 }
 
 function Stop-ZaiChromeCdp {
-  $needle = [Regex]::Escape($ZaiProfile)
+  $needles = @([Regex]::Escape($ZaiProfile), [Regex]::Escape($ZaiLegacyProfile))
   $procs = Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -and $_.CommandLine -match $needle }
+    Where-Object {
+      $cmd = $_.CommandLine
+      $cmd -and ($needles | Where-Object { $cmd -match $_ })
+    }
   foreach ($proc in $procs) {
     Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
   }
   if ($procs) { Start-Sleep -Milliseconds 500 }
 }
-
 switch ($Command) {
  'install' {
    Assert-Prereqs

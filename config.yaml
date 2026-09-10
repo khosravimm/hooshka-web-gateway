@@ -34,6 +34,7 @@ providers:
   config:
     transport_mode: browser_controller
     profile_dir: .runtime\qwen-profile
+    runtime_label: MWB-Qwen-Web-Controller
     browser_channel: chrome
     headless: true
     launch_timeout: 45
@@ -63,6 +64,8 @@ providers:
   config:
     base_url: https://chat.z.ai
     frontend_version: prod-fe-1.1.93
+    runtime_label: MWB-Zai-Web-SSE-Capture
+    profile_dir: .runtime\zai-profile
     transport_mode: browser_ui_capture
     cdp_url: http://127.0.0.1:9223
     total_timeout: 180
