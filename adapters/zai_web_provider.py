@@ -46,6 +46,7 @@ class ZaiWebProvider(Provider):
         super().__init__(config)
         c = config.config
         self._default_upstream_model = c.get("default_upstream_model", "glm-5.3")
+        self._require_authenticated = bool(c.get("require_authenticated", True))
         self._browser = ZaiBrowserControllerTransport(
             self.provider_id,
             cdp_url=c.get("cdp_url", "http://127.0.0.1:9223"),
@@ -90,12 +91,32 @@ class ZaiWebProvider(Provider):
                 parts.append(f"Tool result: {content}")
         return "\n\n".join(p for p in parts if p).strip()
 
+    async def _require_authenticated_session(self) -> None:
+        if not self._require_authenticated:
+            return
+        status = await self._browser.session_status()
+        if not status.get("authenticated"):
+            raise ProviderError(
+                "Z.ai Web requires an authenticated browser session; guest mode is disabled by policy",
+                "auth_required",
+                self.provider_id,
+                {"session_mode": "guest_disabled"},
+            )
+
     async def health_check(self) -> bool:
-        return await self._browser.health()
+        try:
+            await self._require_authenticated_session()
+            return await self._browser.health()
+        except ProviderError:
+            return False
 
     async def list_models(self) -> list[ModelInfo]:
-        upstream_ids = await self._browser.model_ids()
         models = [ModelInfo(id="zai-web", owned_by="z-ai-web", provider=self.provider_id)]
+        if self._require_authenticated:
+            status = await self._browser.session_status()
+            if not status.get("authenticated"):
+                return models
+        upstream_ids = await self._browser.model_ids()
         seen = {"zai-web"}
         for mid in upstream_ids:
             model_id = f"zai:{mid}"
@@ -116,6 +137,7 @@ class ZaiWebProvider(Provider):
         raise ProviderError("Unsupported Z.ai model", "invalid_model", self.provider_id)
 
     async def _resolve_and_validate_upstream_model(self, request: ChatCompletionRequest) -> str:
+        await self._require_authenticated_session()
         upstream_model = self._resolve_upstream_model(request)
         available = await self._browser.model_ids()
         if upstream_model not in available:

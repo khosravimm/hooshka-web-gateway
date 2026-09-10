@@ -10,13 +10,22 @@ class FakeZaiTransport:
     last_selected_model_label = None
     last_backend_request_model = None
 
-    def __init__(self):
+    def __init__(self, *, authenticated=True):
         self.closed = False
+        self.authenticated = authenticated
+        self.last_session_mode = "authenticated" if authenticated else "guest"
         self._catalog = [
             {"id": "x-preview-l", "name": "GLM-5.3-Flash"},
             {"id": "glm-5.3", "name": "GLM-5.3"},
             {"id": "glm-4.7", "name": "GLM-4.7"},
         ]
+
+    async def session_status(self):
+        return {
+            "authenticated": self.authenticated,
+            "http_status": 200 if self.authenticated else 401,
+            "mode": self.last_session_mode,
+        }
 
     async def health(self):
         return True
@@ -104,6 +113,37 @@ async def test_zai_rejects_tools_until_e2_validation():
         await provider.chat_completion(req)
 
     assert exc.value.code == "unsupported_tools"
+
+
+@pytest.mark.asyncio
+async def test_zai_guest_session_is_rejected_for_completion():
+    provider = create_zai_web_provider(provider_id="zai-web", require_authenticated=True)
+    provider._browser = FakeZaiTransport(authenticated=False)
+    req = ChatCompletionRequest(model="zai-web", messages=[{"role": "user", "content": "hello"}])
+
+    with pytest.raises(ProviderError) as exc:
+        await provider.chat_completion(req)
+
+    assert exc.value.code == "auth_required"
+    assert exc.value.details["session_mode"] == "guest_disabled"
+
+
+@pytest.mark.asyncio
+async def test_zai_guest_session_is_not_healthy_when_authentication_required():
+    provider = create_zai_web_provider(provider_id="zai-web", require_authenticated=True)
+    provider._browser = FakeZaiTransport(authenticated=False)
+
+    assert await provider.health_check() is False
+
+
+@pytest.mark.asyncio
+async def test_zai_model_list_does_not_enumerate_guest_upstream_models():
+    provider = create_zai_web_provider(provider_id="zai-web", require_authenticated=True)
+    provider._browser = FakeZaiTransport(authenticated=False)
+
+    models = await provider.list_models()
+
+    assert [m.id for m in models] == ["zai-web"]
 
 
 @pytest.mark.asyncio
