@@ -33,8 +33,10 @@ def test_qwen_browser_provider_preserves_false_thinking_option(monkeypatch):
         captured["thinking"] = thinking
         captured["search"] = search
         captured["upstream_model"] = upstream_model
-        yield {"type": "text_delta", "text": "ok", "chat_id": "chat-1"}
-        yield {"type": "done", "text": "", "chat_id": "chat-1"}
+        provider._browser.last_selected_models = [upstream_model]
+        provider._browser.last_backend_request_model = upstream_model
+        yield {"type": "text_delta", "text": "ok", "chat_id": "chat-1", "model": upstream_model}
+        yield {"type": "done", "text": "", "chat_id": "chat-1", "model": upstream_model}
 
     monkeypatch.setattr(provider._browser, "stream_text", fake_stream_text)
     monkeypatch.setattr(provider._browser, "model_ids", _fake_model_ids)
@@ -67,9 +69,11 @@ def test_qwen_browser_stream_preserves_false_thinking_option(monkeypatch):
         captured["thinking"] = thinking
         captured["search"] = search
         captured["upstream_model"] = upstream_model
-        yield {"type": "text_delta", "text": "o", "chat_id": "chat-1"}
-        yield {"type": "text_delta", "text": "k", "chat_id": "chat-1"}
-        yield {"type": "done", "text": "", "chat_id": "chat-1"}
+        provider._browser.last_selected_models = [upstream_model]
+        provider._browser.last_backend_request_model = upstream_model
+        yield {"type": "text_delta", "text": "o", "chat_id": "chat-1", "model": upstream_model}
+        yield {"type": "text_delta", "text": "k", "chat_id": "chat-1", "model": upstream_model}
+        yield {"type": "done", "text": "", "chat_id": "chat-1", "model": upstream_model}
 
     monkeypatch.setattr(provider._browser, "stream_text", fake_stream_text)
     monkeypatch.setattr(provider._browser, "model_ids", _fake_model_ids)
@@ -98,8 +102,10 @@ def test_qwen_explicit_max_routes_exact_upstream_model(monkeypatch):
 
     async def fake_stream_text(prompt, *, thinking=True, search=False, upstream_model=None):
         captured["upstream_model"] = upstream_model
-        yield {"type": "text_delta", "text": "ok", "chat_id": "chat-max"}
-        yield {"type": "done", "text": "", "chat_id": "chat-max"}
+        provider._browser.last_selected_models = [upstream_model]
+        provider._browser.last_backend_request_model = upstream_model
+        yield {"type": "text_delta", "text": "ok", "chat_id": "chat-max", "model": upstream_model}
+        yield {"type": "done", "text": "", "chat_id": "chat-max", "model": upstream_model}
 
     monkeypatch.setattr(provider._browser, "stream_text", fake_stream_text)
     monkeypatch.setattr(provider._browser, "model_ids", _fake_model_ids)
@@ -127,6 +133,8 @@ def test_qwen_default_web_model_uses_configured_strongest_model(monkeypatch):
 
     async def fake_stream_text(prompt, *, thinking=True, search=False, upstream_model=None):
         captured["upstream_model"] = upstream_model
+        provider._browser.last_selected_models = [upstream_model]
+        provider._browser.last_backend_request_model = upstream_model
         yield {"type": "text_delta", "text": "ok", "chat_id": "chat-max", "model": upstream_model}
         yield {"type": "done", "text": "", "chat_id": "chat-max", "model": upstream_model}
 

@@ -1,6 +1,7 @@
 from typing import AsyncIterator, Optional
 
 from adapters.zai_browser_transport import ZaiBrowserControllerTransport
+from core.browser_observability import BrowserEvidenceMismatch, BrowserModelEvidence
 from core.providers import (
     Provider,
     ProviderCapabilities,
@@ -21,6 +22,26 @@ from core.providers import (
 
 
 class ZaiWebProvider(Provider):
+    def _verify_browser_model_evidence(self, request: ChatCompletionRequest, upstream_model: str, response_model: Optional[str] = None) -> dict:
+        evidence = BrowserModelEvidence(
+            provider=self.provider_id,
+            requested_model=request.model,
+            expected_upstream_model=upstream_model,
+            frontend_version=getattr(self._browser, "frontend_version", None),
+            ui_selected_model=getattr(self._browser, "last_selected_model_label", None),
+            backend_request_model=getattr(self._browser, "last_backend_request_model", None),
+            response_model=response_model,
+        )
+        try:
+            return evidence.validate(require_selection=True, require_backend=True)
+        except BrowserEvidenceMismatch as exc:
+            raise ProviderError(
+                "Z.ai browser model evidence mismatch",
+                "model_evidence_mismatch",
+                self.provider_id,
+                exc.details,
+            ) from exc
+
     def __init__(self, config: ProviderConfig):
         super().__init__(config)
         c = config.config
@@ -131,6 +152,12 @@ class ZaiWebProvider(Provider):
             chat_id = event.get("chat_id") or chat_id
             upstream_model = event.get("model") or upstream_model
 
+        model_evidence = self._verify_browser_model_evidence(
+            request,
+            requested_upstream_model,
+            upstream_model or None,
+        )
+
         return ChatCompletionResponse(
             id=self._generate_id(),
             created=self._current_timestamp(),
@@ -148,6 +175,12 @@ class ZaiWebProvider(Provider):
                 "upstream_model": upstream_model or requested_upstream_model or None,
                 "selected_model_label": getattr(self._browser, "last_selected_model_label", None),
                 "backend_request_model": getattr(self._browser, "last_backend_request_model", None),
+                "model_evidence": model_evidence,
+                "browser_observability": {
+                    "backend_response_status": getattr(self._browser, "last_backend_response_status", None),
+                    "backend_response_content_type": getattr(self._browser, "last_backend_response_content_type", None),
+                    "backend_lifecycle": list(getattr(self._browser, "backend_lifecycle", [])[-8:]),
+                },
             },
         )
 
@@ -194,6 +227,16 @@ class ZaiWebProvider(Provider):
                     choices=[ChunkChoice(index=0, delta=Delta(content=event.get("text") or ""), finish_reason=None)],
                     provider_meta=dict(meta),
                 )
+        meta["model_evidence"] = self._verify_browser_model_evidence(
+            request,
+            requested_upstream_model,
+            meta.get("upstream_model"),
+        )
+        meta["browser_observability"] = {
+            "backend_response_status": getattr(self._browser, "last_backend_response_status", None),
+            "backend_response_content_type": getattr(self._browser, "last_backend_response_content_type", None),
+            "backend_lifecycle": list(getattr(self._browser, "backend_lifecycle", [])[-8:]),
+        }
         yield ChatCompletionChunk(
             id=chunk_id,
             created=self._current_timestamp(),

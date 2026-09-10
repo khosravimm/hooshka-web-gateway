@@ -2,6 +2,24 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## 0.6.1 - 2026-09-10
+
+### Added
+- Added shared Browser Observability primitives in `core/browser_observability.py`.
+- Added deterministic tests for model-evidence normalization and mismatch rejection.
+- Added provider-level model-evidence verification for Qwen Web and Z.ai Web browser-controller transports.
+- Added `docs/BROWSER_OBSERVABILITY.md` to document front/state/back evidence collection and fail-closed model verification.
+
+### Fixed
+- Z.ai snapshot observation now uses bounded observation-only retry when provider navigation replaces the page execution context. This does not replay the submitted prompt.
+- Qwen unit tests now simulate the full model-evidence chain required by the stricter browser-controller contract.
+
+### Evidence
+- Deterministic regression suite: 62/62 PASS.
+- `git diff --check`: PASS.
+- No new Z.ai browser-observability E2 pass is claimed in this release; one stricter live check exposed a navigation/context-replacement race and is recorded for follow-up.
+- Qwen live completion remains blocked by current provider guest quota; no retry loop was performed.
+- No E3 reliability claim is made.
 ## 0.6.0 - 2026-09-10
 
 ### Added

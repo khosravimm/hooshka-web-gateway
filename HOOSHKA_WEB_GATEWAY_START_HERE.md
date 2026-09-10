@@ -1,4 +1,4 @@
-# Hooshka Web Gateway — Start Here
+# Hooshka Web Gateway â€” Start Here
 
 > **Canonical discovery document for humans and agents**
 >
@@ -9,7 +9,7 @@
 - **Product:** Hooshka Web Gateway
 - **Technical id:** `hooshka-web-gateway`
 - **Hooshka module id:** `web_gateway`
-- **Current baseline:** `0.6.0`
+- **Current baseline:** `0.6.1`
 - **Local path:** `D:\Code\hooshka-web-gateway`
 - **Windows service:** `HooshkaWebGateway`
 - **Local API:** `http://127.0.0.1:5000`
@@ -36,10 +36,10 @@ Hooshka itself should consume the gateway API and must not depend directly on pr
 
 **Evidence levels**
 
-- E0 — source/research evidence
-- E1 — deterministic unit/synthetic/prototype evidence
-- E2 — real Web-chat end-to-end evidence
-- E3 — repeated predefined reliability evidence across independent windows
+- E0 â€” source/research evidence
+- E1 â€” deterministic unit/synthetic/prototype evidence
+- E2 â€” real Web-chat end-to-end evidence
+- E3 â€” repeated predefined reliability evidence across independent windows
 
 The current release is an **E2 operational baseline**, not an E3 reliability claim.
 
@@ -72,6 +72,7 @@ For current behavior, use these in this order:
 Canonical current documents:
 
 - `docs/ARCHITECTURE_CURRENT.md`
+- `docs/BROWSER_OBSERVABILITY.md`
 - `docs/API_REFERENCE.md`
 - `docs/PRACTICAL_USAGE.md`
 - `docs/CONFIGURATION_REFERENCE.md`
@@ -216,24 +217,24 @@ git diff --check
 git status --short --branch
 ```
 
-Accepted 0.6.0 deterministic baseline:
+Accepted 0.6.1 deterministic baseline:
 
 ```text
-56 passed
+62 passed
 ```
 
 Do not run repeated live provider tests unless the change actually requires provider E2 validation.
 
 ## Main API surface
 
-- `GET /health` — process/liveness identity
-- `GET /ready` — provider readiness
-- `GET /health/deep` — deeper runtime/provider diagnostics
-- `GET /modes` — capability and transport provenance
-- `GET /v1/models` — canonical routable models
-- `POST /v1/chat/completions` — primary chat/stream endpoint
-- `POST /v1/chat/code` — code-oriented compatibility endpoint
-- `POST /v1/chat/conversation` — conversation continuity endpoint
+- `GET /health` â€” process/liveness identity
+- `GET /ready` â€” provider readiness
+- `GET /health/deep` â€” deeper runtime/provider diagnostics
+- `GET /modes` â€” capability and transport provenance
+- `GET /v1/models` â€” canonical routable models
+- `POST /v1/chat/completions` â€” primary chat/stream endpoint
+- `POST /v1/chat/code` â€” code-oriented compatibility endpoint
+- `POST /v1/chat/conversation` â€” conversation continuity endpoint
 
 See `docs/API_REFERENCE.md` and `docs/PRACTICAL_USAGE.md`.
 
@@ -278,7 +279,7 @@ Stop testing immediately on:
 Current release:
 
 ```text
-v0.6.0
+v0.6.1
 ```
 
 Pre-canonical-migration rollback reference:

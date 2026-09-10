@@ -1,6 +1,6 @@
-# Hooshka Web Gateway — Start Here
+# Hooshka Web Gateway â€” Start Here
 
-**Current baseline:** 0.6.0
+**Current baseline:** 0.6.1
 **Module id:** `web_gateway`
 **Local path:** `D:\Code\hooshka-web-gateway`
 **Windows service:** `HooshkaWebGateway`
@@ -38,11 +38,12 @@ Run the deterministic test suite:
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Expected 0.6.0 baseline: **56 passed**.
+Expected 0.6.1 baseline: **62 passed**.
 
 ## Read next
 
 - Operator: `OPERATIONS_RUNBOOK.md`
+- Browser/runtime diagnostics: `BROWSER_OBSERVABILITY.md`
 - API consumer: `API_REFERENCE.md`
 - Practical examples: `PRACTICAL_USAGE.md`
 - Hooshka integrator: `HOOSHKA_INTEGRATION_GUIDE.md`

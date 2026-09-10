@@ -1,8 +1,8 @@
-# Hooshka Web Gateway — Documentation Index
+# Hooshka Web Gateway â€” Documentation Index
 
 > Repository-level discovery starts at `../HOOSHKA_WEB_GATEWAY_START_HERE.md`. Agents and humans should read that file first.
 
-**Release:** 0.6.0
+**Release:** 0.6.1
 **Canonical project:** `hooshka-web-gateway`
 **Module:** `web_gateway`
 
@@ -25,19 +25,19 @@
 
 ## Canonical current documents
 
-- `START_HERE.md` — product orientation, current status and safe operating rules.
-- `ARCHITECTURE_CURRENT.md` — current component boundaries, routing, transports, retry and evidence model.
-- `API_REFERENCE.md` — endpoint contract, authentication, request/response and error semantics.
-- `PRACTICAL_USAGE.md` — PowerShell/Python/OpenAI-compatible examples and common operating scenarios.
-- `CONFIGURATION_REFERENCE.md` — tracked config, provider fields, runtime credentials and change gate.
-- `OPERATIONS_RUNBOOK.md` — start/stop/restart, health sequence, provider runtime ownership and incidents.
-- `PROVIDERS.md` — provider capability matrix and provider-specific engineering notes.
-- `SECURITY_GOVERNANCE.md` — trust boundaries, secrets, data governance, risk controls and incident classes.
-- `HOOSHKA_INTEGRATION_GUIDE.md` — stable `web_gateway` contract for Hooshka.
-- `DEVELOPMENT_GUIDE.md` — repository map, provider development workflow and release gates.
-- `TROUBLESHOOTING_CURRENT.md` — current diagnostic playbook.
-- `FINAL_REPORT_2026-09-10.md` — 0.5.0 release-level handoff.
-- `EXPLICIT_MODEL_SELECTION_EVIDENCE_2026-09-10.md` — strict E2/default-routing evidence, dynamic catalog verification, and current Qwen quota state.
+- `START_HERE.md` â€” product orientation, current status and safe operating rules.
+- `ARCHITECTURE_CURRENT.md` â€” current component boundaries, routing, transports, retry and evidence model.
+- `API_REFERENCE.md` â€” endpoint contract, authentication, request/response and error semantics.
+- `PRACTICAL_USAGE.md` â€” PowerShell/Python/OpenAI-compatible examples and common operating scenarios.
+- `CONFIGURATION_REFERENCE.md` â€” tracked config, provider fields, runtime credentials and change gate.
+- `OPERATIONS_RUNBOOK.md` â€” start/stop/restart, health sequence, provider runtime ownership and incidents.
+- `PROVIDERS.md` â€” provider capability matrix and provider-specific engineering notes.
+- `SECURITY_GOVERNANCE.md` â€” trust boundaries, secrets, data governance, risk controls and incident classes.
+- `HOOSHKA_INTEGRATION_GUIDE.md` â€” stable `web_gateway` contract for Hooshka.
+- `DEVELOPMENT_GUIDE.md` â€” repository map, provider development workflow and release gates.
+- `TROUBLESHOOTING_CURRENT.md` â€” current diagnostic playbook.
+- `FINAL_REPORT_2026-09-10.md` â€” 0.5.0 release-level handoff.
+- `EXPLICIT_MODEL_SELECTION_EVIDENCE_2026-09-10.md` â€” strict E2/default-routing evidence, dynamic catalog verification, and current Qwen quota state.
 
 ## Research, evidence and history
 

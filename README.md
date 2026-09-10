@@ -2,7 +2,7 @@
 
 **Canonical id:** `hooshka-web-gateway`
 **Hooshka module:** `web_gateway`
-**Current release:** `0.6.0`
+**Current release:** `0.6.1`
 
 Hooshka Web Gateway is the unified local API gateway for governed access to supported Web-chat providers. It gives Hooshka, local agents and compatible clients one OpenAI-style interface while isolating provider-specific browser, session, frontend and transport behavior.
 
@@ -100,7 +100,7 @@ Historical research/evidence documents remain under `docs/`.
 git diff --check
 ```
 
-Accepted 0.6.0 deterministic baseline: **58 passed**.
+Accepted 0.6.1 deterministic baseline: **62 passed**.
 
 ## Security rules
 

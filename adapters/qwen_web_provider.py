@@ -30,12 +30,33 @@ from core.providers import (
     SessionContext,
 )
 from core.stream_state import StreamTracker
+from core.browser_observability import BrowserEvidenceMismatch, BrowserModelEvidence
 from adapters.qwen_browser_transport import QwenBrowserControllerTransport
 
 logger = logging.getLogger(__name__)
 
 
 class QwenWebProvider(Provider):
+    def _verify_browser_model_evidence(self, request: ChatCompletionRequest, upstream_model: str, response_model: Optional[str] = None) -> dict:
+        evidence = BrowserModelEvidence(
+            provider=self.provider_id,
+            requested_model=request.model,
+            expected_upstream_model=upstream_model,
+            frontend_version=getattr(self._browser, "frontend_version", None),
+            frontend_state_models=list(getattr(self._browser, "last_selected_models", []) or []),
+            backend_request_model=getattr(self._browser, "last_backend_request_model", None),
+            response_model=response_model,
+        )
+        try:
+            return evidence.validate(require_selection=True, require_backend=True)
+        except BrowserEvidenceMismatch as exc:
+            raise ProviderError(
+                "Qwen browser model evidence mismatch",
+                "model_evidence_mismatch",
+                self.provider_id,
+                exc.details,
+            ) from exc
+
     """Backend-first Qwen Web provider.
 
     Preferred runtime is Qwen's own frontend controller inside a dedicated
@@ -536,6 +557,7 @@ class QwenWebProvider(Provider):
                 self._browser.last_backend_request_model = None
             pieces: list[str] = []
             chat_id = ""
+            response_model = None
             async for event in self._browser.stream_text(
                 self._request_text(request),
                 thinking=opts.get("thinking", True),
@@ -543,8 +565,10 @@ class QwenWebProvider(Provider):
                 upstream_model=upstream_model,
             ):
                 chat_id = event.get("chat_id") or chat_id
+                response_model = event.get("model") or response_model
                 if event.get("type") == "text_delta":
                     pieces.append(event.get("text") or "")
+            model_evidence = self._verify_browser_model_evidence(request, upstream_model, response_model)
             return ChatCompletionResponse(
                 id=self._generate_id(),
                 created=self._current_timestamp(),
@@ -561,6 +585,10 @@ class QwenWebProvider(Provider):
                     "upstream_model": upstream_model,
                     "selected_models": list(getattr(self._browser, "last_selected_models", [])),
                     "backend_request_model": getattr(self._browser, "last_backend_request_model", None),
+                    "model_evidence": model_evidence,
+                    "browser_observability": {
+                        "network_lifecycle": list(getattr(self._browser, "_network_events", [])[-8:]),
+                    },
                 },
             )
         upstream_model = await self._resolve_and_validate_upstream_model(request)
@@ -628,6 +656,7 @@ class QwenWebProvider(Provider):
                 self._browser.last_backend_request_model = None
             chunk_id = self._generate_id()
             chat_id = ""
+            response_model = None
             async for event in self._browser.stream_text(
                 self._request_text(request),
                 thinking=opts.get("thinking", True),
@@ -635,6 +664,7 @@ class QwenWebProvider(Provider):
                 upstream_model=upstream_model,
             ):
                 chat_id = event.get("chat_id") or chat_id
+                response_model = event.get("model") or response_model
                 if event.get("type") != "text_delta":
                     continue
                 yield ChatCompletionChunk(
@@ -654,6 +684,7 @@ class QwenWebProvider(Provider):
                         "backend_request_model": getattr(self._browser, "last_backend_request_model", None),
                     },
                 )
+            model_evidence = self._verify_browser_model_evidence(request, upstream_model, response_model)
             yield ChatCompletionChunk(
                 id=chunk_id,
                 created=self._current_timestamp(),
@@ -669,6 +700,10 @@ class QwenWebProvider(Provider):
                     "upstream_model": upstream_model,
                     "selected_models": list(getattr(self._browser, "last_selected_models", [])),
                     "backend_request_model": getattr(self._browser, "last_backend_request_model", None),
+                    "model_evidence": model_evidence,
+                    "browser_observability": {
+                        "network_lifecycle": list(getattr(self._browser, "_network_events", [])[-8:]),
+                    },
                 },
             )
             return

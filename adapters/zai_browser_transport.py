@@ -54,6 +54,14 @@ class ZaiBrowserControllerTransport:
         self.last_selected_model_label: Optional[str] = None
         self.last_backend_request_model: Optional[str] = None
         self.last_requested_model: Optional[str] = None
+        self.last_backend_response_status: Optional[int] = None
+        self.last_backend_response_content_type: Optional[str] = None
+        self.backend_lifecycle: list[dict] = []
+
+    def _record_backend_lifecycle(self, event: dict) -> None:
+        self.backend_lifecycle.append(event)
+        if len(self.backend_lifecycle) > 20:
+            self.backend_lifecycle = self.backend_lifecycle[-20:]
 
     def _attach_safe_model_diagnostics(self, page: Page) -> None:
         if getattr(page, "_hwg_zai_model_diag", False):
@@ -69,8 +77,34 @@ class ZaiBrowserControllerTransport:
                 self.last_backend_request_model = str(model) if model else None
             except Exception:
                 self.last_backend_request_model = None
+            self._record_backend_lifecycle({
+                "event": "request",
+                "model": self.last_backend_request_model,
+            })
+
+        def on_response(resp):
+            if "/api/v2/chat/completions" not in resp.url and "/api/chat/completions" not in resp.url:
+                return
+            self.last_backend_response_status = int(resp.status)
+            self.last_backend_response_content_type = str(resp.headers.get("content-type") or "")[:120]
+            self._record_backend_lifecycle({
+                "event": "response",
+                "status": self.last_backend_response_status,
+                "content_type": self.last_backend_response_content_type,
+            })
+
+        def on_request_failed(req):
+            if "/api/v2/chat/completions" not in req.url and "/api/chat/completions" not in req.url:
+                return
+            failure = req.failure
+            self._record_backend_lifecycle({
+                "event": "request_failed",
+                "error": str(failure or "")[:160],
+            })
 
         page.on("request", on_request)
+        page.on("response", on_response)
+        page.on("requestfailed", on_request_failed)
 
     async def _ensure(self) -> Page:
         if self._page and not self._page.is_closed():
@@ -271,18 +305,7 @@ class ZaiBrowserControllerTransport:
             return False
 
     async def _snapshot(self, page: Page, prompt: str) -> dict:
-        try:
-            runtime_ready = bool(await page.evaluate("() => !!window.__mwbZaiHistoryStore"))
-        except Exception:
-            runtime_ready = False
-        if not runtime_ready:
-            try:
-                await page.wait_for_load_state("domcontentloaded", timeout=int(self.launch_timeout * 1000))
-            except Exception:
-                pass
-            await self._bootstrap_runtime(page)
-        return await page.evaluate(
-            """(prompt) => {
+        script = """(prompt) => {
               const store = window.__mwbZaiHistoryStore;
               if (!store) return {ready:false};
               let h;
@@ -323,9 +346,26 @@ class ZaiBrowserControllerTransport:
                 model:assistant?.model || '',
                 chatId
               };
-            }""",
-            prompt,
-        )
+            }"""
+        last_exc = None
+        for attempt in range(4):
+            try:
+                runtime_ready = bool(await page.evaluate("() => !!window.__mwbZaiHistoryStore"))
+                if not runtime_ready:
+                    try:
+                        await page.wait_for_load_state("domcontentloaded", timeout=int(self.launch_timeout * 1000))
+                    except Exception:
+                        pass
+                    await self._bootstrap_runtime(page)
+                return await page.evaluate(script, prompt)
+            except Exception as exc:
+                last_exc = exc
+                msg = str(exc).lower()
+                transient = "execution context was destroyed" in msg or "navigation" in msg
+                if not transient or attempt == 3:
+                    raise
+                await page.wait_for_timeout(250)
+        raise last_exc or RuntimeError("Z.ai snapshot failed")
 
     async def _select_model(self, page: Page, upstream_model: Optional[str]) -> None:
         if not upstream_model:
