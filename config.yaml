@@ -70,7 +70,9 @@ providers:
     profile_dir: .runtime\zai-profile
     transport_mode: browser_ui_capture
     cdp_url: http://127.0.0.1:9223
-    total_timeout: 180
+    first_event_timeout: 120
+    idle_timeout: 180
+    total_timeout: 420
     poll_interval: 0.25
     connect_timeout: 10
     header_timeout: 30

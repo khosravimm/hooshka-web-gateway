@@ -439,6 +439,7 @@ class ZaiBrowserControllerTransport:
             total_deadline = start + self.total_timeout
             last_meaningful = start
             emitted = ""
+            reasoning_emitted = ""
             committed = False
 
             try:
@@ -460,7 +461,16 @@ class ZaiBrowserControllerTransport:
 
                     snap = await self._snapshot(page, prompt)
                     if snap.get("matched"):
-                        if not emitted and now > first_deadline and not snap.get("text"):
+                        reasoning = snap.get("reasoning") or ""
+                        if reasoning != reasoning_emitted:
+                            if reasoning.startswith(reasoning_emitted):
+                                reasoning_emitted = reasoning
+                                last_meaningful = now
+                            else:
+                                reasoning_emitted = reasoning
+                                last_meaningful = now
+
+                        if not emitted and not reasoning_emitted and now > first_deadline and not snap.get("text"):
                             raise ProviderTimeoutError(self.provider_id, "Z.ai first-event timeout")
                         text = snap.get("text") or ""
                         if text != emitted:
