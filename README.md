@@ -69,11 +69,13 @@ Authenticated operational calls require the runtime bearer key.
 
 ## Documentation
 
-Start with:
+**Primary discovery document for humans and agents:**
 
 ```text
-docs/START_HERE.md
+HOOSHKA_WEB_GATEWAY_START_HERE.md
 ```
+
+The detailed documentation index is in `docs/README.md`.
 
 Then use:
 
@@ -98,7 +100,7 @@ Historical research/evidence documents remain under `docs/`.
 git diff --check
 ```
 
-Accepted 0.5.0 deterministic baseline: **54 passed**.
+Accepted 0.5.1 deterministic baseline: **54 passed**.
 
 ## Security rules
 

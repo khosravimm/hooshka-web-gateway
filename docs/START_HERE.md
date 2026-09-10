@@ -38,7 +38,7 @@ Run the deterministic test suite:
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Expected 0.5.0 baseline: **54 passed**.
+Expected 0.5.1 baseline: **54 passed**.
 
 ## Read next
 
