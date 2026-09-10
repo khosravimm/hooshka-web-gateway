@@ -111,9 +111,11 @@ class ProviderRouter:
             candidates = [p for p in candidates if p.capabilities.tools]
         
         if model:
+            # Exact, fail-closed model resolution. An empty model list means the
+            # provider has declared no routable model ids, not "match anything".
             candidates = [
                 p for p in candidates
-                if not p.capabilities.supported_models or model in p.capabilities.supported_models
+                if model in p.capabilities.supported_models
             ]
         
         if not candidates:

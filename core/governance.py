@@ -54,7 +54,18 @@ class AuthManager:
         self._enabled = True
     
     def load_keys(self, keys: dict[str, dict]):
-        self._api_keys = keys
+        normalized = {}
+        for key, value in (keys or {}).items():
+            if isinstance(value, str):
+                normalized[key] = {"identity": value, "metadata": {}}
+            elif isinstance(value, dict):
+                normalized[key] = {
+                    "identity": value.get("identity", "anonymous"),
+                    "metadata": value.get("metadata", {}),
+                }
+            else:
+                logger.warning("Ignoring invalid auth identity mapping for one API key")
+        self._api_keys = normalized
     
     def add_key(self, key: str, identity: str, metadata: dict = None):
         self._api_keys[key] = {"identity": identity, "metadata": metadata or {}}
@@ -104,6 +115,10 @@ def generate_request_id():
 
 
 def auth_middleware():
+    if request.path in ("/health", "/ready", "/health/deep"):
+        g.identity = {"identity": "health-check", "metadata": {}}
+        g.api_key = None
+        return
     if request.path.startswith("/panel/api/"):
         g.identity = {"identity": "admin-panel", "metadata": {}}
         g.api_key = None
@@ -125,7 +140,7 @@ def auth_middleware():
 
 
 def rate_limit_middleware():
-    if request.path.startswith("/panel/api/"):
+    if request.path in ("/health", "/ready", "/health/deep") or request.path.startswith("/panel/api/"):
         return
     identity_info = g.get("identity") or {}
     identity = identity_info.get("identity", "anonymous")

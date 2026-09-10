@@ -316,6 +316,20 @@ class TestProviderRouter:
         selected = self.router.select_provider(model="claude-3")
         assert selected is None
 
+    def test_empty_supported_models_is_not_wildcard(self):
+        self.provider._capabilities.supported_models = []
+        assert self.router.select_provider(model="anything") is None
+
+    def test_model_resolution_does_not_cross_fallback(self):
+        self.provider._capabilities.supported_models = ["chatgpt-web"]
+        other = MockProvider(provider_id="other-provider", priority=1)
+        other._capabilities.supported_models = ["qwen-web"]
+        self.registry.register(other)
+
+        assert self.router.select_provider(model="chatgpt-web") == self.provider
+        assert self.router.select_provider(model="qwen-web") == other
+        assert self.router.select_provider(model="unknown-web") is None
+
 
 class TestRateLimiter:
     def setup_method(self):
@@ -376,6 +390,11 @@ class TestAuthManager:
         result = self.auth.verify("any-key")
         assert result is not None
         assert result["identity"] == "anonymous"
+
+    def test_load_keys_accepts_legacy_string_identity(self):
+        self.auth.load_keys({"legacy-key": "legacy-user"})
+        result = self.auth.verify("legacy-key")
+        assert result == {"identity": "legacy-user", "metadata": {}}
 
 
 @pytest.mark.asyncio

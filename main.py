@@ -6,6 +6,7 @@ import logging
 import asyncio
 import threading
 import atexit
+import queue
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from datetime import datetime
 from flask import Flask, request, jsonify, Response, stream_with_context, g
@@ -30,7 +31,7 @@ SWAGGER_TEMPLATE = {
     "info": {
         "title": "Web LLM Bridge API",
         "description": "Virtual LLM API Gateway with Model Compatibility Proxy (MCP)\n\nRoutes requests to ChatGPT Web via Chrome DevTools Protocol.\n\n**Architecture**: Agent → Virtual LLM API → MCP Layer → Provider Registry → ChatGPT Web Provider",
-        "version": "1.0.0",
+        "version": "0.3.0",
         "contact": {
             "name": "Web LLM Bridge",
         },
@@ -444,7 +445,14 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             raise
 
     def _shutdown_async_loop():
-        if _async_loop.is_running():
+        if not _async_loop.is_running():
+            return
+        try:
+            future = asyncio.run_coroutine_threadsafe(provider_registry.close_all(), _async_loop)
+            future.result(timeout=10)
+        except Exception as e:
+            logger.warning(f"Provider shutdown did not complete cleanly: {e}")
+        finally:
             _async_loop.call_soon_threadsafe(_async_loop.stop)
 
     atexit.register(_shutdown_async_loop)
@@ -463,7 +471,28 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             schema:
               $ref: '#/definitions/HealthResponse'
         """
-        return jsonify({"status": "ok"})
+        return jsonify({"status": "ok", "service": "mcp-web-bridge"})
+
+    @app.route("/ready", methods=["GET"])
+    def ready():
+        """Readiness check for at least one usable provider runtime."""
+        providers = provider_registry.list_providers()
+        details = []
+        ready_any = False
+        for provider in providers:
+            try:
+                ok = bool(_run_async(provider.health_check()))
+            except Exception as e:
+                ok = False
+                logger.warning(f"Readiness check failed for {provider.provider_id}: {e}")
+            details.append({"provider": provider.provider_id, "ready": ok})
+            ready_any = ready_any or ok
+        return jsonify({"status": "ready" if ready_any else "not_ready", "providers": details}), (200 if ready_any else 503)
+
+    @app.route("/health/deep", methods=["GET"])
+    def deep_health():
+        """Alias for readiness, kept explicit for operational tooling."""
+        return ready()
     
     @app.route("/modes", methods=["GET"])
     def list_modes():
@@ -490,6 +519,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                     "capabilities": {
                         "chat_completion": p.capabilities.chat_completion,
                         "streaming": p.capabilities.streaming,
+                        "streaming_mode": p.capabilities.streaming_mode,
                         "tools": p.capabilities.tools,
                         "vision": p.capabilities.vision,
                         "embeddings": p.capabilities.embeddings,
@@ -570,19 +600,25 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         g.request_model = req.model
         
         provider_id = data.get("provider")
-        # Some OpenAI-compatible clients send their local provider label
-        # (for example ``web-llm-bridge``) rather than the gateway's actual
-        # provider id.  Unknown labels should not prevent model-based routing.
         if provider_id and provider_registry.get(provider_id) is None:
-            provider_id = None
+            return jsonify({"error": {
+                "message": f"Unknown provider: {provider_id}",
+                "type": "invalid_request_error",
+                "code": "unknown_provider",
+            }}), 400
         provider = provider_router.select_provider(
             model=req.model,
             provider_id=provider_id,
             require_streaming=req.stream,
+            require_tools=bool(req.tools),
         )
         
         if not provider:
-            return jsonify({"error": {"message": "No suitable provider available", "type": "provider_unavailable"}}), 503
+            return jsonify({"error": {
+                "message": f"No provider supports model '{req.model}' with the requested capabilities",
+                "type": "invalid_request_error",
+                "code": "unknown_or_unsupported_model",
+            }}), 400
         
         g.selected_provider_id = provider.provider_id
         
@@ -614,25 +650,37 @@ def create_app(config_path: str = "config.yaml") -> Flask:
     
     def _stream_response(provider, req: ChatCompletionRequest, session):
         def generate():
-            try:
-                async def stream_gen():
-                    items = []
+            event_queue = queue.Queue()
+            sentinel = object()
+
+            async def produce():
+                try:
                     async for chunk in provider.chat_completion_stream(req, session):
                         normalized = mcp_normalizer.normalize_chunk(chunk, provider)
-                        items.append(f"data: {json.dumps(_format_stream_chunk(normalized))}\n\n")
-                    items.append("data: [DONE]\n\n")
-                    return items
+                        event_queue.put(("data", _format_stream_chunk(normalized)))
+                    event_queue.put(("done", sentinel))
+                except Exception as e:
+                    event_queue.put(("error", e))
 
-                # run_coroutine_threadsafe requires a coroutine, while an
-                # async generator cannot be submitted directly. Collect the
-                # stream on the persistent Playwright loop, then yield the
-                # already formatted SSE frames to Flask.
-                for item in _run_async(stream_gen()):
-                    yield item
-            except Exception as e:
-                logger.error(f"Stream error: {e}")
-                error_resp = mcp_normalizer.normalize_error(e, provider)
-                yield f"data: {json.dumps(error_resp)}\n\n"
+            future = asyncio.run_coroutine_threadsafe(produce(), _async_loop)
+            try:
+                while True:
+                    kind, payload = event_queue.get()
+                    if kind == "data":
+                        yield f"data: {json.dumps(payload)}\n\n"
+                    elif kind == "done":
+                        yield "data: [DONE]\n\n"
+                        break
+                    elif kind == "error":
+                        logger.error(f"Stream error: {payload}")
+                        error_resp = mcp_normalizer.normalize_error(payload, provider)
+                        yield f"data: {json.dumps(error_resp)}\n\n"
+                        break
+            finally:
+                # A disconnected client must not leave provider work running in
+                # the persistent async loop indefinitely.
+                if not future.done():
+                    future.cancel()
         
         return Response(stream_with_context(generate()), mimetype="text/event-stream")
     
@@ -685,9 +733,16 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         
         g.request_model = req.model
         
-        provider = provider_router.select_provider(model=req.model)
+        provider = provider_router.select_provider(
+            model=req.model,
+            require_tools=bool(req.tools),
+        )
         if not provider:
-            return jsonify({"error": {"message": "No suitable provider available", "type": "provider_unavailable"}}), 503
+            return jsonify({"error": {
+                "message": f"No provider supports model '{req.model}' with the requested capabilities",
+                "type": "invalid_request_error",
+                "code": "unknown_or_unsupported_model",
+            }}), 400
         
         g.selected_provider_id = provider.provider_id
         
@@ -768,9 +823,17 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         
         g.request_model = req.model
         
-        provider = provider_router.select_provider(model=req.model)
+        provider = provider_router.select_provider(
+            model=req.model,
+            require_streaming=req.stream,
+            require_tools=bool(req.tools),
+        )
         if not provider:
-            return jsonify({"error": {"message": "No suitable provider available", "type": "provider_unavailable"}}), 503
+            return jsonify({"error": {
+                "message": f"No provider supports model '{req.model}' with the requested capabilities",
+                "type": "invalid_request_error",
+                "code": "unknown_or_unsupported_model",
+            }}), 400
         
         g.selected_provider_id = provider.provider_id
         
@@ -807,4 +870,11 @@ app = create_app()
 if __name__ == "__main__":
     config = load_config()
     server_config = config["server"]
-    app.run(host=server_config["host"], port=server_config["port"], debug=server_config["debug"], threaded=True)
+    from waitress import serve
+
+    serve(
+        app,
+        host=server_config["host"],
+        port=server_config["port"],
+        threads=4,
+    )

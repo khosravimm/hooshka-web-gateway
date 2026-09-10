@@ -10,13 +10,27 @@ def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
     with open(config_path, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f) or {}
     
-    return merge_with_defaults(config)
+    merged = merge_with_defaults(config)
+
+    # Runtime secrets belong in the process environment, not tracked YAML.
+    # A single local bridge key is sufficient for the current deployment;
+    # additional keys may still be supplied through config in non-secret
+    # development fixtures.
+    env_api_key = os.getenv("BRIDGE_API_KEY")
+    if env_api_key:
+        identity = os.getenv("BRIDGE_API_IDENTITY", "local-user")
+        merged.setdefault("governance", {}).setdefault("auth", {})["enabled"] = True
+        merged["governance"]["auth"]["api_keys"] = {
+            env_api_key: {"identity": identity, "metadata": {"source": "environment"}}
+        }
+
+    return merged
 
 
 def get_default_config() -> Dict[str, Any]:
     return {
         "server": {
-            "host": "0.0.0.0",
+            "host": "127.0.0.1",
             "port": 5000,
             "debug": False,
         },
@@ -46,12 +60,15 @@ def get_default_config() -> Dict[str, Any]:
                 },
                 "capabilities": {
                     "chat_completion": True,
-                    "streaming": os.getenv("BRIDGE_ADAPTER", "dom") == "network",
-                    "tools": False,
+                    # DOM provides buffered OpenAI-compatible streaming and the
+                    # provider normalizes Web Chat tool protocol into tool_calls.
+                    "streaming": True,
+                    "streaming_mode": "buffered",
+                    "tools": True,
                     "vision": False,
                     "embeddings": False,
                     "max_context_tokens": 128000,
-                    "supported_models": ["gpt-4", "gpt-4o", "gpt-3.5-turbo", "chatgpt-web"],
+                    "supported_models": ["chatgpt-web"],
                 },
             }
         ],

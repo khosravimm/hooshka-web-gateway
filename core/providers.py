@@ -18,6 +18,7 @@ class ProviderType(Enum):
 class ProviderCapabilities:
     chat_completion: bool = True
     streaming: bool = True
+    streaming_mode: str = "unknown"
     tools: bool = False
     vision: bool = False
     embeddings: bool = False

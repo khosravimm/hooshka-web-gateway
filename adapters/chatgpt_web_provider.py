@@ -28,6 +28,7 @@ from core.files import (
     extract_download_links,
 )
 from core.parser import parse_sse_chunks, extract_text_from_sse_events
+from core.tool_protocol import serialize_messages, parse_tool_envelope, strong_auto_tool_signal
 
 logger = logging.getLogger(__name__)
 
@@ -67,13 +68,14 @@ class ChatGPTWebProvider(Provider):
             # this capability lets OpenAI-compatible clients such as Kilo
             # select the provider when they send stream=true.
             streaming=True,
+            streaming_mode="buffered",
             tools=True,
             vision=False,
             embeddings=False,
             max_context_tokens=128000,
-            # ChatGPT Web is model-agnostic from the gateway's perspective;
-            # accept arbitrary client model aliases (gpt-4.1, o3, etc.).
-            supported_models=[],
+            # Canonical gateway model id. Do not claim arbitrary upstream model
+            # aliases that the Web UI does not prove or expose deterministically.
+            supported_models=["chatgpt-web"],
         )
     
     async def health_check(self) -> bool:
@@ -143,9 +145,15 @@ class ChatGPTWebProvider(Provider):
         await self._page.wait_for_selector(INPUT_SELECTOR, timeout=30000)
         input_box = self._page.locator(INPUT_SELECTOR)
         await input_box.click()
-        await input_box.press("Control+a")
-        await input_box.press("Delete")
-        await input_box.press_sequentially(message)
+        try:
+            # `fill` is dramatically faster for the large serialized tool
+            # manifests sent by agent clients such as Kilo and works for both
+            # input/textarea and contenteditable composers.
+            await input_box.fill(message)
+        except Exception:
+            await input_box.press("Control+a")
+            await input_box.press("Delete")
+            await input_box.press_sequentially(message)
         
         send_btn = self._page.locator(SEND_SELECTOR)
         if await send_btn.count() > 0 and await send_btn.is_visible():
@@ -156,53 +164,115 @@ class ChatGPTWebProvider(Provider):
     async def _wait_for_assistant(self, timeout: int = 120000):
         await self._page.wait_for_selector(ASSISTANT_SELECTOR, timeout=timeout)
 
-    async def _wait_for_new_assistant(self, previous_count: int, previous_text: str = "", timeout: int = 120000):
-        """Wait until ChatGPT has produced a response for the current request.
-
-        Merely waiting for the assistant selector is insufficient on the second
-        request because the previous assistant message is still present.
-        """
+    async def _wait_for_new_assistant(
+        self,
+        previous_count: int,
+        previous_text: str = "",
+        previous_action_count: int = 0,
+        timeout: int = 120000,
+    ):
+        """Wait for a completed assistant response without retaining stale DOM locators."""
         deadline = asyncio.get_running_loop().time() + (timeout / 1000)
-        messages = self._page.locator(ASSISTANT_SELECTOR)
+        stable_text = None
+        stable_samples = 0
+        transient = {"thinking", "working", "generating"}
+
         while asyncio.get_running_loop().time() < deadline:
+            # Re-create locators every poll because ChatGPT frequently replaces
+            # message nodes while streaming/reconciling React state.
+            messages = self._page.locator(ASSISTANT_SELECTOR)
             count = await messages.count()
-            if count > previous_count:
-                latest = messages.nth(count - 1)
-                text = (await latest.inner_text(timeout=10000)).strip()
-                if text:
-                    return
-            elif count == previous_count and count > 0:
-                latest = messages.nth(count - 1)
-                text = (await latest.inner_text(timeout=10000)).strip()
-                if text and text != previous_text:
-                    return
-            await asyncio.sleep(0.5)
-        raise PlaywrightTimeout(f"Timed out waiting for a new assistant response after {timeout}ms")
-    
+            text = ""
+            if count > 0:
+                try:
+                    text = (await messages.last.inner_text(timeout=3000)).strip()
+                except Exception:
+                    text = ""
+
+            is_new = count > previous_count or (count == previous_count and text and text != previous_text)
+            if is_new and text and text.lower() not in transient:
+                try:
+                    action_count = await self._page.locator(
+                        "button[data-testid='copy-turn-action-button']"
+                    ).count()
+                except Exception:
+                    action_count = previous_action_count
+
+                generating = False
+                for selector in (
+                    "button[data-testid='stop-button']",
+                    "button[aria-label*='Stop']",
+                    "button[aria-label*='stop']",
+                ):
+                    try:
+                        loc = self._page.locator(selector)
+                        if await loc.count() and await loc.first.is_visible():
+                            generating = True
+                            break
+                    except Exception:
+                        pass
+
+                # Current ChatGPT renders one copy action for the user turn and
+                # one for the completed assistant turn. Requiring both protects
+                # against accepting the transient assistant placeholder.
+                response_actions_ready = action_count >= previous_action_count + 2
+
+                if not generating and response_actions_ready:
+                    if text == stable_text:
+                        stable_samples += 1
+                    else:
+                        stable_text = text
+                        stable_samples = 1
+                    if stable_samples >= 3:
+                        return
+                else:
+                    stable_samples = 0
+            else:
+                stable_samples = 0
+
+            await asyncio.sleep(0.75)
+
+        raise PlaywrightTimeout(f"Timed out waiting for a completed assistant response after {timeout}ms")
+
     async def _extract_latest_assistant_text(self) -> str:
-        assistant_messages = self._page.locator(ASSISTANT_SELECTOR)
-        count = await assistant_messages.count()
-        latest = assistant_messages.nth(count - 1)
-        
         old_text = ""
-        for _ in range(30):
+        stable_samples = 0
+        for _ in range(40):
             try:
-                new_text = (await latest.inner_text(timeout=10000)).strip()
+                messages = self._page.locator(ASSISTANT_SELECTOR)
+                if await messages.count() == 0:
+                    new_text = ""
+                else:
+                    new_text = (await messages.last.inner_text(timeout=3000)).strip()
             except Exception:
                 try:
-                    new_text = (await latest.evaluate("el => el.innerText || el.textContent || ''")).strip()
+                    messages = self._page.locator(ASSISTANT_SELECTOR)
+                    if await messages.count() == 0:
+                        new_text = ""
+                    else:
+                        new_text = (
+                            await messages.last.evaluate("el => el.innerText || el.textContent || ''")
+                        ).strip()
                 except Exception:
                     new_text = ""
             if new_text and new_text == old_text:
-                break
+                stable_samples += 1
+                if stable_samples >= 2:
+                    break
+            else:
+                stable_samples = 0
             old_text = new_text
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.75)
         
         try:
-            return (await latest.inner_text(timeout=10000)).strip()
+            messages = self._page.locator(ASSISTANT_SELECTOR)
+            return (await messages.last.inner_text(timeout=3000)).strip()
         except Exception:
             try:
-                return (await latest.evaluate("el => el.innerText || el.textContent || ''")).strip()
+                messages = self._page.locator(ASSISTANT_SELECTOR)
+                return (
+                    await messages.last.evaluate("el => el.innerText || el.textContent || ''")
+                ).strip()
             except Exception:
                 return old_text.strip()
     
@@ -236,6 +306,116 @@ class ChatGPTWebProvider(Provider):
         
         for path in file_paths:
             await self._upload_file(path)
+
+    async def _repair_tool_protocol(self, request: ChatCompletionRequest) -> tuple[Optional[str], Optional[list]]:
+        """Repair one provider response that violated the strict tool envelope.
+
+        The repair happens inside the same ChatGPT conversation and is bounded
+        to a single attempt so protocol failure cannot create an unbounded loop.
+        """
+        assistant_messages = self._page.locator(ASSISTANT_SELECTOR)
+        previous_count = await assistant_messages.count()
+        previous_action_count = await self._page.locator(
+            "button[data-testid='copy-turn-action-button']"
+        ).count()
+        previous_text = ""
+        if previous_count:
+            try:
+                previous_text = (await assistant_messages.last.inner_text(timeout=3000)).strip()
+            except Exception:
+                previous_text = ""
+
+        if request.tool_choice == "required" or isinstance(request.tool_choice, dict):
+            repair = (
+                "PROTOCOL ERROR: your previous response was not a valid tool call, but this turn requires one. "
+                "Do not answer the user's task and do not invent a result. Reply ONLY with one JSON object in "
+                "this exact form: {\"tool_calls\":[{\"name\":\"<function_name>\",\"arguments\":{}}]}."
+            )
+        else:
+            repair = (
+                "PROTOCOL ERROR: your previous response was not in the required machine envelope. Re-evaluate "
+                "the user's latest request. If a listed tool is required, reply ONLY with "
+                "{\"tool_calls\":[{\"name\":\"<function_name>\",\"arguments\":{}}]}. If no tool is required, "
+                "reply ONLY with {\"final\":\"<complete answer>\"}. Do not add anything outside the JSON."
+            )
+
+        await self._send_message(repair)
+        await self._wait_for_new_assistant(
+            previous_count,
+            previous_text,
+            previous_action_count=previous_action_count,
+            timeout=self._timeout * 1000,
+        )
+        repaired_text = await self._extract_latest_assistant_text()
+        content, calls, valid = parse_tool_envelope(repaired_text)
+        if not valid:
+            raise ProviderError(
+                "Provider failed strict tool protocol after one repair attempt",
+                "tool_protocol_violation",
+                self.provider_id,
+            )
+        if (request.tool_choice == "required" or isinstance(request.tool_choice, dict)) and not calls:
+            raise ProviderError(
+                "Provider returned a final answer when a tool call was required",
+                "tool_protocol_violation",
+                self.provider_id,
+            )
+        return content, calls
+
+    async def _review_auto_tool_decision(
+        self,
+        request: ChatCompletionRequest,
+        candidate_final: Optional[str],
+    ) -> tuple[Optional[str], Optional[list]]:
+        """Review an ``auto`` decision that initially selected a final answer.
+
+        Web-chat models sometimes fabricate local/current state instead of using
+        the tools they were given. A bounded review turn corrects that failure
+        mode while preserving normal direct answers when no tool is actually
+        needed.
+        """
+        assistant_messages = self._page.locator(ASSISTANT_SELECTOR)
+        previous_count = await assistant_messages.count()
+        previous_action_count = await self._page.locator(
+            "button[data-testid='copy-turn-action-button']"
+        ).count()
+        previous_text = ""
+        if previous_count:
+            try:
+                previous_text = (await assistant_messages.last.inner_text(timeout=3000)).strip()
+            except Exception:
+                previous_text = ""
+
+        tool_names = []
+        for tool in request.tools or []:
+            name = ((tool or {}).get("function") or {}).get("name")
+            if name:
+                tool_names.append(name)
+
+        review = (
+            "TOOL ROUTING REVIEW. Your previous response selected a final answer. Re-check ONLY whether the "
+            "user's original request can be answered correctly without any external tool execution. You do NOT "
+            "know the user's local machine state, files, installed software, command output, private data, or "
+            "fresh external/current state unless a tool result was supplied. If the request depends on any such "
+            "state, or explicitly asks to use/run/check through a listed tool, output ONLY a tool_calls JSON "
+            "envelope using one of these tools: "
+            + ", ".join(tool_names)
+            + ". If no tool is genuinely required, output ONLY the final JSON envelope again. Never invent or "
+            "simulate a tool result."
+        )
+
+        await self._send_message(review)
+        await self._wait_for_new_assistant(
+            previous_count,
+            previous_text,
+            previous_action_count=previous_action_count,
+            timeout=self._timeout * 1000,
+        )
+        reviewed_text = await self._extract_latest_assistant_text()
+        content, calls, valid = parse_tool_envelope(reviewed_text)
+        if not valid:
+            return await self._repair_tool_protocol(request)
+        return content, calls
     
     async def chat_completion(
         self,
@@ -250,6 +430,19 @@ class ChatGPTWebProvider(Provider):
                 try:
                     await self._ensure_page()
                     return await self._do_chat_completion(request, session)
+                except ProviderTimeoutError:
+                    # The prompt may already have been submitted. Retrying a
+                    # timeout can duplicate the user's turn in ChatGPT Web.
+                    raise
+                except ProviderError as e:
+                    if e.code == "tool_protocol_violation" or e.details.get("submission_started"):
+                        raise
+                    last_error = e
+                    if attempt == 0:
+                        logger.warning(f"Chat completion failed, reconnecting: {e}")
+                        await self._cleanup_connection()
+                        continue
+                    break
                 except Exception as e:
                     last_error = e
                     if attempt == 0:
@@ -264,17 +457,28 @@ class ChatGPTWebProvider(Provider):
         request: ChatCompletionRequest,
         session: Optional[SessionContext] = None
     ) -> ChatCompletionResponse:
+        explicit_conversation = bool(request.conversation_id)
         conversation_id = request.conversation_id or f"conv-{self._generate_id()}"
         mcp_session = mcp_session_manager.get_or_create_session(conversation_id, self)
-        
-        if session and session.provider_session_id:
-            pass
+
+        # Keep explicitly correlated conversations on their provider URL. Plain
+        # stateless completion requests start from a fresh ChatGPT conversation
+        # so stale UI history cannot contaminate routing or completion detection.
+        if session and session.provider_session_id and str(session.provider_session_id).startswith("https://chatgpt.com/"):
+            if self._page.url != session.provider_session_id:
+                await self._page.goto(session.provider_session_id, wait_until="domcontentloaded", timeout=30000)
+        elif not explicit_conversation and self._page.url != self._chatgpt_url:
+            await self._page.goto(self._chatgpt_url, wait_until="domcontentloaded", timeout=30000)
         
         file_paths = request.provider_options.get("file_paths", []) if request.provider_options else []
         
+        submission_started = False
         try:
             assistant_messages = self._page.locator(ASSISTANT_SELECTOR)
             previous_count = await assistant_messages.count()
+            previous_action_count = await self._page.locator(
+                "button[data-testid='copy-turn-action-button']"
+            ).count()
             previous_text = ""
             if previous_count:
                 previous_text = (await assistant_messages.nth(previous_count - 1).inner_text(timeout=10000)).strip()
@@ -291,10 +495,33 @@ class ChatGPTWebProvider(Provider):
                 )
             elif not isinstance(user_content, str):
                 user_content = str(user_content)
-            chunks = build_chunked_messages(user_content, chunk_size=self._long_text_chunk_size)
+
+            # OpenAI-compatible agent requests must preserve the complete
+            # transcript, tool definitions and prior tool results. Plain chat
+            # keeps the shorter legacy path to avoid unnecessary prompt noise.
+            if request.tools or any(m.get("role") != "user" for m in request.messages):
+                outbound_content = serialize_messages(
+                    request.messages,
+                    tools=request.tools,
+                    tool_choice=request.tool_choice,
+                )
+            else:
+                outbound_content = user_content
+
+            # Agent/tool transcripts are protocol envelopes and must remain one
+            # atomic user turn. Splitting them into multiple submitted messages
+            # lets ChatGPT answer before the tool schema/transcript is complete.
+            if request.tools or any(m.get("role") != "user" for m in request.messages):
+                chunks = [outbound_content]
+            else:
+                chunks = build_chunked_messages(outbound_content, chunk_size=self._long_text_chunk_size)
             
             for idx, chunk in enumerate(chunks):
                 prefix = f"[Part {idx + 1}/{len(chunks)}] " if len(chunks) > 1 else ""
+                # Commitment boundary: once submission starts, any later failure
+                # is ambiguous from the gateway's perspective and must never
+                # trigger an automatic replay of the same user turn.
+                submission_started = True
                 await self._send_message(f"{prefix}{chunk}")
                 if idx < len(chunks) - 1:
                     await asyncio.sleep(2)
@@ -302,10 +529,34 @@ class ChatGPTWebProvider(Provider):
             await self._wait_for_new_assistant(
                 previous_count,
                 previous_text,
+                previous_action_count=previous_action_count,
                 timeout=self._timeout * 1000,
             )
             response_text = await self._extract_latest_assistant_text()
             downloads = await extract_download_links(self._page)
+
+            content_output = response_text
+            tool_calls = None
+            finish_reason = "stop"
+            if request.tools:
+                content_output, tool_calls, valid_protocol = parse_tool_envelope(response_text)
+                must_call = request.tool_choice == "required" or isinstance(request.tool_choice, dict)
+                if not valid_protocol or (must_call and not tool_calls):
+                    content_output, tool_calls = await self._repair_tool_protocol(request)
+                elif request.tool_choice in (None, "auto") and not tool_calls:
+                    signal = strong_auto_tool_signal(
+                        content_output or response_text,
+                        request.tools,
+                        latest_user_text=user_content,
+                    )
+                    if signal:
+                        logger.info(f"Auto tool review triggered: {signal}")
+                        content_output, tool_calls = await self._review_auto_tool_decision(
+                            request,
+                            content_output,
+                        )
+                if tool_calls:
+                    finish_reason = "tool_calls"
             
             mcp_session_manager.update_provider_session_id(conversation_id, self._page.url)
             
@@ -316,14 +567,18 @@ class ChatGPTWebProvider(Provider):
                 choices=[
                     Choice(
                         index=0,
-                        message=Message(role="assistant", content=response_text),
-                        finish_reason="stop",
+                        message=Message(
+                            role="assistant",
+                            content=content_output,
+                            tool_calls=tool_calls,
+                        ),
+                        finish_reason=finish_reason,
                     )
                 ],
                 usage=Usage(
                     prompt_tokens=len(user_content) // 4,
                     completion_tokens=len(response_text) // 4,
-                    total_tokens=(len(user_content) + len(response_text)) // 4,
+                    total_tokens=(len(outbound_content) + len(response_text)) // 4,
                 ),
                 provider_meta={
                     "chunks_sent": len(chunks),
@@ -332,19 +587,35 @@ class ChatGPTWebProvider(Provider):
                 },
             )
         except PlaywrightTimeout as e:
-            raise ProviderTimeoutError(self.provider_id, f"Request timeout: {e}")
+            err = ProviderTimeoutError(self.provider_id, f"Request timeout: {e}")
+            err.details["submission_started"] = submission_started
+            raise err
+        except ProviderError as e:
+            e.details.setdefault("submission_started", submission_started)
+            raise
         except Exception as e:
             import traceback
             logger.error(f"Chat completion error: {e}\n{traceback.format_exc()}")
-            raise ProviderError(str(e), "chat_completion_failed", self.provider_id)
+            raise ProviderError(
+                str(e),
+                "chat_completion_failed",
+                self.provider_id,
+                details={"submission_started": submission_started},
+            )
     
     async def chat_completion_stream(
         self,
         request: ChatCompletionRequest,
         session: Optional[SessionContext] = None
     ) -> AsyncIterator[ChatCompletionChunk]:
-        if self._adapter != "network":
+        # Tool calls require protocol normalization after the model response is
+        # complete. Use the buffered compatibility path for tools even when the
+        # provider is configured for network capture; this preserves a correct
+        # OpenAI tool-call contract instead of leaking provider text/DSL.
+        if request.tools or self._adapter != "network":
             response = await self.chat_completion(request, session)
+            message = response.choices[0].message
+            finish_reason = response.choices[0].finish_reason
             chunk = ChatCompletionChunk(
                 id=response.id,
                 created=response.created,
@@ -352,8 +623,12 @@ class ChatGPTWebProvider(Provider):
                 choices=[
                     ChunkChoice(
                         index=0,
-                        delta=Delta(role="assistant", content=response.choices[0].message.content),
-                        finish_reason="stop",
+                        delta=Delta(
+                            role="assistant",
+                            content=message.content,
+                            tool_calls=message.tool_calls,
+                        ),
+                        finish_reason=finish_reason,
                     )
                 ],
                 provider_meta=response.provider_meta,
@@ -525,12 +800,16 @@ def create_chatgpt_web_provider(
         },
         capabilities=ProviderCapabilities(
             chat_completion=True,
-            streaming=(adapter == "network"),
-            tools=False,
+            # DOM provides buffered compatibility streaming; network mode can
+            # additionally capture provider events. Tools use the buffered
+            # path so their protocol can be normalized before emission.
+            streaming=True,
+            streaming_mode="buffered",
+            tools=True,
             vision=False,
             embeddings=False,
             max_context_tokens=128000,
-            supported_models=["gpt-4", "gpt-4o", "gpt-3.5-turbo", "chatgpt-web"],
+            supported_models=["chatgpt-web"],
         ),
     )
     return ChatGPTWebProvider(config)

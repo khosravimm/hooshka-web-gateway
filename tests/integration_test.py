@@ -15,6 +15,10 @@ import time
 import requests
 from typing import Dict, Any, Optional
 
+# This file is an executable live-integration harness, not a pytest unit-test
+# module. Run it explicitly with `python tests/integration_test.py`.
+__test__ = False
+
 
 BASE_URL = "http://localhost:5000"
 TIMEOUT = 180  # seconds
