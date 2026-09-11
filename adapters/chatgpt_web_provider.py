@@ -212,11 +212,12 @@ class ChatGPTWebProvider(Provider):
         try:
             await input_box.fill(message)
         except Exception as exc:
-            raise ProviderError(
-                "Failed to populate ChatGPT composer",
-                "composer_input_failed",
-                self.provider_id,
-            ) from exc
+            logger.warning(
+                "ChatGPT DOM composer input failed; falling back to backend intercept: %s",
+                type(exc).__name__,
+            )
+            await self._send_message_via_backend_intercept(message)
+            return
 
         input_box = await self._resolve_composer()
         actual_length = await input_box.evaluate(

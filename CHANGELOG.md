@@ -2,6 +2,23 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## 0.6.7 - 2026-09-11
+
+### Fixed
+- Bounded async provider probes for `/ready` and `/v1/models` so a browser/CDP stall cannot hang operational endpoints indefinitely.
+- ChatGPT DOM composer population failure now falls back to the authenticated backend-intercept transport instead of returning `composer_input_failed`.
+- Qwen browser-controller requests no longer force `thinking=true` by default; omitted `thinking` preserves the provider/model default and fixes the observed `thinking_mode_failed` path for `qwen:qwen3.7-max` and `qwen:qwen3.5-omni-plus`.
+- Audit matrix preservation now treats transient catalog shrink non-destructively.
+- Z.ai explicit and alias models are no longer advertised in the current catalog because fresh E2 retests did not pass reliably.
+
+### Evidence
+- Gateway and Kilo model catalogs are consistent at 8 model ids: 7 Qwen ids plus `chatgpt-web`.
+- Current 8/8 advertised models have Direct Gateway and Kilo Code PASS evidence in `docs/MODEL_MATRIX_AUDIT_2026-09-11.md`.
+- Required-tool fail-closed policy PASS for all current Qwen text-only models; ChatGPT remains tracked separately as tool-capable.
+- Z.ai latest current retest returned `Z.ai first-event timeout`; historical rows are retained as `NOT_ADVERTISED`, not certified.
+- No password, cookie, bearer token, provider token, authorization header, CAPTCHA proof, or raw auth body is stored in tracked files.
+- No E3 reliability claim is made.
+
 ## 0.6.6 - 2026-09-11
 
 ### Fixed

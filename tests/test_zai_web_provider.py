@@ -48,13 +48,13 @@ class FakeZaiTransport:
 
 
 @pytest.mark.asyncio
-async def test_zai_model_discovery_exposes_canonical_model():
+async def test_zai_model_discovery_does_not_advertise_without_current_e2():
     provider = create_zai_web_provider(provider_id="zai-web")
     provider._browser = FakeZaiTransport()
 
     models = await provider.list_models()
 
-    assert [m.id for m in models] == ["zai-web", "zai:x-preview-l", "zai:glm-5.3", "zai:glm-4.7"]
+    assert [m.id for m in models] == []
 
 
 @pytest.mark.asyncio
@@ -137,13 +137,13 @@ async def test_zai_guest_session_is_not_healthy_when_authentication_required():
 
 
 @pytest.mark.asyncio
-async def test_zai_model_list_does_not_enumerate_guest_upstream_models():
+async def test_zai_model_list_is_empty_without_current_e2_even_when_guest():
     provider = create_zai_web_provider(provider_id="zai-web", require_authenticated=True)
     provider._browser = FakeZaiTransport(authenticated=False)
 
     models = await provider.list_models()
 
-    assert [m.id for m in models] == ["zai-web"]
+    assert [m.id for m in models] == []
 
 
 @pytest.mark.asyncio

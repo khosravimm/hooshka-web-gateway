@@ -288,11 +288,18 @@ class ZaiBrowserControllerTransport:
                 self.provider_id,
                 {"http_status": status},
             )
-        return [
+        models = [
             {"id": str(x.get("id")), "name": str(x.get("name") or x.get("id"))}
             for x in result.get("models", [])
             if isinstance(x, dict) and x.get("id")
         ]
+
+        # `/api/models` contains backend models that are not necessarily usable
+        # by the current Chat UI/account. Expose only models with current E2
+        # evidence for this controller path; keep the wider backend catalog out
+        # of `/v1/models` until each explicit model is independently certified.
+        e2_verified = {"glm-5.3", "glm-5.2"}
+        return [m for m in models if m.get("id") in e2_verified]
 
     async def model_ids(self) -> list[str]:
         return [x["id"] for x in await self.model_catalog()]
@@ -387,9 +394,13 @@ class ZaiBrowserControllerTransport:
             current = (await button.inner_text()).strip()
             if current != display_name:
                 await button.click()
+                # Z.ai menu entries include descriptive text on following lines
+                # (for example, "GLM-5.2\nPrevious flagship model"). Match the
+                # canonical display name at the start of the option instead of
+                # requiring the whole multi-line label to be equal.
                 option = page.locator(
                     "button, [role=option], [role=menuitem], [role=button]"
-                ).filter(has_text=re.compile(f"^{re.escape(display_name)}$", re.I)).first
+                ).filter(has_text=re.compile(f"^{re.escape(display_name)}(?:\\s|$)", re.I)).first
                 await option.wait_for(state="visible", timeout=int(self.launch_timeout * 1000))
                 await option.click()
                 await page.wait_for_timeout(900)

@@ -2,7 +2,7 @@
 
 > Repository-level discovery starts at `../HOOSHKA_WEB_GATEWAY_START_HERE.md`. Agents and humans should read that file first.
 
-**Release:** 0.6.6
+**Release:** 0.6.7
 **Canonical project:** `hooshka-web-gateway`
 **Module:** `web_gateway`
 
@@ -24,6 +24,7 @@
 | Architecture review | `ARCHITECTURE_CURRENT.md` |
 | Release handoff | `FINAL_REPORT_2026-09-10.md` |
 | Kilo E2 evidence | `KILO_E2_EVIDENCE_2026-09-11.md` |
+| Model certification matrix | `MODEL_MATRIX_AUDIT_2026-09-11.md` |
 
 ## Canonical current documents
 
@@ -41,7 +42,8 @@
 - `TROUBLESHOOTING_CURRENT.md` Ã¢â‚¬â€ current diagnostic playbook.
 - `FINAL_REPORT_2026-09-10.md` Ã¢â‚¬â€ 0.5.0 release-level handoff.
 - `EXPLICIT_MODEL_SELECTION_EVIDENCE_2026-09-10.md` Ã¢â‚¬â€ dynamic catalog/default routing evidence and current Qwen quota state.
-- `KILO_E2_EVIDENCE_2026-09-11.md` Ã¢â‚¬â€ current Kilo CLI E2 evidence for ChatGPT, Z.ai and Qwen authenticated sessions.
+- `KILO_E2_EVIDENCE_2026-09-11.md`
+- `MODEL_MATRIX_AUDIT_2026-09-11.md` — current 0.6.7 model/provider certification matrix and not-advertised Z.ai traceability rows. Ã¢â‚¬â€ current Kilo CLI E2 evidence for ChatGPT, Z.ai and Qwen authenticated sessions.
 
 ## Research, evidence and history
 

@@ -298,7 +298,7 @@ class QwenBrowserControllerTransport:
             }"""
         )
 
-    async def _apply_features_and_send(self, page: Page, prompt: str, *, thinking: bool, search: bool, upstream_model: Optional[str] = None) -> str:
+    async def _apply_features_and_send(self, page: Page, prompt: str, *, thinking: Optional[bool], search: bool, upstream_model: Optional[str] = None) -> str:
         return str(
             await page.evaluate(
                 """async ({prompt, thinking, search, upstreamModel}) => {
@@ -316,13 +316,13 @@ class QwenBrowserControllerTransport:
                   if (fm && fe) {
                     const thinkingFeature = fe.Thinking || 'thinking';
                     const searchFeature = fe.WebSearch || 'search';
-                    if (thinking) {
+                    if (thinking === true) {
                       const r1 = fm.selectFeature(thinkingFeature);
                       if (r1 && r1.success === false) throw new Error('thinking_enable_failed');
                       const r2 = fm.setThinkingMode('Auto');
                       if (r2 && r2.success === false) throw new Error('thinking_mode_failed');
                       if (runtimeStore?.setThinkingMode) runtimeStore.setThinkingMode('Auto');
-                    } else {
+                    } else if (thinking === false) {
                       const r1 = fm.selectFeature(thinkingFeature);
                       if (r1 && r1.success === false) throw new Error('thinking_fast_feature_failed');
                       const r2 = fm.setThinkingMode('Fast');
@@ -364,7 +364,7 @@ class QwenBrowserControllerTransport:
             or ""
         )
 
-    async def _start_send(self, prompt: str, *, thinking: bool, search: bool, upstream_model: Optional[str] = None) -> str:
+    async def _start_send(self, prompt: str, *, thinking: Optional[bool], search: bool, upstream_model: Optional[str] = None) -> str:
         page = await self._ensure()
         for attempt in range(2):
             try:
@@ -465,7 +465,7 @@ class QwenBrowserControllerTransport:
                 await page.wait_for_timeout(150)
         raise RuntimeError("unreachable")
 
-    async def stream_text(self, prompt: str, *, thinking: bool = True, search: bool = False, upstream_model: Optional[str] = None) -> AsyncIterator[dict]:
+    async def stream_text(self, prompt: str, *, thinking: Optional[bool] = None, search: bool = False, upstream_model: Optional[str] = None) -> AsyncIterator[dict]:
         async with self._lock:
             started = time.monotonic()
             last_meaningful = started

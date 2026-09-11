@@ -9,7 +9,7 @@
 - **Product:** Hooshka Web Gateway
 - **Technical id:** `hooshka-web-gateway`
 - **Hooshka module id:** `web_gateway`
-- **Current baseline:** `0.6.6`
+- **Current baseline:** `0.6.7`
 - **Local path:** `D:\Code\hooshka-web-gateway`
 - **Windows service:** `HooshkaWebGateway`
 - **Local API:** `http://127.0.0.1:5000`
@@ -29,10 +29,10 @@ Hooshka itself should consume the gateway API and must not depend directly on pr
 
 | Provider | Canonical model | Basic chat | Stream API | Tools | Evidence/status |
 |---|---|---:|---:|---:|---|
-| ChatGPT Web | `chatgpt-web` | PASS | supported, buffered compatibility | PASS | E2 operational through Kilo; large agent prompt transport accepted |
-| Qwen Web | `qwen-web`, `qwen:qwen3.8-max` | PASS | reconstructed | disabled | E2 operational through Kilo `summary` agent; guest session rejected |
-| Z.ai Web | `zai-web`, `zai:glm-5.3` | PASS | reconstructed | disabled | E2 operational through Kilo `summary` agent; explicit GLM-5.3 evidence accepted |
-| DeepSeek Web | `deepseek-web` | blocked | blocked | blocked | account-state circuit breaker |
+| ChatGPT Web | `chatgpt-web` | PASS | supported, buffered compatibility | PASS | E2 operational through Direct + Kilo; DOM composer fallback to backend-intercept validated |
+| Qwen Web | `qwen-web`, 7 current `qwen:<upstream-id>` models | PASS | reconstructed | disabled/fail-closed | E2 operational through Direct + Kilo; omitted `thinking` preserves provider/model default |
+| Z.ai Web | not advertised in 0.6.7 | BLOCKED | blocked | disabled | latest current E2 retest returned first-event timeout; explicit models removed from Gateway/Kilo catalog |
+| DeepSeek Web | not in catalog | unintegrated | unintegrated | blocked | login/session evidence retained; provider adapter not yet added |
 
 **Evidence levels**
 
@@ -84,6 +84,7 @@ Canonical current documents:
 - `docs/DEVELOPMENT_GUIDE.md`
 - `docs/TROUBLESHOOTING_CURRENT.md`
 - `docs/FINAL_REPORT_2026-09-10.md`
+- `docs/MODEL_MATRIX_AUDIT_2026-09-11.md`
 - `docs/EXPLICIT_MODEL_SELECTION_EVIDENCE_2026-09-10.md`
 
 ## Architecture at a glance

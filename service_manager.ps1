@@ -66,10 +66,12 @@ function Ensure-ChatGPTChromeCdp {
     '--new-window',
     'https://chatgpt.com/'
   ) | Out-Null
-  Start-Sleep -Seconds 5
-  if (-not (Assert-ProjectChromeOwnership $ChatGPTCdpPort $ChatGPTProfile $ChatGPTRuntimeLabel)) {
-    throw 'ChatGPT Web project-owned Chrome CDP runtime did not start'
+  $deadline = (Get-Date).AddSeconds(15)
+  while ((Get-Date) -lt $deadline) {
+    if (Assert-ProjectChromeOwnership $ChatGPTCdpPort $ChatGPTProfile $ChatGPTRuntimeLabel) { return }
+    Start-Sleep -Milliseconds 500
   }
+  throw 'ChatGPT Web project-owned Chrome CDP runtime did not start within 15 seconds'
 }
 
 function Stop-ChatGPTChromeCdp {

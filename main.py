@@ -15,6 +15,7 @@ from core.providers import (
     ProviderConfig,
     ProviderType,
     ProviderCapabilities,
+    ModelInfo,
     ChatCompletionRequest,
     SessionContext,
 )
@@ -34,7 +35,7 @@ SWAGGER_TEMPLATE = {
     "info": {
         "title": "Hooshka Web Gateway API",
         "description": "Hooshka Web Gateway exposes one governed OpenAI-compatible local API for supported Web-chat providers. Provider-specific browser/session/transport behavior remains behind exact fail-closed routing.",
-        "version": "0.6.6",
+        "version": "0.6.7",
         "contact": {
             "name": "Hooshka Web Gateway",
         },
@@ -365,7 +366,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                 "language": data.get("language"),
                 "code_only": data.get("code_only", False),
                 "save_to": data.get("save_to"),
-                "thinking": data.get("thinking", True),
+                "thinking": data.get("thinking"),
                 "search": data.get("search", False),
                 "upstream_model": data.get("upstream_model"),
             },
@@ -458,10 +459,10 @@ def create_app(config_path: str = "config.yaml") -> Flask:
     )
     _async_thread.start()
 
-    def _run_async(coro):
+    def _run_async(coro, timeout=None):
         future = asyncio.run_coroutine_threadsafe(coro, _async_loop)
         try:
-            return future.result()
+            return future.result(timeout=timeout)
         except FutureTimeoutError:
             future.cancel()
             raise
@@ -499,16 +500,18 @@ def create_app(config_path: str = "config.yaml") -> Flask:
     def ready():
         """Readiness check for at least one usable provider runtime."""
         providers = provider_registry.list_providers()
-        details = []
-        ready_any = False
-        for provider in providers:
-            try:
-                ok = bool(_run_async(provider.health_check()))
-            except Exception as e:
-                ok = False
-                logger.warning(f"Readiness check failed for {provider.provider_id}: {e}")
-            details.append({"provider": provider.provider_id, "ready": ok})
-            ready_any = ready_any or ok
+        async def check_all():
+            async def check_one(provider):
+                try:
+                    ok = bool(await asyncio.wait_for(provider.health_check(), timeout=10))
+                except Exception as e:
+                    ok = False
+                    logger.warning(f"Readiness check failed for {provider.provider_id}: {e}")
+                return {"provider": provider.provider_id, "ready": ok}
+            return await asyncio.gather(*(check_one(provider) for provider in providers))
+
+        details = _run_async(check_all(), timeout=15)
+        ready_any = any(item["ready"] for item in details)
         return jsonify({"status": "ready" if ready_any else "not_ready", "providers": details}), (200 if ready_any else 503)
 
     @app.route("/health/deep", methods=["GET"])
@@ -572,13 +575,29 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             schema:
               $ref: '#/definitions/ModelsResponse'
         """
-        all_models = []
-        for provider in provider_registry.list_providers():
-            try:
-                models = _run_async(provider.list_models())
-                all_models.extend(models)
-            except Exception as e:
-                logger.error(f"Failed to list models from {provider.provider_id}: {e}")
+        providers = provider_registry.list_providers()
+        async def list_all_models():
+            async def list_one(provider):
+                try:
+                    return await asyncio.wait_for(provider.list_models(), timeout=20)
+                except Exception as e:
+                    logger.error(f"Failed to list models from {provider.provider_id}: {e}")
+                    # Preserve only the provider's static/base aliases when
+                    # dynamic browser-backed discovery times out. This avoids
+                    # transiently dropping a known provider from the catalog
+                    # without re-advertising unverified upstream model ids.
+                    return [
+                        ModelInfo(
+                            id=model_id,
+                            owned_by=provider.provider_id,
+                            provider=provider.provider_id,
+                        )
+                        for model_id in provider.capabilities.supported_models
+                    ]
+            nested = await asyncio.gather(*(list_one(provider) for provider in providers))
+            return [model for models in nested for model in models]
+
+        all_models = _run_async(list_all_models(), timeout=25)
         
         return jsonify({
             "object": "list",

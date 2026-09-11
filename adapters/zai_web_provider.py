@@ -111,20 +111,11 @@ class ZaiWebProvider(Provider):
             return False
 
     async def list_models(self) -> list[ModelInfo]:
-        models = [ModelInfo(id="zai-web", owned_by="z-ai-web", provider=self.provider_id)]
-        if self._require_authenticated:
-            status = await self._browser.session_status()
-            if not status.get("authenticated"):
-                return models
-        upstream_ids = await self._browser.model_ids()
-        seen = {"zai-web"}
-        for mid in upstream_ids:
-            model_id = f"zai:{mid}"
-            if model_id in seen:
-                continue
-            models.append(ModelInfo(id=model_id, owned_by="z-ai-web", provider=self.provider_id))
-            seen.add(model_id)
-        return models
+        # Do not advertise Z.ai models until the current authenticated
+        # UI/controller path has fresh E2 completion evidence. Historical
+        # evidence is retained in audit documents, but the OpenAI-compatible
+        # catalog must not expose a model that currently first-event timeouts.
+        return []
 
     def supports_model(self, model: str) -> bool:
         return model == "zai-web" or model.startswith("zai:")

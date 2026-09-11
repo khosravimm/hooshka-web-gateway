@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 import json
 import logging
 import os
@@ -34,6 +34,16 @@ from core.browser_observability import BrowserEvidenceMismatch, BrowserModelEvid
 from adapters.qwen_browser_transport import QwenBrowserControllerTransport
 
 logger = logging.getLogger(__name__)
+
+
+QWEN_CERTIFIED_UPSTREAM_MODELS = [
+    "qwen3.7-plus",
+    "qwen3.8-max",
+    "qwen3.7-max",
+    "qwen3.6-plus",
+    "qwen3.5-plus",
+    "qwen3.5-omni-plus",
+]
 
 
 class QwenWebProvider(Provider):
@@ -151,7 +161,7 @@ class QwenWebProvider(Provider):
             vision=False,
             embeddings=False,
             max_context_tokens=1_000_000,
-            supported_models=["qwen-web"],
+            supported_models=["qwen-web"] + [f"qwen:{mid}" for mid in QWEN_CERTIFIED_UPSTREAM_MODELS],
             # Search is visible in the current frontend payload but remains
             # disabled in advertised capabilities until an independent E2 test.
             search=False,
@@ -245,14 +255,14 @@ class QwenWebProvider(Provider):
             try:
                 await asyncio.to_thread(self._sidecar_request, "GET", "/health", timeout=70)
                 return True
-            except ProviderError:
+            except Exception:
                 return False
         if self._transport_mode == "browser_controller":
             if self._require_authenticated:
                 try:
                     status = await self._browser.session_status()
                     return bool(status.get("authenticated"))
-                except ProviderError:
+                except Exception:
                     return False
             return await self._browser.health()
         if not self._token():
@@ -260,7 +270,7 @@ class QwenWebProvider(Provider):
         try:
             await asyncio.to_thread(self._request_json, "GET", "/api/v2/models/")
             return True
-        except ProviderError:
+        except Exception:
             return False
 
     async def list_models(self) -> list[ModelInfo]:
@@ -274,10 +284,10 @@ class QwenWebProvider(Provider):
                     return models
             try:
                 self._last_upstream_models = await self._browser.model_ids()
-            except ProviderError:
-                # Canonical mapping remains discoverable even when upstream
-                # model enumeration is temporarily unavailable.
-                self._last_upstream_models = []
+            except Exception:
+                # Certified mapping remains discoverable even when upstream
+                # model enumeration/bootstrap is temporarily unavailable.
+                self._last_upstream_models = list(QWEN_CERTIFIED_UPSTREAM_MODELS)
             return models + [ModelInfo(id=f"qwen:{mid}", owned_by="qwen-web", provider=self.provider_id) for mid in self._last_upstream_models]
         if self._token():
             data = await asyncio.to_thread(self._request_json, "GET", "/api/v2/models/")
@@ -581,7 +591,7 @@ class QwenWebProvider(Provider):
             response_model = None
             async for event in self._browser.stream_text(
                 self._request_text(request),
-                thinking=opts.get("thinking", True),
+                thinking=opts.get("thinking"),
                 search=bool(opts.get("search", False)),
                 upstream_model=upstream_model,
             ):
@@ -680,7 +690,7 @@ class QwenWebProvider(Provider):
             response_model = None
             async for event in self._browser.stream_text(
                 self._request_text(request),
-                thinking=opts.get("thinking", True),
+                thinking=opts.get("thinking"),
                 search=bool(opts.get("search", False)),
                 upstream_model=upstream_model,
             ):
@@ -791,7 +801,7 @@ def create_qwen_web_provider(
             vision=False,
             embeddings=False,
             max_context_tokens=1_000_000,
-            supported_models=["qwen-web"],
+            supported_models=["qwen-web"] + [f"qwen:{mid}" for mid in QWEN_CERTIFIED_UPSTREAM_MODELS],
             search=False,
             reasoning=True,
             files=False,
