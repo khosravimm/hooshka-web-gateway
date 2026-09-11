@@ -23,6 +23,9 @@ $ZaiProfile = Join-Path $ScriptDir '.runtime\zai-profile'
 $ZaiLegacyProfile = Join-Path $ScriptDir '.runtime\zai-cdp-profile'
 $ZaiRuntimeLabel = 'HWG-Zai-Web-SSE-Capture'
 $ZaiCdpPort = 9223
+$DeepSeekProfile = Join-Path $ScriptDir '.runtime\deepseek-profile'
+$DeepSeekRuntimeLabel = 'HWG-DeepSeek-Web-UI'
+$DeepSeekCdpPort = 9226
 
 function Get-ChromeExecutable {
   $chromeCandidates = @(
@@ -196,6 +199,39 @@ function Stop-ZaiChromeCdp {
   }
   if ($procs) { Start-Sleep -Milliseconds 500 }
 }
+
+function Ensure-DeepSeekChromeCdp {
+  if (Assert-ProjectChromeOwnership $DeepSeekCdpPort $DeepSeekProfile $DeepSeekRuntimeLabel) { return }
+
+  $chrome = Get-ChromeExecutable
+  if (-not $chrome) { throw 'Chrome not found for DeepSeek Web CDP runtime' }
+
+  New-Item -ItemType Directory -Force $DeepSeekProfile | Out-Null
+  Start-Process -FilePath $chrome -ArgumentList @(
+    "--remote-debugging-port=$DeepSeekCdpPort",
+    '--remote-debugging-address=127.0.0.1',
+    "--user-data-dir=$DeepSeekProfile",
+    '--no-first-run',
+    '--disable-default-apps',
+    '--new-window',
+    'https://chat.deepseek.com/'
+  ) | Out-Null
+  Start-Sleep -Seconds 6
+  if (-not (Assert-ProjectChromeOwnership $DeepSeekCdpPort $DeepSeekProfile $DeepSeekRuntimeLabel)) {
+    throw 'DeepSeek Web project-owned Chrome CDP runtime did not start'
+  }
+}
+
+function Stop-DeepSeekChromeCdp {
+  $needle = [Regex]::Escape($DeepSeekProfile)
+  $procs = Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -and $_.CommandLine -match $needle }
+  foreach ($proc in $procs) {
+    Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
+  }
+  if ($procs) { Start-Sleep -Milliseconds 500 }
+}
+
 switch ($Command) {
  'install' {
    Assert-Prereqs
@@ -213,6 +249,7 @@ switch ($Command) {
    Ensure-ChatGPTChromeCdp
    Ensure-QwenChromeCdp
    Ensure-ZaiChromeCdp
+   Ensure-DeepSeekChromeCdp
    Start-Service $ServiceName
    (Get-Service $ServiceName) | Format-Table -AutoSize
  }
@@ -221,6 +258,7 @@ switch ($Command) {
    Stop-QwenChromeCdp
    Stop-ChatGPTChromeCdp
    Stop-ZaiChromeCdp
+   Stop-DeepSeekChromeCdp
    (Get-Service $ServiceName) | Format-Table -AutoSize
  }
  'restart' {
@@ -233,6 +271,7 @@ switch ($Command) {
    Ensure-ChatGPTChromeCdp
    Ensure-QwenChromeCdp
    Ensure-ZaiChromeCdp
+   Ensure-DeepSeekChromeCdp
    Start-Service $ServiceName
    Start-Sleep -Seconds 1
    (Get-Service $ServiceName) | Format-Table -AutoSize
@@ -249,6 +288,7 @@ switch ($Command) {
    Stop-QwenChromeCdp
    Stop-ChatGPTChromeCdp
    Stop-ZaiChromeCdp
+   Stop-DeepSeekChromeCdp
  }
  'logs' { Get-Content (Join-Path $ScriptDir 'logs\bridge.log') -Tail 80 }
  'config' {
@@ -268,6 +308,8 @@ switch ($Command) {
      qwen_profile=$QwenProfile
      zai_cdp="127.0.0.1:$ZaiCdpPort"
      zai_profile=$ZaiProfile
+     deepseek_cdp="127.0.0.1:$DeepSeekCdpPort"
+     deepseek_profile=$DeepSeekProfile
    } | ConvertTo-Json
  }
 }

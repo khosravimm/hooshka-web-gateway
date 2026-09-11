@@ -79,3 +79,13 @@ def test_strong_auto_signal_detects_false_refusal():
         latest_user_text="Check the project status.",
     )
     assert reason is not None
+
+def test_parse_tool_calls_tolerates_raw_windows_backslashes():
+    text = '{"tool_calls":[{"name":"read","arguments":{"filePath":"D:\\Code\\hooshka-web-gateway\\README.md"}}]}'
+    # Simulate the DOM text DeepSeek produced for Kilo: JSON-visible Windows
+    # backslashes that are not valid JSON escapes.
+    text = text.replace('\\\\', '\\')
+    content, calls = parse_tool_calls(text)
+    assert content is None
+    assert calls[0]["function"]["name"] == "read"
+    assert "D:\\\\Code\\\\hooshka-web-gateway\\\\README.md" in calls[0]["function"]["arguments"]

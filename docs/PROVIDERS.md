@@ -7,7 +7,7 @@
 | ChatGPT Web | `chatgpt-web` | CDP/Web provider path | buffered compatibility | yes | existing ChatGPT Web session/runtime |
 | Qwen Web | `qwen-web`, `qwen:<upstream-id>` | browser backend controller | reconstructed | no | dynamic catalog; default `qwen3.8-max`; current guest quota is rate-limited |
 | Z.ai Web | `zai-web`, `zai:<upstream-id>` | browser backend controller | reconstructed | no | dynamic catalog; default `glm-5.3`; default routing accepted E2 |
-| DeepSeek Web | `deepseek-web` | manual Web Chat UI only; provider pending | not in Gateway | not executed | account healthy in UI; adapter pending |
+| DeepSeek Web | `deepseek-web` | browser UI via dedicated CDP runtime | buffered compatibility | yes, E2 smoke | dedicated `.runtime/deepseek-profile` on 9226; Kilo read/grep/write/edit/bash passed |
 
 ## ChatGPT Web
 
@@ -58,13 +58,15 @@ Only basic chat/reconstructed stream is accepted. Tools/search/vision/files rema
 
 DeepSeek is no longer classified as blocked by the current Web Chat UI account state. A controlled manual Web Chat audit on 2026-09-12 observed an authenticated UI, no CAPTCHA/challenge/mute/suspension, a successful direct marker response, valid tool-envelope JSON generation, and tool-result continuation.
 
-This does not make `deepseek-web` operational in the Gateway. The provider/adapter is still pending, and DeepSeek is not Kilo/full-agent certified until a complete Gateway/Kilo tool round trip passes.
+`deepseek-web` is now implemented as a Gateway provider using the project-owned DeepSeek browser profile on CDP port 9226. KiloGate-WM E2 smoke certification passed read, grep, write, edit and bash tool paths through Kilo. This is still an E2 smoke result, not an E3/production-reliability claim.
 
 See:
 
 `DEEPSEEK_ACCOUNT_SUSPENSION_INCIDENT_2026-09-10.md`
 
 `KILOGATE_WM_DEEPSEEK_WEBCHAT_AUDIT_2026-09-12.md`
+
+`KILOGATE_WM_DEEPSEEK_GATEWAY_KILO_AUDIT_2026-09-12.md`
 
 ## Adding capabilities
 

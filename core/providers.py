@@ -10,6 +10,7 @@ class ProviderType(Enum):
     CHATGPT_WEB = "chatgpt_web"
     QWEN_WEB = "qwen_web"
     ZAI_WEB = "zai_web"
+    DEEPSEEK_WEB = "deepseek_web"
     OPENAI_API = "openai_api"
     ANTHROPIC = "anthropic"
     LOCAL_LLM = "local_llm"

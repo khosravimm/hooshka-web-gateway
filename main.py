@@ -27,6 +27,7 @@ from core.tool_compat import drop_optional_tools_for_text_only_provider, request
 from adapters.chatgpt_web_provider import create_chatgpt_web_provider
 from adapters.qwen_web_provider import create_qwen_web_provider
 from adapters.zai_web_provider import create_zai_web_provider
+from adapters.deepseek_web_provider import create_deepseek_web_provider
 from control_panel import control_panel_bp
 
 
@@ -326,6 +327,14 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             )
             provider_registry.register(provider)
             rate_limiter.set_rate(pconfig.provider_id, pconfig.config.get("requests_per_minute", 6))
+        elif pconfig.provider_type == ProviderType.DEEPSEEK_WEB:
+            provider = create_deepseek_web_provider(
+                provider_id=pconfig.provider_id,
+                priority=pconfig.priority,
+                **pconfig.config,
+            )
+            provider_registry.register(provider)
+            rate_limiter.set_rate(pconfig.provider_id, pconfig.config.get("requests_per_minute", 4))
     
     server_config = config["server"]
     

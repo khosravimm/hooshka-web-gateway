@@ -81,6 +81,21 @@ def serialize_messages(messages: list[dict], tools: Optional[list[dict]] = None,
     return "\n\n".join(parts)
 
 
+def _json_loads_tolerant(raw: str):
+    try:
+        return json.loads(raw)
+    except Exception as first_error:
+        # Web chat models often emit Windows paths inside JSON strings with
+        # raw backslashes, e.g. {"filePath":"D:\\Code\\repo\\README.md"}
+        # after DOM extraction this may become JSON-invalid as D:\Code.
+        # Escape only backslashes that are not valid JSON escapes.
+        fixed = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', raw)
+        try:
+            return json.loads(fixed)
+        except Exception:
+            raise first_error
+
+
 def _call(name: str, arguments) -> dict:
     if isinstance(arguments, str):
         args_str = arguments
@@ -142,7 +157,7 @@ def parse_tool_calls(text: str):
     if not raw:
         return text, None
     try:
-        data = json.loads(raw)
+        data = _json_loads_tolerant(raw)
     except Exception:
         return text, None
     if not isinstance(data, dict):
@@ -189,7 +204,7 @@ def parse_tool_envelope(text: str):
             raw = stripped
     if raw:
         try:
-            data = json.loads(raw)
+            data = _json_loads_tolerant(raw)
         except Exception:
             data = None
         if isinstance(data, dict) and "final" in data:

@@ -13,7 +13,7 @@ Hooshka Web Gateway is the unified local API gateway for governed access to supp
 | ChatGPT Web | `chatgpt-web` | E2 operational via Kilo | chat, stream compatibility, tool-call path, large agent prompt transport |
 | Qwen Web | `qwen-web`, `qwen:<upstream-id>` | Text-only Kilo smoke PASS for five explicit Chat models; not full programming-certified | model-aware thinking/search, reconstructed stream; tools disabled; `qwen3.5-omni-plus` quarantined |
 | Z.ai Web | `zai-web`, `zai:<upstream-id>` | E2 operational via Kilo text-only agent | dynamic catalog, configurable default, reconstructed stream; tools disabled until E2 |
-| DeepSeek Web | `deepseek-web` | manual Web Chat E2 PASS; Gateway provider not implemented | UI direct marker, tool-envelope and tool-result continuation passed; not Kilo/full-agent certified |
+| DeepSeek Web | `deepseek-web` | KiloGate-WM E2 tool-capable smoke PASS | browser-UI transport via dedicated 9226 runtime; read/grep/write/edit/bash passed; not E3/production-certified |
 
 This release is an **E2 baseline**, not an E3/production-reliability claim.
 
@@ -28,8 +28,8 @@ OpenAI-compatible localhost API
         v
 Exact fail-closed router
    |        |        |
-ChatGPT    Qwen     Z.ai
- Web       Web      Web
+ChatGPT    Qwen     Z.ai     DeepSeek
+ Web       Web      Web      Web
 ```
 
 Provider-specific fallback stays within a provider. There is no silent cross-provider fallback.
@@ -100,7 +100,7 @@ Historical research/evidence documents remain under `docs/`.
 git diff --check
 ```
 
-Accepted deterministic baseline: **70 passed**. KiloGate-WM now treats text-only coding as smoke/precheck only; the user programming target requires full read/search/edit/apply_patch/shell/tool-call agent coding. Current Qwen result is five explicit Qwen Chat models PASS for text-only smoke only; Qwen is not tool/function-call certified.
+Accepted deterministic baseline before DeepSeek integration: **70 passed**. DeepSeek adds provider and protocol tests; the DeepSeek KiloGate-WM E2 smoke passed read/search/write/edit/shell tool paths. Qwen remains text-only Kilo smoke certified and is not tool/function-call certified.
 
 ## Security rules
 

@@ -95,6 +95,36 @@ providers:
     reasoning: true
     files: false
     transport_mode: browser_frontend_backend_sse_capture
+- id: deepseek-web
+  type: deepseek_web
+  enabled: true
+  priority: 70
+  config:
+    base_url: https://chat.deepseek.com/
+    require_authenticated: true
+    runtime_label: HWG-DeepSeek-Web-UI
+    transport_mode: browser_ui
+    cdp_url: http://127.0.0.1:9226
+    launch_timeout: 45
+    first_event_timeout: 45
+    idle_timeout: 90
+    total_timeout: 180
+    poll_interval: 0.5
+    requests_per_minute: 4
+  capabilities:
+    chat_completion: true
+    streaming: true
+    streaming_mode: reconstructed
+    tools: true
+    vision: false
+    embeddings: false
+    max_context_tokens: 128000
+    supported_models:
+    - deepseek-web
+    search: false
+    reasoning: true
+    files: false
+    transport_mode: browser_ui
 governance:
   auth:
     enabled: true
