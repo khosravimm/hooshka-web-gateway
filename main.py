@@ -15,6 +15,7 @@ from core.providers import (
     ProviderConfig,
     ProviderType,
     ProviderCapabilities,
+    ProviderError,
     ChatCompletionRequest,
     SessionContext,
 )
@@ -365,7 +366,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                 "language": data.get("language"),
                 "code_only": data.get("code_only", False),
                 "save_to": data.get("save_to"),
-                "thinking": data.get("thinking", True),
+                "thinking": data.get("thinking"),
                 "search": data.get("search", False),
                 "upstream_model": data.get("upstream_model"),
             },
@@ -414,6 +415,17 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             "provider_meta": response.provider_meta,
         }
     
+    def _http_status_for_error(error: Exception) -> int:
+        if isinstance(error, ProviderError) and error.code in {
+            "invalid_model",
+            "unsupported_feature",
+            "unsupported_tools",
+            "authentication_failed",
+            "auth_required",
+        }:
+            return 400
+        return 500
+
     def _format_stream_chunk(chunk) -> dict:
         return {
             "id": chunk.id,
@@ -458,10 +470,10 @@ def create_app(config_path: str = "config.yaml") -> Flask:
     )
     _async_thread.start()
 
-    def _run_async(coro):
+    def _run_async(coro, timeout: float | None = None):
         future = asyncio.run_coroutine_threadsafe(coro, _async_loop)
         try:
-            return future.result()
+            return future.result(timeout=timeout)
         except FutureTimeoutError:
             future.cancel()
             raise
@@ -503,7 +515,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         ready_any = False
         for provider in providers:
             try:
-                ok = bool(_run_async(provider.health_check()))
+                ok = bool(_run_async(provider.health_check(), timeout=15))
             except Exception as e:
                 ok = False
                 logger.warning(f"Readiness check failed for {provider.provider_id}: {e}")
@@ -575,7 +587,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         all_models = []
         for provider in provider_registry.list_providers():
             try:
-                models = _run_async(provider.list_models())
+                models = _run_async(provider.list_models(), timeout=25)
                 all_models.extend(models)
             except Exception as e:
                 logger.error(f"Failed to list models from {provider.provider_id}: {e}")
@@ -657,7 +669,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             if req.stream:
                 return _stream_response(provider, translated_req, session)
             else:
-                response = _run_async(provider.chat_completion(translated_req, session))
+                response = _run_async(provider.chat_completion(translated_req, session), timeout=240)
                 normalized = mcp_normalizer.normalize_response(response, provider)
                 
                 if session and normalized.provider_meta.get("conversation_id"):
@@ -674,7 +686,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         except Exception as e:
             logger.error(f"Chat completion error: {e}")
             error_resp = mcp_normalizer.normalize_error(e, provider)
-            return jsonify(error_resp), 500
+            return jsonify(error_resp), _http_status_for_error(e)
     
     def _stream_response(provider, req: ChatCompletionRequest, session):
         def generate():
@@ -778,7 +790,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         
         try:
             translated_req = mcp_translator.translate_request(req, provider)
-            response = _run_async(provider.chat_completion(translated_req))
+            response = _run_async(provider.chat_completion(translated_req), timeout=240)
             normalized = mcp_normalizer.normalize_response(response, provider)
             
             from core.code_parser import extract_code_blocks, save_code_block
@@ -807,7 +819,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         except Exception as e:
             logger.error(f"Code chat error: {e}")
             error_resp = mcp_normalizer.normalize_error(e, provider)
-            return jsonify(error_resp), 500
+            return jsonify(error_resp), _http_status_for_error(e)
     
     @app.route("/v1/chat/conversation", methods=["POST"])
     def conversation_chat():
@@ -876,7 +888,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             if req.stream:
                 return _stream_response(provider, translated_req, session)
             else:
-                response = _run_async(provider.chat_completion(translated_req, session))
+                response = _run_async(provider.chat_completion(translated_req, session), timeout=240)
                 normalized = mcp_normalizer.normalize_response(response, provider)
                 
                 if normalized.provider_meta.get("conversation_id"):
@@ -892,7 +904,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         except Exception as e:
             logger.error(f"Conversation chat error: {e}")
             error_resp = mcp_normalizer.normalize_error(e, provider)
-            return jsonify(error_resp), 500
+            return jsonify(error_resp), _http_status_for_error(e)
     
     return app
 

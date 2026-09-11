@@ -35,6 +35,28 @@ from adapters.qwen_browser_transport import QwenBrowserControllerTransport
 
 logger = logging.getLogger(__name__)
 
+_QWEN_DISCOVERED_CHAT_MODELS = [
+    "qwen3.7-plus",
+    "qwen3.8-max",
+    "qwen3.7-max",
+    "qwen3.6-plus",
+    "qwen3.5-plus",
+    "qwen3.5-omni-plus",
+]
+
+# Kilo Code currently relies on the OpenAI-compatible /v1/models list for
+# selectable models.  qwen3.5-omni-plus passes direct and SSE gateway tests, but
+# the Kilo CLI times out and leaves the Qwen browser runtime needing recovery.
+# Keep it resolvable for explicit API users, but do not advertise it as a
+# Kilo-operational model until that client path is fixed and re-certified.
+_QWEN_KILO_CERTIFIED_CHAT_MODELS = [
+    "qwen3.7-plus",
+    "qwen3.8-max",
+    "qwen3.7-max",
+    "qwen3.6-plus",
+    "qwen3.5-plus",
+]
+
 
 class QwenWebProvider(Provider):
     def _verify_browser_model_evidence(self, request: ChatCompletionRequest, upstream_model: str, response_model: Optional[str] = None) -> dict:
@@ -89,7 +111,7 @@ class QwenWebProvider(Provider):
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
             "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
         )
-        self._last_upstream_models: list[str] = []
+        self._last_upstream_models: list[str] = list(_QWEN_DISCOVERED_CHAT_MODELS)
         self._browser = QwenBrowserControllerTransport(
             self.provider_id,
             c.get("profile_dir", r".runtime\qwen-profile"),
@@ -277,13 +299,17 @@ class QwenWebProvider(Provider):
             except ProviderError:
                 # Canonical mapping remains discoverable even when upstream
                 # model enumeration is temporarily unavailable.
-                self._last_upstream_models = []
-            return models + [ModelInfo(id=f"qwen:{mid}", owned_by="qwen-web", provider=self.provider_id) for mid in self._last_upstream_models]
+                if not self._last_upstream_models:
+                    self._last_upstream_models = list(_QWEN_DISCOVERED_CHAT_MODELS)
+            upstream_models = self._last_upstream_models or list(_QWEN_DISCOVERED_CHAT_MODELS)
+            advertised_models = [mid for mid in upstream_models if mid in _QWEN_KILO_CERTIFIED_CHAT_MODELS]
+            return models + [ModelInfo(id=f"qwen:{mid}", owned_by="qwen-web", provider=self.provider_id) for mid in advertised_models]
         if self._token():
             data = await asyncio.to_thread(self._request_json, "GET", "/api/v2/models/")
             upstream = data.get("data", {}).get("data", []) if isinstance(data, dict) else []
             self._last_upstream_models = [m.get("id") for m in upstream if isinstance(m, dict) and m.get("id")]
-        return models + [ModelInfo(id=f"qwen:{mid}", owned_by="qwen-web", provider=self.provider_id) for mid in self._last_upstream_models]
+        advertised_models = [mid for mid in self._last_upstream_models if mid in _QWEN_KILO_CERTIFIED_CHAT_MODELS]
+        return models + [ModelInfo(id=f"qwen:{mid}", owned_by="qwen-web", provider=self.provider_id) for mid in advertised_models]
 
     def supports_model(self, model: str) -> bool:
         return model == "qwen-web" or model.startswith("qwen:")
@@ -315,7 +341,7 @@ class QwenWebProvider(Provider):
             available = [m.get("id") for m in upstream if isinstance(m, dict) and m.get("id")]
             self._last_upstream_models = list(available)
         else:
-            available = self._last_upstream_models
+            available = self._last_upstream_models or list(_QWEN_DISCOVERED_CHAT_MODELS)
         if available and upstream_model not in available:
             raise ProviderError(
                 "Requested Qwen model is not available in the current session",
@@ -581,7 +607,7 @@ class QwenWebProvider(Provider):
             response_model = None
             async for event in self._browser.stream_text(
                 self._request_text(request),
-                thinking=opts.get("thinking", True),
+                thinking=opts.get("thinking"),
                 search=bool(opts.get("search", False)),
                 upstream_model=upstream_model,
             ):
@@ -680,7 +706,7 @@ class QwenWebProvider(Provider):
             response_model = None
             async for event in self._browser.stream_text(
                 self._request_text(request),
-                thinking=opts.get("thinking", True),
+                thinking=opts.get("thinking"),
                 search=bool(opts.get("search", False)),
                 upstream_model=upstream_model,
             ):

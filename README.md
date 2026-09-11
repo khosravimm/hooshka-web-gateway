@@ -11,7 +11,7 @@ Hooshka Web Gateway is the unified local API gateway for governed access to supp
 | Provider | Canonical model | Status | Current accepted scope |
 |---|---|---|---|
 | ChatGPT Web | `chatgpt-web` | E2 operational via Kilo | chat, stream compatibility, tool-call path, large agent prompt transport |
-| Qwen Web | `qwen-web`, `qwen:<upstream-id>` | E2 operational via Kilo text-only agent | dynamic catalog, configurable default, reconstructed stream; guest rejected |
+| Qwen Web | `qwen-web`, `qwen:<upstream-id>` | Kilo text-only certified for five explicit Chat models; `qwen3.5-omni-plus` quarantined for Kilo | model-aware thinking/search, KiloGate-WM evidence, reconstructed stream; guest rejected |
 | Z.ai Web | `zai-web`, `zai:<upstream-id>` | E2 operational via Kilo text-only agent | dynamic catalog, configurable default, reconstructed stream; tools disabled until E2 |
 | DeepSeek Web | `deepseek-web` | blocked | current account state prevents live E2 |
 
@@ -100,7 +100,7 @@ Historical research/evidence documents remain under `docs/`.
 git diff --check
 ```
 
-Accepted 0.6.6 deterministic baseline: **70 passed**. Current Kilo E2: `chatgpt-web` PASS, `zai:glm-5.3` PASS, `qwen:qwen3.8-max` PASS, plus Kilo Code optional-tools compatibility PASS for `qwen-web` and `zai-web`.
+Accepted deterministic baseline: **70 passed**. Current KiloGate-WM Qwen result: five explicit Qwen Chat models PASS for Kilo text-only smoke; `qwen3.5-omni-plus` is intentionally not advertised for Kilo after timeout evidence. ChatGPT Web and Z.ai remain separate certification tracks.
 
 ## Security rules
 

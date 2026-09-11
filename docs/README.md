@@ -25,6 +25,7 @@
 | Release handoff | `FINAL_REPORT_2026-09-10.md` |
 | Kilo E2 evidence | `KILO_E2_EVIDENCE_2026-09-11.md` |
 | KiloGate-WM control pipeline | `KILOGATE_WM_CONTROL_PIPELINE.md` |
+| KiloGate-WM Qwen audit | `KILOGATE_WM_QWEN_AUDIT_2026-09-11.md` |
 
 ## Canonical current documents
 

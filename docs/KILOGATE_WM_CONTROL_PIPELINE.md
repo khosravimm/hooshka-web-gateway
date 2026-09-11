@@ -1,8 +1,8 @@
-﻿# KiloGate-WM — Web Model Control Pipeline for Kilo Programming
+# KiloGate-WM — Web Model Control Pipeline for Kilo Programming
 
 **Persian name:** دروازه‌سنج وب‌مدل برای Kilo
 **Process ID:** `KILOGATE-WM`
-**Version:** `0.2.0`
+**Version:** `0.3.0`
 **Status:** Draft control standard / active working baseline
 **Date:** 2026-09-11
 **Repository:** `hooshka-web-gateway`
@@ -13,7 +13,7 @@
 
 A provider-level claim is not sufficient. Each upstream model must be tested separately across **Web-chat application mode**, thinking, web-search, streaming, tool, Kilo, coding, timeout and recovery states.
 
-The Web-chat application mode is a first-class matrix dimension and must never be inferred from the provider name. Known examples:
+The Web-chat application mode is a first-class matrix dimension and must never be inferred from the provider name. **Application surface/origin is also first-class** when a provider exposes separate products or frontends. A shared account or cookie domain does not make those surfaces equivalent. Known examples:
 
 - Qwen Web: `chat`, `coder`
 - Z.ai Web: `chat`, `agent`
@@ -132,7 +132,7 @@ The Web-chat application mode must be tested independently for every model. A pr
 
 | Control | Requirement |
 |---|---|
-| W3.1 | Discover all selectable Web-chat application modes for the provider. |
+| W3.1 | Discover all Web-chat application surfaces/origins and modes for the provider family. |
 | W3.2 | Record the default mode after fresh session/restart. |
 | W3.3 | Verify that the requested mode is actually selected in UI/frontend state. |
 | W3.4 | Capture backend/request evidence that distinguishes modes when available. |
@@ -360,6 +360,9 @@ Every row must be stored as structured evidence:
 {
   "run_id": "KILOGATE-WM-YYYYMMDD-NNN",
   "provider": "qwen-web",
+  "provider_family": "qwen",
+  "application_surface": "coder",
+  "application_origin": "https://coder.qwen.ai",
   "gateway_model": "qwen:qwen3.8-max",
   "upstream_model": "qwen3.8-max",
   "ui_model_label": "Qwen3.8 Max",
@@ -419,3 +422,8 @@ Use this Persian title in user-facing reports:
 ```text
 دروازه‌سنج وب‌مدل برای Kilo
 ```
+
+
+## Qwen Coder discovery lesson (2026-09-11)
+
+KiloGate-WM discovery established that Qwen Coder is not merely an in-page Chat toggle. The Chat frontend opens `location.origin.replace("chat","coder")`, producing `https://coder.qwen.ai`. The Coder backend uses `/coder/api/v2/task/*`, `chat_type=code`, `sub_chat_type=web_dev`, streaming task completions, and an observed dedicated model `qwen3-coder-plus`. Therefore Qwen Chat and Qwen Coder require independent inventory, capability and Kilo certification.

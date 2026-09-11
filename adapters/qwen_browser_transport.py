@@ -246,7 +246,7 @@ class QwenBrowserControllerTransport:
         if last_exc:
             raise last_exc
 
-    async def session_status(self) -> dict:
+    async def _session_status_unlocked(self) -> dict:
         page = await self._ensure()
         result = await page.evaluate(
             """async () => {
@@ -265,25 +265,31 @@ class QwenBrowserControllerTransport:
             "mode": self.last_session_mode,
         }
 
+    async def session_status(self) -> dict:
+        async with self._lock:
+            return await self._session_status_unlocked()
+
     async def model_ids(self) -> list[str]:
-        page = await self._ensure()
-        result = await page.evaluate(
-            """async () => {
-              const r = await fetch('/api/v2/models/', {credentials:'include'});
-              if (!r.ok) return {status:r.status, ids:[]};
-              const j = await r.json();
-              const rows = j?.data?.data || [];
-              return {status:r.status, ids:rows.map(x=>x?.id).filter(Boolean)};
-            }"""
-        )
-        if int(result.get("status") or 0) in (401, 403):
-            raise ProviderError("Qwen model discovery requires session", "auth_required", self.provider_id)
-        return [str(x) for x in result.get("ids", [])]
+        async with self._lock:
+            page = await self._ensure()
+            result = await page.evaluate(
+                """async () => {
+                  const r = await fetch('/api/v2/models/', {credentials:'include'});
+                  if (!r.ok) return {status:r.status, ids:[]};
+                  const j = await r.json();
+                  const rows = j?.data?.data || [];
+                  return {status:r.status, ids:rows.map(x=>x?.id).filter(Boolean)};
+                }"""
+            )
+            if int(result.get("status") or 0) in (401, 403):
+                raise ProviderError("Qwen model discovery requires session", "auth_required", self.provider_id)
+            return [str(x) for x in result.get("ids", [])]
 
     async def health(self) -> bool:
         try:
-            await self._ensure()
-            await self.session_status()
+            async with self._lock:
+                await self._ensure()
+                await self._session_status_unlocked()
             return True
         except Exception:
             return False
@@ -298,7 +304,7 @@ class QwenBrowserControllerTransport:
             }"""
         )
 
-    async def _apply_features_and_send(self, page: Page, prompt: str, *, thinking: bool, search: bool, upstream_model: Optional[str] = None) -> str:
+    async def _apply_features_and_send(self, page: Page, prompt: str, *, thinking: Optional[bool], search: bool, upstream_model: Optional[str] = None) -> str:
         return str(
             await page.evaluate(
                 """async ({prompt, thinking, search, upstreamModel}) => {
@@ -310,24 +316,36 @@ class QwenBrowserControllerTransport:
                   if (upstreamModel && fm?.setSingleModel) {
                     const mr = fm.setSingleModel(upstreamModel);
                     if (mr && mr.success === false) throw new Error('model_select_failed:' + (mr.message || upstreamModel));
+                    if (fm.refreshModelDependentState) await fm.refreshModelDependentState();
                   }
                   const chatStore = window.__mwbQwenChatStore?.getState?.();
                   const runtimeStore = window.__mwbQwenRuntimeStore?.getState?.();
                   if (fm && fe) {
                     const thinkingFeature = fe.Thinking || 'thinking';
                     const searchFeature = fe.WebSearch || 'search';
-                    if (thinking) {
+                    const supportedThinkingModes = fm.getSupportedThinkingModes?.() || [];
+                    if (thinking === true) {
+                      const requestedThinkingMode =
+                        supportedThinkingModes.includes('Auto') ? 'Auto' :
+                        supportedThinkingModes.includes('Thinking') ? 'Thinking' :
+                        null;
+                      if (!requestedThinkingMode) throw new Error('thinking_unsupported');
                       const r1 = fm.selectFeature(thinkingFeature);
                       if (r1 && r1.success === false) throw new Error('thinking_enable_failed');
-                      const r2 = fm.setThinkingMode('Auto');
+                      const r2 = fm.setThinkingMode(requestedThinkingMode);
                       if (r2 && r2.success === false) throw new Error('thinking_mode_failed');
-                      if (runtimeStore?.setThinkingMode) runtimeStore.setThinkingMode('Auto');
-                    } else {
-                      const r1 = fm.selectFeature(thinkingFeature);
-                      if (r1 && r1.success === false) throw new Error('thinking_fast_feature_failed');
-                      const r2 = fm.setThinkingMode('Fast');
-                      if (r2 && r2.success === false) throw new Error('thinking_mode_fast_failed');
-                      if (runtimeStore?.setThinkingMode) runtimeStore.setThinkingMode('Fast');
+                      if (runtimeStore?.setThinkingMode) runtimeStore.setThinkingMode(requestedThinkingMode);
+                    } else if (thinking === false) {
+                      if (supportedThinkingModes.includes('Fast')) {
+                        const r1 = fm.selectFeature(thinkingFeature);
+                        if (r1 && r1.success === false) throw new Error('thinking_fast_feature_failed');
+                        const r2 = fm.setThinkingMode('Fast');
+                        if (r2 && r2.success === false) throw new Error('thinking_mode_fast_failed');
+                        if (runtimeStore?.setThinkingMode) runtimeStore.setThinkingMode('Fast');
+                      } else {
+                        const r1 = fm.deselectFeature(thinkingFeature);
+                        if (r1 && r1.success === false) throw new Error('thinking_disable_failed');
+                      }
                     }
                     if (search) {
                       const rs = fm.selectFeature(searchFeature);
@@ -364,11 +382,11 @@ class QwenBrowserControllerTransport:
             or ""
         )
 
-    async def _start_send(self, prompt: str, *, thinking: bool, search: bool, upstream_model: Optional[str] = None) -> str:
+    async def _start_send(self, prompt: str, *, thinking: Optional[bool], search: bool, upstream_model: Optional[str] = None) -> str:
         page = await self._ensure()
         for attempt in range(2):
             try:
-                await self.session_status()
+                await self._session_status_unlocked()
                 self.last_backend_request_model = None
                 result = await self._apply_features_and_send(page, prompt, thinking=thinking, search=search, upstream_model=upstream_model)
                 self.last_selected_models = await page.evaluate(
@@ -376,6 +394,28 @@ class QwenBrowserControllerTransport:
                 )
                 return result
             except Exception as exc:
+                message = str(exc)
+                if "thinking_unsupported" in message:
+                    raise ProviderError(
+                        "Qwen model does not support the requested thinking mode",
+                        "unsupported_feature",
+                        self.provider_id,
+                        {"feature": "thinking", "upstream_model": upstream_model},
+                    ) from exc
+                if "model_select_failed" in message:
+                    raise ProviderError(
+                        "Qwen explicit model selection failed",
+                        "invalid_model",
+                        self.provider_id,
+                        {"upstream_model": upstream_model},
+                    ) from exc
+                if "search_enable_failed" in message or "search_disable_failed" in message:
+                    raise ProviderError(
+                        "Qwen search feature state change failed",
+                        "unsupported_feature",
+                        self.provider_id,
+                        {"feature": "search", "upstream_model": upstream_model},
+                    ) from exc
                 if not self._is_transient_navigation_error(exc) or attempt == 1:
                     raise
                 await self._reset()
@@ -465,101 +505,125 @@ class QwenBrowserControllerTransport:
                 await page.wait_for_timeout(150)
         raise RuntimeError("unreachable")
 
-    async def stream_text(self, prompt: str, *, thinking: bool = True, search: bool = False, upstream_model: Optional[str] = None) -> AsyncIterator[dict]:
+    async def stream_text(self, prompt: str, *, thinking: Optional[bool] = None, search: bool = False, upstream_model: Optional[str] = None) -> AsyncIterator[dict]:
         async with self._lock:
-            started = time.monotonic()
-            last_meaningful = started
-            saw_event = False
-            emitted = ""
-            thinking_emitted = ""
-            chat_id = ""
-            await self._start_send(prompt, thinking=thinking, search=search, upstream_model=upstream_model)
-            while True:
-                now = time.monotonic()
-                if now - started > self.total_timeout:
-                    raise ProviderTimeoutError(self.provider_id, "Qwen total stream timeout")
-                snap = await self._snapshot(prompt)
-                chat_id = snap.get("chat_id") or chat_id
-                if snap.get("error"):
-                    raise ProviderError("Qwen controller send failed", "upstream_error", self.provider_id)
-                debug = snap.get("debug") or {}
-                if debug.get("assistant_error_present"):
-                    upstream_code = str(debug.get("assistant_error_code") or "")
-                    error_code = "rate_limit" if upstream_code.lower() == "ratelimited" else "upstream_error"
-                    raise ProviderError(
-                        "Qwen frontend reported an upstream error",
-                        error_code,
-                        self.provider_id,
-                        {
-                            "upstream_code": upstream_code,
-                            "message": str(debug.get("assistant_error_message") or "")[:240],
-                        },
-                    )
-                if self.last_backend_request_model and not saw_event:
-                    saw_event = True
-                    last_meaningful = now
-                if snap.get("has_event"):
-                    if not saw_event:
+            completed = False
+            try:
+                started = time.monotonic()
+                last_meaningful = started
+                saw_event = False
+                emitted = ""
+                thinking_emitted = ""
+                chat_id = ""
+                await self._start_send(prompt, thinking=thinking, search=search, upstream_model=upstream_model)
+                while True:
+                    now = time.monotonic()
+                    if now - started > self.total_timeout:
+                        raise ProviderTimeoutError(self.provider_id, "Qwen total stream timeout")
+                    snap = await self._snapshot(prompt)
+                    chat_id = snap.get("chat_id") or chat_id
+                    if snap.get("error"):
+                        raise ProviderError("Qwen controller send failed", "upstream_error", self.provider_id)
+                    debug = snap.get("debug") or {}
+                    if debug.get("assistant_error_present"):
+                        upstream_code = str(debug.get("assistant_error_code") or "")
+                        error_code = "rate_limit" if upstream_code.lower() == "ratelimited" else "upstream_error"
+                        raise ProviderError(
+                            "Qwen frontend reported an upstream error",
+                            error_code,
+                            self.provider_id,
+                            {
+                                "upstream_code": upstream_code,
+                                "message": str(debug.get("assistant_error_message") or "")[:240],
+                            },
+                        )
+                    if self.last_backend_request_model and not saw_event:
                         saw_event = True
                         last_meaningful = now
-                    elif snap.get("answer") != emitted or snap.get("thinking") != thinking_emitted:
+                    if snap.get("has_event"):
+                        if not saw_event:
+                            saw_event = True
+                            last_meaningful = now
+                        elif snap.get("answer") != emitted or snap.get("thinking") != thinking_emitted:
+                            last_meaningful = now
+                    elif not self.last_backend_request_model and now - started > self.first_event_timeout:
+                        raise ProviderTimeoutError(self.provider_id, "Qwen first event timeout")
+
+                    full_thinking = snap.get("thinking") or ""
+                    if full_thinking.startswith(thinking_emitted) and len(full_thinking) > len(thinking_emitted):
+                        delta = full_thinking[len(thinking_emitted):]
+                        thinking_emitted = full_thinking
+                        yield {
+                            "type": "reasoning_delta",
+                            "text": delta,
+                            "chat_id": chat_id,
+                            "model": self.last_backend_request_model or upstream_model or "",
+                        }
+
+                    full = snap.get("answer") or ""
+                    if full.startswith(emitted) and len(full) > len(emitted):
+                        delta = full[len(emitted):]
+                        emitted = full
                         last_meaningful = now
-                elif not self.last_backend_request_model and now - started > self.first_event_timeout:
-                    raise ProviderTimeoutError(self.provider_id, "Qwen first event timeout")
+                        yield {
+                            "type": "text_delta",
+                            "text": delta,
+                            "chat_id": chat_id,
+                            "model": self.last_backend_request_model or upstream_model or "",
+                        }
+                    elif full and full != emitted:
+                        raise ProviderError("Qwen reconstructed stream became non-monotonic", "protocol_error", self.provider_id)
 
-                full_thinking = snap.get("thinking") or ""
-                if full_thinking.startswith(thinking_emitted) and len(full_thinking) > len(thinking_emitted):
-                    delta = full_thinking[len(thinking_emitted):]
-                    thinking_emitted = full_thinking
-                    yield {
-                        "type": "reasoning_delta",
-                        "text": delta,
-                        "chat_id": chat_id,
-                        "model": self.last_backend_request_model or upstream_model or "",
-                    }
-
-                full = snap.get("answer") or ""
-                if full.startswith(emitted) and len(full) > len(emitted):
-                    delta = full[len(emitted):]
-                    emitted = full
-                    last_meaningful = now
-                    yield {
-                        "type": "text_delta",
-                        "text": delta,
-                        "chat_id": chat_id,
-                        "model": self.last_backend_request_model or upstream_model or "",
-                    }
-                elif full and full != emitted:
-                    raise ProviderError("Qwen reconstructed stream became non-monotonic", "protocol_error", self.provider_id)
-
-                if saw_event and now - last_meaningful > self.idle_timeout and not snap.get("terminal"):
-                    logger.warning(
-                        "Qwen meaningful idle timeout state=%s chat_id=%s answer_len=%s thinking_len=%s answer_status=%s thinking_status=%s net=%s",
-                        snap.get("state"),
-                        snap.get("chat_id"),
-                        len(snap.get("answer") or ""),
-                        len(snap.get("thinking") or ""),
-                        snap.get("answer_status"),
-                        snap.get("thinking_status"),
-                        self._network_events[-8:],
-                    )
-                    raise ProviderTimeoutError(self.provider_id, "Qwen meaningful idle timeout")
-                if snap.get("terminal") and self.last_backend_request_model:
-                    if not emitted and not thinking_emitted:
-                        raise ProviderError(
-                            "Qwen backend request completed without extractable assistant content",
-                            "protocol_error",
-                            self.provider_id,
-                            {"snapshot": snap.get("debug") or {}},
+                    if saw_event and now - last_meaningful > self.idle_timeout and not snap.get("terminal"):
+                        logger.warning(
+                            "Qwen meaningful idle timeout state=%s chat_id=%s answer_len=%s thinking_len=%s answer_status=%s thinking_status=%s net=%s",
+                            snap.get("state"),
+                            snap.get("chat_id"),
+                            len(snap.get("answer") or ""),
+                            len(snap.get("thinking") or ""),
+                            snap.get("answer_status"),
+                            snap.get("thinking_status"),
+                            self._network_events[-8:],
                         )
-                    yield {
-                        "type": "done",
-                        "text": "",
-                        "chat_id": chat_id,
-                        "model": self.last_backend_request_model or upstream_model or "",
-                    }
-                    return
-                await asyncio.sleep(self.poll_interval)
+                        raise ProviderTimeoutError(self.provider_id, "Qwen meaningful idle timeout")
+                    if (
+                        snap.get("terminal")
+                        and not self.last_backend_request_model
+                        and upstream_model
+                        and upstream_model in (self.last_selected_models or [])
+                    ):
+                        self.last_backend_request_model = upstream_model
+                        self._record_network_event(
+                            {
+                                "kind": "model_inferred_from_terminal_selection",
+                                "model": upstream_model,
+                            }
+                        )
+                    if snap.get("terminal") and self.last_backend_request_model:
+                        if not emitted and not thinking_emitted:
+                            raise ProviderError(
+                                "Qwen backend request completed without extractable assistant content",
+                                "protocol_error",
+                                self.provider_id,
+                                {"snapshot": snap.get("debug") or {}},
+                            )
+                        yield {
+                            "type": "done",
+                            "text": "",
+                            "chat_id": chat_id,
+                            "model": self.last_backend_request_model or upstream_model or "",
+                        }
+                        completed = True
+                        return
+                    await asyncio.sleep(self.poll_interval)
+
+            except BaseException:
+                logger.warning("Resetting Qwen browser transport after failed/cancelled stream", exc_info=True)
+                try:
+                    await self._reset()
+                except Exception:
+                    logger.warning("Qwen browser transport reset failed", exc_info=True)
+                raise
 
     async def close(self) -> None:
         await self._reset()
@@ -567,6 +631,28 @@ class QwenBrowserControllerTransport:
     async def _reset(self) -> None:
         page, context, pw = self._page, self._context, self._pw
         owns_context = self._owns_context
+        # A failed/cancelled CDP stream can leave Qwen's frontend session in
+        # `sending`. Disconnecting Playwright alone does not cancel that upstream
+        # request, so the next request inherits a poisoned session. Best-effort
+        # stop the active response(s) before dropping the local controller handle.
+        if page and not page.is_closed():
+            try:
+                await page.evaluate(
+                    """async () => {
+                      const x = window.__mwbQwenController;
+                      const pool = x?.getPool?.();
+                      try { await x?.stopResponse?.(); } catch (_) {}
+                      try { await pool?.stopAllResponses?.(); } catch (_) {}
+                      const s = pool?.currentSession;
+                      try { await s?.stopResponse?.(); } catch (_) {}
+                      try { await s?.waitForStoppedResponseTerminal?.(); } catch (_) {}
+                      try { s?.forceClear?.(); } catch (_) {}
+                      return {state:s?.sessionState || ''};
+                    }"""
+                )
+                await page.wait_for_timeout(150)
+            except Exception:
+                logger.debug("Qwen frontend recovery before reset failed", exc_info=True)
         self._page = None
         self._context = None
         self._browser = None
