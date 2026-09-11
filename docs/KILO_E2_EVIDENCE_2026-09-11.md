@@ -115,3 +115,45 @@ Accepted conclusions:
 - This does not validate Z.ai or Qwen tool calling.
 - This does not authorize use of guest sessions.
 - No API key, cookie, bearer token, provider token, signature, CAPTCHA proof, or full provider request body was recorded.
+
+
+## Kilo Code optional-tools compatibility
+
+Problem reproduced from the Kilo UI screenshots:
+
+```text
+Agent: Code
+Model: qwen-web or zai-web
+Failure before 0.6.6: No provider supports model '<model>' with the requested capabilities
+```
+
+Root cause:
+
+- Kilo Code sends a `tools` schema even for simple text prompts.
+- Qwen and Z.ai are currently text-only in Hooshka Web Gateway (`tools=false`).
+- Treating any `tools` array as a required tool capability caused an overly strict route rejection.
+
+0.6.6 behavior:
+
+- Optional tool schemas are dropped for text-only providers when `tool_choice` is absent, `auto`, or `none`.
+- Required tool choices remain fail-closed.
+- Qwen/Z.ai are not advertised as tool-capable.
+
+Observed Kilo Code E2 checks:
+
+```text
+kilo run -m hooshka/qwen-web "Reply exactly: KILO_CODE_QWEN_OPTIONAL_TOOLS_OK"
+> code · qwen-web
+KILO_CODE_QWEN_OPTIONAL_TOOLS_OK
+```
+
+```text
+kilo run -m hooshka/zai-web "Reply exactly: KILO_CODE_ZAI_OPTIONAL_TOOLS_OK"
+> code · zai-web
+KILO_CODE_ZAI_OPTIONAL_TOOLS_OK
+```
+
+Non-claim:
+
+- This does not validate tool calling for Qwen or Z.ai.
+- Real coding workflows that require tool calls should still use `chatgpt-web` until Qwen/Z.ai tool protocol E2 exists.

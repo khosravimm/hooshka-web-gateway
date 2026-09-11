@@ -22,6 +22,7 @@ from core.provider_registry import provider_registry, provider_router
 from core.mcp import mcp_translator, mcp_normalizer, mcp_session_manager
 from core.governance import init_governance, auth_manager, rate_limiter
 from core.config import load_config
+from core.tool_compat import drop_optional_tools_for_text_only_provider, request_requires_tools
 from adapters.chatgpt_web_provider import create_chatgpt_web_provider
 from adapters.qwen_web_provider import create_qwen_web_provider
 from adapters.zai_web_provider import create_zai_web_provider
@@ -33,7 +34,7 @@ SWAGGER_TEMPLATE = {
     "info": {
         "title": "Hooshka Web Gateway API",
         "description": "Hooshka Web Gateway exposes one governed OpenAI-compatible local API for supported Web-chat providers. Provider-specific browser/session/transport behavior remains behind exact fail-closed routing.",
-        "version": "0.6.5",
+        "version": "0.6.6",
         "contact": {
             "name": "Hooshka Web Gateway",
         },
@@ -635,17 +636,19 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             model=req.model,
             provider_id=provider_id,
             require_streaming=req.stream,
-            require_tools=bool(req.tools),
+            require_tools=request_requires_tools(req),
         )
         
         if not provider:
             return jsonify({"error": {
-                "message": f"No provider supports model '{req.model}' with the requested capabilities",
+                "message": f"No provider supports model '{req.model}' with the requested capabilities. If using Kilo Code with qwen/zai, tool schemas are only optional; required tool calls need chatgpt-web or a tool-capable provider.",
                 "type": "invalid_request_error",
                 "code": "unknown_or_unsupported_model",
+                "details": {"requested_tools": bool(req.tools), "tool_choice": req.tool_choice},
             }}), 400
         
         g.selected_provider_id = provider.provider_id
+        drop_optional_tools_for_text_only_provider(req, provider)
         
         try:
             translated_req = mcp_translator.translate_request(req, provider)
@@ -760,16 +763,18 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         
         provider = provider_router.select_provider(
             model=req.model,
-            require_tools=bool(req.tools),
+            require_tools=request_requires_tools(req),
         )
         if not provider:
             return jsonify({"error": {
-                "message": f"No provider supports model '{req.model}' with the requested capabilities",
+                "message": f"No provider supports model '{req.model}' with the requested capabilities. If using Kilo Code with qwen/zai, tool schemas are only optional; required tool calls need chatgpt-web or a tool-capable provider.",
                 "type": "invalid_request_error",
                 "code": "unknown_or_unsupported_model",
+                "details": {"requested_tools": bool(req.tools), "tool_choice": req.tool_choice},
             }}), 400
         
         g.selected_provider_id = provider.provider_id
+        drop_optional_tools_for_text_only_provider(req, provider)
         
         try:
             translated_req = mcp_translator.translate_request(req, provider)
@@ -851,16 +856,18 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         provider = provider_router.select_provider(
             model=req.model,
             require_streaming=req.stream,
-            require_tools=bool(req.tools),
+            require_tools=request_requires_tools(req),
         )
         if not provider:
             return jsonify({"error": {
-                "message": f"No provider supports model '{req.model}' with the requested capabilities",
+                "message": f"No provider supports model '{req.model}' with the requested capabilities. If using Kilo Code with qwen/zai, tool schemas are only optional; required tool calls need chatgpt-web or a tool-capable provider.",
                 "type": "invalid_request_error",
                 "code": "unknown_or_unsupported_model",
+                "details": {"requested_tools": bool(req.tools), "tool_choice": req.tool_choice},
             }}), 400
         
         g.selected_provider_id = provider.provider_id
+        drop_optional_tools_for_text_only_provider(req, provider)
         
         try:
             translated_req = mcp_translator.translate_request(req, provider)

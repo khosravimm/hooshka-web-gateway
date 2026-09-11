@@ -1,6 +1,6 @@
 # Hooshka Web Gateway Ã¢â‚¬â€ Start Here
 
-**Current baseline:** 0.6.5
+**Current baseline:** 0.6.6
 **Module id:** `web_gateway`
 **Local path:** `D:\Code\hooshka-web-gateway`
 **Windows service:** `HooshkaWebGateway`
@@ -38,7 +38,7 @@ Run the deterministic test suite:
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Expected 0.6.5 baseline: **63 passed**. Current Kilo E2 evidence: `chatgpt-web` PASS; `zai:glm-5.3` PASS with `summary` agent; `qwen:qwen3.8-max` PASS with `summary` agent.
+Expected 0.6.6 baseline: **70 passed**. Current Kilo E2 evidence: `chatgpt-web` PASS; `zai:glm-5.3` PASS; `qwen:qwen3.8-max` PASS; Kilo Code optional-tools compatibility PASS for `qwen-web` and `zai-web`.
 
 ## Read next
 

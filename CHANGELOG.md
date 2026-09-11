@@ -2,6 +2,19 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## 0.6.6 - 2026-09-11
+
+### Fixed
+- Kilo Code compatibility for text-only Web providers: optional tool schemas are now dropped for providers that do not support tool calling when `tool_choice` is not required.
+- Improved unsupported-capability errors with requested tool details.
+- Kilo local Hooshka model metadata now marks `qwen*` and `zai*` as `tool_call=false`, while `chatgpt-web` remains `tool_call=true`.
+
+### Evidence
+- Kilo Code + `hooshka/qwen-web`: PASS with `KILO_CODE_QWEN_OPTIONAL_TOOLS_OK`.
+- Kilo Code + `hooshka/zai-web`: PASS with `KILO_CODE_ZAI_OPTIONAL_TOOLS_OK`.
+- Deterministic unit suite: 70 passed.
+- Required tool calls remain fail-closed for Qwen/Z.ai; no tool-calling support claim is made for these providers.
+
 ## 0.6.5 - 2026-09-11
 
 ### Added

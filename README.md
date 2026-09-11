@@ -2,7 +2,7 @@
 
 **Canonical id:** `hooshka-web-gateway`
 **Hooshka module:** `web_gateway`
-**Current release:** `0.6.5`
+**Current release:** `0.6.6`
 
 Hooshka Web Gateway is the unified local API gateway for governed access to supported Web-chat providers. It gives Hooshka, local agents and compatible clients one OpenAI-style interface while isolating provider-specific browser, session, frontend and transport behavior.
 
@@ -100,7 +100,7 @@ Historical research/evidence documents remain under `docs/`.
 git diff --check
 ```
 
-Accepted 0.6.5 deterministic baseline: **63 passed**. Current Kilo E2: `chatgpt-web` PASS, `zai:glm-5.3` PASS with Kilo `summary` agent, and `qwen:qwen3.8-max` PASS with Kilo `summary` agent.
+Accepted 0.6.6 deterministic baseline: **70 passed**. Current Kilo E2: `chatgpt-web` PASS, `zai:glm-5.3` PASS, `qwen:qwen3.8-max` PASS, plus Kilo Code optional-tools compatibility PASS for `qwen-web` and `zai-web`.
 
 ## Security rules
 

@@ -2,7 +2,7 @@
 
 > Repository-level discovery starts at `../HOOSHKA_WEB_GATEWAY_START_HERE.md`. Agents and humans should read that file first.
 
-**Release:** 0.6.5
+**Release:** 0.6.6
 **Canonical project:** `hooshka-web-gateway`
 **Module:** `web_gateway`
 
