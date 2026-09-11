@@ -26,6 +26,7 @@
 | Kilo E2 evidence | `KILO_E2_EVIDENCE_2026-09-11.md` |
 | KiloGate-WM control pipeline | `KILOGATE_WM_CONTROL_PIPELINE.md` |
 | KiloGate-WM Qwen audit | `KILOGATE_WM_QWEN_AUDIT_2026-09-11.md` |
+| KiloGate-WM DeepSeek Web Chat audit | `KILOGATE_WM_DEEPSEEK_WEBCHAT_AUDIT_2026-09-12.md` |
 
 ## Canonical current documents
 
@@ -45,6 +46,8 @@
 - `EXPLICIT_MODEL_SELECTION_EVIDENCE_2026-09-10.md` Ã¢â‚¬â€ dynamic catalog/default routing evidence and current Qwen quota state.
 - `KILO_E2_EVIDENCE_2026-09-11.md` Ã¢â‚¬â€ current Kilo CLI E2 evidence for ChatGPT, Z.ai and Qwen authenticated sessions.
 - `KILOGATE_WM_CONTROL_PIPELINE.md` — model-level control pipeline for certifying Web-chat models for Kilo programming, including thinking/search/stream/tool/recovery controls.
+
+- `KILOGATE_WM_DEEPSEEK_WEBCHAT_AUDIT_2026-09-12.md` - corrected DeepSeek Web Chat UI audit; manual UI passes direct/tool-envelope/tool-result checks, but Gateway/Kilo provider remains pending.
 
 ## Research, evidence and history
 

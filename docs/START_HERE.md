@@ -15,7 +15,7 @@ Hooshka Web Gateway is the single local gateway for governed access to supported
 | ChatGPT Web | `chatgpt-web` | E2 PASS | supported, buffered compatibility | E2 PASS | project-owned ChatGPT CDP runtime on 9224; Kilo large-prompt E2 PASS |
 | Qwen Web | `qwen-web`, `qwen:qwen3.8-max` | E2 PASS | supported, reconstructed | disabled | Kilo text-only `summary` agent E2 PASS; guest rejected |
 | Z.ai Web | `zai-web`, `zai:glm-5.3` | E2 PASS | supported, reconstructed | disabled | Kilo text-only `summary` agent E2 PASS; tools disabled |
-| DeepSeek Web | `deepseek-web` | blocked | blocked | blocked | current account-state circuit breaker |
+| DeepSeek Web | `deepseek-web` | manual UI E2 PASS | not integrated | not certified | Web Chat account healthy; Gateway provider pending |
 
 E2 means a real Web-chat end-to-end test passed. It does not mean long-duration/E3 reliability.
 

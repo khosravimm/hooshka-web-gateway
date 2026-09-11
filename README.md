@@ -13,7 +13,7 @@ Hooshka Web Gateway is the unified local API gateway for governed access to supp
 | ChatGPT Web | `chatgpt-web` | E2 operational via Kilo | chat, stream compatibility, tool-call path, large agent prompt transport |
 | Qwen Web | `qwen-web`, `qwen:<upstream-id>` | Text-only Kilo smoke PASS for five explicit Chat models; not full programming-certified | model-aware thinking/search, reconstructed stream; tools disabled; `qwen3.5-omni-plus` quarantined |
 | Z.ai Web | `zai-web`, `zai:<upstream-id>` | E2 operational via Kilo text-only agent | dynamic catalog, configurable default, reconstructed stream; tools disabled until E2 |
-| DeepSeek Web | `deepseek-web` | blocked | current account state prevents live E2 |
+| DeepSeek Web | `deepseek-web` | manual Web Chat E2 PASS; Gateway provider not implemented | UI direct marker, tool-envelope and tool-result continuation passed; not Kilo/full-agent certified |
 
 This release is an **E2 baseline**, not an E3/production-reliability claim.
 
