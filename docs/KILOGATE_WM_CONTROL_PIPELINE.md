@@ -2,7 +2,7 @@
 
 **Persian name:** دروازه‌سنج وب‌مدل برای Kilo
 **Process ID:** `KILOGATE-WM`
-**Version:** `0.1.0`
+**Version:** `0.2.0`
 **Status:** Draft control standard / active working baseline
 **Date:** 2026-09-11
 **Repository:** `hooshka-web-gateway`
@@ -11,7 +11,14 @@
 
 `KiloGate-WM` is the control pipeline for certifying Web-chat models for programming use in Kilo. The goal is not ordinary chat. A model is accepted only when it can operate safely and repeatably through the Gateway/Kilo path with model-level evidence.
 
-A provider-level claim is not sufficient. Each upstream model must be tested separately across thinking, web-search, streaming, tool, Kilo, coding, timeout and recovery states.
+A provider-level claim is not sufficient. Each upstream model must be tested separately across **Web-chat application mode**, thinking, web-search, streaming, tool, Kilo, coding, timeout and recovery states.
+
+The Web-chat application mode is a first-class matrix dimension and must never be inferred from the provider name. Known examples:
+
+- Qwen Web: `chat`, `coder`
+- Z.ai Web: `chat`, `agent`
+
+A model can be certified in one Web-chat mode and fail or lack capabilities in another.
 
 ## Core rule
 
@@ -49,6 +56,8 @@ provider
 + upstream_model
 + ui_model_label
 + backend_request_model
++ web_chat_mode_requested
++ web_chat_mode_observed
 + thinking_requested
 + thinking_observed
 + search_requested
@@ -117,7 +126,31 @@ Required-tool DENY only proves safe fail-closed behavior.
 | M2.7 | `/v1/models` remains stable across restart. |
 | M2.8 | Uncertified backend-only models are not advertised as certified. |
 
-## Phase 3 — Per-model thinking controls
+## Phase 3 — Per-model Web-chat mode controls
+
+The Web-chat application mode must be tested independently for every model. A provider-level result in one mode must not be transferred to another mode.
+
+| Control | Requirement |
+|---|---|
+| W3.1 | Discover all selectable Web-chat application modes for the provider. |
+| W3.2 | Record the default mode after fresh session/restart. |
+| W3.3 | Verify that the requested mode is actually selected in UI/frontend state. |
+| W3.4 | Capture backend/request evidence that distinguishes modes when available. |
+| W3.5 | Test every model independently in every mode exposed to that model. |
+| W3.6 | If a model does not support a mode, mark it `UNSUPPORTED` rather than silently falling back. |
+| W3.7 | Mode state must not leak from one model/test row to the next. |
+| W3.8 | Explicit mode selection must survive a new-chat transition when the product semantics require it. |
+| W3.9 | Mode-specific capabilities (thinking/search/tools/files/agent behavior) must be rediscovered per model+mode. |
+| W3.10 | Certification is scoped to `provider + model + web_chat_mode`; certification in `chat` does not certify `coder` or `agent`. |
+
+Known current mode families:
+
+| Provider | Modes requiring separate certification |
+|---|---|
+| Qwen Web | `chat`, `coder` |
+| Z.ai Web | `chat`, `agent` |
+
+## Phase 4 — Per-model thinking controls
 
 Thinking must be tested per model. It must not be assumed at provider level.
 
@@ -139,7 +172,7 @@ Do not force thinking=true globally.
 Preserve provider/model default unless that exact model-state has passed evidence.
 ```
 
-## Phase 4 — Per-model web-search controls
+## Phase 5 — Per-model web-search controls
 
 Web search must also be tested per model.
 
@@ -161,7 +194,7 @@ web_search=off for deterministic programming tasks.
 web_search=on only for explicit research/documentation tasks.
 ```
 
-## Phase 5 — Direct completion matrix
+## Phase 6 — Direct completion matrix
 
 Minimum direct rows per model:
 
@@ -183,7 +216,7 @@ Pass criteria:
 - latency within budget,
 - no hidden tool claim.
 
-## Phase 6 — Streaming matrix
+## Phase 7 — Streaming matrix
 
 Streaming is mandatory for Kilo certification.
 
@@ -204,7 +237,7 @@ Stop rule:
 If the base streaming row fails for a model, that model cannot enter Kilo certification.
 ```
 
-## Phase 7 — Kilo text-only matrix
+## Phase 8 — Kilo text-only matrix
 
 | Control | Requirement |
 |---|---|
@@ -223,7 +256,7 @@ Stop rule:
 If K7.1 fails, do not run tool or patch tests for that model.
 ```
 
-## Phase 8 — Tool safety matrix
+## Phase 9 — Tool safety matrix
 
 Tool capability must be validated separately from text/code ability.
 
@@ -252,7 +285,7 @@ Controls:
 | TL8.9 | Every tool call/result must be auditable. |
 | TL8.10 | Recovery after tool failure must be verified. |
 
-## Phase 9 — Programming task matrix
+## Phase 10 — Programming task matrix
 
 | Control | Task | Requirement |
 |---|---|---|
@@ -267,7 +300,7 @@ Controls:
 | C9.9 | Commit summary | Accurate summary from actual diff. |
 | C9.10 | Safety boundary | Does not modify unrelated files. |
 
-## Phase 10 — Recovery matrix
+## Phase 11 — Recovery matrix
 
 | Control | Requirement |
 |---|---|
@@ -280,7 +313,7 @@ Controls:
 | RC10.7 | Failure artifact is preserved. |
 | RC10.8 | Other providers remain usable. |
 
-## Phase 11 — Certification decision
+## Phase 12 — Certification decision
 
 | Certification | Meaning | Routing decision |
 |---|---|---|
@@ -310,13 +343,13 @@ Minimum certification rows per model:
 Therefore:
 
 ```text
-N models × 24 minimum rows = required control matrix size
+N model-mode pairs × 24 minimum rows = required control matrix size
 ```
 
 A 24-model provider set requires at least:
 
 ```text
-24 models × 24 rows = 576 control rows
+24 model-mode pairs × 24 rows = 576 control rows
 ```
 
 ## Evidence schema
@@ -331,6 +364,8 @@ Every row must be stored as structured evidence:
   "upstream_model": "qwen3.8-max",
   "ui_model_label": "Qwen3.8 Max",
   "backend_request_model": "qwen3.8-max",
+  "web_chat_mode_requested": "coder",
+  "web_chat_mode_observed": "coder",
   "thinking_requested": "default",
   "thinking_observed": "default",
   "search_requested": false,
