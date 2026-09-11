@@ -24,6 +24,7 @@
 | Architecture review | `ARCHITECTURE_CURRENT.md` |
 | Release handoff | `FINAL_REPORT_2026-09-10.md` |
 | Kilo E2 evidence | `KILO_E2_EVIDENCE_2026-09-11.md` |
+| KiloGate-WM control pipeline | `KILOGATE_WM_CONTROL_PIPELINE.md` |
 
 ## Canonical current documents
 
@@ -42,6 +43,7 @@
 - `FINAL_REPORT_2026-09-10.md` Ã¢â‚¬â€ 0.5.0 release-level handoff.
 - `EXPLICIT_MODEL_SELECTION_EVIDENCE_2026-09-10.md` Ã¢â‚¬â€ dynamic catalog/default routing evidence and current Qwen quota state.
 - `KILO_E2_EVIDENCE_2026-09-11.md` Ã¢â‚¬â€ current Kilo CLI E2 evidence for ChatGPT, Z.ai and Qwen authenticated sessions.
+- `KILOGATE_WM_CONTROL_PIPELINE.md` — model-level control pipeline for certifying Web-chat models for Kilo programming, including thinking/search/stream/tool/recovery controls.
 
 ## Research, evidence and history
 
