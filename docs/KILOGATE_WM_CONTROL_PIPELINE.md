@@ -2,7 +2,7 @@
 
 **Persian name:** دروازه‌سنج وب‌مدل برای Kilo
 **Process ID:** `KILOGATE-WM`
-**Version:** `0.3.0`
+**Version:** `0.4.0`
 **Status:** Draft control standard / active working baseline
 **Date:** 2026-09-11
 **Repository:** `hooshka-web-gateway`
@@ -19,6 +19,24 @@ The Web-chat application mode is a first-class matrix dimension and must never b
 - Z.ai Web: `chat`, `agent`
 
 A model can be certified in one Web-chat mode and fail or lack capabilities in another.
+
+## Mandatory target definition - Kilo programming
+
+For this project, **Kilo programming** means tool-capable agentic coding, not ordinary chat and not text-only code generation. A model is not acceptable for the user's programming objective until it can execute the full governed coding loop through Kilo tools.
+
+Mandatory capabilities for the programming target:
+
+- `read_file` / project file reading
+- project search / symbol or text search across the workspace
+- `edit_file` or equivalent governed file editing
+- `apply_patch` or equivalent patch application
+- restricted `shell_command` / test command execution
+- actual tool/function-call protocol, not textual imitation
+- tool-result consumption without fabricating tool output
+- multi-step full agent coding with timeout, cancel, rollback, recovery and audit evidence
+
+Text-only coding can be used only as a smoke/precheck stage. It must not be reported as final Kilo programming certification.
+
 
 ## Core rule
 
@@ -41,10 +59,10 @@ Minimum Kilo admission requires:
 |---|---|---|---|
 | K0 | Blocked | Not safe or not integrated | Deny |
 | K1 | Direct-only | Direct text/code completion works, but Kilo is not certified | Deny for Kilo |
-| K2 | Kilo text-only | Kilo prompt/code generation works without tools | Allow text-only |
-| K3 | Kilo read-only tools | Kilo works with verified read/search tools | Allow read-only tools |
-| K4 | Kilo patch tools | Verified file edit/apply-patch workflow | Allow controlled patching |
-| K5 | Full agent coding | Verified read/write/patch/shell/recovery/audit workflow | Allow governed agent coding |
+| K2 | Kilo text-only smoke | Kilo prompt/code generation works without tools | Precheck only; not programming-certified |
+| K3 | Kilo read-only tools | Kilo works with verified read/search tools | Diagnostic/review only; not full programming-certified |
+| K4 | Kilo patch tools | Verified file edit/apply-patch workflow | Limited coding; shell/recovery still required for final certification |
+| K5 | Full agent coding | Verified read/search/edit/patch/shell/tool-call/recovery/audit workflow | Minimum acceptable certification for Kilo programming |
 
 ## Matrix dimensions
 
@@ -218,7 +236,7 @@ Pass criteria:
 
 ## Phase 7 — Streaming matrix
 
-Streaming is mandatory for Kilo certification.
+Streaming is mandatory for Kilo text-only smoke and all higher certification levels, but streaming alone is not sufficient for the project programming objective.
 
 | Control | Requirement |
 |---|---|
@@ -258,7 +276,7 @@ If K7.1 fails, do not run tool or patch tests for that model.
 
 ## Phase 9 — Tool safety matrix
 
-Tool capability must be validated separately from text/code ability.
+Tool capability is mandatory for the project programming objective and must be validated separately from text/code ability.
 
 | Level | Requirement |
 |---|---|
@@ -318,10 +336,10 @@ Controls:
 | Certification | Meaning | Routing decision |
 |---|---|---|
 | `CERTIFIED_DIRECT_ONLY` | Direct non-stream works only | Not allowed in Kilo |
-| `CERTIFIED_KILO_TEXT_ONLY` | Kilo works without tools | Allow text-only coding |
-| `CERTIFIED_KILO_READONLY_TOOLS` | Read/search tools verified | Allow read-only tools |
-| `CERTIFIED_KILO_PATCH_TOOLS` | Patch/edit verified | Allow controlled edits |
-| `CERTIFIED_FULL_AGENT` | Full tool/recovery/audit verified | Allow governed agent coding |
+| `CERTIFIED_KILO_TEXT_ONLY` | Kilo works without tools | Precheck/smoke only; not accepted as programming-ready |
+| `CERTIFIED_KILO_READONLY_TOOLS` | Read/search tools verified | Review/diagnostic only; not accepted as full programming-ready |
+| `CERTIFIED_KILO_PATCH_TOOLS` | Patch/edit verified | Limited coding only; not final until shell/recovery/audit pass |
+| `CERTIFIED_FULL_AGENT` | Full read/search/edit/patch/shell/tool/recovery/audit verified | Required for Kilo programming |
 | `QUARANTINED` | Timeout/lock/risk observed | Deny |
 | `REJECTED` | Unsafe or repeatedly failing | Deny |
 | `HOLD_UNTESTED` | Evidence incomplete | Deny |
@@ -405,8 +423,10 @@ Every row must be stored as structured evidence:
 ## Routing rule
 
 ```text
-No Web model may be routed to Kilo production unless it reaches at least CERTIFIED_KILO_TEXT_ONLY.
+No Web model may be claimed as programming-ready for this project unless it reaches CERTIFIED_FULL_AGENT.
+CERTIFIED_KILO_TEXT_ONLY is only a smoke/precheck status and must be labelled as such.
 No Web model may receive required tools unless it reaches the corresponding tool certification level.
+No model with tool_call=false may be used for repository inspection, file editing, patch application, shell execution or full agent coding.
 ```
 
 ## Short name
@@ -427,3 +447,21 @@ Use this Persian title in user-facing reports:
 ## Qwen Coder discovery lesson (2026-09-11)
 
 KiloGate-WM discovery established that Qwen Coder is not merely an in-page Chat toggle. The Chat frontend opens `location.origin.replace("chat","coder")`, producing `https://coder.qwen.ai`. The Coder backend uses `/coder/api/v2/task/*`, `chat_type=code`, `sub_chat_type=web_dev`, streaming task completions, and an observed dedicated model `qwen3-coder-plus`. Therefore Qwen Chat and Qwen Coder require independent inventory, capability and Kilo certification.
+
+
+## User-objective certification gate
+
+The user's declared objective is programming through Kilo, including file access, project search, editing, patching, shell/test execution and real function/tool calls. Therefore the acceptance gate is:
+
+```text
+ACCEPTED_FOR_USER_PROGRAMMING = CERTIFIED_FULL_AGENT
+```
+
+Any lower result must be reported with an explicit qualifier:
+
+- `CERTIFIED_DIRECT_ONLY` -> direct API/text only
+- `CERTIFIED_KILO_TEXT_ONLY` -> Kilo smoke only
+- `CERTIFIED_KILO_READONLY_TOOLS` -> read/search review only
+- `CERTIFIED_KILO_PATCH_TOOLS` -> limited edit/patch only, not full agent coding
+
+A report that says "passed all tests" is invalid unless it identifies the certification scope and includes evidence for the required tool/function-call rows.

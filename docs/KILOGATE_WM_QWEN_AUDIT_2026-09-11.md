@@ -9,7 +9,7 @@ Application surfaces:
 - `chat.qwen.ai` / `chat`
 - `coder.qwen.ai` / `coder` discovered separately; not yet exposed through a Gateway provider.
 
-Primary objective: certify Qwen Web Chat models for Kilo Code use through the local OpenAI-compatible Gateway.
+Primary objective originally tested Qwen Web Chat models through the local OpenAI-compatible Gateway. After clarification, the user objective is full Kilo programming with tools; this audit is therefore reclassified as text-only smoke evidence, not final programming certification.
 
 ## Evidence files
 
@@ -55,7 +55,7 @@ Result:
 {"rows": 6, "pass": 6, "fail": 0}
 ```
 
-## Kilo CLI result
+## Kilo CLI text-only smoke result
 
 Kilo command form:
 
@@ -69,7 +69,7 @@ Result:
 {"rows": 6, "pass": 5, "fail": 1}
 ```
 
-Certified for Kilo:
+Text-only smoke PASS in Kilo:
 
 - `hooshka/qwen:qwen3.7-plus`
 - `hooshka/qwen:qwen3.8-max`
@@ -77,7 +77,7 @@ Certified for Kilo:
 - `hooshka/qwen:qwen3.6-plus`
 - `hooshka/qwen:qwen3.5-plus`
 
-Quarantined for Kilo:
+Quarantined even for Kilo text-only smoke:
 
 - `hooshka/qwen:qwen3.5-omni-plus`
 
@@ -97,4 +97,34 @@ Reason: `qwen3.5-omni-plus` passed direct and Gateway SSE tests but timed out in
 
 ## Certification statement
 
-Qwen Chat is certified for Kilo Code text/coding smoke use for five explicit models listed above. `qwen-web` alias remains available, but certification should prefer explicit models to prevent accidental upstream drift. `qwen3.5-omni-plus` is not Kilo-certified.
+Qwen Chat is **not certified for the user's declared Kilo programming target** because Kilo tool/function-call capability is not enabled and the required read/search/edit/apply_patch/shell/full-agent rows were not passed.
+
+Current valid status:
+
+```text
+Qwen Chat five explicit models: CERTIFIED_KILO_TEXT_ONLY_SMOKE
+Qwen Chat tool/function-call: NOT_CERTIFIED
+Qwen Chat repository inspection: NOT_ENABLED
+Qwen Chat edit/apply_patch/shell: NOT_ENABLED
+Qwen Chat full agent coding: NOT_CERTIFIED
+qwen3.5-omni-plus: QUARANTINED_FOR_KILO
+```
+
+The five text-only smoke PASS models may generate or explain code when all needed context is supplied in the prompt. They must not be used for independent repository inspection, file editing, patch application, shell/test execution or full agent coding until a separate tool-capability certification passes.
+
+
+## Missing mandatory rows for user programming objective
+
+The following KiloGate-WM rows are mandatory for the user's programming objective and remain unpassed for Qwen Chat:
+
+- `read_file` / project file reading
+- project search / symbol or text search
+- `edit_file` / governed file modification
+- `apply_patch` / patch application
+- restricted `shell_command` / test execution
+- actual tool/function-call protocol
+- tool result ingestion without hallucination
+- rollback/recovery/audit for failed tool operations
+- multi-step full agent coding scenario
+
+Until these rows pass, any Qwen result must be described as text-only smoke, not programming-ready certification.
