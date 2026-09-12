@@ -12,7 +12,7 @@ Hooshka Web Gateway is the unified local API gateway for governed access to supp
 |---|---|---|---|
 | ChatGPT Web | `chatgpt-web` | E2 operational via Kilo | chat, stream compatibility, tool-call path, large agent prompt transport |
 | Qwen Web | `qwen-web`, `qwen:qwen3.8-max` | KiloGate-WM E2 tool-capable smoke PASS for `qwen3.8-max`; other explicit models remain separately uncertified | model-aware thinking/search, reconstructed stream; read/grep/write/edit/bash passed for `qwen3.8-max`; `qwen3.5-omni-plus` quarantined |
-| Z.ai Web | `zai-web`, `zai:<upstream-id>` | KiloGate-WM E2 tool-capable smoke PASS for `zai-web` / `glm-5.2`; `glm-5.3` and `GLM-5.3-Flash` provider/API E2 PASS | Web Chat/CDP 9223; read/grep/write/edit/bash passed for `glm-5.2`; `glm-5.3`/`x-preview-l` still need explicit Kilo tool-execution certification |
+| Z.ai Web | `zai-web`, `zai:glm-5.2` | KiloGate-WM E2 tool-capable smoke PASS for `zai-web` / `glm-5.2`; explicit `glm-5.3` and `GLM-5.3-Flash` remain held | Web Chat/CDP 9223; read/grep/write/edit/bash passed for `glm-5.2`; `glm-5.3`/`x-preview-l` provider/API E2 passed but Kilo explicit rows are HOLD and `tool_call=false` |
 | DeepSeek Web | `deepseek-web` | KiloGate-WM E2 tool-capable smoke PASS | browser-UI transport via dedicated 9226 runtime; read/grep/write/edit/bash passed; not E3/production-certified |
 
 This release is an **E2 baseline**, not an E3/production-reliability claim.
@@ -127,3 +127,6 @@ Z.ai KiloGate-WM E2 smoke passed read/search/write/edit/shell through the browse
 
 
 Qwen KiloGate-WM retest corrected the previous text-only status: `qwen:qwen3.8-max` passed provider-level, Gateway API and Kilo read/search/write/edit/bash tool checks. Manual Web Chat screenshots also motivated XML-ish `tool_call` parser hardening. This remains E2 smoke certification, not E3 reliability.
+
+
+KiloGate-WM programming model status is recorded in `docs/KILOGATE_WM_PROGRAMMING_MODEL_STATUS_2026-09-12.md`. Explicit Z.ai `glm-5.3` / `x-preview-l` rows are held as `KILO_INIT_STALL_BEFORE_SESSION_PROMPT`; Qwen `qwen3.7-max` remains held by provider quota. These models are intentionally left `tool_call=false`.

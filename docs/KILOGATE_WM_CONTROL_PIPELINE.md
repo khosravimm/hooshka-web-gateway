@@ -2,7 +2,7 @@
 
 **Persian name:** دروازه‌سنج وب‌مدل برای Kilo
 **Process ID:** `KILOGATE-WM`
-**Version:** `0.5.2`
+**Version:** `0.5.3`
 **Status:** Draft control standard / active working baseline
 **Date:** 2026-09-12
 **Repository:** `hooshka-web-gateway`
@@ -415,6 +415,32 @@ ERROR_EVENT
 NO_PROMPT_MATCH
 BACKEND_SEEN_NO_PROMPT_MATCH
 ```
+
+
+
+## Kilo CLI init / pre-dispatch stall controls - v0.5.3
+
+A Kilo row may start a local `kilo run` process but fail before the model receives the row prompt. This is not model thinking and must not be treated as model failure.
+
+Classify the row as `HOLD` with `failure_class=KILO_INIT_STALL_BEFORE_SESSION_PROMPT` when all of the following are true for the exact current row marker:
+
+1. the `kilo run` process exists and its command line contains the intended provider/model and marker;
+2. the Kilo internal log shows bootstrap/indexing activity, but no `service=session.prompt` for the row;
+3. the Kilo internal log shows no `llm.provider=<target-provider>` / `modelID=<target-model>` dispatch for the row;
+4. the Gateway audit log shows no matching `/v1/chat/completions` request for the row marker;
+5. no CAPTCHA/challenge/quota/error state explains the stop.
+
+Required handling:
+
+- do not classify this as `WAIT_THINKING` or `WAIT_GENERATING`; those states require matched provider prompt evidence and reasoning/text liveness according to v0.5.2;
+- do not classify this as model capability failure;
+- do not set `tool_call=true` for the affected explicit model;
+- stop only the exact row processes by process id or exact marker, not broad `node.exe` / `powershell.exe` groups;
+- record the Kilo internal log path, elapsed time, model id, marker, and dependent rows held;
+- resume only after Kilo reaches `service=session.prompt` and `llm.provider=<target-provider>` for a control row.
+
+This control is separate from transient `models.dev` catalog latency. A catalog fetch delay may be tolerated while Kilo eventually reaches `session.prompt`; the stall class applies only when the row remains pre-dispatch past the configured init budget.
+
 
 ## Quota / high-demand / usage-limit controls - v0.5.1
 

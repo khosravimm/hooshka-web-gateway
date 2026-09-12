@@ -83,6 +83,15 @@ For tools, E2 must include a complete tool-call -> tool-result -> final-answer r
 
 A later selector-focused retest upgraded `zai:glm-5.3` and `zai:x-preview-l` / `GLM-5.3-Flash` to provider/Gateway API E2 tool-call PASS after fixing model-option selection and Flash label normalization. That retest does not automatically enable Kilo `tool_call=true` for those explicit models; they still need separate Kilo read/search/write/edit/bash evidence.
 
+
+
+### Programming allow-list closure
+
+The current Kilo programming allow-list is documented in `docs/KILOGATE_WM_PROGRAMMING_MODEL_STATUS_2026-09-12.md`.
+
+`zai:glm-5.3` and `zai:x-preview-l` / GLM-5.3-Flash have provider/Gateway API E2 tool-call evidence, but they are not Kilo programming-certified. The explicit Kilo retry for `zai:glm-5.3` reached Kilo bootstrap/indexing but did not reach `service=session.prompt`, `llm.provider=hooshka`, or a JSON `type:"text"` marker for the row. The row is closed as `HOLD` with `failure_class=KILO_INIT_STALL_BEFORE_SESSION_PROMPT`; both explicit models remain `tool_call=false`.
+
+
 ### Qwen KiloGate-WM status
 
 `qwen:qwen3.8-max` is KiloGate-WM E2 tool-capable smoke certified after the 2026-09-12 retest. Provider-level and Gateway API tool-call round-trips passed, and Kilo executed read, grep/search, write, edit and bash/shell. The retest also added XML-ish `tool_call` parser hardening for Web Chat outputs observed manually.
