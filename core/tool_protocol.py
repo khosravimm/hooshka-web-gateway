@@ -124,9 +124,50 @@ def _json_loads_tolerant(raw: str):
             raise first_error
 
 
+def _normalize_tool_name_and_args(name: str, args):
+    # Do not globally rename tools here. API clients may intentionally expose
+    # read_file instead of Kilo's read. Only normalize argument aliases that
+    # Web-chat models commonly emit.
+    if isinstance(args, dict):
+        args = dict(args)
+        if "filePath" not in args:
+            for key in ("file_path", "filepath", "path", "file"):
+                if key in args:
+                    args["filePath"] = args[key]
+                    break
+        if "oldString" not in args:
+            for key in ("old_string", "old", "oldText", "old_text"):
+                if key in args:
+                    args["oldString"] = args[key]
+                    break
+        if "newString" not in args:
+            for key in ("new_string", "new", "newText", "new_text"):
+                if key in args:
+                    args["newString"] = args[key]
+                    break
+        if "command" not in args:
+            for key in ("cmd", "shell_command", "powershell"):
+                if key in args:
+                    args["command"] = args[key]
+                    break
+        if "pattern" not in args:
+            for key in ("query", "regex", "search"):
+                if key in args:
+                    args["pattern"] = args[key]
+                    break
+    return name, args
+
+
 def _call(name: str, arguments) -> dict:
+    if not isinstance(arguments, str):
+        name, arguments = _normalize_tool_name_and_args(name, arguments)
     if isinstance(arguments, str):
-        args_str = arguments
+        try:
+            parsed_arguments = _json_loads_tolerant(arguments)
+            name, parsed_arguments = _normalize_tool_name_and_args(name, parsed_arguments)
+            args_str = json.dumps(parsed_arguments if parsed_arguments is not None else {}, ensure_ascii=False)
+        except Exception:
+            args_str = arguments
     else:
         args_str = json.dumps(arguments if arguments is not None else {}, ensure_ascii=False)
     return {

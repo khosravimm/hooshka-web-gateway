@@ -6,7 +6,7 @@
 |---|---|---|---|---:|---|
 | ChatGPT Web | `chatgpt-web` | CDP/Web provider path | buffered compatibility | yes | existing ChatGPT Web session/runtime |
 | Qwen Web | `qwen-web`, `qwen:<upstream-id>` | browser backend controller | reconstructed | no | dynamic catalog; default `qwen3.8-max`; current guest quota is rate-limited |
-| Z.ai Web | `zai-web`, `zai:<upstream-id>` | browser backend controller | reconstructed | no | dynamic catalog; default `glm-5.3`; default routing accepted E2 |
+| Z.ai Web | `zai-web`, `zai:<upstream-id>` | browser Web Chat/CDP controller | reconstructed | yes, E2 smoke for `glm-5.2` | `zai-web` resolves to evidence-backed `glm-5.2`; Kilo read/grep/write/edit/bash passed; Deep Think timing remains E3 work |
 | DeepSeek Web | `deepseek-web` | browser UI via dedicated CDP runtime | buffered compatibility | yes, E2 smoke | dedicated `.runtime/deepseek-profile` on 9226; Kilo read/grep/write/edit/bash passed |
 
 ## ChatGPT Web
@@ -50,9 +50,9 @@ Observed 0.5.0 post-migration metadata:
 - authenticated session;
 - upstream model observed as `x-preview-l`.
 
-In 0.6.0, Z.ai catalog discovery exposes current upstream ids through the `zai:` namespace, while `zai-web` resolves to configurable `default_upstream_model` (currently `glm-5.3`). A controlled E2 request verified selector, observed backend request model, upstream metadata and exact response all aligned on GLM-5.3.
+In the Z.ai KiloGate-WM audit, catalog discovery exposed upstream ids through the `zai:` namespace, while `zai-web` was moved to the evidence-backed `glm-5.2` baseline because that model had reproducible Web Chat/runtime evidence. KiloGate-WM E2 smoke certification passed read, grep/search, write, edit and bash/shell through the browser Web Chat path.
 
-Only basic chat/reconstructed stream is accepted. Tools/search/vision/files remain disabled.
+This is an E2 tool-capable smoke result, not E3/production reliability. Search/vision/files remain disabled unless independently certified. Deep Think final-continuation latency is tracked separately.
 
 ## DeepSeek Web
 

@@ -12,7 +12,7 @@ Hooshka Web Gateway is the unified local API gateway for governed access to supp
 |---|---|---|---|
 | ChatGPT Web | `chatgpt-web` | E2 operational via Kilo | chat, stream compatibility, tool-call path, large agent prompt transport |
 | Qwen Web | `qwen-web`, `qwen:<upstream-id>` | Text-only Kilo smoke PASS for five explicit Chat models; not full programming-certified | model-aware thinking/search, reconstructed stream; tools disabled; `qwen3.5-omni-plus` quarantined |
-| Z.ai Web | `zai-web`, `zai:<upstream-id>` | E2 operational via Kilo text-only agent | dynamic catalog, configurable default, reconstructed stream; tools disabled until E2 |
+| Z.ai Web | `zai-web`, `zai:<upstream-id>` | KiloGate-WM E2 tool-capable smoke PASS for `zai-web` / `glm-5.2` | Web Chat/CDP 9223; read/grep/write/edit/bash passed; Deep Think timing remains E3 reliability work; other models require independent certification |
 | DeepSeek Web | `deepseek-web` | KiloGate-WM E2 tool-capable smoke PASS | browser-UI transport via dedicated 9226 runtime; read/grep/write/edit/bash passed; not E3/production-certified |
 
 This release is an **E2 baseline**, not an E3/production-reliability claim.
@@ -100,7 +100,7 @@ Historical research/evidence documents remain under `docs/`.
 git diff --check
 ```
 
-Accepted deterministic baseline before DeepSeek integration: **70 passed**. DeepSeek adds provider and protocol tests; the DeepSeek KiloGate-WM E2 smoke passed read/search/write/edit/shell tool paths. Qwen remains text-only Kilo smoke certified and is not tool/function-call certified.
+Accepted deterministic baseline before DeepSeek integration: **70 passed**. DeepSeek and Z.ai add provider/protocol tests; both have KiloGate-WM E2 smoke evidence for read/search/write/edit/shell tool paths on their certified baselines. Qwen remains text-only Kilo smoke certified and is not tool/function-call certified.
 
 ## Security rules
 

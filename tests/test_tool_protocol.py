@@ -98,3 +98,21 @@ def test_parse_tool_calls_uses_first_balanced_json_object():
     assert calls is not None
     assert calls[0]["function"]["name"] == "edit"
     assert '"newString": "B"' in calls[0]["function"]["arguments"]
+
+
+def test_parse_tool_calls_normalizes_kilo_argument_aliases():
+    text = '{"tool_calls":[{"name":"edit","arguments":{"file_path":".runtime/x.txt","old_string":"A","new_string":"B"}}]}'
+    _, calls = parse_tool_calls(text)
+
+    assert calls[0]["function"]["name"] == "edit"
+    assert '"filePath": ".runtime/x.txt"' in calls[0]["function"]["arguments"]
+    assert '"oldString": "A"' in calls[0]["function"]["arguments"]
+    assert '"newString": "B"' in calls[0]["function"]["arguments"]
+
+
+def test_parse_tool_calls_preserves_tool_name_and_normalizes_path_alias():
+    text = '{"tool_calls":[{"name":"read_file","arguments":{"path":"README.md"}}]}'
+    _, calls = parse_tool_calls(text)
+
+    assert calls[0]["function"]["name"] == "read_file"
+    assert '"filePath": "README.md"' in calls[0]["function"]["arguments"]

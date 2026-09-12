@@ -106,3 +106,23 @@ This is not an E3 or production-reliability certification.
 The Z.ai UI model selector showed inconsistent behavior for some explicit models during this audit. `glm-5.2` was the model with reproducible selection/runtime evidence and is the certification baseline.
 
 Other advertised Z.ai models must not inherit this certification automatically. Each requires independent model-level evidence.
+
+## Main service / final Kilo verification
+
+After merge, `HooshkaWebGateway` was restarted on the production-local endpoint `http://127.0.0.1:5000`. `/ready` reported `zai-web` ready.
+
+Kilo was then configured so only the evidence-backed entries `hooshka/zai-web` and `hooshka/zai:glm-5.2` have `tool_call=true`; the temporary `hooshka-zai-dev` provider was removed.
+
+Final Kilo verification on the main provider passed:
+
+```text
+model: hooshka/zai-web
+tool: read
+status: completed
+file: README.md
+marker: KGWM_KILO_MAIN_ZAI_READ_OK_20260912B
+exit: 0
+error: none
+```
+
+The Z.ai UI showed the request in `Deep Think / Max` and later returned the exact final marker. This confirms the long delay was model thinking latency rather than a transport or tool failure.
