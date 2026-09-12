@@ -89,3 +89,12 @@ def test_parse_tool_calls_tolerates_raw_windows_backslashes():
     assert content is None
     assert calls[0]["function"]["name"] == "read"
     assert "D:\\\\Code\\\\hooshka-web-gateway\\\\README.md" in calls[0]["function"]["arguments"]
+
+
+def test_parse_tool_calls_uses_first_balanced_json_object():
+    text = '{"tool_calls":[{"name":"edit","arguments":{"filePath":".runtime/x.txt","oldString":"A","newString":"B"}}]}\n\n[TOOL RESULT id=call_1]\nok\n\n{"tool_calls":[{"name":"bash","arguments":{"command":"Get-Content .runtime/x.txt"}}]}'
+    content, calls = parse_tool_calls(text)
+
+    assert calls is not None
+    assert calls[0]["function"]["name"] == "edit"
+    assert '"newString": "B"' in calls[0]["function"]["arguments"]

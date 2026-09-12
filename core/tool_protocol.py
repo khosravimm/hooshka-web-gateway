@@ -81,6 +81,34 @@ def serialize_messages(messages: list[dict], tools: Optional[list[dict]] = None,
     return "\n\n".join(parts)
 
 
+def _first_json_object(text: str):
+    start = text.find("{")
+    if start < 0:
+        return None
+    depth = 0
+    in_string = False
+    escape = False
+    for idx in range(start, len(text)):
+        ch = text[idx]
+        if in_string:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            continue
+        if ch == '"':
+            in_string = True
+        elif ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start:idx + 1].strip(), (start, idx + 1)
+    return None
+
+
 def _json_loads_tolerant(raw: str):
     try:
         return json.loads(raw)
@@ -151,9 +179,9 @@ def parse_tool_calls(text: str):
     if block:
         raw, span = block.group(1).strip(), block.span()
     else:
-        start, end = text.find("{"), text.rfind("}")
-        if start >= 0 and end > start:
-            raw, span = text[start:end + 1].strip(), (start, end + 1)
+        found = _first_json_object(text)
+        if found:
+            raw, span = found
     if not raw:
         return text, None
     try:

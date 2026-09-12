@@ -122,3 +122,5 @@ khosravimm/hooshka-web-gateway
 ```
 
 Legacy project name `mcp-web-bridge` is retained only in historical/migration compatibility records.
+
+Z.ai KiloGate-WM E2 smoke passed read/search/write/edit/shell through the browser Web Chat path using the evidence-backed `glm-5.2` baseline. Deep Think latency remains a separate E3 reliability concern.

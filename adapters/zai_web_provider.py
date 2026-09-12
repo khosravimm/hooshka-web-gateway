@@ -1,7 +1,9 @@
+import re
 from typing import AsyncIterator, Optional
 
 from adapters.zai_browser_transport import ZaiBrowserControllerTransport
 from core.browser_observability import BrowserEvidenceMismatch, BrowserModelEvidence
+from core.tool_protocol import serialize_messages, parse_tool_envelope, strong_auto_tool_signal
 from core.providers import (
     Provider,
     ProviderCapabilities,
@@ -19,6 +21,49 @@ from core.providers import (
     ModelInfo,
     SessionContext,
 )
+
+
+def _tool_required(tool_choice) -> bool:
+    if tool_choice is None:
+        return False
+    if isinstance(tool_choice, str):
+        return tool_choice not in {"auto", "none"}
+    if isinstance(tool_choice, dict):
+        if str(tool_choice.get("type", "")).lower() in {"function", "tool", "required"}:
+            return True
+        return "function" in tool_choice or "tool" in tool_choice
+    return False
+
+
+def _explicit_tool_hint(request: ChatCompletionRequest) -> Optional[dict]:
+    if request.tool_choice not in (None, "auto"):
+        return None
+    if any(message.get("role") == "tool" for message in request.messages or []):
+        return None
+    latest = ""
+    for message in reversed(request.messages or []):
+        if message.get("role") == "user":
+            latest = str(message.get("content") or "")
+            break
+    if not latest:
+        return None
+    offered = []
+    for tool in request.tools or []:
+        name = (((tool or {}).get("function") or {}).get("name") or "").strip()
+        if name:
+            offered.append(name)
+    matches = []
+    for name in offered:
+        patterns = [
+            rf"\buse\s+(?:the\s+)?{re.escape(name)}\s+tool\b",
+            rf"\buse\s+{re.escape(name)}\b",
+            rf"\b{re.escape(name)}\s+tool\b",
+        ]
+        if any(re.search(pattern, latest, re.I) for pattern in patterns):
+            matches.append(name)
+    if len(matches) != 1:
+        return None
+    return {"type": "function", "function": {"name": matches[0]}}
 
 
 class ZaiWebProvider(Provider):
@@ -64,7 +109,7 @@ class ZaiWebProvider(Provider):
             chat_completion=True,
             streaming=True,
             streaming_mode="reconstructed",
-            tools=False,
+            tools=True,
             vision=False,
             embeddings=False,
             max_context_tokens=200_000,
@@ -76,20 +121,27 @@ class ZaiWebProvider(Provider):
         )
 
     @staticmethod
+    def _has_tool_result(request: ChatCompletionRequest) -> bool:
+        return any(message.get("role") == "tool" for message in request.messages or [])
+
+    @staticmethod
+    def _latest_user_text(request: ChatCompletionRequest) -> str:
+        for message in reversed(request.messages or []):
+            if message.get("role") == "user":
+                return str(message.get("content") or "")
+        return ""
+
+    @staticmethod
     def _request_text(request: ChatCompletionRequest) -> str:
+        if request.tools or any(m.get("role") != "user" for m in request.messages):
+            instruction_choice = _explicit_tool_hint(request) or request.tool_choice
+            return serialize_messages(request.messages, tools=request.tools, tool_choice=instruction_choice)
         parts = []
         for message in request.messages:
-            role = message.get("role", "user")
             content = message.get("content") or ""
-            if role == "system":
-                parts.append(f"System: {content}")
-            elif role == "user":
-                parts.append(content)
-            elif role == "assistant":
-                parts.append(f"Assistant: {content}")
-            elif role == "tool":
-                parts.append(f"Tool result: {content}")
-        return "\n\n".join(p for p in parts if p).strip()
+            if content:
+                parts.append(str(content))
+        return "\n\n".join(parts).strip()
 
     async def _require_authenticated_session(self) -> None:
         if not self._require_authenticated:
@@ -149,18 +201,7 @@ class ZaiWebProvider(Provider):
             )
         return upstream_model
 
-    async def chat_completion(
-        self,
-        request: ChatCompletionRequest,
-        session: Optional[SessionContext] = None,
-    ) -> ChatCompletionResponse:
-        if not self.supports_model(request.model):
-            raise ProviderError("Unsupported Z.ai model", "invalid_model", self.provider_id)
-        if request.tools:
-            raise ProviderError("Z.ai tools are not enabled until E2 validation passes", "unsupported_tools", self.provider_id)
-        if (request.provider_options or {}).get("search"):
-            raise ProviderError("Z.ai search is not enabled until E2 validation passes", "unsupported_search", self.provider_id)
-
+    async def _run_text(self, request: ChatCompletionRequest) -> tuple[Optional[str], Optional[list], str, str, str, str, dict]:
         pieces = []
         chat_id = ""
         requested_upstream_model = await self._resolve_and_validate_upstream_model(request)
@@ -180,11 +221,55 @@ class ZaiWebProvider(Provider):
             upstream_model or None,
         )
 
+        response_text = "".join(pieces)
+        content: Optional[str] = response_text
+        tool_calls = None
+        finish_reason = "stop"
+        if request.tools:
+            content, tool_calls, valid_protocol = parse_tool_envelope(response_text)
+            must_call = _tool_required(request.tool_choice)
+            has_tool_result = self._has_tool_result(request)
+            looks_like_tool_request = '"tool_calls"' in response_text or "'tool_calls'" in response_text or "DSML" in response_text
+            raw_final_after_tool = has_tool_result and not must_call and not tool_calls and not looks_like_tool_request
+            if (not valid_protocol and not raw_final_after_tool) or (must_call and not tool_calls):
+                raise ProviderError(
+                    "Z.ai Web Chat failed the required tool protocol",
+                    "tool_protocol_violation",
+                    self.provider_id,
+                    {"must_call": must_call, "has_tool_result": has_tool_result, "response_preview": response_text[:500]},
+                )
+            if raw_final_after_tool and not valid_protocol:
+                content = response_text
+            if request.tool_choice in (None, "auto") and not tool_calls and not has_tool_result:
+                signal = strong_auto_tool_signal(content or response_text, request.tools, self._latest_user_text(request))
+                if signal:
+                    raise ProviderError(
+                        "Z.ai Web Chat returned prose when tool use looked required",
+                        "tool_protocol_violation",
+                        self.provider_id,
+                        {"signal": signal, "response_preview": response_text[:500]},
+                    )
+            if tool_calls:
+                finish_reason = "tool_calls"
+        return content, tool_calls, finish_reason, chat_id, requested_upstream_model, upstream_model, model_evidence
+
+    async def chat_completion(
+        self,
+        request: ChatCompletionRequest,
+        session: Optional[SessionContext] = None,
+    ) -> ChatCompletionResponse:
+        if not self.supports_model(request.model):
+            raise ProviderError("Unsupported Z.ai model", "invalid_model", self.provider_id)
+        if (request.provider_options or {}).get("search"):
+            raise ProviderError("Z.ai search is not enabled until E2 validation passes", "unsupported_search", self.provider_id)
+
+        content, tool_calls, finish_reason, chat_id, requested_upstream_model, upstream_model, model_evidence = await self._run_text(request)
+
         return ChatCompletionResponse(
             id=self._generate_id(),
             created=self._current_timestamp(),
             model=request.model,
-            choices=[Choice(index=0, message=Message(role="assistant", content="".join(pieces)), finish_reason="stop")],
+            choices=[Choice(index=0, message=Message(role="assistant", content=content, tool_calls=tool_calls), finish_reason=finish_reason)],
             usage=Usage(),
             provider_meta={
                 "provider": self.provider_id,
@@ -213,10 +298,44 @@ class ZaiWebProvider(Provider):
     ) -> AsyncIterator[ChatCompletionChunk]:
         if not self.supports_model(request.model):
             raise ProviderError("Unsupported Z.ai model", "invalid_model", self.provider_id)
-        if request.tools:
-            raise ProviderError("Z.ai tools are not enabled until E2 validation passes", "unsupported_tools", self.provider_id)
         if (request.provider_options or {}).get("search"):
             raise ProviderError("Z.ai search is not enabled until E2 validation passes", "unsupported_search", self.provider_id)
+
+        if request.tools:
+            content, tool_calls, finish_reason, chat_id, requested_upstream_model, upstream_model, model_evidence = await self._run_text(request)
+            chunk_id = self._generate_id()
+            if tool_calls:
+                yield ChatCompletionChunk(
+                    id=chunk_id,
+                    created=self._current_timestamp(),
+                    model=request.model,
+                    choices=[ChunkChoice(index=0, delta=Delta(tool_calls=tool_calls), finish_reason=finish_reason)],
+                    provider_meta={
+                        "provider": self.provider_id,
+                        "transport_mode": "browser_backend_controller",
+                        "streaming_mode": "reconstructed",
+                        "conversation_id": chat_id or None,
+                        "requested_upstream_model": requested_upstream_model,
+                        "upstream_model": upstream_model or requested_upstream_model or None,
+                        "model_evidence": model_evidence,
+                    },
+                )
+            else:
+                yield ChatCompletionChunk(
+                    id=chunk_id,
+                    created=self._current_timestamp(),
+                    model=request.model,
+                    choices=[ChunkChoice(index=0, delta=Delta(content=content or ""), finish_reason=None)],
+                    provider_meta={"provider": self.provider_id, "transport_mode": "browser_backend_controller"},
+                )
+                yield ChatCompletionChunk(
+                    id=chunk_id,
+                    created=self._current_timestamp(),
+                    model=request.model,
+                    choices=[ChunkChoice(index=0, delta=Delta(), finish_reason=finish_reason)],
+                    provider_meta={"provider": self.provider_id, "transport_mode": "browser_backend_controller"},
+                )
+            return
 
         chunk_id = self._generate_id()
         requested_upstream_model = await self._resolve_and_validate_upstream_model(request)
@@ -286,7 +405,7 @@ def create_zai_web_provider(
             chat_completion=True,
             streaming=True,
             streaming_mode="reconstructed",
-            tools=False,
+            tools=True,
             vision=False,
             embeddings=False,
             max_context_tokens=200_000,

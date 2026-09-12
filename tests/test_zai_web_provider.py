@@ -10,9 +10,11 @@ class FakeZaiTransport:
     last_selected_model_label = None
     last_backend_request_model = None
 
-    def __init__(self, *, authenticated=True):
+    def __init__(self, *, authenticated=True, text=None):
         self.closed = False
         self.authenticated = authenticated
+        self.text = text
+        self.prompts = []
         self.last_session_mode = "authenticated" if authenticated else "guest"
         self._catalog = [
             {"id": "x-preview-l", "name": "GLM-5.3-Flash"},
@@ -37,11 +39,12 @@ class FakeZaiTransport:
         return list(self._catalog)
 
     async def stream_text(self, prompt, *, upstream_model=None):
+        self.prompts.append(prompt)
         self.last_selected_model_label = "GLM-5.3" if upstream_model == "glm-5.3" else None
         self.last_backend_request_model = upstream_model
         model = upstream_model
-        yield {"type": "text_delta", "text": "ZAI_", "chat_id": "chat-1", "model": model}
-        yield {"type": "text_delta", "text": "OK", "chat_id": "chat-1", "model": model}
+        text = self.text if self.text is not None else "ZAI_OK"
+        yield {"type": "text_delta", "text": text, "chat_id": "chat-1", "model": model}
 
     async def close(self):
         self.closed = True
@@ -100,19 +103,63 @@ async def test_zai_default_web_model_uses_configured_strongest_model():
 
 
 @pytest.mark.asyncio
-async def test_zai_rejects_tools_until_e2_validation():
+async def test_zai_required_tool_envelope_becomes_openai_tool_call():
     provider = create_zai_web_provider(provider_id="zai-web")
-    provider._browser = FakeZaiTransport()
+    provider._browser = FakeZaiTransport(text='{"tool_calls":[{"name":"read_file","arguments":{"path":"README.md"}}]}')
     req = ChatCompletionRequest(
         model="zai-web",
-        messages=[{"role": "user", "content": "hello"}],
-        tools=[{"type": "function", "function": {"name": "x"}}],
+        messages=[{"role": "user", "content": "read README"}],
+        tools=[{"type": "function", "function": {"name": "read_file", "parameters": {"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}}],
+        tool_choice={"type":"function","function":{"name":"read_file"}},
+    )
+
+    response = await provider.chat_completion(req)
+
+    choice = response.choices[0]
+    assert choice.finish_reason == "tool_calls"
+    assert choice.message.content is None
+    assert choice.message.tool_calls[0]["function"]["name"] == "read_file"
+    assert '"path": "README.md"' in choice.message.tool_calls[0]["function"]["arguments"]
+    assert "SYSTEM TOOL INSTRUCTIONS" in provider._browser.prompts[0]
+
+
+@pytest.mark.asyncio
+async def test_zai_required_tool_protocol_violation_fails_closed():
+    provider = create_zai_web_provider(provider_id="zai-web")
+    provider._browser = FakeZaiTransport(text="I cannot read files directly.")
+    req = ChatCompletionRequest(
+        model="zai-web",
+        messages=[{"role": "user", "content": "read README"}],
+        tools=[{"type": "function", "function": {"name": "read_file"}}],
+        tool_choice="required",
     )
 
     with pytest.raises(ProviderError) as exc:
         await provider.chat_completion(req)
 
-    assert exc.value.code == "unsupported_tools"
+    assert exc.value.code == "tool_protocol_violation"
+
+
+@pytest.mark.asyncio
+async def test_zai_tool_result_continuation_serializes_tool_message():
+    provider = create_zai_web_provider(provider_id="zai-web")
+    provider._browser = FakeZaiTransport(text='{"final":"DONE"}')
+    req = ChatCompletionRequest(
+        model="zai-web",
+        messages=[
+            {"role": "assistant", "content": None, "tool_calls": [{"id": "call_1", "function": {"name": "read_file", "arguments": "{\"path\":\"README.md\"}"}}]},
+            {"role": "tool", "tool_call_id": "call_1", "name": "read_file", "content": "# Project"},
+            {"role": "user", "content": "continue"},
+        ],
+        tools=[{"type": "function", "function": {"name": "read_file"}}],
+        tool_choice="auto",
+    )
+
+    response = await provider.chat_completion(req)
+
+    assert response.choices[0].message.content == "DONE"
+    assert response.choices[0].finish_reason == "stop"
+    assert "[TOOL RESULT id=call_1 name=read_file]" in provider._browser.prompts[0]
 
 
 @pytest.mark.asyncio
@@ -161,3 +208,63 @@ async def test_zai_stream_emits_text_and_terminal_chunk():
     assert chunks[-1].choices[0].finish_reason == "stop"
     assert chunks[-1].provider_meta["requested_upstream_model"] == "glm-5.3"
     assert chunks[-1].provider_meta["backend_request_model"] == "glm-5.3"
+
+
+@pytest.mark.asyncio
+async def test_zai_tool_result_raw_final_is_allowed():
+    provider = create_zai_web_provider(provider_id="zai-web")
+    provider._browser = FakeZaiTransport(text="RAW_DONE")
+    req = ChatCompletionRequest(
+        model="zai-web",
+        messages=[
+            {"role": "assistant", "content": None, "tool_calls": [{"id": "call_1", "function": {"name": "grep", "arguments": "{\"pattern\":\"KiloGate-WM\"}"}}]},
+            {"role": "tool", "tool_call_id": "call_1", "name": "grep", "content": "Found matches"},
+            {"role": "user", "content": "Then reply exactly: RAW_DONE"},
+        ],
+        tools=[{"type": "function", "function": {"name": "grep"}}],
+        tool_choice="auto",
+    )
+
+    response = await provider.chat_completion(req)
+
+    assert response.choices[0].message.content == "RAW_DONE"
+    assert response.choices[0].finish_reason == "stop"
+
+
+def test_zai_auto_tool_prompt_forces_one_explicitly_named_tool():
+    provider = create_zai_web_provider(provider_id="zai-web")
+    req = ChatCompletionRequest(
+        model="zai-web",
+        messages=[{"role": "user", "content": "You must use the available edit tool to modify the file."}],
+        tools=[
+            {"type": "function", "function": {"name": "read", "parameters": {}}},
+            {"type": "function", "function": {"name": "edit", "parameters": {}}},
+            {"type": "function", "function": {"name": "bash", "parameters": {}}},
+        ],
+        tool_choice="auto",
+    )
+
+    prompt = provider._request_text(req)
+
+    assert "You MUST call the function named 'edit'" in prompt
+
+
+def test_zai_auto_tool_prompt_does_not_force_after_tool_result():
+    provider = create_zai_web_provider(provider_id="zai-web")
+    req = ChatCompletionRequest(
+        model="zai-web",
+        messages=[
+            {"role": "assistant", "content": None, "tool_calls": [{"id": "call_1", "function": {"name": "edit", "arguments": "{}"}}]},
+            {"role": "tool", "tool_call_id": "call_1", "name": "edit", "content": "done"},
+            {"role": "user", "content": "After the edit tool result, reply exactly DONE"},
+        ],
+        tools=[
+            {"type": "function", "function": {"name": "edit", "parameters": {}}},
+            {"type": "function", "function": {"name": "bash", "parameters": {}}},
+        ],
+        tool_choice="auto",
+    )
+
+    prompt = provider._request_text(req)
+
+    assert "You MUST call the function named 'edit'" not in prompt

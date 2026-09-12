@@ -79,3 +79,7 @@ A capability moves to advertised state only after:
 5. evidence document updated.
 
 For tools, E2 must include a complete tool-call -> tool-result -> final-answer round trip, not merely detection of tool syntax.
+
+### Z.ai KiloGate-WM status
+
+`zai-web` is KiloGate-WM E2 tool-capable smoke certified on the evidence-backed `glm-5.2` Web Chat baseline. Kilo executed read, grep/search, write, edit and bash/shell. Deep Think timing and final-continuation latency remain E3 reliability work; certification does not automatically extend to other advertised Z.ai models.

@@ -68,15 +68,16 @@ providers:
   config:
     base_url: https://chat.z.ai
     frontend_version: prod-fe-1.1.93
-    default_upstream_model: glm-5.3
+    default_upstream_model: glm-5.2
+    launch_timeout: 120
     require_authenticated: true
     runtime_label: HWG-Zai-Web-SSE-Capture
     profile_dir: .runtime\zai-profile
     transport_mode: browser_ui_capture
     cdp_url: http://127.0.0.1:9223
-    first_event_timeout: 120
-    idle_timeout: 180
-    total_timeout: 420
+    first_event_timeout: 240
+    idle_timeout: 300
+    total_timeout: 600
     poll_interval: 0.25
     connect_timeout: 10
     header_timeout: 30
@@ -85,7 +86,7 @@ providers:
     chat_completion: true
     streaming: true
     streaming_mode: buffered_sse_capture
-    tools: false
+    tools: true
     vision: false
     embeddings: false
     max_context_tokens: 128000
