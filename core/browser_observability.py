@@ -13,7 +13,12 @@ def normalize_model_marker(value: Optional[str]) -> str:
     """Normalize display/id variants for conservative equality checks."""
     if not value:
         return ""
-    return re.sub(r"[^a-z0-9]+", "", str(value).lower())
+    marker = re.sub(r"[^a-z0-9]+", "", str(value).lower())
+    aliases = {
+        # Z.ai UI display label vs backend/upstream id.
+        "glm53flash": "xpreviewl",
+    }
+    return aliases.get(marker, marker)
 
 
 class BrowserEvidenceMismatch(RuntimeError):

@@ -82,4 +82,6 @@ For tools, E2 must include a complete tool-call -> tool-result -> final-answer r
 
 ### Z.ai KiloGate-WM status
 
-`zai-web` is KiloGate-WM E2 tool-capable smoke certified on the evidence-backed `glm-5.2` Web Chat baseline. Kilo executed read, grep/search, write, edit and bash/shell. Deep Think timing and final-continuation latency remain E3 reliability work; certification does not automatically extend to other advertised Z.ai models.
+`zai-web` is KiloGate-WM E2 tool-capable smoke certified on the evidence-backed `glm-5.2` Web Chat baseline. Kilo executed read, grep/search, write, edit and bash/shell. Deep Think timing and final-continuation latency remain E3 reliability work.
+
+A later selector-focused retest upgraded `zai:glm-5.3` and `zai:x-preview-l` / `GLM-5.3-Flash` to provider/Gateway API E2 tool-call PASS after fixing model-option selection and Flash label normalization. That retest does not automatically enable Kilo `tool_call=true` for those explicit models; they still need separate Kilo read/search/write/edit/bash evidence.

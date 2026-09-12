@@ -12,7 +12,7 @@ Hooshka Web Gateway is the unified local API gateway for governed access to supp
 |---|---|---|---|
 | ChatGPT Web | `chatgpt-web` | E2 operational via Kilo | chat, stream compatibility, tool-call path, large agent prompt transport |
 | Qwen Web | `qwen-web`, `qwen:<upstream-id>` | Text-only Kilo smoke PASS for five explicit Chat models; not full programming-certified | model-aware thinking/search, reconstructed stream; tools disabled; `qwen3.5-omni-plus` quarantined |
-| Z.ai Web | `zai-web`, `zai:<upstream-id>` | KiloGate-WM E2 tool-capable smoke PASS for `zai-web` / `glm-5.2` | Web Chat/CDP 9223; read/grep/write/edit/bash passed; Deep Think timing remains E3 reliability work; other models require independent certification |
+| Z.ai Web | `zai-web`, `zai:<upstream-id>` | KiloGate-WM E2 tool-capable smoke PASS for `zai-web` / `glm-5.2`; `glm-5.3` and `GLM-5.3-Flash` provider/API E2 PASS | Web Chat/CDP 9223; read/grep/write/edit/bash passed for `glm-5.2`; `glm-5.3`/`x-preview-l` still need explicit Kilo tool-execution certification |
 | DeepSeek Web | `deepseek-web` | KiloGate-WM E2 tool-capable smoke PASS | browser-UI transport via dedicated 9226 runtime; read/grep/write/edit/bash passed; not E3/production-certified |
 
 This release is an **E2 baseline**, not an E3/production-reliability claim.
@@ -123,4 +123,4 @@ khosravimm/hooshka-web-gateway
 
 Legacy project name `mcp-web-bridge` is retained only in historical/migration compatibility records.
 
-Z.ai KiloGate-WM E2 smoke passed read/search/write/edit/shell through the browser Web Chat path using the evidence-backed `glm-5.2` baseline. Deep Think latency remains a separate E3 reliability concern.
+Z.ai KiloGate-WM E2 smoke passed read/search/write/edit/shell through the browser Web Chat path using the evidence-backed `glm-5.2` baseline. A later selector retest showed `zai:glm-5.3` and `zai:x-preview-l` / `GLM-5.3-Flash` pass provider-level and Gateway API E2 tool-call checks, but they are not yet Kilo full tool-execution certified. Deep Think latency remains a separate E3 reliability concern.

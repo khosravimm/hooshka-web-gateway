@@ -49,3 +49,22 @@ def test_model_evidence_rejects_missing_backend_provenance():
         assert "backend request" in str(exc)
     else:
         raise AssertionError("missing backend evidence was not rejected")
+
+from core.browser_observability import BrowserModelEvidence, normalize_model_marker
+
+
+def test_zai_flash_ui_label_normalizes_to_backend_id():
+    assert normalize_model_marker("GLM-5.3-Flash") == normalize_model_marker("x-preview-l")
+
+
+def test_zai_flash_model_evidence_accepts_ui_label_and_backend_id():
+    evidence = BrowserModelEvidence(
+        provider="zai-web",
+        requested_model="zai:x-preview-l",
+        expected_upstream_model="x-preview-l",
+        ui_selected_model="GLM-5.3-Flash",
+        backend_request_model="x-preview-l",
+        response_model="x-preview-l",
+    )
+
+    assert evidence.validate()["verified"] is True

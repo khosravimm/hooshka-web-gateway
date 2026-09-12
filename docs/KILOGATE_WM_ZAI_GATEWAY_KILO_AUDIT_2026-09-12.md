@@ -126,3 +126,44 @@ error: none
 ```
 
 The Z.ai UI showed the request in `Deep Think / Max` and later returned the exact final marker. This confirms the long delay was model thinking latency rather than a transport or tool failure.
+
+
+## GLM-5.3 / GLM-5.3-Flash retest - 2026-09-12
+
+A follow-up retest was performed after the initial certification because `zai:glm-5.3` and `zai:x-preview-l` / `GLM-5.3-Flash` had previously failed at explicit model selection.
+
+Root cause of the earlier failures: the Z.ai model selector options include multi-line descriptions after the display name. The adapter was matching the whole visible text, and later an already-open menu state plus JavaScript regex escaping caused selector failures. The selector was hardened to:
+
+- skip clicking the selector button when the menu is already open;
+- choose model options by the first visible line of the option button;
+- avoid JavaScript regex escaping for newline splitting;
+- normalize the Z.ai UI label `GLM-5.3-Flash` to backend id `x-preview-l` for model-evidence validation.
+
+Provider-level retest evidence:
+
+```text
+.runtime/kilogate_zai_glm53_flash_retest_20260912.json
+.runtime/kilogate_zai_glm53_flash_retest2_20260912.json
+```
+
+Provider-level results:
+
+```text
+zai:glm-5.3: direct marker PASS; required read_file tool_call PASS; tool-result continuation PASS; summary 3/3 PASS.
+zai:x-preview-l / GLM-5.3-Flash: direct marker PASS; required read_file tool_call PASS; tool-result continuation PASS; summary 3/3 PASS.
+```
+
+Gateway API retest evidence:
+
+```text
+.runtime/kilogate_zai_glm53_flash_api_retest_20260912.json
+```
+
+Gateway API results on dev endpoint `http://127.0.0.1:5004/v1`:
+
+```text
+zai:glm-5.3: api_direct PASS; api_required_tool PASS; api_tool_result PASS; summary 3/3 PASS.
+zai:x-preview-l / GLM-5.3-Flash: api_direct PASS; api_required_tool PASS; api_tool_result PASS; summary 3/3 PASS.
+```
+
+Certification boundary: this retest upgrades `zai:glm-5.3` and `zai:x-preview-l` to provider/Gateway API E2 tool-call PASS. It does not automatically mark them as Kilo full tool-execution certified, because Kilo `tool_call=true` remains enabled only for `hooshka/zai-web` and `hooshka/zai:glm-5.2` until a separate Kilo read/search/write/edit/bash run is completed for each explicit model.

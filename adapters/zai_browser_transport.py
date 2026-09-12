@@ -386,12 +386,48 @@ class ZaiBrowserControllerTransport:
             await button.wait_for(state="visible", timeout=int(self.launch_timeout * 1000))
             current = (await button.inner_text()).strip()
             if current != display_name:
-                await button.click()
-                option = page.locator(
-                    "button, [role=option], [role=menuitem], [role=button]"
-                ).filter(has_text=re.compile(f"^{re.escape(display_name)}$", re.I)).first
-                await option.wait_for(state="visible", timeout=int(self.launch_timeout * 1000))
-                await option.click()
+                state = (await button.get_attribute("data-state")) or ""
+                expanded = (await button.get_attribute("aria-expanded")) or ""
+                if state.lower() != "open" and expanded.lower() != "true":
+                    try:
+                        await button.click()
+                    except Exception:
+                        handle = await button.element_handle()
+                        if handle is None:
+                            raise
+                        await page.evaluate("button => button.click()", handle)
+                # Z.ai model options include descriptions after the display name
+                # (for example: "GLM-5.3\nFlagship model..."). Playwright text
+                # matching may normalize newlines, so select by the first visible
+                # line of each button inside the open menu. This also prevents
+                # GLM-5.3 from colliding with GLM-5.3-Flash.
+                clicked = await page.evaluate(
+                    """(displayName) => {
+                        const isVisible = (el) => {
+                            const r = el.getBoundingClientRect();
+                            const cs = getComputedStyle(el);
+                            return !!(r.width && r.height && cs.display !== 'none' && cs.visibility !== 'hidden');
+                        };
+                        const buttons = Array.from(document.querySelectorAll('button'));
+                        const option = buttons.find((button) => {
+                            if (button.classList.contains('modelSelectorButton')) return false;
+                            if (!isVisible(button)) return false;
+                            const text = (button.innerText || button.textContent || '').trim();
+                            const firstLine = text.replaceAll(String.fromCharCode(13), String.fromCharCode(10)).split(String.fromCharCode(10))[0].trim();
+                            return firstLine === displayName;
+                        });
+                        if (!option) return false;
+                        option.click();
+                        return true;
+                    }""",
+                    display_name,
+                )
+                if not clicked:
+                    option = page.locator(
+                        "button, [role=option], [role=menuitem], [role=button]"
+                    ).filter(has_text=re.compile(re.escape(display_name), re.I)).first
+                    await option.wait_for(state="visible", timeout=int(self.launch_timeout * 1000))
+                    await option.click()
                 await page.wait_for_timeout(900)
             selected = (await page.locator("button.modelSelectorButton").first.inner_text()).strip()
         except Exception as exc:
