@@ -142,3 +142,32 @@ Engineering change applied:
 - It treats Escape as an attempt, not proof.
 
 Current result: ChatGPT Stop propagation code is hardened, but final live certification is blocked until the configured CDP session is logged in.
+
+## ChatGPT final Stop certification — 2026-09-12
+
+Result: `STOP_PROVIDER_CONFIRMED` for `chatgpt-web` on the project-owned CDP profile.
+
+Evidence file:
+
+```text
+.runtime/kgwm_chatgpt_final_stop_cert_20260912.json
+```
+
+Observed contract evidence:
+
+```text
+authenticated profile: true
+composer: ready
+user turn observed: true
+assistant active state observed: true / Thinking
+stop control observed: true
+stop control selector: button[data-testid="stop-button"]
+stop control aria: Stop answering
+cancel hook: clicked=true
+assistant final marker after stop: 0
+stop control after 12s: 0
+stop control after 30s: 0
+classification: STOP_PROVIDER_CONFIRMED
+```
+
+Scope: this confirms the ChatGPT Web UI provider-side Stop path through the Gateway/Kilo-style stream-disconnect path. It does not certify other providers.

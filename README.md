@@ -141,3 +141,7 @@ Web Chat Stop certification now requires provider-specific Stop Contracts based 
 Active stop-surface discovery now records Qwen runtime-stop as a candidate blocked from final repeat by quota, DeepSeek immediate stop as failed after continuation to marker, and Z.ai as rebind-aware but inconclusive. No Web Chat provider currently has final `STOP_PROVIDER_CONFIRMED` status.
 
 ChatGPT focused Stop work hardened explicit Stop-button cancellation, but live certification is currently blocked by `CHATGPT_AUTH_REQUIRED_FOR_STOP_CERT` because the configured CDP 9224 session is logged out.
+
+### ChatGPT Stop certification
+
+`chatgpt-web` is certified for provider-side Stop through the Gateway/Kilo-style stream-disconnect path. The confirmed UI control is `button[data-testid="stop-button"]` with `aria="Stop answering"`. Login state is preserved only by the project Chrome profile; credentials, browser session artifacts, and tokens are not read or stored by the gateway.

@@ -35,10 +35,22 @@ logger = logging.getLogger(__name__)
 INPUT_SELECTOR = "#prompt-textarea"
 INPUT_SELECTORS = (
     "#prompt-textarea[contenteditable='true']",
+    "#prompt-textarea.ProseMirror",
+    "div#prompt-textarea[contenteditable='true']",
     "[contenteditable='true'][role='textbox'][aria-label*='Chat']",
     "textarea[aria-label*='Chat']",
+    "textarea#mobile-composer-prompt",
 )
 SEND_SELECTOR = "button[data-testid='send-button']"
+SEND_SELECTORS = (
+    "button[data-testid='send-button']",
+    "button[data-testid='composer-submit-button']",
+    "button#composer-submit-button",
+    "button[aria-label='Send message']",
+    "button[aria-label='Send prompt']",
+    "button.composer-submit-button-color[aria-label='Send prompt']",
+    "button.composer-submit-button-color[aria-label='Send message']",
+)
 ASSISTANT_SELECTOR = "[data-message-author-role='assistant']"
 FILE_INPUT_SELECTOR = "input[type='file']"
 UPLOAD_READY_SELECTOR = "button[data-testid='send-button'], text=Upload complete, .upload-complete"
@@ -66,36 +78,135 @@ class ChatGPTWebProvider(Provider):
         # persistent provider event loop used by the Flask bridge.
         self._request_lock = None
 
-    async def _session_status(self) -> dict:
-        """Return non-secret authentication/UI readiness evidence."""
-        if self._page is None:
-            return {"authenticated": False, "composer_ready": False}
+    async def _inspect_page_status(self, page=None) -> dict:
+        """Return non-secret authentication/composer evidence for a candidate tab."""
+        page = page or self._page
+        if page is None or page.is_closed():
+            return {"authenticated": False, "composer_ready": False, "score": -100, "closed": True}
         try:
-            status = await self._page.evaluate(
+            status = await page.evaluate(
                 """() => {
-                  const visible = (el) => !!el && !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
-                  const profile = [...document.querySelectorAll("[data-testid='accounts-profile-button']")].some(visible);
-                  const login = [...document.querySelectorAll("a,button")].some((el) => {
+                  const visibleInViewport = (el) => {
+                    if (!el) return false;
+                    const r = el.getBoundingClientRect();
+                    const st = window.getComputedStyle(el);
+                    return r.width > 0 && r.height > 0 &&
+                      r.bottom >= 0 && r.top <= window.innerHeight &&
+                      r.right >= 0 && r.left <= window.innerWidth &&
+                      st.visibility !== 'hidden' && st.display !== 'none';
+                  };
+                  const visible = (el) => {
+                    if (!el) return false;
+                    const r = el.getBoundingClientRect();
+                    const st = window.getComputedStyle(el);
+                    return r.width > 0 && r.height > 0 &&
+                      st.visibility !== 'hidden' && st.display !== 'none';
+                  };
+                  const profileCount = [...document.querySelectorAll("[data-testid='accounts-profile-button']")].filter(visible).length;
+                  const loginCount = [...document.querySelectorAll("a,button")].filter((el) => {
                     if (!visible(el)) return false;
                     const text = (el.innerText || el.textContent || "").trim();
                     return /^(log in|sign up)$/i.test(text);
-                  });
-                  const composer = [...document.querySelectorAll(
-                    "#prompt-textarea[contenteditable='true'],[contenteditable='true'][role='textbox'][aria-label*='Chat'],textarea[aria-label*='Chat']"
-                  )].some(visible);
-                  return {authenticated: profile && !login, composer_ready: composer};
+                  }).length;
+                  const composerCount = [...document.querySelectorAll(
+                    "#prompt-textarea,#prompt-textarea[contenteditable='true'],#prompt-textarea.ProseMirror,[contenteditable='true'][role='textbox'][aria-label*='Chat'],textarea[aria-label*='Chat'],textarea#mobile-composer-prompt"
+                  )].filter(visibleInViewport).length;
+                  const stopCount = [...document.querySelectorAll("button[data-testid='stop-button'],button[aria-label*='Stop'],button")].filter((el) => {
+                    if (!visibleInViewport(el)) return false;
+                    const hay = [el.innerText || '', el.textContent || '', el.getAttribute('aria-label') || '', el.getAttribute('data-testid') || ''].join(' ');
+                    return el.getAttribute('data-testid') === 'stop-button' || /\bstop( generating| streaming| answering)?\b/i.test(hay);
+                  }).length;
+                  const assistantCount = document.querySelectorAll("[data-message-author-role='assistant']").length;
+                  const userCount = document.querySelectorAll("[data-message-author-role='user']").length;
+                  return {
+                    authenticated: profileCount > 0 && loginCount === 0,
+                    composer_ready: composerCount > 0,
+                    profile_count: profileCount,
+                    login_count: loginCount,
+                    composer_count: composerCount,
+                    stop_count: stopCount,
+                    assistant_count: assistantCount,
+                    user_count: userCount,
+                    title: document.title,
+                    url: location.href,
+                  };
                 }"""
             )
+            score = 0
+            if status.get("authenticated"):
+                score += 100
+            if status.get("composer_ready"):
+                score += 50
+            if status.get("stop_count"):
+                score += 40
+            if "chatgpt.com" in (status.get("url") or ""):
+                score += 10
+            status["score"] = score
+            return status
+        except Exception as exc:
             return {
-                "authenticated": bool(status.get("authenticated")),
-                "composer_ready": bool(status.get("composer_ready")),
+                "authenticated": False,
+                "composer_ready": False,
+                "score": -10,
+                "error": f"{type(exc).__name__}: {str(exc)[:160]}",
+                "url": getattr(page, "url", ""),
             }
-        except Exception:
-            return {"authenticated": False, "composer_ready": False}
+
+    async def _session_status(self) -> dict:
+        """Return non-secret authentication/UI readiness evidence."""
+        status = await self._inspect_page_status(self._page)
+        return {
+            "authenticated": bool(status.get("authenticated")),
+            "composer_ready": bool(status.get("composer_ready")),
+        }
+
+    async def _select_best_chatgpt_page(self, require_composer: bool = False):
+        if self._context is None:
+            return None, {"reason": "no_context"}
+        candidates = []
+        for page in list(self._context.pages):
+            try:
+                if page.is_closed() or "chatgpt.com" not in (page.url or ""):
+                    continue
+                status = await self._inspect_page_status(page)
+                status["candidate_url"] = page.url
+                if require_composer and not status.get("composer_ready"):
+                    status["score"] = int(status.get("score", 0)) - 100
+                candidates.append((int(status.get("score", 0)), page, status))
+            except Exception as exc:
+                candidates.append((-100, page, {"error": f"{type(exc).__name__}: {str(exc)[:160]}", "candidate_url": getattr(page, "url", "")}))
+        if not candidates:
+            return None, {"reason": "no_chatgpt_pages"}
+        candidates.sort(key=lambda item: item[0], reverse=True)
+        best_score, best_page, best_status = candidates[0]
+        best_status["candidate_count"] = len(candidates)
+        best_status["best_score"] = best_score
+        return best_page, best_status
+
+    async def _rebind_chatgpt_page(self, require_composer: bool = False) -> dict:
+        page, status = await self._select_best_chatgpt_page(require_composer=require_composer)
+        if page is not None:
+            self._page = page
+            try:
+                await self._page.bring_to_front()
+            except Exception:
+                pass
+            logger.info(
+                "ChatGPT page bound: authenticated=%s composer_ready=%s stop_count=%s candidates=%s url=%s",
+                status.get("authenticated"),
+                status.get("composer_ready"),
+                status.get("stop_count"),
+                status.get("candidate_count"),
+                status.get("candidate_url") or status.get("url"),
+            )
+            return status
+        return status
 
     async def _require_authenticated_session(self) -> dict:
         status = await self._session_status()
-        if self._require_authenticated and not status["authenticated"]:
+        if not status.get("authenticated") or not status.get("composer_ready"):
+            status = await self._rebind_chatgpt_page(require_composer=True)
+        if self._require_authenticated and not status.get("authenticated"):
             raise ProviderError(
                 "ChatGPT Web requires an authenticated browser session",
                 "auth_required",
@@ -161,19 +272,24 @@ class ChatGPTWebProvider(Provider):
                 await pw.stop()
 
     async def _ensure_page(self):
-        # Always create a fresh connection to avoid stale state issues
+        # Always create a fresh connection to avoid stale state issues.
+        # Then bind to the authenticated ChatGPT tab with a real composer, not
+        # merely the first chatgpt.com tab in the CDP context.
         await self._cleanup_connection()
         await self._connect()
 
+        status = await self._rebind_chatgpt_page(require_composer=True)
         if self._page is None:
-            for p in self._context.pages:
-                if "chatgpt.com" in p.url and not p.is_closed():
-                    self._page = p
-                    break
+            self._page = await self._context.new_page()
+            await self._page.goto(self._chatgpt_url, wait_until="domcontentloaded", timeout=30000)
+            status = await self._rebind_chatgpt_page(require_composer=True)
 
-            if not self._page:
-                self._page = await self._context.new_page()
+        if self._page is not None and not status.get("composer_ready"):
+            try:
                 await self._page.goto(self._chatgpt_url, wait_until="domcontentloaded", timeout=30000)
+            except Exception:
+                pass
+            await self._rebind_chatgpt_page(require_composer=True)
 
     async def _connect(self):
         try:
@@ -198,27 +314,7 @@ class ChatGPTWebProvider(Provider):
         self._context = None
         self._page = None
 
-    async def _send_message(self, message: str):
-        if self._page is None:
-            raise ProviderError("Page is not initialized", "page_not_initialized", self.provider_id)
-        await self._require_authenticated_session()
-
-        if len(message) > COMPOSER_FILL_THRESHOLD:
-            await self._send_message_via_backend_intercept(message)
-            return
-
-        input_box = await self._resolve_composer()
-        await input_box.click()
-        try:
-            await input_box.fill(message)
-        except Exception as exc:
-            raise ProviderError(
-                "Failed to populate ChatGPT composer",
-                "composer_input_failed",
-                self.provider_id,
-            ) from exc
-
-        input_box = await self._resolve_composer()
+    async def _composer_text_length(self, input_box) -> int:
         actual_length = await input_box.evaluate(
             """el => {
               if (el.value !== undefined) return String(el.value || "").length;
@@ -230,7 +326,56 @@ class ChatGPTWebProvider(Provider):
               return String(el.textContent || "").length;
             }"""
         )
-        if int(actual_length or 0) != len(message):
+        return int(actual_length or 0)
+
+    async def _fill_composer(self, input_box, message: str) -> None:
+        await input_box.click()
+        fill_error = None
+        try:
+            await input_box.fill(message)
+        except Exception as exc:
+            fill_error = exc
+
+        if await self._composer_text_length(input_box) == len(message):
+            return
+
+        # Current ChatGPT uses a ProseMirror contenteditable composer. Some
+        # builds reject Playwright locator.fill(); keyboard insertion after
+        # focus is the least invasive fallback and preserves frontend state.
+        try:
+            await input_box.click()
+            await self._page.keyboard.press("Control+A")
+            await self._page.keyboard.press("Backspace")
+            await self._page.keyboard.insert_text(message)
+        except Exception as exc:
+            raise ProviderError(
+                "Failed to populate ChatGPT composer",
+                "composer_input_failed",
+                self.provider_id,
+            ) from (fill_error or exc)
+
+        if await self._composer_text_length(input_box) != len(message):
+            try:
+                await input_box.evaluate(
+                    """(el, text) => {
+                      el.focus();
+                      if (el.value !== undefined) {
+                        el.value = text;
+                        el.dispatchEvent(new InputEvent('input', {bubbles: true, inputType: 'insertText', data: text}));
+                        el.dispatchEvent(new Event('change', {bubbles: true}));
+                        return;
+                      }
+                      document.getSelection()?.selectAllChildren(el);
+                      document.execCommand('insertText', false, text);
+                      el.dispatchEvent(new InputEvent('input', {bubbles: true, inputType: 'insertText', data: text}));
+                    }""",
+                    message,
+                )
+            except Exception:
+                pass
+
+        actual_length = await self._composer_text_length(input_box)
+        if actual_length != len(message):
             logger.warning(
                 "ChatGPT composer verification failed: expected_len=%s actual_len=%s",
                 len(message),
@@ -242,15 +387,137 @@ class ChatGPTWebProvider(Provider):
                 self.provider_id,
             )
 
-        send_btn = self._page.locator(SEND_SELECTOR)
-        if await send_btn.count() > 0 and await send_btn.is_visible():
-            await send_btn.click()
-        else:
-            raise ProviderError(
-                "ChatGPT send button is unavailable",
-                "send_button_unavailable",
-                self.provider_id,
-            )
+    async def _resolve_send_button(self):
+        if self._page is None:
+            raise ProviderError("Page is not initialized", "page_not_initialized", self.provider_id)
+        deadline = asyncio.get_running_loop().time() + 15
+        while asyncio.get_running_loop().time() < deadline:
+            for selector in SEND_SELECTORS:
+                try:
+                    loc = self._page.locator(selector)
+                    count = await loc.count()
+                    for idx in range(min(count, 8)):
+                        btn = loc.nth(idx)
+                        if await btn.is_visible() and await btn.is_enabled():
+                            return btn
+                except Exception:
+                    pass
+            await asyncio.sleep(0.15)
+        raise ProviderError(
+            "ChatGPT send button is unavailable",
+            "send_button_unavailable",
+            self.provider_id,
+        )
+
+    async def _submit_message_via_current_dom(self, message: str) -> dict:
+        """Submit through the current ChatGPT ProseMirror composer in one DOM transaction."""
+        if self._page is None:
+            raise ProviderError("Page is not initialized", "page_not_initialized", self.provider_id)
+        return await self._page.evaluate(
+            """async (text) => {
+              const visibleInViewport = (el) => {
+                if (!el) return false;
+                const r = el.getBoundingClientRect();
+                const st = window.getComputedStyle(el);
+                return r.width > 0 && r.height > 0 &&
+                  r.bottom >= 0 && r.top <= window.innerHeight &&
+                  r.right >= 0 && r.left <= window.innerWidth &&
+                  st.visibility !== 'hidden' && st.display !== 'none';
+              };
+              const label = (el) => [
+                el.innerText || '',
+                el.textContent || '',
+                el.getAttribute('aria-label') || '',
+                el.getAttribute('data-testid') || '',
+                el.id || '',
+                String(el.className || '')
+              ].join(' ').replace(/\\s+/g, ' ').trim();
+              const composer = document.querySelector('#prompt-textarea') ||
+                document.querySelector('#prompt-textarea.ProseMirror') ||
+                document.querySelector('[contenteditable="true"][role="textbox"]') ||
+                document.querySelector('textarea#mobile-composer-prompt') ||
+                document.querySelector('textarea');
+              if (!composer) {
+                return {
+                  ok: false,
+                  reason: 'composer_selector_missing',
+                  url: location.href,
+                  title: document.title,
+                  prompt_textarea_count: document.querySelectorAll('#prompt-textarea').length,
+                  editable_count: document.querySelectorAll('[contenteditable="true"]').length,
+                  textarea_count: document.querySelectorAll('textarea').length,
+                  body_tail: (document.body?.innerText || '').slice(-300)
+                };
+              }
+              const composerRect = composer.getBoundingClientRect();
+              const composerVisible = visibleInViewport(composer);
+              if (!composerVisible) {
+                try { composer.scrollIntoView({block: 'center', inline: 'nearest'}); } catch (_) {}
+                await new Promise((resolve) => setTimeout(resolve, 300));
+              }
+              composer.focus();
+              const selection = window.getSelection();
+              const range = document.createRange();
+              range.selectNodeContents(composer);
+              selection.removeAllRanges();
+              selection.addRange(range);
+              document.execCommand('delete', false, null);
+              document.execCommand('insertText', false, text);
+              composer.dispatchEvent(new InputEvent('input', {
+                bubbles: true,
+                inputType: 'insertText',
+                data: text
+              }));
+              await new Promise((resolve) => setTimeout(resolve, 800));
+              const actual = composer.innerText || composer.textContent || composer.value || '';
+              if (actual.length !== text.length) {
+                return {ok: false, reason: 'composer_length_mismatch', actual_len: actual.length, expected_len: text.length, composer_visible: composerVisible, composer_rect: {x: Math.round(composerRect.x), y: Math.round(composerRect.y), w: Math.round(composerRect.width), h: Math.round(composerRect.height)}, viewport: {w: window.innerWidth, h: window.innerHeight}};
+              }
+              const buttons = Array.from(document.querySelectorAll('button,[role="button"]')).filter(visibleInViewport);
+              const send = buttons.find((el) => {
+                const hay = label(el);
+                return el.getAttribute('data-testid') === 'send-button' ||
+                  el.id === 'composer-submit-button' ||
+                  /(^|\b)(send prompt|send message)(\b|$)/i.test(hay);
+              });
+              if (!send || send.disabled || send.getAttribute('aria-disabled') === 'true') {
+                return {ok: false, reason: 'send_not_found_or_disabled', actual_len: actual.length, composer_visible: composerVisible, composer_rect: {x: Math.round(composerRect.x), y: Math.round(composerRect.y), w: Math.round(composerRect.width), h: Math.round(composerRect.height)}, viewport: {w: window.innerWidth, h: window.innerHeight}};
+              }
+              const sendLabel = label(send).slice(0, 200);
+              send.click();
+              return {ok: true, actual_len: actual.length, send_label: sendLabel, composer_visible: composerVisible, composer_rect: {x: Math.round(composerRect.x), y: Math.round(composerRect.y), w: Math.round(composerRect.width), h: Math.round(composerRect.height)}, viewport: {w: window.innerWidth, h: window.innerHeight}};
+            }""",
+            message,
+        )
+
+    async def _send_message(self, message: str):
+        if self._page is None:
+            raise ProviderError("Page is not initialized", "page_not_initialized", self.provider_id)
+        await self._require_authenticated_session()
+
+        if len(message) > COMPOSER_FILL_THRESHOLD:
+            await self._send_message_via_backend_intercept(message)
+            return
+
+        direct_submit = await self._submit_message_via_current_dom(message)
+        logger.info(
+            "ChatGPT DOM submit result: ok=%s reason=%s actual_len=%s expected_len=%s send_label=%s composer_visible=%s rect=%s viewport=%s",
+            direct_submit.get("ok"),
+            direct_submit.get("reason"),
+            direct_submit.get("actual_len"),
+            len(message),
+            direct_submit.get("send_label"),
+            direct_submit.get("composer_visible"),
+            direct_submit.get("composer_rect"),
+            direct_submit.get("viewport"),
+        )
+        if direct_submit.get("ok"):
+            return
+
+        input_box = await self._resolve_composer()
+        await self._fill_composer(input_box, message)
+        send_btn = await self._resolve_send_button()
+        await send_btn.click(timeout=15000)
 
     async def _send_message_via_backend_intercept(self, message: str):
         """Submit a large prompt through the authenticated frontend backend request.
@@ -334,19 +601,7 @@ class ChatGPTWebProvider(Provider):
             await self._page.keyboard.press("Backspace")
             await self._page.keyboard.insert_text(carrier)
 
-            send_btn = self._page.locator(SEND_SELECTOR)
-            await send_btn.wait_for(state="visible", timeout=15000)
-            for _ in range(60):
-                if await send_btn.is_enabled():
-                    break
-                await asyncio.sleep(0.1)
-            if not await send_btn.is_enabled():
-                raise ProviderError(
-                    "ChatGPT send button is unavailable for backend intercept",
-                    "send_button_unavailable",
-                    self.provider_id,
-                )
-
+            send_btn = await self._resolve_send_button()
             await send_btn.click(timeout=15000)
             try:
                 await asyncio.wait_for(intercepted.wait(), timeout=20)

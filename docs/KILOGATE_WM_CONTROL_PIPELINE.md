@@ -687,3 +687,23 @@ Rules:
 3. The ChatGPT production cancel hook may click only explicit Stop controls, such as `button[data-testid="stop-button"]` or visible controls with explicit Stop/Stop generating/Stop streaming semantics.
 4. Escape is only an interruption attempt and is never sufficient proof of provider-side cancellation.
 5. `STOP_PROVIDER_CONFIRMED` requires: authenticated session, active current prompt, explicit Stop control clicked, Stop control disappears, and the final marker does not later appear in an assistant message.
+
+### v0.5.8 — ChatGPT Stop confirmed and tab-binding hardening
+
+ChatGPT Web Stop is now certified for the Gateway/Kilo-style stream-disconnect path:
+
+```text
+provider: chatgpt-web
+state: STOP_PROVIDER_CONFIRMED
+control: button[data-testid="stop-button"] / aria="Stop answering"
+post-stop: assistant marker absent, stop control absent after observation windows
+```
+
+Control changes:
+
+```text
+1. ChatGPT page binding must prefer authenticated tabs with a visible composer.
+2. ChatGPT submit must support the current ProseMirror composer and explicit send controls.
+3. Stop proof requires an explicit stop button click plus post-stop evidence.
+4. Session secrets, browser session artifacts, and credentials must not be read, printed, or stored by the gateway.
+```

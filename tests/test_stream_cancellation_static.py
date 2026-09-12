@@ -85,3 +85,43 @@ def test_chatgpt_cancel_uses_explicit_stop_and_post_click_confirmation():
     assert "remaining_stop_controls" in block
     assert "Escape is recorded as an attempt, never as proof" in block
     assert "result[\"cancelled\"] = bool((probe or {}).get(\"clicked\")) and" in block
+
+
+def test_chatgpt_composer_supports_prosemirror_and_send_fallbacks():
+    text = read("adapters/chatgpt_web_provider.py")
+    assert "#prompt-textarea.ProseMirror" in text
+    assert "SEND_SELECTORS" in text
+    assert "composer-submit-button-color" in text
+    assert "async def _fill_composer" in text
+    assert "keyboard.insert_text(message)" in text
+    assert "async def _resolve_send_button" in text
+
+
+def test_chatgpt_dom_submit_uses_current_prosemirror_transaction():
+    text = read("adapters/chatgpt_web_provider.py")
+    assert "async def _submit_message_via_current_dom" in text
+    assert "document.execCommand('insertText', false, text)" in text
+    assert "send prompt|send message" in text
+    assert "composer-submit-button" in text
+    assert "button:has-text('Send')" not in text
+    assert 'button[aria-label*="Send"]' not in text
+
+
+def test_chatgpt_page_binding_requires_authenticated_composer_tab():
+    text = read("adapters/chatgpt_web_provider.py")
+    assert "async def _select_best_chatgpt_page" in text
+    assert "async def _rebind_chatgpt_page" in text
+    assert "require_composer=True" in text
+    assert "composer_ready" in text
+    assert "ChatGPT page bound" in text
+    old_first_tab = "for p in self._context.pages:\n                if \"chatgpt.com\" in p.url"
+    assert old_first_tab not in text
+
+
+def test_chatgpt_dom_submit_differentiates_missing_and_visibility():
+    text = read("adapters/chatgpt_web_provider.py")
+    assert "composer_selector_missing" in text
+    assert "composer_visible" in text
+    assert "composer_rect" in text
+    assert "scrollIntoView" in text
+    assert "document.querySelector('textarea')" in text

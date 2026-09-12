@@ -106,3 +106,20 @@ Disallowed as certification proof:
 - generic icon-only heuristics without a signed contract
 
 Certification remains blocked by `CHATGPT_AUTH_REQUIRED_FOR_STOP_CERT` until the CDP 9224 ChatGPT session is authenticated.
+
+## ChatGPT Stop Contract — confirmed row
+
+`chatgpt-web` now has a confirmed Stop contract for the current ChatGPT Web UI surface:
+
+```text
+provider: chatgpt-web
+required authenticated surface: accounts-profile-button present and login/sign-up absent
+required composer surface: visible #prompt-textarea / ProseMirror composer
+send control: button[data-testid="send-button"] / #composer-submit-button
+active stop control: button[data-testid="stop-button"]
+active stop aria: Stop answering
+post-stop evidence: stop button disappears and assistant final marker does not appear
+status: STOP_PROVIDER_CONFIRMED
+```
+
+The adapter must bind to the authenticated tab with a valid composer instead of using the first `chatgpt.com` tab. The Gateway must not treat Escape as proof of Stop; Escape remains only a fallback attempt.
