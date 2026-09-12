@@ -28,6 +28,7 @@
 | KiloGate-WM Qwen audit | `KILOGATE_WM_QWEN_AUDIT_2026-09-11.md` |
 | KiloGate-WM Qwen Gateway/Kilo retest | `KILOGATE_WM_QWEN_GATEWAY_KILO_RETEST_2026-09-12.md` |
 | KiloGate-WM Qwen full matrix | `KILOGATE_WM_QWEN_FULL_MATRIX_2026-09-12.md` |
+| KiloGate-WM Qwen3.7-Max targeted retest | `KILOGATE_WM_QWEN37MAX_TARGETED_RETEST_2026-09-12.md` |
 | KiloGate-WM DeepSeek Web Chat audit | `KILOGATE_WM_DEEPSEEK_WEBCHAT_AUDIT_2026-09-12.md` |
 | KiloGate-WM DeepSeek Gateway/Kilo audit | `KILOGATE_WM_DEEPSEEK_GATEWAY_KILO_AUDIT_2026-09-12.md` |
 | KiloGate-WM Z.ai Gateway/Kilo audit | `KILOGATE_WM_ZAI_GATEWAY_KILO_AUDIT_2026-09-12.md` |

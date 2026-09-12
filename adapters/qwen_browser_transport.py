@@ -9,6 +9,7 @@ from typing import AsyncIterator, Optional
 from playwright.async_api import async_playwright, Browser, BrowserContext, Page, Playwright
 
 from core.providers import ProviderError, ProviderTimeoutError
+from core.provider_risk import detect_provider_risk
 
 logger = logging.getLogger(__name__)
 
@@ -485,10 +486,29 @@ class QwenBrowserControllerTransport:
               content_len: typeof p?.content === 'string' ? p.content.length : 0
             }))
           };
+          const bodyText = (document.body?.innerText || '');
+          const bodyLower = bodyText.toLowerCase();
+          const riskPhrases = [
+            'you have reached the daily usage limit',
+            'daily usage limit',
+            'usage limit',
+            'quota',
+            'high demand',
+            'too many requests',
+            'rate limit',
+            'please wait',
+            'please drag the slider below to complete the verification',
+            'please slide to verify',
+            'complete the verification to ensure normal access',
+            'drag the slider',
+            'slide to verify'
+          ];
+          const visibleRiskText = riskPhrases.some(x => bodyLower.includes(x)) ? bodyText.slice(-1600) : '';
           return {
             state: s.sessionState || '',
             chat_id: s.chatId || '',
             answer, thinking, answer_status:answerStatus, thinking_status:thinkingStatus,
+            visible_risk_text: visibleRiskText,
             matched,
             has_event: matched && !!msg,
             terminal,
@@ -523,10 +543,40 @@ class QwenBrowserControllerTransport:
                     snap = await self._snapshot(prompt)
                     chat_id = snap.get("chat_id") or chat_id
                     if snap.get("error"):
+                        signal = detect_provider_risk(snap.get("error"))
+                        if signal:
+                            raise ProviderError(
+                                signal.message,
+                                signal.kind,
+                                self.provider_id,
+                                {"failure_class": signal.failure_class, "wait_hours": signal.wait_hours},
+                            )
                         raise ProviderError("Qwen controller send failed", "upstream_error", self.provider_id)
+                    visible_signal = detect_provider_risk(snap.get("visible_risk_text"))
+                    if visible_signal:
+                        raise ProviderError(
+                            visible_signal.message,
+                            visible_signal.kind,
+                            self.provider_id,
+                            {"failure_class": visible_signal.failure_class, "wait_hours": visible_signal.wait_hours},
+                        )
                     debug = snap.get("debug") or {}
                     if debug.get("assistant_error_present"):
                         upstream_code = str(debug.get("assistant_error_code") or "")
+                        upstream_message = str(debug.get("assistant_error_message") or "")[:240]
+                        signal = detect_provider_risk(upstream_code + " " + upstream_message)
+                        if signal:
+                            raise ProviderError(
+                                signal.message,
+                                signal.kind,
+                                self.provider_id,
+                                {
+                                    "upstream_code": upstream_code,
+                                    "message": upstream_message,
+                                    "failure_class": signal.failure_class,
+                                    "wait_hours": signal.wait_hours,
+                                },
+                            )
                         error_code = "rate_limit" if upstream_code.lower() == "ratelimited" else "upstream_error"
                         raise ProviderError(
                             "Qwen frontend reported an upstream error",
@@ -534,7 +584,7 @@ class QwenBrowserControllerTransport:
                             self.provider_id,
                             {
                                 "upstream_code": upstream_code,
-                                "message": str(debug.get("assistant_error_message") or "")[:240],
+                                "message": upstream_message,
                             },
                         )
                     if self.last_backend_request_model and not saw_event:

@@ -31,6 +31,7 @@ from core.providers import (
     SessionContext,
 )
 from core.stream_state import StreamTracker
+from core.provider_risk import detect_provider_risk
 from core.browser_observability import BrowserEvidenceMismatch, BrowserModelEvidence
 from core.tool_protocol import serialize_messages, parse_tool_envelope, strong_auto_tool_signal
 from adapters.qwen_browser_transport import QwenBrowserControllerTransport
@@ -309,6 +310,15 @@ class QwenWebProvider(Provider):
         except ValueError as e:
             raise ProviderError("Qwen Web returned non-JSON response", "protocol_error", self.provider_id) from e
         if isinstance(data, dict) and data.get("success") is False:
+            risk_text = json.dumps(data, ensure_ascii=False)
+            signal = detect_provider_risk(risk_text)
+            if signal:
+                raise ProviderError(
+                    signal.message,
+                    signal.kind,
+                    self.provider_id,
+                    {"failure_class": signal.failure_class, "wait_hours": signal.wait_hours},
+                )
             raise ProviderError("Qwen Web application-level error", "upstream_error", self.provider_id)
         return data
 
@@ -572,7 +582,17 @@ class QwenWebProvider(Provider):
                 tracker.meaningful_event(len(raw.encode("utf-8", errors="ignore")))
                 kind, text, terminal, upstream_error = self._classify_sse_object(obj)
                 if kind == "error":
-                    out.put(("error", ProviderError("Qwen error inside HTTP 200 stream", "upstream_stream_error", self.provider_id)))
+                    risk_text = json.dumps(upstream_error or obj, ensure_ascii=False)
+                    signal = detect_provider_risk(risk_text)
+                    if signal:
+                        out.put(("error", ProviderError(
+                            signal.message,
+                            signal.kind,
+                            self.provider_id,
+                            {"failure_class": signal.failure_class, "wait_hours": signal.wait_hours},
+                        )))
+                    else:
+                        out.put(("error", ProviderError("Qwen error inside HTTP 200 stream", "upstream_stream_error", self.provider_id)))
                     return
                 if text:
                     out.put(("data", text))

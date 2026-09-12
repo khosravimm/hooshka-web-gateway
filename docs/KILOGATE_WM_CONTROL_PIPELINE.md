@@ -2,7 +2,7 @@
 
 **Persian name:** دروازه‌سنج وب‌مدل برای Kilo
 **Process ID:** `KILOGATE-WM`
-**Version:** `0.5.0`
+**Version:** `0.5.1`
 **Status:** Draft control standard / active working baseline
 **Date:** 2026-09-12
 **Repository:** `hooshka-web-gateway`
@@ -36,7 +36,7 @@ transport_path: provider_direct | gateway_api | kilo_cli
  tool_mode: none | optional | required | tool_result_continuation | real_kilo_tool_execution
 ```
 
-Each generated row must end in one of the canonical row states: `PASS`, `FAIL`, `TIMEOUT`, `DENY`, `SKIP`, `HOLD`, `UNSUPPORTED`, `UNVERIFIED`, or `CHALLENGE`. Missing rows are not allowed to be silently ignored; they must be materialized as `HOLD` or `SKIP/UNSUPPORTED` with an explicit reason.
+Each generated row must end in one of the canonical row states: `PASS`, `FAIL`, `TIMEOUT`, `DENY`, `SKIP`, `HOLD`, `UNSUPPORTED`, `UNVERIFIED`, `CHALLENGE`, or `QUOTA_LIMIT`. Missing rows are not allowed to be silently ignored; they must be materialized as `HOLD` or `SKIP/UNSUPPORTED` with an explicit reason.
 
 ### Candidate-model stop rules
 
@@ -146,6 +146,7 @@ provider
 | UNSUPPORTED | The feature is absent for that model |
 | UNVERIFIED | The feature may exist but evidence is not sufficient |
 | CHALLENGE | CAPTCHA/WAF/human-verification or account risk-control state was observed |
+| QUOTA_LIMIT | Provider daily/hourly quota, high-demand, wait-window, or usage-limit state was observed |
 
 Important distinction:
 
@@ -382,6 +383,23 @@ Mandatory handling:
 8. Reports must distinguish model failure from provider risk-control interruption.
 
 A user-reported challenge without screenshot is valid operational evidence for pausing and scoping, but not sufficient to assign `CHALLENGE` to a specific row unless timing/log/UI evidence maps it to that row.
+
+
+
+## Quota / high-demand / usage-limit controls - v0.5.1
+
+Web-chat providers may return daily usage limits, high-demand states, quota errors, or wait-window messages such as "Please wait N hours before trying again." These are risk-control states, not model capability failures.
+
+Mandatory handling:
+
+1. Live runners must monitor for quota phrases before and after every row: `daily usage limit`, `usage limit`, `quota`, `high demand`, `too many requests`, `rate limit`, `please wait`, and provider-specific wait-window text.
+2. If a quota or wait-window is visible in the UI or returned by the upstream/API, stop the live matrix immediately.
+3. The current affected row must be recorded as `QUOTA_LIMIT` when directly observed; dependent unexecuted rows must be recorded as `HOLD` with `failure_class=quota_limit_observed`.
+4. Reports must distinguish quota/rate-limit interruption from model/tool failure.
+5. The automation must not bypass the limit by rotating accounts, sessions, IPs, or profiles.
+6. If the UI gives a wait duration, record it and do not resume before a cooldown/admission check.
+7. The user must be informed explicitly that the provider has blocked further testing until the stated wait window expires.
+8. Resume requires a read-only admission check: authenticated session, no CAPTCHA/challenge, no usage-limit banner, no active generation, no zombie test process.
 
 ## Phase 11 — Recovery matrix
 
