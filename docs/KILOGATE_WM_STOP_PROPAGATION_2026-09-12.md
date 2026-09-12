@@ -101,4 +101,3 @@ DeepSeek produced negative evidence: the response continued to the final marker 
 Operational implication:
 
 Kilo/Gateway Stop must still be treated as observable best-effort cancellation, not as guaranteed immediate provider-side cancellation. For DeepSeek specifically, the current Stop mechanism is insufficient for provider-side immediate stop.
-
