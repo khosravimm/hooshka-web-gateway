@@ -158,19 +158,19 @@ class Provider(ABC):
     def __init__(self, config: ProviderConfig):
         self._config = config
         self._capabilities = config.capabilities or ProviderCapabilities()
-    
+
     @property
     def provider_id(self) -> str:
         return self._config.provider_id
-    
+
     @property
     def provider_type(self) -> ProviderType:
         return self._config.provider_type
-    
+
     @property
     def capabilities(self) -> ProviderCapabilities:
         return self._capabilities
-    
+
     @property
     def config(self) -> ProviderConfig:
         return self._config
@@ -183,11 +183,11 @@ class Provider(ABC):
         upstream id against live discovery before submission.
         """
         return model in self._capabilities.supported_models
-    
+
     @abstractmethod
     async def health_check(self) -> bool:
         pass
-    
+
     @abstractmethod
     async def chat_completion(
         self,
@@ -195,7 +195,7 @@ class Provider(ABC):
         session: Optional[SessionContext] = None
     ) -> ChatCompletionResponse:
         pass
-    
+
     @abstractmethod
     async def chat_completion_stream(
         self,
@@ -203,17 +203,26 @@ class Provider(ABC):
         session: Optional[SessionContext] = None
     ) -> AsyncIterator[ChatCompletionChunk]:
         pass
-    
+
     @abstractmethod
     async def list_models(self) -> list[ModelInfo]:
         pass
-    
+
+    async def cancel_active_generation(self, reason: str = "client_cancelled") -> dict:
+        """Best-effort cancellation hook for Web-chat transports.
+
+        Streaming clients such as Kilo may disconnect when the user clicks Stop.
+        Providers that drive a Web Chat UI must override this and stop the
+        upstream generation, not only cancel local Gateway work.
+        """
+        return {"supported": False, "cancelled": False, "reason": reason}
+
     @abstractmethod
     async def close(self) -> None:
         pass
-    
+
     def _generate_id(self, prefix: str = "chatcmpl") -> str:
         return f"{prefix}-{uuid.uuid4().hex[:8]}"
-    
+
     def _current_timestamp(self) -> int:
         return int(time.time())

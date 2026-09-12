@@ -954,6 +954,11 @@ class QwenWebProvider(Provider):
             if self._cleanup and not request.conversation_id:
                 await asyncio.to_thread(self._delete_chat, chat_id)
 
+    async def cancel_active_generation(self, reason: str = "client_cancelled") -> dict:
+        if self._transport_mode == "browser_controller":
+            return await self._browser.cancel_active_generation(reason)
+        return await super().cancel_active_generation(reason)
+
     async def close(self) -> None:
         if self._transport_mode == "browser_controller":
             await self._browser.close()

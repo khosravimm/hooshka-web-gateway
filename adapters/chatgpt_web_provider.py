@@ -117,7 +117,7 @@ class ChatGPTWebProvider(Provider):
                     pass
             await asyncio.sleep(0.25)
         raise PlaywrightTimeout("Timed out waiting for a visible ChatGPT composer")
-    
+
     @property
     def capabilities(self) -> ProviderCapabilities:
         return ProviderCapabilities(
@@ -136,7 +136,7 @@ class ChatGPTWebProvider(Provider):
             # aliases that the Web UI does not prove or expose deterministically.
             supported_models=["chatgpt-web"],
         )
-    
+
     async def health_check(self) -> bool:
         """Check provider availability without mutating browser state.
 
@@ -159,22 +159,22 @@ class ChatGPTWebProvider(Provider):
         finally:
             if pw:
                 await pw.stop()
-    
+
     async def _ensure_page(self):
         # Always create a fresh connection to avoid stale state issues
         await self._cleanup_connection()
         await self._connect()
-        
+
         if self._page is None:
             for p in self._context.pages:
                 if "chatgpt.com" in p.url and not p.is_closed():
                     self._page = p
                     break
-            
+
             if not self._page:
                 self._page = await self._context.new_page()
                 await self._page.goto(self._chatgpt_url, wait_until="domcontentloaded", timeout=30000)
-    
+
     async def _connect(self):
         try:
             self._pw = await async_playwright().start()
@@ -186,7 +186,7 @@ class ChatGPTWebProvider(Provider):
         except Exception as e:
             await self._cleanup_connection()
             raise ProviderUnavailableError(self.provider_id, f"Failed to connect: {e}")
-    
+
     async def _cleanup_connection(self):
         try:
             if self._pw:
@@ -197,7 +197,7 @@ class ChatGPTWebProvider(Provider):
         self._browser = None
         self._context = None
         self._page = None
-    
+
     async def _send_message(self, message: str):
         if self._page is None:
             raise ProviderError("Page is not initialized", "page_not_initialized", self.provider_id)
@@ -358,7 +358,7 @@ class ChatGPTWebProvider(Provider):
                 ) from exc
         finally:
             await self._page.unroute(route_pattern, replace_final_request)
-    
+
     async def _wait_for_assistant(self, timeout: int = 120000):
         await self._page.wait_for_selector(ASSISTANT_SELECTOR, timeout=timeout)
 
@@ -461,7 +461,7 @@ class ChatGPTWebProvider(Provider):
                 stable_samples = 0
             old_text = new_text
             await asyncio.sleep(0.75)
-        
+
         try:
             messages = self._page.locator(ASSISTANT_SELECTOR)
             return (await messages.last.inner_text(timeout=3000)).strip()
@@ -473,16 +473,16 @@ class ChatGPTWebProvider(Provider):
                 ).strip()
             except Exception:
                 return old_text.strip()
-    
+
     async def _upload_file(self, file_path: str):
         ensure_file_exists(file_path)
-        
+
         add_btn = self._page.locator("button[data-testid='composer-plus-btn']")
         if await add_btn.count() == 0:
             raise ProviderError("File upload button not found", "upload_failed", self.provider_id)
-        
+
         await add_btn.click()
-        
+
         try:
             file_input = self._page.locator(FILE_INPUT_SELECTOR)
             await file_input.set_input_files(file_path)
@@ -490,18 +490,18 @@ class ChatGPTWebProvider(Provider):
             await add_btn.click()
             file_input = self._page.locator(FILE_INPUT_SELECTOR)
             await file_input.set_input_files(file_path)
-        
+
         try:
             await self._page.wait_for_selector(UPLOAD_READY_SELECTOR, timeout=MAX_FILE_UPLOAD_TIMEOUT)
         except PlaywrightTimeout:
             logger.warning("File upload timeout; continuing anyway")
-    
+
     async def _upload_files(self, file_paths):
         if not file_paths:
             return
         if isinstance(file_paths, str):
             file_paths = [file_paths]
-        
+
         for path in file_paths:
             await self._upload_file(path)
 
@@ -614,7 +614,7 @@ class ChatGPTWebProvider(Provider):
         if not valid:
             return await self._repair_tool_protocol(request)
         return content, calls
-    
+
     async def chat_completion(
         self,
         request: ChatCompletionRequest,
@@ -649,7 +649,7 @@ class ChatGPTWebProvider(Provider):
                         continue
                     break
             raise last_error
-    
+
     async def _do_chat_completion(
         self,
         request: ChatCompletionRequest,
@@ -667,9 +667,9 @@ class ChatGPTWebProvider(Provider):
                 await self._page.goto(session.provider_session_id, wait_until="domcontentloaded", timeout=30000)
         elif not explicit_conversation and self._page.url != self._chatgpt_url:
             await self._page.goto(self._chatgpt_url, wait_until="domcontentloaded", timeout=30000)
-        
+
         file_paths = request.provider_options.get("file_paths", []) if request.provider_options else []
-        
+
         submission_started = False
         try:
             assistant_messages = self._page.locator(ASSISTANT_SELECTOR)
@@ -683,7 +683,7 @@ class ChatGPTWebProvider(Provider):
 
             if file_paths:
                 await self._upload_files(file_paths)
-            
+
             user_content = request.messages[-1].get("content", "") if request.messages else ""
             if isinstance(user_content, list):
                 user_content = "".join(
@@ -713,7 +713,7 @@ class ChatGPTWebProvider(Provider):
                 chunks = [outbound_content]
             else:
                 chunks = build_chunked_messages(outbound_content, chunk_size=self._long_text_chunk_size)
-            
+
             for idx, chunk in enumerate(chunks):
                 prefix = f"[Part {idx + 1}/{len(chunks)}] " if len(chunks) > 1 else ""
                 # Commitment boundary: once submission starts, any later failure
@@ -723,7 +723,7 @@ class ChatGPTWebProvider(Provider):
                 await self._send_message(f"{prefix}{chunk}")
                 if idx < len(chunks) - 1:
                     await asyncio.sleep(2)
-            
+
             await self._wait_for_new_assistant(
                 previous_count,
                 previous_text,
@@ -755,9 +755,9 @@ class ChatGPTWebProvider(Provider):
                         )
                 if tool_calls:
                     finish_reason = "tool_calls"
-            
+
             mcp_session_manager.update_provider_session_id(conversation_id, self._page.url)
-            
+
             return ChatCompletionResponse(
                 id=self._generate_id(),
                 created=self._current_timestamp(),
@@ -800,7 +800,7 @@ class ChatGPTWebProvider(Provider):
                 self.provider_id,
                 details={"submission_started": submission_started},
             )
-    
+
     async def chat_completion_stream(
         self,
         request: ChatCompletionRequest,
@@ -833,15 +833,15 @@ class ChatGPTWebProvider(Provider):
             )
             yield chunk
             return
-        
+
         await self._ensure_page()
-        
+
         conversation_id = request.conversation_id or f"conv-{self._generate_id()}"
         mcp_session = mcp_session_manager.get_or_create_session(conversation_id, self)
-        
+
         file_paths = request.provider_options.get("file_paths", []) if request.provider_options else []
         captured = {"chunks": [], "stream_complete": False}
-        
+
         async def on_response(response):
             url = response.url
             if "/backend-api/f/conversation" not in url:
@@ -856,42 +856,42 @@ class ChatGPTWebProvider(Provider):
                     captured["stream_complete"] = True
             except Exception as e:
                 logger.debug(f"[network] Response read error: {e}")
-        
+
         self._page.on("response", on_response)
-        
+
         try:
             if file_paths:
                 await self._upload_files(file_paths)
-            
+
             user_content = request.messages[-1].get("content", "") if request.messages else ""
             chunks = build_chunked_messages(user_content, chunk_size=self._long_text_chunk_size)
-            
+
             for idx, chunk in enumerate(chunks):
                 prefix = f"[Part {idx + 1}/{len(chunks)}] " if len(chunks) > 1 else ""
                 await self._send_message(f"{prefix}{chunk}")
                 if idx < len(chunks) - 1:
                     await asyncio.sleep(2)
-            
+
             deadline = asyncio.get_event_loop().time() + self._timeout
             while asyncio.get_event_loop().time() < deadline:
                 if captured["chunks"] and captured["stream_complete"]:
                     break
                 await asyncio.sleep(0.5)
-            
+
             stream_text = ""
             if captured["chunks"]:
                 combined = "\n".join(c.get("body", "") for c in captured["chunks"])
                 events = parse_sse_chunks(combined)
                 stream_text = extract_text_from_sse_events(events)
-            
+
             await self._wait_for_assistant(timeout=self._timeout * 1000)
             dom_text = await self._extract_latest_assistant_text()
             downloads = await extract_download_links(self._page)
-            
+
             response_text = stream_text or dom_text
-            
+
             mcp_session_manager.update_provider_session_id(conversation_id, self._page.url)
-            
+
             full_response = ChatCompletionResponse(
                 id=self._generate_id(),
                 created=self._current_timestamp(),
@@ -917,7 +917,7 @@ class ChatGPTWebProvider(Provider):
                     "conversation_id": conversation_id,
                 },
             )
-            
+
             for choice in full_response.choices:
                 content = choice.message.content or ""
                 chunk_size = 50
@@ -937,7 +937,7 @@ class ChatGPTWebProvider(Provider):
                         provider_meta=full_response.provider_meta,
                     )
                     await asyncio.sleep(0.01)
-            
+
             yield ChatCompletionChunk(
                 id=full_response.id,
                 created=full_response.created,
@@ -957,14 +957,47 @@ class ChatGPTWebProvider(Provider):
             raise ProviderError(str(e), "stream_completion_failed", self.provider_id)
         finally:
             self._page.remove_listener("response", on_response)
-    
+
     async def list_models(self) -> list[ModelInfo]:
         await self._ensure_page()
         await self._require_authenticated_session()
         return [
             ModelInfo(id="chatgpt-web", owned_by="chatgpt-web", provider=self.provider_id),
         ]
-    
+
+    async def cancel_active_generation(self, reason: str = "client_cancelled") -> dict:
+        result = {"supported": True, "cancelled": False, "reason": reason, "method": "chatgpt_stop_button"}
+        page = self._page
+        if not page or page.is_closed():
+            result["detail"] = "no_active_page"
+            return result
+        try:
+            clicked = False
+            for selector in (
+                "button[data-testid='stop-button']",
+                "button[aria-label*='Stop']",
+                "button[aria-label*='stop']",
+            ):
+                try:
+                    loc = page.locator(selector)
+                    if await loc.count() and await loc.first.is_visible():
+                        await loc.first.click(timeout=1000)
+                        clicked = True
+                        break
+                except Exception:
+                    pass
+            if not clicked:
+                try:
+                    await page.keyboard.press("Escape")
+                except Exception:
+                    pass
+            await page.wait_for_timeout(250)
+            result["cancelled"] = clicked
+            result["clicked"] = clicked
+        except Exception as exc:
+            result["error"] = str(exc)[:240]
+        return result
+
     async def close(self) -> None:
         try:
             if self._pw:

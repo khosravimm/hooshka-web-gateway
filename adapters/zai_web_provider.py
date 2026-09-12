@@ -395,6 +395,9 @@ class ZaiWebProvider(Provider):
             provider_meta=dict(meta),
         )
 
+    async def cancel_active_generation(self, reason: str = "client_cancelled") -> dict:
+        return await self._browser.cancel_active_generation(reason)
+
     async def close(self) -> None:
         await self._browser.close()
 

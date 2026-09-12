@@ -675,6 +675,34 @@ class QwenBrowserControllerTransport:
                     logger.warning("Qwen browser transport reset failed", exc_info=True)
                 raise
 
+    async def cancel_active_generation(self, reason: str = "client_cancelled") -> dict:
+        """Best-effort stop of an active Qwen Web Chat response."""
+        result = {"supported": True, "cancelled": False, "reason": reason, "method": "qwen_frontend_stop"}
+        page = self._page
+        if not page or page.is_closed():
+            result["detail"] = "no_active_page"
+            return result
+        try:
+            stop_result = await page.evaluate(
+                """async () => {
+                  const x = window.__mwbQwenController;
+                  const pool = x?.getPool?.();
+                  const s = pool?.currentSession;
+                  let called = 0;
+                  try { if (x?.stopResponse) { await x.stopResponse(); called++; } } catch (_) {}
+                  try { if (pool?.stopAllResponses) { await pool.stopAllResponses(); called++; } } catch (_) {}
+                  try { if (s?.stopResponse) { await s.stopResponse(); called++; } } catch (_) {}
+                  try { if (s?.waitForStoppedResponseTerminal) { await s.waitForStoppedResponseTerminal(); } } catch (_) {}
+                  return {called, state: s?.sessionState || '', url: location.href};
+                }"""
+            )
+            await page.wait_for_timeout(150)
+            result.update(stop_result or {})
+            result["cancelled"] = bool((stop_result or {}).get("called"))
+        except Exception as exc:
+            result["error"] = str(exc)[:240]
+        return result
+
     async def close(self) -> None:
         await self._reset()
 
@@ -687,20 +715,17 @@ class QwenBrowserControllerTransport:
         # stop the active response(s) before dropping the local controller handle.
         if page and not page.is_closed():
             try:
-                await page.evaluate(
-                    """async () => {
+                await self.cancel_active_generation("transport_reset")
+                try:
+                    await page.evaluate("""async () => {
                       const x = window.__mwbQwenController;
                       const pool = x?.getPool?.();
-                      try { await x?.stopResponse?.(); } catch (_) {}
-                      try { await pool?.stopAllResponses?.(); } catch (_) {}
                       const s = pool?.currentSession;
-                      try { await s?.stopResponse?.(); } catch (_) {}
-                      try { await s?.waitForStoppedResponseTerminal?.(); } catch (_) {}
                       try { s?.forceClear?.(); } catch (_) {}
                       return {state:s?.sessionState || ''};
-                    }"""
-                )
-                await page.wait_for_timeout(150)
+                    }""")
+                except Exception:
+                    pass
             except Exception:
                 logger.debug("Qwen frontend recovery before reset failed", exc_info=True)
         self._page = None

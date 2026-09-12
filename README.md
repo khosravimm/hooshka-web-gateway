@@ -130,3 +130,6 @@ Qwen KiloGate-WM retest corrected the previous text-only status: `qwen:qwen3.8-m
 
 
 KiloGate-WM programming model status is recorded in `docs/KILOGATE_WM_PROGRAMMING_MODEL_STATUS_2026-09-12.md`. Explicit Z.ai `glm-5.3` / `x-preview-l` rows are held as `KILO_INIT_STALL_BEFORE_SESSION_PROMPT`; Qwen `qwen3.7-max` remains held by provider quota. These models are intentionally left `tool_call=false`.
+
+
+Stop/cancel propagation is best-effort and documented in `docs/KILOGATE_WM_STOP_PROPAGATION_2026-09-12.md`; immediate provider-side Stop is not certified unless a provider/model row proves it.

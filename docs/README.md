@@ -33,6 +33,7 @@
 | KiloGate-WM DeepSeek Gateway/Kilo audit | `KILOGATE_WM_DEEPSEEK_GATEWAY_KILO_AUDIT_2026-09-12.md` |
 | KiloGate-WM Z.ai Gateway/Kilo audit | `KILOGATE_WM_ZAI_GATEWAY_KILO_AUDIT_2026-09-12.md` |
 | KiloGate-WM programming model status | `KILOGATE_WM_PROGRAMMING_MODEL_STATUS_2026-09-12.md` |
+| KiloGate-WM stop propagation report | `KILOGATE_WM_STOP_PROPAGATION_2026-09-12.md` |
 
 ## Canonical current documents
 
@@ -53,6 +54,7 @@
 - `KILO_E2_EVIDENCE_2026-09-11.md` Ã¢â‚¬â€ current Kilo CLI E2 evidence for ChatGPT, Z.ai and Qwen authenticated sessions.
 - `KILOGATE_WM_CONTROL_PIPELINE.md` — model-level control pipeline for certifying Web-chat models for Kilo programming, including thinking/search/stream/tool/recovery controls.
 - `KILOGATE_WM_PROGRAMMING_MODEL_STATUS_2026-09-12.md` — current programming allow-list and closure of held/uncertified explicit models.
+- `KILOGATE_WM_STOP_PROPAGATION_2026-09-12.md` — current evidence for Kilo/client Stop propagation to provider Web Chat generation.
 
 - `KILOGATE_WM_DEEPSEEK_WEBCHAT_AUDIT_2026-09-12.md` - corrected DeepSeek Web Chat UI audit; manual UI passes direct/tool-envelope/tool-result checks.
 - `KILOGATE_WM_DEEPSEEK_GATEWAY_KILO_AUDIT_2026-09-12.md` - DeepSeek Gateway provider and Kilo tool-capable E2 smoke audit; read/grep/write/edit/bash passed through Kilo.

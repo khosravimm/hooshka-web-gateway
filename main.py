@@ -256,9 +256,9 @@ SWAGGER_TEMPLATE = {
 
 def create_app(config_path: str = "config.yaml") -> Flask:
     config = load_config(config_path)
-    
+
     app = Flask(__name__)
-    
+
     Swagger(app, template=SWAGGER_TEMPLATE, config={
         "headers": [],
         "specs": [
@@ -273,25 +273,25 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         "swagger_ui": True,
         "specs_route": "/docs/",
     })
-    
+
     # Register control panel
     app.register_blueprint(control_panel_bp)
-    
+
     os.makedirs("logs", exist_ok=True)
-    
+
     logging.basicConfig(
         filename=config["logging"]["file"],
         level=getattr(logging, config["logging"]["level"]),
         format=config["logging"]["format"],
     )
     logger = logging.getLogger(__name__)
-    
+
     init_governance(app, config["governance"])
-    
+
     for provider_config in config["providers"]:
         if not provider_config.get("enabled", True):
             continue
-        
+
         pconfig = ProviderConfig(
             provider_id=provider_config["id"],
             provider_type=ProviderType(provider_config["type"]),
@@ -300,7 +300,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             config=provider_config.get("config", {}),
             capabilities=ProviderCapabilities(**provider_config.get("capabilities", {})),
         )
-        
+
         if pconfig.provider_type == ProviderType.CHATGPT_WEB:
             provider = create_chatgpt_web_provider(
                 provider_id=pconfig.provider_id,
@@ -335,9 +335,9 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             )
             provider_registry.register(provider)
             rate_limiter.set_rate(pconfig.provider_id, pconfig.config.get("requests_per_minute", 4))
-    
+
     server_config = config["server"]
-    
+
     def _build_request(data: dict) -> ChatCompletionRequest:
         def _content_to_text(content) -> str:
             if isinstance(content, str):
@@ -380,24 +380,24 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                 "upstream_model": data.get("upstream_model"),
             },
         )
-    
+
     def _validate_request(req: ChatCompletionRequest) -> tuple[bool, str]:
         if not req.messages:
             return False, "messages is required"
-        
+
         user_messages = [m for m in req.messages if m.get("role") == "user"]
         if not user_messages:
             return False, "No user message provided"
-        
+
         message = user_messages[-1].get("content", "")
         if not isinstance(message, str):
             message = str(message)
         message = message.strip()
         if not message:
             return False, "Empty user message"
-        
+
         return True, ""
-    
+
     def _format_response(response, provider) -> dict:
         return {
             "id": response.id,
@@ -423,7 +423,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             },
             "provider_meta": response.provider_meta,
         }
-    
+
     def _http_status_for_error(error: Exception) -> int:
         if isinstance(error, ProviderError) and error.code in {
             "invalid_model",
@@ -455,7 +455,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             ],
             "provider_meta": chunk.provider_meta,
         }
-    
+
     def _get_session(req: ChatCompletionRequest) -> SessionContext | None:
         if not req.conversation_id:
             return None
@@ -465,7 +465,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             provider_session_id=session_data.get("provider_session_id") if session_data else None,
             metadata=session_data.get("metadata", {}) if session_data else {},
         )
-    
+
     # Playwright objects are bound to the event loop in which they were
     # created.  Flask handlers run in different request contexts, so using
     # asyncio.run() here creates a new loop for every request and invalidates
@@ -499,7 +499,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             _async_loop.call_soon_threadsafe(_async_loop.stop)
 
     atexit.register(_shutdown_async_loop)
-    
+
     @app.route("/health", methods=["GET"])
     def health():
         """
@@ -536,7 +536,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
     def deep_health():
         """Alias for readiness, kept explicit for operational tooling."""
         return ready()
-    
+
     @app.route("/modes", methods=["GET"])
     def list_modes():
         """
@@ -578,7 +578,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             ],
             "default": provider_registry.get_default().provider_id if provider_registry.get_default() else None,
         })
-    
+
     @app.route("/v1/models", methods=["GET"])
     def list_models():
         """
@@ -600,7 +600,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                 all_models.extend(models)
             except Exception as e:
                 logger.error(f"Failed to list models from {provider.provider_id}: {e}")
-        
+
         return jsonify({
             "object": "list",
             "data": [
@@ -608,7 +608,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                 for m in all_models
             ],
         })
-    
+
     @app.route("/v1/chat/completions", methods=["POST"])
     def chat_completions():
         """
@@ -639,13 +639,13 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         """
         data = request.get_json(force=True)
         req = _build_request(data)
-        
+
         valid, error_msg = _validate_request(req)
         if not valid:
             return jsonify({"error": {"message": error_msg, "type": "invalid_request_error"}}), 400
-        
+
         g.request_model = req.model
-        
+
         provider_id = data.get("provider")
         if provider_id and provider_registry.get(provider_id) is None:
             return jsonify({"error": {
@@ -659,7 +659,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             require_streaming=req.stream,
             require_tools=request_requires_tools(req),
         )
-        
+
         if not provider:
             return jsonify({"error": {
                 "message": f"No provider supports model '{req.model}' with the requested capabilities. If using Kilo Code with qwen/zai, tool schemas are only optional; required tool calls need chatgpt-web or a tool-capable provider.",
@@ -667,40 +667,41 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                 "code": "unknown_or_unsupported_model",
                 "details": {"requested_tools": bool(req.tools), "tool_choice": req.tool_choice},
             }}), 400
-        
+
         g.selected_provider_id = provider.provider_id
         drop_optional_tools_for_text_only_provider(req, provider)
-        
+
         try:
             translated_req = mcp_translator.translate_request(req, provider)
             session = _get_session(req)
-            
+
             if req.stream:
                 return _stream_response(provider, translated_req, session)
             else:
                 response = _run_async(provider.chat_completion(translated_req, session), timeout=240)
                 normalized = mcp_normalizer.normalize_response(response, provider)
-                
+
                 if session and normalized.provider_meta.get("conversation_id"):
                     mcp_session_manager.update_provider_session_id(
                         req.conversation_id,
                         normalized.provider_meta["conversation_id"]
                     )
-                
+
                 g.prompt_tokens = normalized.usage.prompt_tokens
                 g.completion_tokens = normalized.usage.completion_tokens
                 g.total_tokens = normalized.usage.total_tokens
-                
+
                 return jsonify(_format_response(normalized, provider))
         except Exception as e:
             logger.error(f"Chat completion error: {e}")
             error_resp = mcp_normalizer.normalize_error(e, provider)
             return jsonify(error_resp), _http_status_for_error(e)
-    
+
     def _stream_response(provider, req: ChatCompletionRequest, session):
         def generate():
             event_queue = queue.Queue()
             sentinel = object()
+            completed = False
 
             async def produce():
                 try:
@@ -714,25 +715,59 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             future = asyncio.run_coroutine_threadsafe(produce(), _async_loop)
             try:
                 while True:
-                    kind, payload = event_queue.get()
+                    try:
+                        kind, payload = event_queue.get(timeout=2)
+                    except queue.Empty:
+                        # SSE keepalive makes client/Kilo disconnects observable
+                        # even while the Web-chat provider is still thinking and
+                        # has not emitted a model chunk yet.
+                        yield ": keepalive\n\n"
+                        continue
                     if kind == "data":
                         yield f"data: {json.dumps(payload)}\n\n"
                     elif kind == "done":
                         yield "data: [DONE]\n\n"
+                        completed = True
                         break
                     elif kind == "error":
                         logger.error(f"Stream error: {payload}")
                         error_resp = mcp_normalizer.normalize_error(payload, provider)
                         yield f"data: {json.dumps(error_resp)}\n\n"
+                        completed = True
                         break
             finally:
                 # A disconnected client must not leave provider work running in
-                # the persistent async loop indefinitely.
+                # the persistent async loop or Web-chat upstream indefinitely.
+                if not completed:
+                    try:
+                        cancel_future = asyncio.run_coroutine_threadsafe(
+                            provider.cancel_active_generation("stream_client_disconnected"),
+                            _async_loop,
+                        )
+                        cancel_result = cancel_future.result(timeout=5)
+                        if isinstance(cancel_result, dict):
+                            safe_cancel_result = {
+                                k: v for k, v in cancel_result.items()
+                                if k not in {"url", "label"}
+                            }
+                        else:
+                            safe_cancel_result = cancel_result
+                        logger.info(
+                            "Provider active-generation cancel hook result for %s: %s",
+                            getattr(provider, "provider_id", "unknown"),
+                            safe_cancel_result,
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            "Provider active-generation cancel hook failed for %s: %s",
+                            getattr(provider, "provider_id", "unknown"),
+                            e,
+                        )
                 if not future.done():
                     future.cancel()
-        
+
         return Response(stream_with_context(generate()), mimetype="text/event-stream")
-    
+
     @app.route("/v1/chat/code", methods=["POST"])
     def code_chat():
         """
@@ -775,13 +810,13 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         """
         data = request.get_json(force=True)
         req = _build_request(data)
-        
+
         valid, error_msg = _validate_request(req)
         if not valid:
             return jsonify({"error": {"message": error_msg, "type": "invalid_request_error"}}), 400
-        
+
         g.request_model = req.model
-        
+
         provider = provider_router.select_provider(
             model=req.model,
             require_tools=request_requires_tools(req),
@@ -793,29 +828,29 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                 "code": "unknown_or_unsupported_model",
                 "details": {"requested_tools": bool(req.tools), "tool_choice": req.tool_choice},
             }}), 400
-        
+
         g.selected_provider_id = provider.provider_id
         drop_optional_tools_for_text_only_provider(req, provider)
-        
+
         try:
             translated_req = mcp_translator.translate_request(req, provider)
             response = _run_async(provider.chat_completion(translated_req), timeout=240)
             normalized = mcp_normalizer.normalize_response(response, provider)
-            
+
             from core.code_parser import extract_code_blocks, save_code_block
             response_text = normalized.choices[0].message.content or ""
             blocks = extract_code_blocks(response_text, language=req.provider_options.get("language"))
-            
+
             payload = _format_response(normalized, provider)
             payload["code"] = {
                 "blocks": blocks,
                 "language": req.provider_options.get("language"),
                 "count": len(blocks),
             }
-            
+
             if req.provider_options.get("code_only"):
                 payload["choices"][0]["message"]["content"] = "\n".join(b["code"] for b in blocks)
-            
+
             if req.provider_options.get("save_to") and blocks:
                 try:
                     path = req.provider_options["save_to"]
@@ -823,13 +858,13 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                     payload["code"]["saved_to"] = saved
                 except Exception as e:
                     logger.error(f"Save code failed: {e}")
-            
+
             return jsonify(payload)
         except Exception as e:
             logger.error(f"Code chat error: {e}")
             error_resp = mcp_normalizer.normalize_error(e, provider)
             return jsonify(error_resp), _http_status_for_error(e)
-    
+
     @app.route("/v1/chat/conversation", methods=["POST"])
     def conversation_chat():
         """
@@ -867,13 +902,13 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         data = request.get_json(force=True)
         req = _build_request(data)
         req.conversation_id = data.get("conversation_id") or uuid.uuid4().hex
-        
+
         valid, error_msg = _validate_request(req)
         if not valid:
             return jsonify({"error": {"message": error_msg, "type": "invalid_request_error"}}), 400
-        
+
         g.request_model = req.model
-        
+
         provider = provider_router.select_provider(
             model=req.model,
             require_streaming=req.stream,
@@ -886,35 +921,35 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                 "code": "unknown_or_unsupported_model",
                 "details": {"requested_tools": bool(req.tools), "tool_choice": req.tool_choice},
             }}), 400
-        
+
         g.selected_provider_id = provider.provider_id
         drop_optional_tools_for_text_only_provider(req, provider)
-        
+
         try:
             translated_req = mcp_translator.translate_request(req, provider)
             session = _get_session(req)
-            
+
             if req.stream:
                 return _stream_response(provider, translated_req, session)
             else:
                 response = _run_async(provider.chat_completion(translated_req, session), timeout=240)
                 normalized = mcp_normalizer.normalize_response(response, provider)
-                
+
                 if normalized.provider_meta.get("conversation_id"):
                     mcp_session_manager.update_provider_session_id(
                         req.conversation_id,
                         normalized.provider_meta["conversation_id"]
                     )
-                
+
                 payload = _format_response(normalized, provider)
                 payload["conversation_id"] = req.conversation_id
-                
+
                 return jsonify(payload)
         except Exception as e:
             logger.error(f"Conversation chat error: {e}")
             error_resp = mcp_normalizer.normalize_error(e, provider)
             return jsonify(error_resp), _http_status_for_error(e)
-    
+
     return app
 
 

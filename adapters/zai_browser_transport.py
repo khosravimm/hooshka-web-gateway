@@ -573,11 +573,69 @@ class ZaiBrowserControllerTransport:
                     if now - last_meaningful > self.idle_timeout:
                         raise ProviderTimeoutError(self.provider_id, "Z.ai meaningful idle timeout")
                     await asyncio.sleep(self.poll_interval)
-            except Exception:
-                # No replay once submission has crossed the commitment boundary.
+            except BaseException:
                 if committed:
-                    raise
+                    logger.warning("Stopping Z.ai Web Chat after failed/cancelled stream", exc_info=True)
+                    try:
+                        await self.cancel_active_generation("stream_cancelled")
+                    except Exception:
+                        logger.debug("Z.ai active-generation cancel hook failed", exc_info=True)
                 raise
+
+    async def cancel_active_generation(self, reason: str = "client_cancelled") -> dict:
+        """Best-effort click of the provider Web Chat stop/cancel control."""
+        result = {"supported": True, "cancelled": False, "reason": reason, "method": "dom_stop_button"}
+        page = self._page
+        if not page or page.is_closed():
+            result["detail"] = "no_active_page"
+            return result
+        try:
+            clicked = await page.evaluate(
+                """() => {
+                  const visible = (el) => {
+                    const r = el.getBoundingClientRect();
+                    const st = window.getComputedStyle(el);
+                    return r.width > 0 && r.height > 0 && st.visibility !== 'hidden' && st.display !== 'none';
+                  };
+                  const patterns = [
+                    /stop/i, /cancel/i, /interrupt/i, /abort/i,
+                    /停止|中止|取消|终止|توقف|لغو/i
+                  ];
+                  const nodes = Array.from(document.querySelectorAll('button,[role="button"],.ant-btn'));
+                  const candidates = nodes.map((el) => ({
+                    el,
+                    label: [
+                      el.innerText || '',
+                      el.getAttribute('aria-label') || '',
+                      el.getAttribute('title') || '',
+                      el.getAttribute('data-testid') || '',
+                      el.className || ''
+                    ].join(' ').trim()
+                  })).filter(x => visible(x.el) && patterns.some(p => p.test(x.label)));
+                  if (candidates.length) {
+                    candidates[0].el.click();
+                    return {clicked: true, label: candidates[0].label.slice(0, 160), candidates: candidates.length};
+                  }
+                  return {clicked: false, candidates: 0};
+                }"""
+            )
+            escape_sent = False
+            if not clicked or not clicked.get("clicked"):
+                try:
+                    await page.keyboard.press("Escape")
+                    escape_sent = True
+                except Exception:
+                    pass
+            await page.wait_for_timeout(250)
+            result.update(clicked or {})
+            result["escape_sent"] = escape_sent
+            result["attempted"] = bool((clicked or {}).get("clicked")) or escape_sent
+            # Escape is only an interruption attempt; do not treat it as proof
+            # that the provider stopped upstream generation.
+            result["cancelled"] = bool((clicked or {}).get("clicked"))
+        except Exception as exc:
+            result["error"] = str(exc)[:240]
+        return result
 
     async def _reset(self) -> None:
         if self._page and not self._page.is_closed():

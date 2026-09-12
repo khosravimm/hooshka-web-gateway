@@ -204,37 +204,100 @@ class DeepSeekBrowserUITransport:
             stable_since: Optional[float] = None
             last_text = ""
             stable_window = min(2.0, self.idle_timeout)
-            while True:
-                now = time.monotonic()
-                if now - start > self.total_timeout:
-                    raise ProviderTimeoutError(self.provider_id, "DeepSeek Web Chat completion timed out")
-                body = await self._body_text(page)
-                textarea_count = await page.locator("textarea").count()
-                signals = self._block_signals(body, textarea_count=textarea_count, url=page.url)
-                self.last_block_signals = signals
-                if signals["captcha"] or signals["suspended_or_muted"] or signals["login"]:
-                    raise ProviderError(
-                        "DeepSeek Web Chat is blocked by provider UI state",
-                        "provider_ui_blocked",
-                        self.provider_id,
-                        {"signals": signals},
-                    )
-                messages = await self._assistant_messages(page)
-                latest = messages[-1] if len(messages) > before_count else ""
-                if latest and latest != "Thinking":
-                    if first_seen_at is None:
-                        first_seen_at = now
-                    if latest != last_text:
-                        last_text = latest
-                        stable_since = now
-                    elif stable_since is not None and now - stable_since >= stable_window:
-                        self.last_assistant_text = latest
-                        self.last_conversation_url = page.url
-                        yield {"type": "text_delta", "text": latest, "conversation_id": page.url}
-                        return
-                elif now - start > self.first_event_timeout and first_seen_at is None:
-                    raise ProviderTimeoutError(self.provider_id, "DeepSeek Web Chat did not produce an assistant message")
-                await page.wait_for_timeout(int(self.poll_interval * 1000))
+            try:
+                while True:
+                    now = time.monotonic()
+                    if now - start > self.total_timeout:
+                        raise ProviderTimeoutError(self.provider_id, "DeepSeek Web Chat completion timed out")
+                    body = await self._body_text(page)
+                    textarea_count = await page.locator("textarea").count()
+                    signals = self._block_signals(body, textarea_count=textarea_count, url=page.url)
+                    self.last_block_signals = signals
+                    if signals["captcha"] or signals["suspended_or_muted"] or signals["login"]:
+                        raise ProviderError(
+                            "DeepSeek Web Chat is blocked by provider UI state",
+                            "provider_ui_blocked",
+                            self.provider_id,
+                            {"signals": signals},
+                        )
+                    messages = await self._assistant_messages(page)
+                    latest = messages[-1] if len(messages) > before_count else ""
+                    if latest and latest != "Thinking":
+                        if first_seen_at is None:
+                            first_seen_at = now
+                        if latest != last_text:
+                            last_text = latest
+                            stable_since = now
+                        elif stable_since is not None and now - stable_since >= stable_window:
+                            self.last_assistant_text = latest
+                            self.last_conversation_url = page.url
+                            yield {"type": "text_delta", "text": latest, "conversation_id": page.url}
+                            return
+                    elif now - start > self.first_event_timeout and first_seen_at is None:
+                        raise ProviderTimeoutError(self.provider_id, "DeepSeek Web Chat did not produce an assistant message")
+                    await page.wait_for_timeout(int(self.poll_interval * 1000))
+            except BaseException:
+                logger.warning("Stopping DeepSeek Web Chat after failed/cancelled stream", exc_info=True)
+                try:
+                    await self.cancel_active_generation("stream_cancelled")
+                except Exception:
+                    logger.debug("DeepSeek active-generation cancel hook failed", exc_info=True)
+                raise
+
+    async def cancel_active_generation(self, reason: str = "client_cancelled") -> dict:
+        """Best-effort click of the provider Web Chat stop/cancel control."""
+        result = {"supported": True, "cancelled": False, "reason": reason, "method": "dom_stop_button"}
+        page = self._page
+        if not page or page.is_closed():
+            result["detail"] = "no_active_page"
+            return result
+        try:
+            clicked = await page.evaluate(
+                """() => {
+                  const visible = (el) => {
+                    const r = el.getBoundingClientRect();
+                    const st = window.getComputedStyle(el);
+                    return r.width > 0 && r.height > 0 && st.visibility !== 'hidden' && st.display !== 'none';
+                  };
+                  const patterns = [
+                    /stop/i, /cancel/i, /interrupt/i, /abort/i,
+                    /停止|中止|取消|终止|توقف|لغو/i
+                  ];
+                  const nodes = Array.from(document.querySelectorAll('button,[role="button"],.ant-btn'));
+                  const candidates = nodes.map((el) => ({
+                    el,
+                    label: [
+                      el.innerText || '',
+                      el.getAttribute('aria-label') || '',
+                      el.getAttribute('title') || '',
+                      el.getAttribute('data-testid') || '',
+                      el.className || ''
+                    ].join(' ').trim()
+                  })).filter(x => visible(x.el) && patterns.some(p => p.test(x.label)));
+                  if (candidates.length) {
+                    candidates[0].el.click();
+                    return {clicked: true, label: candidates[0].label.slice(0, 160), candidates: candidates.length};
+                  }
+                  return {clicked: false, candidates: 0};
+                }"""
+            )
+            escape_sent = False
+            if not clicked or not clicked.get("clicked"):
+                try:
+                    await page.keyboard.press("Escape")
+                    escape_sent = True
+                except Exception:
+                    pass
+            await page.wait_for_timeout(250)
+            result.update(clicked or {})
+            result["escape_sent"] = escape_sent
+            result["attempted"] = bool((clicked or {}).get("clicked")) or escape_sent
+            # Escape is only an interruption attempt; do not treat it as proof
+            # that the provider stopped upstream generation.
+            result["cancelled"] = bool((clicked or {}).get("clicked"))
+        except Exception as exc:
+            result["error"] = str(exc)[:240]
+        return result
 
     async def close(self) -> None:
         self._page = None

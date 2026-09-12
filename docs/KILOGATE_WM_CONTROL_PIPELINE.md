@@ -2,7 +2,7 @@
 
 **Persian name:** دروازه‌سنج وب‌مدل برای Kilo
 **Process ID:** `KILOGATE-WM`
-**Version:** `0.5.3`
+**Version:** `0.5.4`
 **Status:** Draft control standard / active working baseline
 **Date:** 2026-09-12
 **Repository:** `hooshka-web-gateway`
@@ -416,6 +416,42 @@ NO_PROMPT_MATCH
 BACKEND_SEEN_NO_PROMPT_MATCH
 ```
 
+
+
+
+
+## Stop / cancel propagation controls - v0.5.4
+
+A Kilo Stop action or streaming client disconnect must not be assumed to stop the Web-chat provider immediately. Stop propagation is a separate certification dimension.
+
+Required states:
+
+```text
+STOP_NOT_SUPPORTED
+STOP_LOCAL_ONLY
+STOP_HOOK_REACHED
+STOP_PROVIDER_ATTEMPTED
+STOP_PROVIDER_CONFIRMED
+STOP_INCONCLUSIVE
+```
+
+A row may be classified as `STOP_PROVIDER_CONFIRMED` only when evidence shows that the provider-side active generation stopped for the exact current prompt, for example a clicked stop control, a provider terminal/cancel event, disappearance of active-generation state, and no later continuation for the same marker.
+
+Gateway requirements:
+
+1. streaming responses must emit keepalive frames while the provider is thinking so client disconnects become observable;
+2. when the stream generator exits before `[DONE]`, Gateway must call `provider.cancel_active_generation("stream_client_disconnected")` before cancelling the local future;
+3. provider cancel hooks must return structured evidence: supported, attempted, clicked/called, escape_sent, cancelled, method, and reason;
+4. pressing Escape is only an interruption attempt and must not be counted as confirmed provider cancellation;
+5. no provider may be certified for immediate Stop unless a live test proves provider-side cancellation for that provider/surface/model state.
+
+Current 2026-09-12 observation:
+
+```text
+DeepSeek: hook reached after stream disconnect; DOM stop candidate not found; Escape attempt path exists; provider-side immediate stop not certified.
+Z.ai: hook reached after stream disconnect; DOM stop candidate not found; page later showed provider "No response" state; provider-side immediate stop not certified.
+Qwen: has frontend stopResponse/stopAllResponses hook, but the live stop test was skipped because the pre-test admission check showed risk text; immediate stop not certified in this pass.
+```
 
 
 ## Kilo CLI init / pre-dispatch stall controls - v0.5.3
