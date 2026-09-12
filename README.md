@@ -133,3 +133,5 @@ KiloGate-WM programming model status is recorded in `docs/KILOGATE_WM_PROGRAMMIN
 
 
 Stop/cancel propagation is best-effort and documented in `docs/KILOGATE_WM_STOP_PROPAGATION_2026-09-12.md`; immediate provider-side Stop is not certified unless a provider/model row proves it.
+
+Immediate Stop certification on 2026-09-12 found no provider with confirmed immediate provider-side cancellation; DeepSeek continued to the final marker after the stop attempt.

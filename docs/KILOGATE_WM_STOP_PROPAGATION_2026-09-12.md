@@ -71,3 +71,34 @@ To certify immediate Stop, each provider/model surface must pass a live row prov
 ```
 
 Until then, Stop behavior must be described as **best-effort and observable**, not guaranteed immediate cancellation.
+
+## Immediate Stop certification execution - 2026-09-12T13:10Z
+
+A stricter live certification pass was executed with a direct provider instance over the same CDP surfaces. This was not a UI click on the Kilo button itself; it exercised the equivalent Gateway/provider cancellation path that Kilo Stop is expected to trigger: active provider generation starts, `cancel_active_generation("immediate_stop_certification")` is invoked, and the page is observed for continuation of the same marker.
+
+Runtime evidence file:
+
+```text
+.runtime/kgwm_immediate_stop_certification_20260912.json
+```
+
+Result summary:
+
+| Provider row | Result | Certification decision |
+|---|---|---|
+| `deepseek-web` | Cancel hook reached; DOM stop candidate was not found; Escape was sent; the final marker later appeared in the provider page. | `STOP_PROVIDER_FAILED_CONTINUED_AFTER_ATTEMPT` |
+| `zai-web` / `glm-5.2` | The row did not produce valid active-start evidence for the exact prompt before cancellation. | `STOP_NOT_CERTIFIED_NO_ACTIVE_START_EVIDENCE` |
+| `qwen-web` / `qwen:qwen3.8-max` | The row was skipped before prompt submission because the admission check detected risk text in the Qwen page. | `SKIPPED_RISK_VISIBLE_BEFORE_TEST` |
+| `chatgpt-web` | The row did not produce valid active-start evidence; the run also observed a navigation-level `ERR_CONNECTION_CLOSED` warning for `chatgpt.com`. | `STOP_NOT_CERTIFIED_NO_ACTIVE_START_EVIDENCE` |
+
+Key finding:
+
+```text
+No provider reached STOP_PROVIDER_CONFIRMED in this pass.
+DeepSeek produced negative evidence: the response continued to the final marker after the stop attempt.
+```
+
+Operational implication:
+
+Kilo/Gateway Stop must still be treated as observable best-effort cancellation, not as guaranteed immediate provider-side cancellation. For DeepSeek specifically, the current Stop mechanism is insufficient for provider-side immediate stop.
+

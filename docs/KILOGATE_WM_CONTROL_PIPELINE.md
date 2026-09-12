@@ -432,10 +432,13 @@ STOP_LOCAL_ONLY
 STOP_HOOK_REACHED
 STOP_PROVIDER_ATTEMPTED
 STOP_PROVIDER_CONFIRMED
+STOP_PROVIDER_FAILED_CONTINUED_AFTER_ATTEMPT
 STOP_INCONCLUSIVE
 ```
 
 A row may be classified as `STOP_PROVIDER_CONFIRMED` only when evidence shows that the provider-side active generation stopped for the exact current prompt, for example a clicked stop control, a provider terminal/cancel event, disappearance of active-generation state, and no later continuation for the same marker.
+
+A row must be classified as `STOP_PROVIDER_FAILED_CONTINUED_AFTER_ATTEMPT` when a provider-side cancel hook was invoked but later evidence shows the same prompt continued, especially if the final marker appears after the stop attempt.
 
 Gateway requirements:
 
@@ -448,7 +451,7 @@ Gateway requirements:
 Current 2026-09-12 observation:
 
 ```text
-DeepSeek: hook reached after stream disconnect; DOM stop candidate not found; Escape attempt path exists; provider-side immediate stop not certified.
+DeepSeek: hook reached after stream disconnect; DOM stop candidate not found; Escape attempt path exists; stricter immediate certification later showed continuation to the final marker after stop attempt; provider-side immediate stop failed in that row.
 Z.ai: hook reached after stream disconnect; DOM stop candidate not found; page later showed provider "No response" state; provider-side immediate stop not certified.
 Qwen: has frontend stopResponse/stopAllResponses hook, but the live stop test was skipped because the pre-test admission check showed risk text; immediate stop not certified in this pass.
 ```
