@@ -966,34 +966,121 @@ class ChatGPTWebProvider(Provider):
         ]
 
     async def cancel_active_generation(self, reason: str = "client_cancelled") -> dict:
+        """Best-effort ChatGPT Web stop using explicit provider controls only.
+
+        A visible Stop control click is an attempt. It is treated as provider-side
+        cancellation evidence only if the explicit Stop control disappears after
+        the click. Escape is recorded as an attempt, never as proof.
+        """
         result = {"supported": True, "cancelled": False, "reason": reason, "method": "chatgpt_stop_button"}
         page = self._page
         if not page or page.is_closed():
             result["detail"] = "no_active_page"
             return result
         try:
-            clicked = False
-            for selector in (
-                "button[data-testid='stop-button']",
-                "button[aria-label*='Stop']",
-                "button[aria-label*='stop']",
-            ):
-                try:
-                    loc = page.locator(selector)
-                    if await loc.count() and await loc.first.is_visible():
-                        await loc.first.click(timeout=1000)
-                        clicked = True
-                        break
-                except Exception:
-                    pass
-            if not clicked:
+            probe = await page.evaluate(
+                """() => {
+                  const rect = (el) => {
+                    const r = el.getBoundingClientRect();
+                    return {x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height)};
+                  };
+                  const visibleInViewport = (el) => {
+                    if (!el) return false;
+                    const r = el.getBoundingClientRect();
+                    const st = window.getComputedStyle(el);
+                    return r.width > 0 && r.height > 0 &&
+                      r.bottom >= 0 && r.top <= window.innerHeight &&
+                      r.right >= 0 && r.left <= window.innerWidth &&
+                      st.visibility !== 'hidden' && st.display !== 'none';
+                  };
+                  const label = (el) => [
+                    el.innerText || '',
+                    el.textContent || '',
+                    el.getAttribute('aria-label') || '',
+                    el.getAttribute('title') || '',
+                    el.getAttribute('data-testid') || '',
+                    el.id || '',
+                    String(el.className || '')
+                  ].join(' ').replace(/\\s+/g, ' ').trim();
+                  const explicitStop = (el) => {
+                    const hay = label(el) + ' ' + (el.outerHTML || '').slice(0, 1200);
+                    return /(^|\b)(stop|stop generating|stop streaming|cancel response|interrupt)(\b|$)/i.test(hay) ||
+                      el.getAttribute('data-testid') === 'stop-button';
+                  };
+                  const nodes = Array.from(document.querySelectorAll(
+                    'button[data-testid="stop-button"],button[aria-label*="Stop"],button[aria-label*="stop"],button,[role="button"]'
+                  ));
+                  const candidates = nodes
+                    .filter((el) => visibleInViewport(el) && explicitStop(el))
+                    .map((el) => ({
+                      el,
+                      label: label(el).slice(0, 200),
+                      rect: rect(el),
+                      testid: el.getAttribute('data-testid') || '',
+                      aria: el.getAttribute('aria-label') || '',
+                      tag: el.tagName.toLowerCase()
+                    }));
+                  const c = candidates[0];
+                  if (!c) return {clicked: false, candidates: 0};
+                  c.el.click();
+                  return {
+                    clicked: true,
+                    candidates: candidates.length,
+                    label: c.label,
+                    rect: c.rect,
+                    testid: c.testid,
+                    aria: c.aria,
+                    tag: c.tag
+                  };
+                }"""
+            )
+            escape_sent = False
+            if not probe or not probe.get("clicked"):
                 try:
                     await page.keyboard.press("Escape")
+                    escape_sent = True
                 except Exception:
                     pass
-            await page.wait_for_timeout(250)
-            result["cancelled"] = clicked
-            result["clicked"] = clicked
+            await page.wait_for_timeout(750)
+            post = await page.evaluate(
+                """() => {
+                  const visibleInViewport = (el) => {
+                    if (!el) return false;
+                    const r = el.getBoundingClientRect();
+                    const st = window.getComputedStyle(el);
+                    return r.width > 0 && r.height > 0 &&
+                      r.bottom >= 0 && r.top <= window.innerHeight &&
+                      r.right >= 0 && r.left <= window.innerWidth &&
+                      st.visibility !== 'hidden' && st.display !== 'none';
+                  };
+                  const label = (el) => [
+                    el.innerText || '',
+                    el.textContent || '',
+                    el.getAttribute('aria-label') || '',
+                    el.getAttribute('title') || '',
+                    el.getAttribute('data-testid') || '',
+                    el.id || '',
+                    String(el.className || '')
+                  ].join(' ').replace(/\\s+/g, ' ').trim();
+                  const nodes = Array.from(document.querySelectorAll(
+                    'button[data-testid="stop-button"],button[aria-label*="Stop"],button[aria-label*="stop"],button,[role="button"]'
+                  ));
+                  const remaining = nodes.filter((el) => {
+                    if (!visibleInViewport(el)) return false;
+                    const hay = label(el) + ' ' + (el.outerHTML || '').slice(0, 1200);
+                    return /(^|\b)(stop|stop generating|stop streaming|cancel response|interrupt)(\b|$)/i.test(hay) ||
+                      el.getAttribute('data-testid') === 'stop-button';
+                  });
+                  return {remaining_stop_controls: remaining.length};
+                }"""
+            )
+            result.update(probe or {})
+            result["escape_sent"] = escape_sent
+            result["attempted"] = bool((probe or {}).get("clicked")) or escape_sent
+            # A click is necessary but not sufficient; disappearance of the
+            # explicit Stop control is the minimum provider-side confirmation.
+            result.update(post or {})
+            result["cancelled"] = bool((probe or {}).get("clicked")) and int((post or {}).get("remaining_stop_controls") or 0) == 0
         except Exception as exc:
             result["error"] = str(exc)[:240]
         return result

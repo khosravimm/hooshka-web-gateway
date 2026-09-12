@@ -120,3 +120,25 @@ Evidence files:
 | `zai-web` | Rebind-aware active DOM/backend discovery captured an active row. Final stop row opened and was disconnected, but the hook still did not identify a confirmed stop control; no second marker was observed. | `STOP_PROVIDER_ATTEMPTED_INCONCLUSIVE` |
 
 No provider is promoted to `STOP_PROVIDER_CONFIRMED` by this update. Immediate Web Chat stop remains a provider-specific capability requiring a signed Stop Contract and repeat confirmation.
+
+
+## ChatGPT focused update - 2026-09-12T14:56Z
+
+Evidence file:
+
+- `.runtime/kgwm_chatgpt_final_stop_cert_20260912.json`
+
+The first focused ChatGPT Stop row did not reach valid model execution. The configured ChatGPT CDP endpoint `9224` showed the public logged-out ChatGPT landing page with visible `Log in` / `Sign up` controls. The Gateway stream returned `auth_required` before a valid assistant generation was created.
+
+Classification:
+
+`CHATGPT_AUTH_REQUIRED_FOR_STOP_CERT`
+
+Engineering change applied:
+
+- ChatGPT `cancel_active_generation()` was hardened to use explicit in-viewport Stop controls only.
+- It records selector/label details for the clicked control.
+- It checks `remaining_stop_controls` after the click.
+- It treats Escape as an attempt, not proof.
+
+Current result: ChatGPT Stop propagation code is hardened, but final live certification is blocked until the configured CDP session is logged in.

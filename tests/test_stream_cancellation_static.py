@@ -73,3 +73,15 @@ def test_deepseek_cancel_uses_viewport_and_explicit_controls_only():
     assert "typeof target.click !== 'function'" in text
     assert "const squareIcon = false" in text
     assert "button,[role=\"button\"]" in text
+
+
+def test_chatgpt_cancel_uses_explicit_stop_and_post_click_confirmation():
+    text = read("adapters/chatgpt_web_provider.py")
+    block = text[text.index("async def cancel_active_generation"):text.index("async def close", text.index("async def cancel_active_generation"))]
+    assert "visibleInViewport" in block
+    assert "data-testid') === 'stop-button'" in block
+    assert "stop generating" in block
+    assert "stop streaming" in block
+    assert "remaining_stop_controls" in block
+    assert "Escape is recorded as an attempt, never as proof" in block
+    assert "result[\"cancelled\"] = bool((probe or {}).get(\"clicked\")) and" in block

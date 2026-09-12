@@ -87,3 +87,22 @@ DeepSeek exposed unlabeled SVG candidates during active generation, including fl
 ### Z.ai
 
 Z.ai active DOM/backend discovery is now rebind-aware and no longer fails only because of navigation/context replacement. Active stop-like SVGs exist, but no confirmed stop control or provider runtime stop function has been proven. Z.ai remains inconclusive for immediate stop.
+
+
+## ChatGPT contract update - 2026-09-12T14:56Z
+
+ChatGPT Stop Contract now requires an authenticated execution surface. The observed configured CDP page was logged out and therefore invalid for certification.
+
+Allowed production Stop selectors:
+
+- `button[data-testid="stop-button"]`
+- visible button or role-button controls with explicit Stop / Stop generating / Stop streaming / cancel-response / interrupt semantics
+
+Disallowed as certification proof:
+
+- logged-out landing page composer
+- Send button text accidentally matching generic patterns
+- Escape-only interruption
+- generic icon-only heuristics without a signed contract
+
+Certification remains blocked by `CHATGPT_AUTH_REQUIRED_FOR_STOP_CERT` until the CDP 9224 ChatGPT session is authenticated.

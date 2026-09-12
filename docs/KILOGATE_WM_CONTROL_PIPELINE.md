@@ -670,3 +670,20 @@ Latest active-stop closure:
 - Qwen `qwen:qwen3.8-max`: previous runtime stop path remained a strong candidate, but final repeat was blocked by provider quota/high-demand wait-window and is `HOLD_QUOTA_LIMIT`.
 - DeepSeek `deepseek-web`: false-positive CAPTCHA detection was corrected; active stop candidates were mapped, but clicks on generic/unlabeled SVG controls did not stop the provider response. The safe production hook no longer clicks unlabeled SVG-only candidates. Current state is `STOP_PROVIDER_FAILED_CONTINUED_AFTER_ATTEMPT` for immediate stop certification.
 - Z.ai `zai-web`: rebind-aware active DOM/backend discovery succeeded; final row remained `STOP_PROVIDER_ATTEMPTED_INCONCLUSIVE` because marker continuation was not observed but the provider cancel hook did not confirm a clicked stop control.
+
+
+## ChatGPT Stop certification auth gate - v0.5.7
+
+ChatGPT Web Stop certification requires an authenticated ChatGPT browser session on the configured CDP endpoint. A public logged-out ChatGPT landing page may expose a composer and a Send button, but it is not a valid provider execution surface for Hooshka/KiloGate certification.
+
+Canonical state for this condition:
+
+`CHATGPT_AUTH_REQUIRED_FOR_STOP_CERT`
+
+Rules:
+
+1. Do not classify a logged-out ChatGPT landing page as Stop success, Stop failure, or active model behavior.
+2. The live row must stop before prompt submission when visible `Log in` / `Sign up` controls are present and no authenticated account/profile surface is present.
+3. The ChatGPT production cancel hook may click only explicit Stop controls, such as `button[data-testid="stop-button"]` or visible controls with explicit Stop/Stop generating/Stop streaming semantics.
+4. Escape is only an interruption attempt and is never sufficient proof of provider-side cancellation.
+5. `STOP_PROVIDER_CONFIRMED` requires: authenticated session, active current prompt, explicit Stop control clicked, Stop control disappears, and the final marker does not later appear in an assistant message.
