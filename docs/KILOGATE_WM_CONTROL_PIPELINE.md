@@ -2,9 +2,9 @@
 
 **Persian name:** دروازه‌سنج وب‌مدل برای Kilo
 **Process ID:** `KILOGATE-WM`
-**Version:** `0.4.0`
+**Version:** `0.5.0`
 **Status:** Draft control standard / active working baseline
-**Date:** 2026-09-11
+**Date:** 2026-09-12
 **Repository:** `hooshka-web-gateway`
 
 ## Purpose
@@ -19,6 +19,51 @@ The Web-chat application mode is a first-class matrix dimension and must never b
 - Z.ai Web: `chat`, `agent`
 
 A model can be certified in one Web-chat mode and fail or lack capabilities in another.
+
+
+
+## Mandatory Cartesian coverage rule - v0.5.0
+
+Provider-family certification is forbidden unless every advertised candidate model is evaluated as its own certification subject. A PASS for one model must never be transferred to another model, even inside the same provider family.
+
+For every `provider + application_surface + gateway_model + upstream_model`, the certification matrix must enumerate and record every meaningful combination of:
+
+```text
+thinking_state: default | off/false | on/true | auto | max/deep, as supported by that exact model
+search_state: default | off/false | on/true, as supported by that exact model
+stream_state: non_stream | stream
+transport_path: provider_direct | gateway_api | kilo_cli
+ tool_mode: none | optional | required | tool_result_continuation | real_kilo_tool_execution
+```
+
+Each generated row must end in one of the canonical row states: `PASS`, `FAIL`, `TIMEOUT`, `DENY`, `SKIP`, `HOLD`, `UNSUPPORTED`, `UNVERIFIED`, or `CHALLENGE`. Missing rows are not allowed to be silently ignored; they must be materialized as `HOLD` or `SKIP/UNSUPPORTED` with an explicit reason.
+
+### Candidate-model stop rules
+
+1. If model discovery or explicit model selection fails, all dependent rows for that model become `HOLD` or `FAIL` and no tool certification may be claimed.
+2. If base non-stream direct completion fails for a model-state, dependent stream/tool/Kilo rows for that exact model-state must stop.
+3. If base streaming fails for a model-state, Kilo certification for that exact model-state must be denied until stream recovery passes.
+4. If `search=true` or `thinking=true/max` is unsupported by that exact model, mark the row `UNSUPPORTED`; do not fall back to default silently.
+5. If a provider UI forces a state different from the requested one, record both requested and observed states; do not count it as PASS unless the observed state matches or the row explicitly allows provider-default.
+6. A model may receive `tool_call=true` in Kilo only for the exact upstream model and feature-state scope that passed Kilo tool execution.
+7. A provider alias such as `qwen-web` may be certified only as an alias to a specific certified upstream model and default feature-state, not as a family certification.
+
+### Required Qwen-family retest shape after v0.5.0
+
+For Qwen Chat, the minimum post-correction matrix is:
+
+```text
+models: every advertised qwen:<upstream-id>
+application_surface: chat.qwen.ai/chat
+thinking states: default, false/off, true/on where supported
+search states: false/off, true/on where supported
+stream states: non_stream, stream
+provider-level rows: direct marker, required tool_call, tool_result continuation
+Gateway API rows: direct marker, stream marker, required tool_call, tool_result continuation
+Kilo rows: text marker, stream-compatible Kilo path, read, grep/search, write, edit, bash/shell
+```
+
+A compact smoke matrix may be used to avoid unnecessary account stress, but the report must label unexecuted combinations as `HOLD` and must not promote the model beyond the rows actually passed.
 
 ## Mandatory target definition - Kilo programming
 
@@ -100,6 +145,7 @@ provider
 | HOLD | Untested or insufficient evidence |
 | UNSUPPORTED | The feature is absent for that model |
 | UNVERIFIED | The feature may exist but evidence is not sufficient |
+| CHALLENGE | CAPTCHA/WAF/human-verification or account risk-control state was observed |
 
 Important distinction:
 
@@ -317,6 +363,25 @@ Controls:
 | C9.8 | Multi-step edit | Maintains state across steps. |
 | C9.9 | Commit summary | Accurate summary from actual diff. |
 | C9.10 | Safety boundary | Does not modify unrelated files. |
+
+
+
+## CAPTCHA / human-verification challenge controls - v0.5.0
+
+Web-chat providers may present CAPTCHA, WAF, "verify it is you", rate/risk, or human-verification challenges during live matrix execution. These states are part of certification evidence, not operational noise.
+
+Mandatory handling:
+
+1. The automation must not solve, bypass, outsource, spoof, rotate around, or script CAPTCHA/WAF/account-risk challenges.
+2. If the user manually solves a challenge, record it as `user_intervention=manual_challenge_solve`.
+3. If no screenshot or machine-readable page evidence was captured, label the evidence class as `self_reported_no_screenshot`; do not upgrade it to hard UI evidence.
+4. When a challenge appears during a live matrix run, pause the run and mark unexecuted dependent rows as `HOLD` with `failure_class=risk_control_challenge_observed` unless the exact row itself captured a challenge, in which case use `CHALLENGE`.
+5. Before resuming after a challenge, run a read-only admission check: CDP alive, authenticated session, no visible challenge, no active generation, no zombie test process.
+6. Resume only with a reduced batch size and cooldown. Do not continue a large Cartesian matrix immediately after repeated challenges.
+7. Challenge occurrence prevents provider-family certification until the affected matrix rows are rerun or explicitly held with scope limitations.
+8. Reports must distinguish model failure from provider risk-control interruption.
+
+A user-reported challenge without screenshot is valid operational evidence for pausing and scoping, but not sufficient to assign `CHALLENGE` to a specific row unless timing/log/UI evidence maps it to that row.
 
 ## Phase 11 — Recovery matrix
 
