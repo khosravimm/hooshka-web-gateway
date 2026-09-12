@@ -86,3 +86,6 @@ When a historical document conflicts with a canonical current document, use the 
 - E3: repeated predefined reliability evidence across independent windows
 
 No capability should be described as proven beyond its recorded evidence level.
+| KiloGate-WM Web Chat Stop Contracts | `KILOGATE_WM_WEBCHAT_STOP_CONTRACTS_2026-09-12.md` |
+| KiloGate-WM Web Chat Stop Contracts | `KILOGATE_WM_WEBCHAT_STOP_CONTRACTS_2026-09-12.md` |
+| KiloGate-WM Active Stop Discovery | `KILOGATE_WM_ACTIVE_STOP_DISCOVERY_2026-09-12.md` |

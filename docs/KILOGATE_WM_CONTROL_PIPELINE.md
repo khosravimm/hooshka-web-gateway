@@ -1,8 +1,8 @@
-# KiloGate-WM — Web Model Control Pipeline for Kilo Programming
+﻿# KiloGate-WM â€” Web Model Control Pipeline for Kilo Programming
 
-**Persian name:** دروازه‌سنج وب‌مدل برای Kilo
+**Persian name:** Ø¯Ø±ÙˆØ§Ø²Ù‡â€ŒØ³Ù†Ø¬ ÙˆØ¨â€ŒÙ…Ø¯Ù„ Ø¨Ø±Ø§ÛŒ Kilo
 **Process ID:** `KILOGATE-WM`
-**Version:** `0.5.4`
+**Version:** `0.5.5`
 **Status:** Draft control standard / active working baseline
 **Date:** 2026-09-12
 **Repository:** `hooshka-web-gateway`
@@ -155,7 +155,7 @@ DENY is not tool capability PASS.
 Required-tool DENY only proves safe fail-closed behavior.
 ```
 
-## Phase 0 — Repository and runtime baseline
+## Phase 0 â€” Repository and runtime baseline
 
 | Control | Requirement |
 |---|---|
@@ -165,7 +165,7 @@ Required-tool DENY only proves safe fail-closed behavior.
 | R0.4 | Secrets must not be printed into logs, reports or commits. |
 | R0.5 | If a provider times out, recovery must be tested before more matrix rows are trusted. |
 
-## Phase 1 — Provider admission
+## Phase 1 â€” Provider admission
 
 | Control | Requirement |
 |---|---|
@@ -178,7 +178,7 @@ Required-tool DENY only proves safe fail-closed behavior.
 | P1.7 | Restart/reconnect procedure exists. |
 | P1.8 | Provider failure must not corrupt other providers. |
 
-## Phase 2 — Model discovery and routing
+## Phase 2 â€” Model discovery and routing
 
 | Control | Requirement |
 |---|---|
@@ -191,7 +191,7 @@ Required-tool DENY only proves safe fail-closed behavior.
 | M2.7 | `/v1/models` remains stable across restart. |
 | M2.8 | Uncertified backend-only models are not advertised as certified. |
 
-## Phase 3 — Per-model Web-chat mode controls
+## Phase 3 â€” Per-model Web-chat mode controls
 
 The Web-chat application mode must be tested independently for every model. A provider-level result in one mode must not be transferred to another mode.
 
@@ -215,7 +215,7 @@ Known current mode families:
 | Qwen Web | `chat`, `coder` |
 | Z.ai Web | `chat`, `agent` |
 
-## Phase 4 — Per-model thinking controls
+## Phase 4 â€” Per-model thinking controls
 
 Thinking must be tested per model. It must not be assumed at provider level.
 
@@ -237,7 +237,7 @@ Do not force thinking=true globally.
 Preserve provider/model default unless that exact model-state has passed evidence.
 ```
 
-## Phase 5 — Per-model web-search controls
+## Phase 5 â€” Per-model web-search controls
 
 Web search must also be tested per model.
 
@@ -259,7 +259,7 @@ web_search=off for deterministic programming tasks.
 web_search=on only for explicit research/documentation tasks.
 ```
 
-## Phase 6 — Direct completion matrix
+## Phase 6 â€” Direct completion matrix
 
 Minimum direct rows per model:
 
@@ -281,7 +281,7 @@ Pass criteria:
 - latency within budget,
 - no hidden tool claim.
 
-## Phase 7 — Streaming matrix
+## Phase 7 â€” Streaming matrix
 
 Streaming is mandatory for Kilo text-only smoke and all higher certification levels, but streaming alone is not sufficient for the project programming objective.
 
@@ -302,7 +302,7 @@ Stop rule:
 If the base streaming row fails for a model, that model cannot enter Kilo certification.
 ```
 
-## Phase 8 — Kilo text-only matrix
+## Phase 8 â€” Kilo text-only matrix
 
 | Control | Requirement |
 |---|---|
@@ -321,7 +321,7 @@ Stop rule:
 If K7.1 fails, do not run tool or patch tests for that model.
 ```
 
-## Phase 9 — Tool safety matrix
+## Phase 9 â€” Tool safety matrix
 
 Tool capability is mandatory for the project programming objective and must be validated separately from text/code ability.
 
@@ -350,7 +350,7 @@ Controls:
 | TL8.9 | Every tool call/result must be auditable. |
 | TL8.10 | Recovery after tool failure must be verified. |
 
-## Phase 10 — Programming task matrix
+## Phase 10 â€” Programming task matrix
 
 | Control | Task | Requirement |
 |---|---|---|
@@ -496,7 +496,7 @@ Mandatory handling:
 7. The user must be informed explicitly that the provider has blocked further testing until the stated wait window expires.
 8. Resume requires a read-only admission check: authenticated session, no CAPTCHA/challenge, no usage-limit banner, no active generation, no zombie test process.
 
-## Phase 11 — Recovery matrix
+## Phase 11 â€” Recovery matrix
 
 | Control | Requirement |
 |---|---|
@@ -509,7 +509,7 @@ Mandatory handling:
 | RC10.7 | Failure artifact is preserved. |
 | RC10.8 | Other providers remain usable. |
 
-## Phase 12 — Certification decision
+## Phase 12 â€” Certification decision
 
 | Certification | Meaning | Routing decision |
 |---|---|---|
@@ -539,13 +539,13 @@ Minimum certification rows per model:
 Therefore:
 
 ```text
-N model-mode pairs × 24 minimum rows = required control matrix size
+N model-mode pairs Ã— 24 minimum rows = required control matrix size
 ```
 
 A 24-model provider set requires at least:
 
 ```text
-24 model-mode pairs × 24 rows = 576 control rows
+24 model-mode pairs Ã— 24 rows = 576 control rows
 ```
 
 ## Evidence schema
@@ -618,7 +618,7 @@ KiloGate-WM
 Use this Persian title in user-facing reports:
 
 ```text
-دروازه‌سنج وب‌مدل برای Kilo
+Ø¯Ø±ÙˆØ§Ø²Ù‡â€ŒØ³Ù†Ø¬ ÙˆØ¨â€ŒÙ…Ø¯Ù„ Ø¨Ø±Ø§ÛŒ Kilo
 ```
 
 
@@ -643,3 +643,17 @@ Any lower result must be reported with an explicit qualifier:
 - `CERTIFIED_KILO_PATCH_TOOLS` -> limited edit/patch only, not full agent coding
 
 A report that says "passed all tests" is invalid unless it identifies the certification scope and includes evidence for the required tool/function-call rows.
+
+## Web Chat Stop Contract controls - v0.5.5
+
+Immediate provider-side Stop certification requires a provider-specific Stop Contract before live certification. Idle DOM discovery is insufficient. Active-generation discovery must map DOM controls, frontend runtime state, backend request lifecycle, and risk-control surfaces for the exact current prompt/session/marker.
+
+A row cannot be classified as `STOP_PROVIDER_CONFIRMED` unless the exact prompt/session is matched, the provider-side stop path is executed, active state clears, and the final marker does not continue after cancellation.
+
+Generic body text from old chats must not be treated as an active risk control; detection must be tied to modal, overlay, banner, control, or active provider state.
+
+Canonical report:
+
+```text
+docs/KILOGATE_WM_WEBCHAT_STOP_CONTRACTS_2026-09-12.md
+```

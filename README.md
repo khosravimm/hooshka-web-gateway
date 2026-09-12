@@ -135,3 +135,7 @@ KiloGate-WM programming model status is recorded in `docs/KILOGATE_WM_PROGRAMMIN
 Stop/cancel propagation is best-effort and documented in `docs/KILOGATE_WM_STOP_PROPAGATION_2026-09-12.md`; immediate provider-side Stop is not certified unless a provider/model row proves it.
 
 Immediate Stop certification on 2026-09-12 found no provider with confirmed immediate provider-side cancellation; DeepSeek continued to the final marker after the stop attempt.
+
+Web Chat Stop certification now requires provider-specific Stop Contracts based on idle and active-generation DOM/runtime/backend discovery.
+
+Active stop-surface discovery recorded Qwen runtime-stop as a confirmed candidate, DeepSeek active surface without a stop control, and Z.ai as navigation-lost/incomplete.
