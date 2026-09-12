@@ -246,6 +246,8 @@ switch ($Command) {
    Write-Output "RUNTIME_CREDENTIAL_READY source=.env+nssm_environment"
  }
  'start' {
+   $runtimeCredential = Ensure-RuntimeCredential
+   & $Nssm set $ServiceName AppEnvironmentExtra "BRIDGE_API_KEY=$($runtimeCredential.ApiKey)" "BRIDGE_API_IDENTITY=$($runtimeCredential.Identity)" | Out-Null
    Ensure-ChatGPTChromeCdp
    Ensure-QwenChromeCdp
    Ensure-ZaiChromeCdp
@@ -263,6 +265,8 @@ switch ($Command) {
  }
  'restart' {
    Stop-Service $ServiceName -Force
+   $runtimeCredential = Ensure-RuntimeCredential
+   & $Nssm set $ServiceName AppEnvironmentExtra "BRIDGE_API_KEY=$($runtimeCredential.ApiKey)" "BRIDGE_API_IDENTITY=$($runtimeCredential.Identity)" | Out-Null
    # Keep Qwen's authenticated CDP runtime alive across service restarts so
    # the official-login session is not disturbed. Ensure-* verifies ownership
    # and starts it only when it is missing.
