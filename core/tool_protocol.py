@@ -121,7 +121,63 @@ def _json_loads_tolerant(raw: str):
         try:
             return json.loads(fixed)
         except Exception:
-            raise first_error
+            repaired = _repair_unescaped_string_quotes(fixed)
+            try:
+                return json.loads(repaired)
+            except Exception:
+                raise first_error
+
+
+def _repair_unescaped_string_quotes(raw: str) -> str:
+    """Repair a narrow class of Web-chat JSON quoting defects.
+
+    Some Web UIs emit command arguments like:
+    {"command":"bash -lc "find /tmp -name x""}
+
+    A quote encountered inside a JSON string is treated as literal only when
+    the following non-whitespace character cannot legally terminate that
+    string in JSON. No code is evaluated; the repaired text is still parsed by
+    json.loads and fails closed if it remains invalid.
+    """
+    out = []
+    in_string = False
+    escape = False
+    length = len(raw)
+
+    for idx, ch in enumerate(raw):
+        if not in_string:
+            out.append(ch)
+            if ch == '"':
+                in_string = True
+                escape = False
+            continue
+
+        if escape:
+            out.append(ch)
+            escape = False
+            continue
+
+        if ch == "\\":
+            out.append(ch)
+            escape = True
+            continue
+
+        if ch != '"':
+            out.append(ch)
+            continue
+
+        next_idx = idx + 1
+        while next_idx < length and raw[next_idx].isspace():
+            next_idx += 1
+        next_ch = raw[next_idx] if next_idx < length else ""
+
+        if next_ch in {":", ",", "}", "]"} or next_ch == "":
+            out.append(ch)
+            in_string = False
+        else:
+            out.append('\\"')
+
+    return "".join(out)
 
 
 def _normalize_tool_name_and_args(name: str, args):

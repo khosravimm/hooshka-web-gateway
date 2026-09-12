@@ -91,6 +91,25 @@ def test_parse_tool_calls_tolerates_raw_windows_backslashes():
     assert "D:\\\\Code\\\\hooshka-web-gateway\\\\README.md" in calls[0]["function"]["arguments"]
 
 
+def test_parse_tool_calls_repairs_unescaped_quotes_inside_command_argument():
+    text = (
+        "I'll check the WSL status and locate the project there.\n\n"
+        '{"tool_calls":['
+        '{"name":"bash","arguments":{"command":"wsl --list --verbose"}},'
+        '{"name":"bash","arguments":{"command":"wsl -e bash -lc "find /home /mnt /root /opt -maxdepth 4 -iname \'opennotebook\' -o -maxdepth 4 -iname \'Open NoteBook*\' 2>/dev/null""}}'
+        ']}'
+    )
+    content, calls = parse_tool_calls(text)
+
+    assert content == "I'll check the WSL status and locate the project there."
+    assert [call["function"]["name"] for call in calls] == ["bash", "bash"]
+    assert json.loads(calls[0]["function"]["arguments"])["command"] == "wsl --list --verbose"
+    assert json.loads(calls[1]["function"]["arguments"])["command"] == (
+        'wsl -e bash -lc "find /home /mnt /root /opt -maxdepth 4 -iname \'opennotebook\' '
+        '-o -maxdepth 4 -iname \'Open NoteBook*\' 2>/dev/null"'
+    )
+
+
 def test_parse_tool_calls_uses_first_balanced_json_object():
     text = '{"tool_calls":[{"name":"edit","arguments":{"filePath":".runtime/x.txt","oldString":"A","newString":"B"}}]}\n\n[TOOL RESULT id=call_1]\nok\n\n{"tool_calls":[{"name":"bash","arguments":{"command":"Get-Content .runtime/x.txt"}}]}'
     content, calls = parse_tool_calls(text)
