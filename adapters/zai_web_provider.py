@@ -230,16 +230,23 @@ class ZaiWebProvider(Provider):
             must_call = _tool_required(request.tool_choice)
             has_tool_result = self._has_tool_result(request)
             looks_like_tool_request = '"tool_calls"' in response_text or "'tool_calls'" in response_text or "DSML" in response_text
-            raw_final_after_tool = has_tool_result and not must_call and not tool_calls and not looks_like_tool_request
-            if (not valid_protocol and not raw_final_after_tool) or (must_call and not tool_calls):
+            if must_call and (not valid_protocol or not tool_calls):
                 raise ProviderError(
                     "Z.ai Web Chat failed the required tool protocol",
                     "tool_protocol_violation",
                     self.provider_id,
                     {"must_call": must_call, "has_tool_result": has_tool_result, "response_preview": response_text[:500]},
                 )
-            if raw_final_after_tool and not valid_protocol:
+            if not valid_protocol:
+                if looks_like_tool_request:
+                    raise ProviderError(
+                        "Z.ai Web Chat returned a malformed tool protocol",
+                        "tool_protocol_violation",
+                        self.provider_id,
+                        {"must_call": must_call, "has_tool_result": has_tool_result, "response_preview": response_text[:500]},
+                    )
                 content = response_text
+                tool_calls = None
             if request.tool_choice in (None, "auto") and not tool_calls and not has_tool_result:
                 signal = strong_auto_tool_signal(content or response_text, request.tools, self._latest_user_text(request))
                 if signal:
@@ -287,6 +294,7 @@ class ZaiWebProvider(Provider):
                     "backend_response_status": getattr(self._browser, "last_backend_response_status", None),
                     "backend_response_content_type": getattr(self._browser, "last_backend_response_content_type", None),
                     "backend_lifecycle": list(getattr(self._browser, "backend_lifecycle", [])[-8:]),
+                    "liveness": dict(getattr(self._browser, "last_liveness", {}) or {}),
                 },
             },
         )
@@ -377,6 +385,7 @@ class ZaiWebProvider(Provider):
             "backend_response_status": getattr(self._browser, "last_backend_response_status", None),
             "backend_response_content_type": getattr(self._browser, "last_backend_response_content_type", None),
             "backend_lifecycle": list(getattr(self._browser, "backend_lifecycle", [])[-8:]),
+            "liveness": dict(getattr(self._browser, "last_liveness", {}) or {}),
         }
         yield ChatCompletionChunk(
             id=chunk_id,

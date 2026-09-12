@@ -2,7 +2,7 @@
 
 **Persian name:** دروازه‌سنج وب‌مدل برای Kilo
 **Process ID:** `KILOGATE-WM`
-**Version:** `0.5.1`
+**Version:** `0.5.2`
 **Status:** Draft control standard / active working baseline
 **Date:** 2026-09-12
 **Repository:** `hooshka-web-gateway`
@@ -385,6 +385,36 @@ Mandatory handling:
 A user-reported challenge without screenshot is valid operational evidence for pausing and scoping, but not sufficient to assign `CHALLENGE` to a specific row unless timing/log/UI evidence maps it to that row.
 
 
+
+
+
+## Thinking / generation liveness controls - v0.5.2
+
+Timeouts are safety guards only. They are not sufficient evidence that a Web-chat model is stuck, failed, or still thinking.
+
+Mandatory live-run classification:
+
+1. Runners must track the exact marker prompt submitted for the current row.
+2. The provider state must be inspected for the same prompt or message lineage before classifying a run as `WAIT_THINKING` or `WAIT_GENERATING`.
+3. `WAIT_THINKING` requires matched prompt evidence plus non-empty or increasing reasoning/thinking state.
+4. `WAIT_GENERATING` requires matched prompt evidence plus non-empty or increasing answer text.
+5. `NO_PROMPT_MATCH` means the current row is not yet present in provider state; this is not thinking and must be investigated as Kilo/Gateway/session routing.
+6. `DONE_NO_MARKER` is not PASS. It means the provider finished but did not return the required marker or tool protocol.
+7. `MARKER_SEEN` is only a pass candidate. Kilo rows still require Kilo stdout/log/tool evidence unless the row is explicitly scoped to UI-only evidence.
+8. CAPTCHA/challenge/quota events override liveness and stop the live matrix according to the risk-control rules.
+
+Canonical liveness states:
+
+```text
+WAIT_SUBMITTED
+WAIT_THINKING
+WAIT_GENERATING
+MARKER_SEEN
+DONE_NO_MARKER
+ERROR_EVENT
+NO_PROMPT_MATCH
+BACKEND_SEEN_NO_PROMPT_MATCH
+```
 
 ## Quota / high-demand / usage-limit controls - v0.5.1
 

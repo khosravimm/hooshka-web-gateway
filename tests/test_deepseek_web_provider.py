@@ -135,6 +135,24 @@ async def test_deepseek_required_tool_protocol_violation_fails_closed():
 
 
 @pytest.mark.asyncio
+async def test_deepseek_auto_tools_allow_plain_text_when_no_tool_is_needed():
+    provider = create_deepseek_web_provider()
+    provider._browser = FakeDeepSeekTransport(text="سلام، خوبم.")
+    req = ChatCompletionRequest(
+        model="deepseek-web",
+        messages=[{"role": "user", "content": "سلام، خوبی؟"}],
+        tools=TOOLS,
+        tool_choice="auto",
+    )
+
+    response = await provider.chat_completion(req)
+
+    assert response.choices[0].message.content == "سلام، خوبم."
+    assert response.choices[0].message.tool_calls is None
+    assert response.choices[0].finish_reason == "stop"
+
+
+@pytest.mark.asyncio
 async def test_deepseek_guest_session_is_rejected():
     provider = create_deepseek_web_provider(require_authenticated=True)
     provider._browser = FakeDeepSeekTransport(authenticated=False)

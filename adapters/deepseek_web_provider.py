@@ -131,13 +131,29 @@ class DeepSeekWebProvider(Provider):
         if request.tools:
             content, tool_calls, valid_protocol = parse_tool_envelope(response_text)
             must_call = _tool_required(request.tool_choice)
-            if not valid_protocol or (must_call and not tool_calls):
+            looks_like_tool_request = (
+                '"tool_calls"' in response_text
+                or "'tool_calls'" in response_text
+                or "<tool_call" in response_text
+                or "DSML" in response_text
+            )
+            if must_call and (not valid_protocol or not tool_calls):
                 raise ProviderError(
                     "DeepSeek Web Chat failed the required tool protocol",
                     "tool_protocol_violation",
                     self.provider_id,
                     {"must_call": must_call, "response_preview": response_text[:500]},
                 )
+            if not valid_protocol:
+                if looks_like_tool_request:
+                    raise ProviderError(
+                        "DeepSeek Web Chat returned a malformed tool protocol",
+                        "tool_protocol_violation",
+                        self.provider_id,
+                        {"must_call": must_call, "response_preview": response_text[:500]},
+                    )
+                content = response_text
+                tool_calls = None
             if request.tool_choice in (None, "auto") and not tool_calls and not self._has_tool_result(request):
                 signal = strong_auto_tool_signal(content or response_text, request.tools, self._latest_user_text(request))
                 if signal:

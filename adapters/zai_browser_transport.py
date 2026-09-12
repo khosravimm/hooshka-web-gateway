@@ -8,6 +8,7 @@ from typing import AsyncIterator, Optional
 from playwright.async_api import Browser, BrowserContext, Page, Playwright, async_playwright
 
 from core.providers import ProviderError, ProviderTimeoutError
+from core.model_liveness import classify_model_liveness
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,7 @@ class ZaiBrowserControllerTransport:
         self.last_backend_response_status: Optional[int] = None
         self.last_backend_response_content_type: Optional[str] = None
         self.backend_lifecycle: list[dict] = []
+        self.last_liveness: dict = {}
 
     def _record_backend_lifecycle(self, event: dict) -> None:
         self.backend_lifecycle.append(event)
@@ -496,6 +498,32 @@ class ZaiBrowserControllerTransport:
                         raise ProviderTimeoutError(self.provider_id, "Z.ai total timeout")
 
                     snap = await self._snapshot(page, prompt)
+                    marker_seen = False
+                    try:
+                        marker_seen = bool(snap.get("text") and "KGWM_" in str(snap.get("text")))
+                    except Exception:
+                        marker_seen = False
+                    signal = classify_model_liveness(
+                        matched=bool(snap.get("matched")),
+                        reasoning_len=len(snap.get("reasoning") or ""),
+                        text_len=len(snap.get("text") or ""),
+                        done=bool(snap.get("done")),
+                        phase=str(snap.get("phase") or ""),
+                        error=snap.get("error"),
+                        marker_seen=marker_seen,
+                        backend_request_seen=bool(self.last_backend_request_model),
+                    )
+                    self.last_liveness = {
+                        "state": signal.state,
+                        "reason": signal.reason,
+                        "matched": signal.matched,
+                        "reasoning_len": signal.reasoning_len,
+                        "text_len": signal.text_len,
+                        "done": signal.done,
+                        "phase": signal.phase,
+                        "marker_seen": signal.marker_seen,
+                        "backend_request_seen": signal.backend_request_seen,
+                    }
                     if snap.get("matched"):
                         reasoning = snap.get("reasoning") or ""
                         if reasoning != reasoning_emitted:

@@ -721,16 +721,23 @@ class QwenWebProvider(Provider):
                     or "<tool_call" in response_text
                     or "DSML" in response_text
                 )
-                raw_final_after_tool = has_tool_result and not must_call and not tool_calls and not looks_like_tool_request
-                if (not valid_protocol and not raw_final_after_tool) or (must_call and not tool_calls):
+                if must_call and (not valid_protocol or not tool_calls):
                     raise ProviderError(
                         "Qwen Web Chat failed the required tool protocol",
                         "tool_protocol_violation",
                         self.provider_id,
                         {"must_call": must_call, "has_tool_result": has_tool_result, "response_preview": response_text[:500]},
                     )
-                if raw_final_after_tool and not valid_protocol:
+                if not valid_protocol:
+                    if looks_like_tool_request:
+                        raise ProviderError(
+                            "Qwen Web Chat returned a malformed tool protocol",
+                            "tool_protocol_violation",
+                            self.provider_id,
+                            {"must_call": must_call, "has_tool_result": has_tool_result, "response_preview": response_text[:500]},
+                        )
                     content = response_text
+                    tool_calls = None
                 if request.tool_choice in (None, "auto") and not tool_calls and not has_tool_result:
                     signal = strong_auto_tool_signal(content or response_text, request.tools, self._latest_user_text(request))
                     if signal:
