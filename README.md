@@ -138,4 +138,4 @@ Immediate Stop certification on 2026-09-12 found no provider with confirmed imme
 
 Web Chat Stop certification now requires provider-specific Stop Contracts based on idle and active-generation DOM/runtime/backend discovery.
 
-Active stop-surface discovery recorded Qwen runtime-stop as a confirmed candidate, DeepSeek active surface without a stop control, and Z.ai as navigation-lost/incomplete.
+Active stop-surface discovery now records Qwen runtime-stop as a candidate blocked from final repeat by quota, DeepSeek immediate stop as failed after continuation to marker, and Z.ai as rebind-aware but inconclusive. No Web Chat provider currently has final `STOP_PROVIDER_CONFIRMED` status.

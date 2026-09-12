@@ -100,11 +100,44 @@ class DeepSeekBrowserUITransport:
         except Exception:
             return ""
 
+    async def _visible_risk_count(self, page: Page) -> int:
+        try:
+            return int(
+                await page.evaluate(
+                    """() => {
+                      const visible = (el) => {
+                        const r = el.getBoundingClientRect();
+                        const st = window.getComputedStyle(el);
+                        return r.width > 0 && r.height > 0 &&
+                          r.bottom >= 0 && r.top <= window.innerHeight &&
+                          r.right >= 0 && r.left <= window.innerWidth &&
+                          st.visibility !== 'hidden' && st.display !== 'none';
+                      };
+                      const nodes = Array.from(document.querySelectorAll(
+                        '[role="dialog"],[aria-modal="true"],.captcha,.cf-turnstile,iframe'
+                      ));
+                      return nodes.filter((el) => {
+                        if (!visible(el)) return false;
+                        const text = [
+                          el.innerText || '',
+                          el.textContent || '',
+                          el.getAttribute('aria-label') || '',
+                          el.getAttribute('title') || '',
+                          String(el.className || '')
+                        ].join(' ').replace(/\\s+/g, ' ').trim();
+                        return /captcha|human verification|security verification|verify you are human|turnstile|cloudflare/i.test(text);
+                      }).length;
+                    }"""
+                )
+            )
+        except Exception:
+            return 0
+
     @staticmethod
-    def _block_signals(text: str, *, textarea_count: int = 0, url: str = "") -> dict:
+    def _block_signals(text: str, *, textarea_count: int = 0, url: str = "", visible_risk_count: int = 0) -> dict:
         low = (text or "").lower()
         url_low = (url or "").lower()
-        captcha = any(x in low for x in ["verify you are human", "security check", "cloudflare", "captcha challenge"])
+        captcha = visible_risk_count > 0 or (textarea_count <= 0 and any(x in low for x in ["verify you are human", "security check", "cloudflare", "captcha challenge", "turnstile"]))
         suspended_or_muted = any(
             x in low
             for x in [
@@ -133,13 +166,15 @@ class DeepSeekBrowserUITransport:
         page = await self._ensure()
         body = await self._body_text(page)
         textarea_count = await page.locator("textarea").count()
-        signals = self._block_signals(body, textarea_count=textarea_count, url=page.url)
+        visible_risk_count = await self._visible_risk_count(page)
+        signals = self._block_signals(body, textarea_count=textarea_count, url=page.url, visible_risk_count=visible_risk_count)
         deadline = time.monotonic() + min(8.0, self.launch_timeout)
         while textarea_count == 0 and not any(signals.values()) and time.monotonic() < deadline:
             await page.wait_for_timeout(500)
             body = await self._body_text(page)
             textarea_count = await page.locator("textarea").count()
-            signals = self._block_signals(body, textarea_count=textarea_count, url=page.url)
+            visible_risk_count = await self._visible_risk_count(page)
+            signals = self._block_signals(body, textarea_count=textarea_count, url=page.url, visible_risk_count=visible_risk_count)
         authenticated = textarea_count > 0 and not signals["login"] and not signals["captcha"] and not signals["suspended_or_muted"]
         self.last_session_mode = "authenticated" if authenticated else "blocked_or_guest"
         self.last_block_signals = signals
@@ -150,6 +185,7 @@ class DeepSeekBrowserUITransport:
             "title": await page.title(),
             "textarea_count": textarea_count,
             "signals": signals,
+            "visible_risk_count": visible_risk_count,
         }
 
     async def health(self) -> bool:
@@ -211,7 +247,8 @@ class DeepSeekBrowserUITransport:
                         raise ProviderTimeoutError(self.provider_id, "DeepSeek Web Chat completion timed out")
                     body = await self._body_text(page)
                     textarea_count = await page.locator("textarea").count()
-                    signals = self._block_signals(body, textarea_count=textarea_count, url=page.url)
+                    visible_risk_count = await self._visible_risk_count(page)
+                    signals = self._block_signals(body, textarea_count=textarea_count, url=page.url, visible_risk_count=visible_risk_count)
                     self.last_block_signals = signals
                     if signals["captcha"] or signals["suspended_or_muted"] or signals["login"]:
                         raise ProviderError(
@@ -254,29 +291,75 @@ class DeepSeekBrowserUITransport:
         try:
             clicked = await page.evaluate(
                 """() => {
-                  const visible = (el) => {
+                  const rect = (el) => {
+                    const r = el.getBoundingClientRect();
+                    return {x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height)};
+                  };
+                  const visibleInViewport = (el) => {
+                    if (!el) return false;
                     const r = el.getBoundingClientRect();
                     const st = window.getComputedStyle(el);
-                    return r.width > 0 && r.height > 0 && st.visibility !== 'hidden' && st.display !== 'none';
+                    return r.width > 0 && r.height > 0 &&
+                      r.bottom >= 0 && r.top <= window.innerHeight &&
+                      r.right >= 0 && r.left <= window.innerWidth &&
+                      st.visibility !== 'hidden' && st.display !== 'none';
                   };
-                  const patterns = [
-                    /stop/i, /cancel/i, /interrupt/i, /abort/i,
-                    /停止|中止|取消|终止|توقف|لغو/i
-                  ];
-                  const nodes = Array.from(document.querySelectorAll('button,[role="button"],.ant-btn'));
-                  const candidates = nodes.map((el) => ({
-                    el,
-                    label: [
-                      el.innerText || '',
-                      el.getAttribute('aria-label') || '',
-                      el.getAttribute('title') || '',
-                      el.getAttribute('data-testid') || '',
-                      el.className || ''
-                    ].join(' ').trim()
-                  })).filter(x => visible(x.el) && patterns.some(p => p.test(x.label)));
-                  if (candidates.length) {
-                    candidates[0].el.click();
-                    return {clicked: true, label: candidates[0].label.slice(0, 160), candidates: candidates.length};
+                  const label = (el) => [
+                    el.innerText || '',
+                    el.textContent || '',
+                    el.getAttribute('aria-label') || '',
+                    el.getAttribute('title') || '',
+                    el.getAttribute('data-testid') || '',
+                    el.getAttribute('data-ds-icon') || '',
+                    String(el.className || '')
+                  ].join(' ').replace(/\\s+/g, ' ').trim();
+                  const nodes = Array.from(document.querySelectorAll(
+                    'button,[role="button"],svg,path,div[class*="stop"],div[class*="pause"],div[class*="cancel"]'
+                  ));
+                  const candidates = [];
+                  for (const el of nodes) {
+                    if (!visibleInViewport(el)) continue;
+                    const r = rect(el);
+                    const hay = label(el) + ' ' + (el.outerHTML || '').slice(0, 1400);
+                    const explicit = /stop|cancel|interrupt|abort|pause|square|停止|中止|取消|终止/i.test(hay);
+                    const squareIcon = false;
+                    if (!explicit && !squareIcon) continue;
+                    const target = el.closest('button,[role="button"]') || el.parentElement || el;
+                    if (!visibleInViewport(target)) continue;
+                    const targetLabel = label(target);
+                    if (/ds-button--floating/.test(targetLabel)) continue;
+                    const tr = rect(target);
+                    candidates.push({
+                      el, target,
+                      score: (explicit ? 10 : 0) + (tr.y > window.innerHeight * 0.82 ? 3 : 0) + (tr.x > window.innerWidth * 0.60 ? 3 : 0),
+                      label: targetLabel.slice(0, 200),
+                      tag: el.tagName.toLowerCase(),
+                      targetTag: target.tagName.toLowerCase(),
+                      rect: r,
+                      targetRect: tr
+                    });
+                  }
+                  candidates.sort((a, b) => b.score - a.score);
+                  const c = candidates[0];
+                  if (c) {
+                    const x = c.targetRect.x + c.targetRect.w / 2;
+                    const y = c.targetRect.y + c.targetRect.h / 2;
+                    const hit = document.elementFromPoint(x, y);
+                    const target = hit?.closest?.('button,[role="button"]') || c.target;
+                    if (typeof target.click !== 'function') {
+                      return {clicked: false, candidates: candidates.length, detail: 'target_not_clickable', tag: c.tag, targetTag: c.targetTag, rect: c.rect, targetRect: c.targetRect, score: c.score};
+                    }
+                    target.click();
+                    return {
+                      clicked: true,
+                      label: c.label,
+                      candidates: candidates.length,
+                      tag: c.tag,
+                      targetTag: c.targetTag,
+                      rect: c.rect,
+                      targetRect: c.targetRect,
+                      score: c.score
+                    };
                   }
                   return {clicked: false, candidates: 0};
                 }"""

@@ -101,3 +101,22 @@ DeepSeek produced negative evidence: the response continued to the final marker 
 Operational implication:
 
 Kilo/Gateway Stop must still be treated as observable best-effort cancellation, not as guaranteed immediate provider-side cancellation. For DeepSeek specifically, the current Stop mechanism is insufficient for provider-side immediate stop.
+
+
+## Active Stop closure update - 2026-09-12T14:30Z
+
+Evidence files:
+
+- `.runtime/kgwm_qwen_final_stop_cert_20260912.json`
+- `.runtime/kgwm_deepseek_active_dom_backend_discovery_20260912.json`
+- `.runtime/kgwm_deepseek_final_stop_cert_20260912.json`
+- `.runtime/kgwm_zai_active_dom_backend_discovery_20260912.json`
+- `.runtime/kgwm_zai_final_stop_cert_20260912.json`
+
+| Provider/model | Evidence result | Classification |
+|---|---|---|
+| `qwen-web` / `qwen:qwen3.8-max` | Repeat final row hit provider quota/high-demand wait-window before a clean confirmation row could complete. The marker later seen in the DOM belonged to the submitted prompt, not confirmed assistant continuation. | `HOLD_QUOTA_LIMIT` |
+| `deepseek-web` | Active generation was observed. A right-composer SVG candidate was clicked by the hook, but the provider response continued and the final marker later appeared in the page. Generic SVG candidates were then disabled for the production hook. | `STOP_PROVIDER_FAILED_CONTINUED_AFTER_ATTEMPT` |
+| `zai-web` | Rebind-aware active DOM/backend discovery captured an active row. Final stop row opened and was disconnected, but the hook still did not identify a confirmed stop control; no second marker was observed. | `STOP_PROVIDER_ATTEMPTED_INCONCLUSIVE` |
+
+No provider is promoted to `STOP_PROVIDER_CONFIRMED` by this update. Immediate Web Chat stop remains a provider-specific capability requiring a signed Stop Contract and repeat confirmation.

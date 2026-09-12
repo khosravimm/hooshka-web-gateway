@@ -72,3 +72,18 @@ DeepSeek: ACTIVE_SURFACE_CAPTURED but no Stop control found
 Z.ai: ACTIVE_DISCOVERY_RUNNER_NAVIGATION_LOST
 ChatGPT: no new active row in this pass
 ```
+
+
+## Contract update - 2026-09-12T14:30Z
+
+### Qwen
+
+The Qwen runtime contract remains the strongest known stop path: `controller.stopResponse`, `pool.stopAllResponses`, and `session.stopResponse` are discoverable and callable. The repeat confirmation row was blocked by a quota/high-demand wait-window, so the contract stays at candidate level and is not promoted to final certification.
+
+### DeepSeek
+
+DeepSeek exposed unlabeled SVG candidates during active generation, including floating controls, left-composer controls, and right-composer controls. These candidates are not safe enough for production cancellation. The production hook must not click unlabeled SVG-only controls unless a future contract proves a specific DOM path or backend cancellation path. Current DeepSeek immediate-stop status is failed/uncertified.
+
+### Z.ai
+
+Z.ai active DOM/backend discovery is now rebind-aware and no longer fails only because of navigation/context replacement. Active stop-like SVGs exist, but no confirmed stop control or provider runtime stop function has been proven. Z.ai remains inconclusive for immediate stop.

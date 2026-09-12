@@ -123,3 +123,14 @@ STOP_NOT_CERTIFIED_NO_ACTIVE_START_EVIDENCE
 4. For Z.ai, re-run after rebinding logic is added.
 5. For ChatGPT, run active discovery only after navigation stability is verified.
 ```
+
+
+## Final active discovery update - 2026-09-12T14:30Z
+
+| Provider/model | Discovery/certification result | Status |
+|---|---|---|
+| `qwen-web` / `qwen:qwen3.8-max` | Repeat confirmation row was interrupted by provider quota/high-demand wait-window. Previous runtime stop candidate remains useful but unconfirmed. | `HOLD_QUOTA_LIMIT` |
+| `deepseek-web` | Active DOM and backend path `/api/v0/chat/completion` were observed. False-positive CAPTCHA detection from scrollback text was fixed. Stop-like SVG candidates were not reliable; a right-composer click still allowed the final marker to appear. | `STOP_PROVIDER_FAILED_CONTINUED_AFTER_ATTEMPT` |
+| `zai-web` | Rebind-aware active DOM/backend discovery succeeded. Final row was active, but provider-side stop was not confirmed. | `STOP_PROVIDER_ATTEMPTED_INCONCLUSIVE` |
+
+The next provider-specific discovery should target a backend cancellation path or a stable frontend runtime function. Generic icon heuristics are insufficient for certification.

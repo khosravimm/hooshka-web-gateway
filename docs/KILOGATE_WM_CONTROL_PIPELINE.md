@@ -657,3 +657,16 @@ Canonical report:
 ```text
 docs/KILOGATE_WM_WEBCHAT_STOP_CONTRACTS_2026-09-12.md
 ```
+
+
+## Web Chat structural-risk and unlabeled-control controls - v0.5.6
+
+Risk detection must be structural. Text contained in a previous assistant answer, old prompt, chat title, or scrollback MUST NOT by itself classify a page as CAPTCHA, quota, or verification. A row may enter `CHALLENGE` or `QUOTA_LIMIT` only when the signal is returned by the provider API path or appears in an active modal, iframe, turnstile, dialog, provider error surface, or equivalent current blocking UI.
+
+Unlabeled SVG controls are discovery evidence only unless a provider-specific contract maps them to a confirmed stop action. Generic SVG, icon, floating-scroll, settings, DeepThink, search, close-card, or decorative controls MUST NOT be clicked by production cancel hooks. A production stop hook must prefer explicit `stop`, `cancel`, `interrupt`, or provider runtime stop functions. If only an unlabeled candidate exists, the row remains `STOP_PROVIDER_ATTEMPTED_INCONCLUSIVE` or `STOP_PROVIDER_NOT_CERTIFIED` until a provider-specific contract proves it.
+
+Latest active-stop closure:
+
+- Qwen `qwen:qwen3.8-max`: previous runtime stop path remained a strong candidate, but final repeat was blocked by provider quota/high-demand wait-window and is `HOLD_QUOTA_LIMIT`.
+- DeepSeek `deepseek-web`: false-positive CAPTCHA detection was corrected; active stop candidates were mapped, but clicks on generic/unlabeled SVG controls did not stop the provider response. The safe production hook no longer clicks unlabeled SVG-only candidates. Current state is `STOP_PROVIDER_FAILED_CONTINUED_AFTER_ATTEMPT` for immediate stop certification.
+- Z.ai `zai-web`: rebind-aware active DOM/backend discovery succeeded; final row remained `STOP_PROVIDER_ATTEMPTED_INCONCLUSIVE` because marker continuation was not observed but the provider cancel hook did not confirm a clicked stop control.

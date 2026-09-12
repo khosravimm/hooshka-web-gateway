@@ -64,3 +64,12 @@ def test_dom_cancel_records_escape_as_attempt_not_proof():
         assert "escape_sent" in text
         assert "attempted" in text
         assert "do not treat it as proof" in text
+
+
+def test_deepseek_cancel_uses_viewport_and_explicit_controls_only():
+    text = read("adapters/deepseek_browser_transport.py")
+    assert "visibleInViewport" in text
+    assert "target_not_clickable" in text
+    assert "typeof target.click !== 'function'" in text
+    assert "const squareIcon = false" in text
+    assert "button,[role=\"button\"]" in text
