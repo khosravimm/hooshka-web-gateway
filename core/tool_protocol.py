@@ -177,6 +177,64 @@ def _call(name: str, arguments) -> dict:
     }
 
 
+
+def _parse_xmlish_tool_calls(text: str):
+    """Parse Web-chat XML-ish tool calls such as explicit tool_call wrappers."""
+    if "tool_call" not in text:
+        return None
+    pattern = re.compile(r'<\s*tool_call\b[^>]*>([\s\S]*?)<\s*/\s*tool_call\s*>', re.IGNORECASE)
+    calls = []
+    spans = []
+    for match in pattern.finditer(text):
+        inner = match.group(1).strip()
+        if not inner:
+            continue
+        if inner.startswith("{"):
+            try:
+                data = _json_loads_tolerant(inner)
+            except Exception:
+                data = None
+            items = []
+            if isinstance(data, dict) and isinstance(data.get("tool_calls"), list):
+                items = data["tool_calls"]
+            elif isinstance(data, dict) and data.get("name") and ("arguments" in data or "parameters" in data):
+                items = [data]
+            for item in items:
+                fn = item.get("function") if isinstance(item, dict) and isinstance(item.get("function"), dict) else item
+                name = fn.get("name") if isinstance(fn, dict) else None
+                if not name:
+                    continue
+                args = fn.get("arguments", fn.get("parameters", {}))
+                calls.append(_call(str(name).strip(), args))
+            if items:
+                spans.append(match.span())
+                continue
+        first_tag = inner.find("<")
+        name = (inner[:first_tag] if first_tag >= 0 else inner).strip().strip(':=- ')
+        if not name or re.search(r'\s', name):
+            continue
+        args = {}
+        pair_re = re.compile(
+            r'<\s*arg_key\s*>\s*([\s\S]*?)\s*<\s*/\s*arg_key\s*>\s*'
+            r'<\s*arg_value\s*>\s*([\s\S]*?)\s*<\s*/\s*arg_value\s*>',
+            re.IGNORECASE,
+        )
+        for pm in pair_re.finditer(inner):
+            key = re.sub(r'\s+', '', pm.group(1).strip())
+            if not key:
+                continue
+            args[key] = pm.group(2).strip()
+        if not args:
+            continue
+        calls.append(_call(name, args))
+        spans.append(match.span())
+    if not calls:
+        return None
+    cleaned = text
+    for start, end in reversed(spans):
+        cleaned = cleaned[:start] + cleaned[end:]
+    return cleaned.strip() or None, calls
+
 def parse_tool_calls(text: str):
     if not text:
         return text, None
@@ -213,6 +271,10 @@ def parse_tool_calls(text: str):
                 cleaned = cleaned[:start] + cleaned[end:]
             cleaned = re.sub(r'<\s*/?\s*\|\s*\|\s*DSML\s*\|\s*\|\s*calls\s*>', '', cleaned, flags=re.IGNORECASE).strip()
             return cleaned or None, calls
+
+    xmlish = _parse_xmlish_tool_calls(text)
+    if xmlish:
+        return xmlish
 
     block = re.search(r'```(?:json)?\s*(\{[\s\S]*?\})\s*```', text, re.IGNORECASE)
     span = None

@@ -187,10 +187,10 @@ def test_qwen_rejects_guest_session_by_policy(monkeypatch):
     asyncio_run(provider.close())
 
 
-def test_qwen_rejects_tools_until_e2_validated():
+def test_qwen_tools_require_browser_controller_transport():
     provider = create_qwen_web_provider(
         provider_id="qwen-web",
-        transport_mode="browser_controller",
+        transport_mode="browser_sidecar",
     )
     request = ChatCompletionRequest(
         model="qwen-web",
@@ -208,3 +208,26 @@ def test_qwen_rejects_tools_until_e2_validated():
     assert exc.value.code == "unsupported_tools"
     with contextlib.suppress(Exception):
         asyncio_run(provider.close())
+
+
+def test_qwen_tools_are_limited_to_certified_upstream_models(monkeypatch):
+    provider = create_qwen_web_provider(
+        provider_id="qwen-web",
+        transport_mode="browser_controller",
+        profile_dir=".runtime/test-qwen-profile",
+        tool_certified_upstream_models=["qwen3.8-max"],
+    )
+    monkeypatch.setattr(provider._browser, "model_ids", _fake_model_ids)
+    monkeypatch.setattr(provider._browser, "session_status", _fake_authenticated_session)
+    request = ChatCompletionRequest(
+        model="qwen:qwen3.7-plus",
+        messages=[{"role": "user", "content": "Use the probe tool."}],
+        tools=[{"type": "function", "function": {"name": "probe", "parameters": {"type": "object"}}}],
+        tool_choice={"type": "function", "function": {"name": "probe"}},
+    )
+
+    with pytest.raises(ProviderError) as exc:
+        asyncio_run(provider.chat_completion(request))
+    assert exc.value.code == "unsupported_tools"
+    assert exc.value.details["upstream_model"] == "qwen3.7-plus"
+    asyncio_run(provider.close())

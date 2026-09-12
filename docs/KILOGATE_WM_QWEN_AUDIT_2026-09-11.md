@@ -128,3 +128,7 @@ The following KiloGate-WM rows are mandatory for the user's programming objectiv
 - multi-step full agent coding scenario
 
 Until these rows pass, any Qwen result must be described as text-only smoke, not programming-ready certification.
+
+## Superseding retest note - 2026-09-12
+
+The negative tool-certification statement in this document reflects the 2026-09-11 configuration, where Qwen tools were disabled in Gateway/Kilo. It does not prove that Qwen Web Chat cannot produce tool-call envelopes. A follow-up retest on 2026-09-12 certified `qwen:qwen3.8-max` for KiloGate-WM E2 tool-capable smoke, including Kilo read/search/write/edit/bash. See `KILOGATE_WM_QWEN_GATEWAY_KILO_RETEST_2026-09-12.md`.

@@ -116,3 +116,29 @@ def test_parse_tool_calls_preserves_tool_name_and_normalizes_path_alias():
 
     assert calls[0]["function"]["name"] == "read_file"
     assert '"filePath": "README.md"' in calls[0]["function"]["arguments"]
+
+
+
+def test_parse_xmlish_tool_call_json_wrapper_from_web_chat():
+    text = '<tool_call>{"name":"edit","arguments":{"filePath":".runtime/x.txt","oldString":"A","newString":"B"}}</tool_call>'
+    content, calls = parse_tool_calls(text)
+
+    assert content is None
+    assert calls[0]["function"]["name"] == "edit"
+    args = json.loads(calls[0]["function"]["arguments"])
+    assert args["filePath"] == ".runtime/x.txt"
+    assert args["oldString"] == "A"
+    assert args["newString"] == "B"
+
+
+def test_parse_xmlish_tool_call_arg_key_value_from_web_chat():
+    text = """I'll read it first.
+<tool_call>read<arg_key>filePath</arg_key><arg_value>D:\\Code\\hooshka-web-gateway\\.runtime\\kilogate_qwen_patch_probe.txt</arg_value></tool_call>
+[NO TOOL]
+I should not invent the tool result."""
+    content, calls = parse_tool_calls(text)
+
+    assert calls[0]["function"]["name"] == "read"
+    args = json.loads(calls[0]["function"]["arguments"])
+    assert args["filePath"] == "D:\\Code\\hooshka-web-gateway\\.runtime\\kilogate_qwen_patch_probe.txt"
+    assert "I should not invent" in content

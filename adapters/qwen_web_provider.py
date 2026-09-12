@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import queue
+import re
 import threading
 import time
 import uuid
@@ -31,6 +32,7 @@ from core.providers import (
 )
 from core.stream_state import StreamTracker
 from core.browser_observability import BrowserEvidenceMismatch, BrowserModelEvidence
+from core.tool_protocol import serialize_messages, parse_tool_envelope, strong_auto_tool_signal
 from adapters.qwen_browser_transport import QwenBrowserControllerTransport
 
 logger = logging.getLogger(__name__)
@@ -56,6 +58,50 @@ _QWEN_KILO_CERTIFIED_CHAT_MODELS = [
     "qwen3.6-plus",
     "qwen3.5-plus",
 ]
+
+
+
+def _tool_required(tool_choice) -> bool:
+    if tool_choice is None:
+        return False
+    if isinstance(tool_choice, str):
+        return tool_choice not in {"auto", "none"}
+    if isinstance(tool_choice, dict):
+        if str(tool_choice.get("type", "")).lower() in {"function", "tool", "required"}:
+            return True
+        return "function" in tool_choice or "tool" in tool_choice
+    return False
+
+
+def _explicit_tool_hint(request: ChatCompletionRequest) -> Optional[dict]:
+    if request.tool_choice not in (None, "auto"):
+        return None
+    if any(message.get("role") == "tool" for message in request.messages or []):
+        return None
+    latest = ""
+    for message in reversed(request.messages or []):
+        if message.get("role") == "user":
+            latest = str(message.get("content") or "")
+            break
+    if not latest:
+        return None
+    offered = []
+    for tool in request.tools or []:
+        name = (((tool or {}).get("function") or {}).get("name") or "").strip()
+        if name:
+            offered.append(name)
+    matches = []
+    for name in offered:
+        patterns = [
+            rf"\buse\s+(?:the\s+)?{re.escape(name)}\s+tool\b",
+            rf"\buse\s+{re.escape(name)}\b",
+            rf"\b{re.escape(name)}\s+tool\b",
+        ]
+        if any(re.search(pattern, latest, re.I) for pattern in patterns):
+            matches.append(name)
+    if len(matches) != 1:
+        return None
+    return {"type": "function", "function": {"name": matches[0]}}
 
 
 class QwenWebProvider(Provider):
@@ -97,6 +143,10 @@ class QwenWebProvider(Provider):
         self._sidecar_token_file = c.get("sidecar_token_file", r".runtime\qwen-sidecar.token")
         self._frontend_version = c.get("frontend_version", "0.2.91")
         self._default_upstream_model = c.get("default_upstream_model") or c.get("upstream_model", "qwen3.8-max")
+        certified = c.get("tool_certified_upstream_models", ["qwen3.8-max"])
+        if isinstance(certified, str):
+            certified = [item.strip() for item in certified.split(",") if item.strip()]
+        self._tool_certified_upstream_models = set(certified or [])
         self._require_authenticated = bool(c.get("require_authenticated", True))
         self._token_env = c.get("token_env", "QWEN_WEB_TOKEN")
         self._token_file = c.get("token_file")
@@ -169,7 +219,7 @@ class QwenWebProvider(Provider):
             chat_completion=True,
             streaming=True,
             streaming_mode="buffered" if sidecar_mode else ("reconstructed" if browser_mode else "native"),
-            tools=False,
+            tools=True,
             vision=False,
             embeddings=False,
             max_context_tokens=1_000_000,
@@ -374,6 +424,9 @@ class QwenWebProvider(Provider):
 
     @staticmethod
     def _request_text(request: ChatCompletionRequest) -> str:
+        if request.tools or any(message.get("role") != "user" for message in request.messages or []):
+            instruction_choice = _explicit_tool_hint(request) or request.tool_choice
+            return serialize_messages(request.messages, tools=request.tools, tool_choice=instruction_choice)
         parts = []
         for message in request.messages:
             role = message.get("role", "user")
@@ -387,6 +440,17 @@ class QwenWebProvider(Provider):
             elif role == "tool":
                 parts.append(f"Tool result: {content}")
         return "\n\n".join(p for p in parts if p).strip()
+
+    @staticmethod
+    def _latest_user_text(request: ChatCompletionRequest) -> str:
+        for message in reversed(request.messages or []):
+            if message.get("role") == "user":
+                return str(message.get("content") or "")
+        return ""
+
+    @staticmethod
+    def _has_tool_result(request: ChatCompletionRequest) -> bool:
+        return any(message.get("role") == "tool" for message in request.messages or [])
 
     def _payload(self, chat_id: str, upstream_model: str, request: ChatCompletionRequest) -> dict:
         opts = request.provider_options or {}
@@ -565,8 +629,8 @@ class QwenWebProvider(Provider):
     ) -> ChatCompletionResponse:
         if not self.supports_model(request.model):
             raise ProviderError("Unsupported Qwen model", "invalid_model", self.provider_id)
-        if request.tools:
-            raise ProviderError("Qwen tools are not enabled until E2 validation passes", "unsupported_tools", self.provider_id)
+        if request.tools and self._transport_mode != "browser_controller":
+            raise ProviderError("Qwen tools require browser_controller transport", "unsupported_tools", self.provider_id)
         if self._transport_mode == "browser_sidecar":
             opts = request.provider_options or {}
             data = await asyncio.to_thread(
@@ -598,6 +662,13 @@ class QwenWebProvider(Provider):
         if self._transport_mode == "browser_controller":
             opts = request.provider_options or {}
             upstream_model = await self._resolve_and_validate_upstream_model(request)
+            if request.tools and upstream_model not in self._tool_certified_upstream_models:
+                raise ProviderError(
+                    "Qwen tools are not certified for the requested upstream model",
+                    "unsupported_tools",
+                    self.provider_id,
+                    {"upstream_model": upstream_model, "certified": sorted(self._tool_certified_upstream_models)},
+                )
             if hasattr(self._browser, "last_selected_models"):
                 self._browser.last_selected_models = []
             if hasattr(self._browser, "last_backend_request_model"):
@@ -616,11 +687,46 @@ class QwenWebProvider(Provider):
                 if event.get("type") == "text_delta":
                     pieces.append(event.get("text") or "")
             model_evidence = self._verify_browser_model_evidence(request, upstream_model, response_model)
+            response_text = "".join(pieces)
+            content: Optional[str] = response_text
+            tool_calls = None
+            finish_reason = "stop"
+            if request.tools:
+                content, tool_calls, valid_protocol = parse_tool_envelope(response_text)
+                must_call = _tool_required(request.tool_choice)
+                has_tool_result = self._has_tool_result(request)
+                looks_like_tool_request = (
+                    '"tool_calls"' in response_text
+                    or "'tool_calls'" in response_text
+                    or "<tool_call" in response_text
+                    or "DSML" in response_text
+                )
+                raw_final_after_tool = has_tool_result and not must_call and not tool_calls and not looks_like_tool_request
+                if (not valid_protocol and not raw_final_after_tool) or (must_call and not tool_calls):
+                    raise ProviderError(
+                        "Qwen Web Chat failed the required tool protocol",
+                        "tool_protocol_violation",
+                        self.provider_id,
+                        {"must_call": must_call, "has_tool_result": has_tool_result, "response_preview": response_text[:500]},
+                    )
+                if raw_final_after_tool and not valid_protocol:
+                    content = response_text
+                if request.tool_choice in (None, "auto") and not tool_calls and not has_tool_result:
+                    signal = strong_auto_tool_signal(content or response_text, request.tools, self._latest_user_text(request))
+                    if signal:
+                        raise ProviderError(
+                            "Qwen Web Chat returned prose when tool use looked required",
+                            "tool_protocol_violation",
+                            self.provider_id,
+                            {"signal": signal, "response_preview": response_text[:500]},
+                        )
+                if tool_calls:
+                    finish_reason = "tool_calls"
             return ChatCompletionResponse(
                 id=self._generate_id(),
                 created=self._current_timestamp(),
                 model=request.model,
-                choices=[Choice(index=0, message=Message(role="assistant", content="".join(pieces)), finish_reason="stop")],
+                choices=[Choice(index=0, message=Message(role="assistant", content=content, tool_calls=tool_calls), finish_reason=finish_reason)],
                 usage=Usage(),
                 provider_meta={
                     "provider": self.provider_id,
@@ -672,8 +778,38 @@ class QwenWebProvider(Provider):
     ) -> AsyncIterator[ChatCompletionChunk]:
         if not self.supports_model(request.model):
             raise ProviderError("Unsupported Qwen model", "invalid_model", self.provider_id)
+        if request.tools and self._transport_mode == "browser_controller":
+            response = await self.chat_completion(request, session)
+            chunk_id = self._generate_id()
+            message = response.choices[0].message
+            finish_reason = response.choices[0].finish_reason
+            if message.tool_calls:
+                yield ChatCompletionChunk(
+                    id=chunk_id,
+                    created=self._current_timestamp(),
+                    model=request.model,
+                    choices=[ChunkChoice(index=0, delta=Delta(tool_calls=message.tool_calls), finish_reason=finish_reason)],
+                    provider_meta=response.provider_meta,
+                )
+            else:
+                if message.content:
+                    yield ChatCompletionChunk(
+                        id=chunk_id,
+                        created=self._current_timestamp(),
+                        model=request.model,
+                        choices=[ChunkChoice(index=0, delta=Delta(content=message.content), finish_reason=None)],
+                        provider_meta=response.provider_meta,
+                    )
+                yield ChatCompletionChunk(
+                    id=chunk_id,
+                    created=self._current_timestamp(),
+                    model=request.model,
+                    choices=[ChunkChoice(index=0, delta=Delta(), finish_reason=finish_reason)],
+                    provider_meta=response.provider_meta,
+                )
+            return
         if request.tools:
-            raise ProviderError("Qwen tools are not enabled until E2 validation passes", "unsupported_tools", self.provider_id)
+            raise ProviderError("Qwen tools require browser_controller transport", "unsupported_tools", self.provider_id)
         if self._transport_mode == "browser_sidecar":
             response = await self.chat_completion(request, session)
             chunk_id = self._generate_id()
@@ -813,7 +949,7 @@ def create_qwen_web_provider(
             chat_completion=True,
             streaming=True,
             streaming_mode="buffered" if sidecar_mode else ("reconstructed" if browser_mode else "native"),
-            tools=False,
+            tools=True,
             vision=False,
             embeddings=False,
             max_context_tokens=1_000_000,

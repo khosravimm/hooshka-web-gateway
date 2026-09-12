@@ -35,6 +35,8 @@ providers:
   config:
     transport_mode: browser_controller
     default_upstream_model: qwen3.8-max
+    tool_certified_upstream_models:
+      - qwen3.8-max
     require_authenticated: true
     profile_dir: .runtime\qwen-profile
     runtime_label: HWG-Qwen-Web-Controller
@@ -51,7 +53,7 @@ providers:
     chat_completion: true
     streaming: true
     streaming_mode: reconstructed
-    tools: false
+    tools: true
     vision: false
     embeddings: false
     max_context_tokens: 1000000

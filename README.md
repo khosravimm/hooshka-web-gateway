@@ -11,7 +11,7 @@ Hooshka Web Gateway is the unified local API gateway for governed access to supp
 | Provider | Canonical model | Status | Current accepted scope |
 |---|---|---|---|
 | ChatGPT Web | `chatgpt-web` | E2 operational via Kilo | chat, stream compatibility, tool-call path, large agent prompt transport |
-| Qwen Web | `qwen-web`, `qwen:<upstream-id>` | Text-only Kilo smoke PASS for five explicit Chat models; not full programming-certified | model-aware thinking/search, reconstructed stream; tools disabled; `qwen3.5-omni-plus` quarantined |
+| Qwen Web | `qwen-web`, `qwen:qwen3.8-max` | KiloGate-WM E2 tool-capable smoke PASS for `qwen3.8-max`; other explicit models remain separately uncertified | model-aware thinking/search, reconstructed stream; read/grep/write/edit/bash passed for `qwen3.8-max`; `qwen3.5-omni-plus` quarantined |
 | Z.ai Web | `zai-web`, `zai:<upstream-id>` | KiloGate-WM E2 tool-capable smoke PASS for `zai-web` / `glm-5.2`; `glm-5.3` and `GLM-5.3-Flash` provider/API E2 PASS | Web Chat/CDP 9223; read/grep/write/edit/bash passed for `glm-5.2`; `glm-5.3`/`x-preview-l` still need explicit Kilo tool-execution certification |
 | DeepSeek Web | `deepseek-web` | KiloGate-WM E2 tool-capable smoke PASS | browser-UI transport via dedicated 9226 runtime; read/grep/write/edit/bash passed; not E3/production-certified |
 
@@ -100,7 +100,7 @@ Historical research/evidence documents remain under `docs/`.
 git diff --check
 ```
 
-Accepted deterministic baseline before DeepSeek integration: **70 passed**. DeepSeek and Z.ai add provider/protocol tests; both have KiloGate-WM E2 smoke evidence for read/search/write/edit/shell tool paths on their certified baselines. Qwen remains text-only Kilo smoke certified and is not tool/function-call certified.
+Accepted deterministic baseline before DeepSeek integration: **70 passed**. DeepSeek, Z.ai and Qwen now have KiloGate-WM E2 smoke evidence for read/search/write/edit/shell tool paths on their certified baselines. Qwen certification is limited to `qwen3.8-max`; other explicit Qwen models require separate tool-execution evidence.
 
 ## Security rules
 
@@ -124,3 +124,6 @@ khosravimm/hooshka-web-gateway
 Legacy project name `mcp-web-bridge` is retained only in historical/migration compatibility records.
 
 Z.ai KiloGate-WM E2 smoke passed read/search/write/edit/shell through the browser Web Chat path using the evidence-backed `glm-5.2` baseline. A later selector retest showed `zai:glm-5.3` and `zai:x-preview-l` / `GLM-5.3-Flash` pass provider-level and Gateway API E2 tool-call checks, but they are not yet Kilo full tool-execution certified. Deep Think latency remains a separate E3 reliability concern.
+
+
+Qwen KiloGate-WM retest corrected the previous text-only status: `qwen:qwen3.8-max` passed provider-level, Gateway API and Kilo read/search/write/edit/bash tool checks. Manual Web Chat screenshots also motivated XML-ish `tool_call` parser hardening. This remains E2 smoke certification, not E3 reliability.
