@@ -28,11 +28,10 @@ $DeepSeekRuntimeLabel = 'HWG-DeepSeek-Web-UI'
 $DeepSeekCdpPort = 9226
 
 function Get-ChromeExecutable {
-  $chromeCandidates = @(
-    (Join-Path $env:ProgramFiles 'Google\Chrome\Application\chrome.exe'),
-    (Join-Path ${env:ProgramFiles(x86)} 'Google\Chrome\Application\chrome.exe'),
-    (Join-Path $env:LOCALAPPDATA 'Google\Chrome\Application\chrome.exe')
-  )
+  $roots = @($env:ProgramFiles, ${env:ProgramFiles(x86)}, $env:LOCALAPPDATA) | Where-Object { $_ -and $_.Trim() }
+  $chromeCandidates = foreach ($root in $roots) {
+    Join-Path $root 'Google\Chrome\Application\chrome.exe'
+  }
   return ($chromeCandidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1)
 }
 
@@ -317,3 +316,4 @@ switch ($Command) {
    } | ConvertTo-Json
  }
 }
+

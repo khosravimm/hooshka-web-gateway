@@ -114,13 +114,17 @@ def generate_request_id():
     g.start_time = time.time()
 
 
+def _is_loopback_request():
+    return request.remote_addr in ("127.0.0.1", "::1", "localhost")
+
+
 def auth_middleware():
     if request.path in ("/health", "/ready", "/health/deep"):
         g.identity = {"identity": "health-check", "metadata": {}}
         g.api_key = None
         return
-    if request.path.startswith("/panel/api/"):
-        g.identity = {"identity": "admin-panel", "metadata": {}}
+    if request.path.startswith("/panel") and _is_loopback_request():
+        g.identity = {"identity": "local-admin-panel", "metadata": {"source": "loopback-panel"}}
         g.api_key = None
         return
     
@@ -140,7 +144,7 @@ def auth_middleware():
 
 
 def rate_limit_middleware():
-    if request.path in ("/health", "/ready", "/health/deep") or request.path.startswith("/panel/api/"):
+    if request.path in ("/health", "/ready", "/health/deep") or (request.path.startswith("/panel") and _is_loopback_request()):
         return
     identity_info = g.get("identity") or {}
     identity = identity_info.get("identity", "anonymous")
