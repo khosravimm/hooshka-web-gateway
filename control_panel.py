@@ -34,13 +34,34 @@ def _save_config_file(config):
 
 
 def _sync_auth_keys():
-    """Sync API keys from config.yaml into the runtime AuthManager singleton."""
+    """Sync API keys without dropping the runtime environment key.
+
+    The Windows service supplies the bootstrap key through BRIDGE_API_KEY.
+    Rebuilding the runtime map only from config.yaml invalidates that key after
+    visiting the control panel key APIs, so keep it as a non-persistent runtime
+    key and then add persistent config keys.
+    """
     config = _load_config_file()
     raw_keys = config.get("governance", {}).get("auth", {}).get("api_keys", {}) or {}
     auth_manager._api_keys.clear()
-    for key, identity in raw_keys.items():
-        auth_manager._api_keys[key] = {"identity": identity, "metadata": {}}
 
+    env_key = os.getenv("BRIDGE_API_KEY")
+    if env_key:
+        env_identity = os.getenv("BRIDGE_API_IDENTITY", "local-user")
+        auth_manager._api_keys[env_key] = {
+            "identity": env_identity,
+            "metadata": {"source": "environment", "persistent": False},
+        }
+
+    for key, identity in raw_keys.items():
+        if isinstance(identity, dict):
+            identity_value = identity.get("identity", str(identity))
+        else:
+            identity_value = str(identity)
+        auth_manager._api_keys[key] = {
+            "identity": identity_value,
+            "metadata": {"source": "config", "persistent": True},
+        }
 
 def _run_service_manager(action):
     """Run a service action via the PowerShell script. Returns (success, output)."""
