@@ -24,6 +24,11 @@ from core.mcp import mcp_translator, mcp_normalizer, mcp_session_manager
 from core.governance import init_governance, auth_manager, rate_limiter
 from core.config import load_config
 from core.tool_compat import drop_optional_tools_for_text_only_provider, request_requires_tools
+from core.feature_settings import (
+    apply_feature_defaults,
+    persist_provider_feature_defaults,
+    provider_feature_state,
+)
 from adapters.chatgpt_web_provider import create_chatgpt_web_provider
 from adapters.qwen_web_provider import create_qwen_web_provider
 from adapters.zai_web_provider import create_zai_web_provider
@@ -36,7 +41,7 @@ SWAGGER_TEMPLATE = {
     "info": {
         "title": "Hooshka Web Gateway API",
         "description": "Hooshka Web Gateway exposes one governed OpenAI-compatible local API for supported Web-chat providers. Provider-specific browser/session/transport behavior remains behind exact fail-closed routing.",
-        "version": "0.6.6",
+        "version": "0.7.0",
         "contact": {
             "name": "Hooshka Web Gateway",
         },
@@ -308,6 +313,10 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                 cdp_url=pconfig.config.get("cdp_url", "http://127.0.0.1:9224"),
                 chatgpt_url=pconfig.config.get("chatgpt_url", "https://chatgpt.com"),
                 priority=pconfig.priority,
+                **{
+                    k: v for k, v in pconfig.config.items()
+                    if k not in {"adapter", "cdp_url", "chatgpt_url"}
+                },
             )
             provider_registry.register(provider)
             rate_limiter.set_rate(pconfig.provider_id, pconfig.config.get("requests_per_minute", 20))
@@ -376,7 +385,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                 "code_only": data.get("code_only", False),
                 "save_to": data.get("save_to"),
                 "thinking": data.get("thinking"),
-                "search": data.get("search", False),
+                "search": data.get("search"),
                 "upstream_model": data.get("upstream_model"),
             },
         )
@@ -573,10 +582,58 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                         "files": p.capabilities.files,
                         "transport_mode": p.capabilities.transport_mode,
                     },
+                    "features": provider_feature_state(p),
                 }
                 for p in providers
             ],
             "default": provider_registry.get_default().provider_id if provider_registry.get_default() else None,
+        })
+
+    @app.route("/v1/providers/<provider_id>/features", methods=["GET", "PUT"])
+    def provider_features(provider_id: str):
+        provider = provider_registry.get(provider_id)
+        if provider is None:
+            return jsonify({"error": {
+                "message": f"Unknown provider: {provider_id}",
+                "type": "invalid_request_error",
+                "code": "unknown_provider",
+            }}), 404
+
+        if request.method == "GET":
+            return jsonify({
+                "provider": provider_id,
+                "features": provider_feature_state(provider),
+            })
+
+        body = request.get_json(force=True) or {}
+        requested = body.get("defaults", body)
+        if not isinstance(requested, dict):
+            return jsonify({"error": {
+                "message": "Feature settings must be an object",
+                "type": "invalid_request_error",
+                "code": "invalid_feature_setting",
+            }}), 400
+
+        try:
+            state = persist_provider_feature_defaults(provider, requested, config_path)
+        except ValueError as exc:
+            return jsonify({"error": {
+                "message": str(exc),
+                "type": "invalid_request_error",
+                "code": "invalid_feature_setting",
+            }}), 400
+        except Exception as exc:
+            logger.exception("Failed to persist provider feature settings")
+            return jsonify({"error": {
+                "message": str(exc),
+                "type": "configuration_error",
+                "code": "feature_settings_persist_failed",
+            }}), 500
+
+        return jsonify({
+            "provider": provider_id,
+            "features": state,
+            "persisted": True,
         })
 
     @app.route("/v1/models", methods=["GET"])
@@ -669,6 +726,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             }}), 400
 
         g.selected_provider_id = provider.provider_id
+        apply_feature_defaults(req, provider)
         drop_optional_tools_for_text_only_provider(req, provider)
 
         try:
@@ -830,6 +888,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             }}), 400
 
         g.selected_provider_id = provider.provider_id
+        apply_feature_defaults(req, provider)
         drop_optional_tools_for_text_only_provider(req, provider)
 
         try:
@@ -923,6 +982,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             }}), 400
 
         g.selected_provider_id = provider.provider_id
+        apply_feature_defaults(req, provider)
         drop_optional_tools_for_text_only_provider(req, provider)
 
         try:

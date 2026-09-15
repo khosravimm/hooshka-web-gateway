@@ -39,8 +39,9 @@ class FakeDeepSeekTransport:
     async def health(self):
         return self.authenticated
 
-    async def stream_text(self, prompt, *, new_chat=True):
+    async def stream_text(self, prompt, *, new_chat=True, thinking=False, search=False):
         self.prompts.append(prompt)
+        self.last_feature_state = {"thinking": thinking, "search": search}
         yield {"type": "text_delta", "text": self.text, "conversation_id": self.last_conversation_url}
 
     async def close(self):

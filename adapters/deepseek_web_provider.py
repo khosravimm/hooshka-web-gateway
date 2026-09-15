@@ -62,7 +62,7 @@ class DeepSeekWebProvider(Provider):
             embeddings=False,
             max_context_tokens=128_000,
             supported_models=["deepseek-web"],
-            search=False,
+            search=True,
             reasoning=True,
             files=False,
             transport_mode="browser_ui",
@@ -121,7 +121,13 @@ class DeepSeekWebProvider(Provider):
         await self._require_authenticated_session()
         pieces = []
         conversation_id = ""
-        async for event in self._browser.stream_text(self._request_text(request), new_chat=True):
+        options = request.provider_options or {}
+        async for event in self._browser.stream_text(
+            self._request_text(request),
+            new_chat=True,
+            thinking=bool(options.get("thinking", False)),
+            search=bool(options.get("search", False)),
+        ):
             pieces.append(event.get("text") or "")
             conversation_id = event.get("conversation_id") or conversation_id
         response_text = "".join(pieces)
@@ -187,6 +193,7 @@ class DeepSeekWebProvider(Provider):
                 "streaming_mode": "reconstructed",
                 "conversation_id": self._browser.last_conversation_url,
                 "block_signals": dict(self._browser.last_block_signals or {}),
+                "features": dict(getattr(self._browser, "last_feature_state", {}) or {}),
             },
         )
 
@@ -251,7 +258,7 @@ def create_deepseek_web_provider(
                 embeddings=False,
                 max_context_tokens=128_000,
                 supported_models=["deepseek-web"],
-                search=False,
+                search=True,
                 reasoning=True,
                 files=False,
                 transport_mode="browser_ui",

@@ -1,6 +1,6 @@
 # Hooshka Web Gateway — Start Here
 
-**Current baseline:** 0.6.6
+**Current baseline:** 0.7.0
 **Module id:** `web_gateway`
 **Current local checkout:** `D:\Code\mcp-web-bridge` (legacy directory name; canonical repository id is `hooshka-web-gateway`)
 **Windows service:** `HooshkaWebGateway`
@@ -38,7 +38,7 @@ Run the deterministic test suite:
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Current deterministic baseline verified on 2026-09-15: **127 passed**. Current KiloGate-WM E2 tool-capable smoke evidence covers `chatgpt-web`, `qwen:qwen3.8-max`, `zai-web` on `glm-5.2`, and `deepseek-web`. Explicit models outside those certified baselines remain separately gated.
+Current deterministic baseline verified on 2026-09-15: **129 passed**. Current KiloGate-WM E2 tool-capable smoke evidence covers `chatgpt-web`, `qwen:qwen3.8-max`, `zai-web` on `glm-5.2`, and `deepseek-web`. Explicit models outside those certified baselines remain separately gated.
 
 ## Read next
 

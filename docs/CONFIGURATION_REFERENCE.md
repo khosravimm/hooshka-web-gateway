@@ -29,6 +29,26 @@ Important fields:
 
 Current baseline uses a ChatGPT Web CDP/browser path and advertises tools only because the tool path has E2 evidence.
 
+## Thinking and Search defaults
+
+Every Web Chat provider can expose persistent defaults:
+
+```yaml
+config:
+  feature_defaults:
+    thinking: false
+    search: false
+  feature_controls:
+    thinking: true
+    search: true
+```
+
+`feature_defaults` is user preference and can be changed through the API or Control Panel. `feature_controls` records whether the gateway has an implemented provider control path; it is not a preference.
+
+Request-level `thinking` and `search` override provider defaults. Omitted values inherit the defaults. Unsupported or unverifiable requested states fail closed.
+
+See `WEBCHAT_FEATURE_CONTROLS.md` for mappings and evidence levels.
+
 ## Qwen Web
 
 Canonical model: `qwen-web`.

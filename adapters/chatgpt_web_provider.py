@@ -246,6 +246,9 @@ class ChatGPTWebProvider(Provider):
             # Canonical gateway model id. Do not claim arbitrary upstream model
             # aliases that the Web UI does not prove or expose deterministically.
             supported_models=["chatgpt-web"],
+            search=True,
+            reasoning=True,
+            transport_mode="browser_ui",
         )
 
     async def health_check(self) -> bool:
@@ -518,10 +521,25 @@ class ChatGPTWebProvider(Provider):
             message,
         )
 
-    async def _send_message(self, message: str):
+    async def _send_message(self, message: str, *, search: bool = False):
         if self._page is None:
             raise ProviderError("Page is not initialized", "page_not_initialized", self.provider_id)
         await self._require_authenticated_session()
+
+        if search:
+            if len(message) > COMPOSER_FILL_THRESHOLD:
+                raise ProviderError(
+                    "ChatGPT Web search is not certified for large backend-intercept prompts",
+                    "unsupported_search_large_prompt",
+                    self.provider_id,
+                    {"message_length": len(message), "threshold": COMPOSER_FILL_THRESHOLD},
+                )
+            input_box = await self._resolve_composer()
+            await self._fill_composer(input_box, message)
+            await self._set_search_control(True)
+            send_btn = await self._resolve_send_button()
+            await send_btn.click(timeout=15000)
+            return
 
         if len(message) > COMPOSER_FILL_THRESHOLD:
             await self._send_message_via_backend_intercept(message)
@@ -546,6 +564,91 @@ class ChatGPTWebProvider(Provider):
         await self._fill_composer(input_box, message)
         send_btn = await self._resolve_send_button()
         await send_btn.click(timeout=15000)
+
+    async def _set_search_control(self, search: bool) -> bool:
+        """Set and verify the ChatGPT Web Search composer selection."""
+        if self._page is None:
+            raise ProviderError("Page is not initialized", "page_not_initialized", self.provider_id)
+
+        composer = await self._resolve_composer()
+        form = composer.locator("xpath=ancestor::form[1]")
+        if await form.count() == 0:
+            raise ProviderError("ChatGPT composer form not found", "feature_control_failed", self.provider_id)
+
+        search_pill = form.locator('[data-inline-selection-pill][data-id="search"]')
+        active = await search_pill.count() > 0
+        if search and not active:
+            plus = form.locator('button[data-testid="composer-plus-btn"]').first
+            await plus.click(timeout=5000)
+            item = self._page.get_by_text("Web search", exact=True).last
+            await item.wait_for(state="visible", timeout=5000)
+            await item.click(timeout=5000)
+            await self._page.wait_for_timeout(120)
+            active = await search_pill.count() > 0
+        elif not search and active:
+            pill = search_pill.first
+            await pill.evaluate(
+                """e => {
+                  const selection = window.getSelection();
+                  const range = document.createRange();
+                  range.selectNode(e);
+                  selection.removeAllRanges();
+                  selection.addRange(range);
+                }"""
+            )
+            await self._page.keyboard.press("Backspace")
+            await self._page.wait_for_timeout(120)
+            active = await search_pill.count() > 0
+        if active != search:
+            raise ProviderError(
+                "ChatGPT search control verification failed",
+                "feature_control_failed",
+                self.provider_id,
+                {"feature": "search", "requested": search, "observed": active},
+            )
+        return active
+
+    async def _apply_feature_controls(self, *, thinking: bool, search: bool) -> dict:
+        """Apply and verify ChatGPT composer feature state before submission."""
+        if self._page is None:
+            raise ProviderError("Page is not initialized", "page_not_initialized", self.provider_id)
+
+        composer = await self._resolve_composer()
+        form = composer.locator("xpath=ancestor::form[1]")
+        if await form.count() == 0:
+            raise ProviderError("ChatGPT composer form not found", "feature_control_failed", self.provider_id)
+
+        # Thinking maps to the lowest available effort when disabled and to a
+        # non-zero effort when enabled. ChatGPT may still perform internal
+        # reasoning at the minimum effort, so this is an effort control rather
+        # than a guarantee of zero hidden reasoning.
+        effort_trigger = form.locator(
+            'button[aria-haspopup="menu"]:not([data-testid="composer-plus-btn"])'
+        ).first
+        await effort_trigger.click(timeout=5000)
+        power = self._page.locator('[role="menuitem"][aria-label="Power"]').first
+        await power.wait_for(state="visible", timeout=5000)
+        slider = self._page.locator('[data-model-reasoning-effort-slider] [role="slider"]').first
+        current = int((await slider.get_attribute("aria-valuenow")) or "0")
+        if thinking:
+            if current <= 0:
+                await power.press("ArrowRight")
+        else:
+            for _ in range(6):
+                await power.press("ArrowLeft")
+        await self._page.wait_for_timeout(120)
+        observed = int((await slider.get_attribute("aria-valuenow")) or "0")
+        await self._page.keyboard.press("Escape")
+        if (thinking and observed <= 0) or ((not thinking) and observed != 0):
+            raise ProviderError(
+                "ChatGPT thinking effort verification failed",
+                "feature_control_failed",
+                self.provider_id,
+                {"feature": "thinking", "requested": thinking, "observed_effort": observed},
+            )
+
+        active = await self._set_search_control(search)
+        return {"thinking": thinking, "search": active, "thinking_effort_index": observed}
 
     async def _send_message_via_backend_intercept(self, message: str):
         """Submit a large prompt through the authenticated frontend backend request.
@@ -952,6 +1055,12 @@ class ChatGPTWebProvider(Provider):
             await self._page.goto(self._chatgpt_url, wait_until="domcontentloaded", timeout=30000)
 
         file_paths = request.provider_options.get("file_paths", []) if request.provider_options else []
+        options = request.provider_options or {}
+        requested_search = bool(options.get("search", False))
+        applied_features = await self._apply_feature_controls(
+            thinking=bool(options.get("thinking", False)),
+            search=False,
+        )
 
         submission_started = False
         try:
@@ -1003,7 +1112,8 @@ class ChatGPTWebProvider(Provider):
                 # is ambiguous from the gateway's perspective and must never
                 # trigger an automatic replay of the same user turn.
                 submission_started = True
-                await self._send_message(f"{prefix}{chunk}")
+                await self._send_message(f"{prefix}{chunk}", search=requested_search)
+                applied_features["search"] = requested_search
                 if idx < len(chunks) - 1:
                     await asyncio.sleep(2)
 
@@ -1065,6 +1175,7 @@ class ChatGPTWebProvider(Provider):
                     "chunks_sent": len(chunks),
                     "downloads": downloads,
                     "conversation_id": conversation_id,
+                    "features": applied_features,
                 },
             )
         except PlaywrightTimeout as e:
@@ -1387,21 +1498,24 @@ def create_chatgpt_web_provider(
     cdp_url: str = "http://127.0.0.1:9224",
     chatgpt_url: str = "https://chatgpt.com",
     priority: int = 100,
+    **config_overrides,
 ) -> ChatGPTWebProvider:
+    provider_config = {
+        "cdp_url": cdp_url,
+        "chatgpt_url": chatgpt_url,
+        "adapter": adapter,
+        "require_authenticated": True,
+        "headless": False,
+        "timeout": 120,
+        "long_text_chunk_size": LONG_TEXT_CHUNK_SIZE,
+    }
+    provider_config.update(config_overrides)
     config = ProviderConfig(
         provider_id=provider_id,
         provider_type=ProviderType.CHATGPT_WEB,
         enabled=True,
         priority=priority,
-        config={
-            "cdp_url": cdp_url,
-            "chatgpt_url": chatgpt_url,
-            "adapter": adapter,
-            "require_authenticated": True,
-            "headless": False,
-            "timeout": 120,
-            "long_text_chunk_size": LONG_TEXT_CHUNK_SIZE,
-        },
+        config=provider_config,
         capabilities=ProviderCapabilities(
             chat_completion=True,
             # DOM provides buffered compatibility streaming; network mode can
@@ -1414,6 +1528,9 @@ def create_chatgpt_web_provider(
             embeddings=False,
             max_context_tokens=128000,
             supported_models=["chatgpt-web"],
+            search=True,
+            reasoning=True,
+            transport_mode="browser_ui",
         ),
     )
     return ChatGPTWebProvider(config)

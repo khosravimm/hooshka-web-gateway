@@ -173,11 +173,40 @@ The request normalizer currently recognizes options including:
 }
 ```
 
-A recognized option is not automatically supported by every provider. Check `/modes`.
+If `thinking` or `search` is omitted, the provider's persistent default is used. Check `/modes` for both `features.defaults` and `features.controls`. Unsupported or unverifiable feature state fails closed rather than being silently ignored.
+
+ChatGPT note: `thinking=false` maps to the lowest reasoning effort exposed by the current Web UI; it does not prove zero upstream internal reasoning.
+
+## GET /v1/providers/<provider-id>/features
+
+Returns persistent defaults and whether the provider exposes a controllable surface for each feature.
+
+```json
+{
+  "provider": "qwen-web",
+  "features": {
+    "defaults": {"thinking": false, "search": false},
+    "controls": {"thinking": true, "search": true}
+  }
+}
+```
+
+## PUT /v1/providers/<provider-id>/features
+
+Persists provider defaults to `config.yaml`.
+
+```json
+{
+  "thinking": true,
+  "search": false
+}
+```
+
+Request-level `thinking`/`search` values still override these defaults for that request.
 
 ### Tools
 
-Tools are currently accepted only where the provider capability advertises `tools=true`. The established ChatGPT Web path supports normalized tool calls; Qwen and Z.ai tools remain disabled until independent E2 tool-roundtrip acceptance.
+Tools are accepted only where the provider capability advertises `tools=true`. ChatGPT Web has normalized tool-call evidence; Qwen, Z.ai and DeepSeek also have KiloGate-WM E2 tool-capable smoke evidence on their certified baselines. Explicit model/tool combinations remain separately gated.
 
 Never assume an empty tool allow-list means wildcard access.
 

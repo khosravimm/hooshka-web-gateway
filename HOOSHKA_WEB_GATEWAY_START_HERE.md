@@ -9,7 +9,7 @@
 - **Product:** Hooshka Web Gateway
 - **Technical id:** `hooshka-web-gateway`
 - **Hooshka module id:** `web_gateway`
-- **Current baseline:** `0.6.6`
+- **Current baseline:** `0.7.0`
 - **Current local checkout:** `D:\Code\mcp-web-bridge` (legacy directory name retained for runtime compatibility)
 - **Canonical project/repository id:** `hooshka-web-gateway`
 - **Windows service:** `HooshkaWebGateway`
@@ -222,7 +222,7 @@ git status --short --branch
 Current deterministic baseline verified on 2026-09-15:
 
 ```text
-127 passed
+129 passed
 ```
 
 The compile gate intentionally targets tracked source/test paths and excludes `.runtime/`, which contains ignored operational artifacts rather than release source.
@@ -291,7 +291,7 @@ Stop testing immediately on:
 Current release:
 
 ```text
-v0.6.6
+v0.7.0
 ```
 
 Pre-canonical-migration rollback reference:

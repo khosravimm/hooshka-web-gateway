@@ -2,7 +2,7 @@
 
 > Repository-level discovery starts at `../HOOSHKA_WEB_GATEWAY_START_HERE.md`. Agents and humans should read that file first.
 
-**Release:** 0.6.6
+**Release:** 0.7.0
 **Canonical project:** `hooshka-web-gateway`
 **Module:** `web_gateway`
 
@@ -17,6 +17,7 @@
 | Day-to-day examples | `PRACTICAL_USAGE.md` |
 | Hooshka integrator | `HOOSHKA_INTEGRATION_GUIDE.md` |
 | Provider engineer | `PROVIDERS.md` |
+| Thinking/Search controls | `WEBCHAT_FEATURE_CONTROLS.md` |
 | Developer | `DEVELOPMENT_GUIDE.md` |
 | Security reviewer | `SECURITY_GOVERNANCE.md` |
 | Configuration change | `CONFIGURATION_REFERENCE.md` |
@@ -47,6 +48,7 @@
 - `CONFIGURATION_REFERENCE.md` — tracked config, provider fields, runtime credentials and change gate.
 - `OPERATIONS_RUNBOOK.md` — start/stop/restart, health sequence, provider runtime ownership and incidents.
 - `PROVIDERS.md` — provider capability matrix and provider-specific engineering notes.
+- `WEBCHAT_FEATURE_CONTROLS.md` — normalized Thinking/Search defaults, API/UI contract, provider mappings and evidence.
 - `SECURITY_GOVERNANCE.md` — trust boundaries, secrets, data governance, risk controls and incident classes.
 - `HOOSHKA_INTEGRATION_GUIDE.md` — stable `web_gateway` contract for Hooshka.
 - `DEVELOPMENT_GUIDE.md` — repository map, provider development workflow and release gates.
@@ -65,7 +67,7 @@
 Verified on 2026-09-15:
 
 ```text
-127 passed
+129 passed
 ```
 
 The compile gate targets tracked source/test locations and intentionally excludes ignored `.runtime/` operational artifacts.

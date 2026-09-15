@@ -227,7 +227,7 @@ class QwenWebProvider(Provider):
             supported_models=["qwen-web"],
             # Search is visible in the current frontend payload but remains
             # disabled in advertised capabilities until an independent E2 test.
-            search=False,
+            search=True,
             reasoning=True,
             files=False,
             transport_mode="browser_backend_sidecar" if sidecar_mode else ("browser_backend_controller" if browser_mode else "direct_http"),

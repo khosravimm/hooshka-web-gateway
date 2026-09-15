@@ -114,7 +114,7 @@ class ZaiWebProvider(Provider):
             embeddings=False,
             max_context_tokens=200_000,
             supported_models=["zai-web"],
-            search=False,
+            search=True,
             reasoning=True,
             files=False,
             transport_mode="browser_backend_controller",
@@ -209,6 +209,8 @@ class ZaiWebProvider(Provider):
         async for event in self._browser.stream_text(
             self._request_text(request),
             upstream_model=requested_upstream_model,
+            thinking=bool((request.provider_options or {}).get("thinking", False)),
+            search=bool((request.provider_options or {}).get("search", False)),
         ):
             if event.get("type") == "text_delta":
                 pieces.append(event.get("text") or "")
@@ -267,9 +269,6 @@ class ZaiWebProvider(Provider):
     ) -> ChatCompletionResponse:
         if not self.supports_model(request.model):
             raise ProviderError("Unsupported Z.ai model", "invalid_model", self.provider_id)
-        if (request.provider_options or {}).get("search"):
-            raise ProviderError("Z.ai search is not enabled until E2 validation passes", "unsupported_search", self.provider_id)
-
         content, tool_calls, finish_reason, chat_id, requested_upstream_model, upstream_model, model_evidence = await self._run_text(request)
 
         return ChatCompletionResponse(
@@ -290,6 +289,13 @@ class ZaiWebProvider(Provider):
                 "selected_model_label": getattr(self._browser, "last_selected_model_label", None),
                 "backend_request_model": getattr(self._browser, "last_backend_request_model", None),
                 "model_evidence": model_evidence,
+                "features": {
+                    "thinking": bool(getattr(self._browser, "last_backend_features", {}).get("enable_thinking")),
+                    "search": bool(getattr(self._browser, "last_backend_features", {}).get("web_search")),
+                    "reasoning_effort": getattr(self._browser, "last_backend_features", {}).get("reasoning_effort"),
+                    "source": "observed_frontend_completion_payload",
+                },
+                "backend_features": dict(getattr(self._browser, "last_backend_features", {}) or {}),
                 "browser_observability": {
                     "backend_response_status": getattr(self._browser, "last_backend_response_status", None),
                     "backend_response_content_type": getattr(self._browser, "last_backend_response_content_type", None),
@@ -306,9 +312,6 @@ class ZaiWebProvider(Provider):
     ) -> AsyncIterator[ChatCompletionChunk]:
         if not self.supports_model(request.model):
             raise ProviderError("Unsupported Z.ai model", "invalid_model", self.provider_id)
-        if (request.provider_options or {}).get("search"):
-            raise ProviderError("Z.ai search is not enabled until E2 validation passes", "unsupported_search", self.provider_id)
-
         if request.tools:
             content, tool_calls, finish_reason, chat_id, requested_upstream_model, upstream_model, model_evidence = await self._run_text(request)
             chunk_id = self._generate_id()

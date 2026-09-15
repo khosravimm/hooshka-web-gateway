@@ -222,7 +222,77 @@ class DeepSeekBrowserUITransport:
         await page.wait_for_timeout(200)
         await textarea.press("Enter")
 
-    async def stream_text(self, prompt: str, *, new_chat: bool = True) -> AsyncIterator[dict]:
+    async def _apply_feature_controls(self, page: Page, *, thinking: bool, search: bool) -> dict:
+        """Toggle DeepSeek Web Chat DeepThink/Search and verify visible state."""
+        async def set_control(pattern: str, requested: bool, feature: str) -> bool:
+            candidates = page.locator("button,[role='button'],div[role='button']")
+            count = await candidates.count()
+            target = None
+            for i in range(count):
+                node = candidates.nth(i)
+                try:
+                    if not await node.is_visible():
+                        continue
+                    label = " ".join(filter(None, [
+                        (await node.inner_text()).strip(),
+                        await node.get_attribute("aria-label"),
+                        await node.get_attribute("title"),
+                    ]))
+                    if re.search(pattern, label, re.I):
+                        target = node
+                        break
+                except Exception:
+                    continue
+            if target is None:
+                raise ProviderError(
+                    f"DeepSeek {feature} control not found",
+                    "feature_control_failed",
+                    self.provider_id,
+                    {"feature": feature, "requested": requested},
+                )
+
+            async def active_state() -> bool:
+                pressed = await target.get_attribute("aria-pressed")
+                if pressed in ("true", "false"):
+                    return pressed == "true"
+                selected = await target.get_attribute("aria-selected")
+                if selected in ("true", "false"):
+                    return selected == "true"
+                data_state = (await target.get_attribute("data-state") or "").lower()
+                if data_state in ("on", "checked", "active"):
+                    return True
+                if data_state in ("off", "unchecked", "inactive"):
+                    return False
+                cls = (await target.get_attribute("class") or "").lower()
+                return any(token in cls for token in ("active", "selected", "checked"))
+
+            observed = await active_state()
+            if observed != requested:
+                await target.click(timeout=5000)
+                await page.wait_for_timeout(180)
+                observed = await active_state()
+            if observed != requested:
+                raise ProviderError(
+                    f"DeepSeek {feature} control verification failed",
+                    "feature_control_failed",
+                    self.provider_id,
+                    {"feature": feature, "requested": requested, "observed": observed},
+                )
+            return observed
+
+        return {
+            "thinking": await set_control(r"deep\s*think|deepthink|reason", thinking, "thinking"),
+            "search": await set_control(r"(^|\b)(search|web search)(\b|$)", search, "search"),
+        }
+
+    async def stream_text(
+        self,
+        prompt: str,
+        *,
+        new_chat: bool = True,
+        thinking: bool = False,
+        search: bool = False,
+    ) -> AsyncIterator[dict]:
         if not prompt.strip():
             raise ProviderError("DeepSeek prompt is empty", "invalid_request", self.provider_id)
         async with self._lock:
@@ -232,6 +302,11 @@ class DeepSeekBrowserUITransport:
                 raise ProviderAuthError(self.provider_id, "DeepSeek Web Chat requires an authenticated browser session")
             if new_chat:
                 await self._start_new_chat(page)
+            self.last_feature_state = await self._apply_feature_controls(
+                page,
+                thinking=thinking,
+                search=search,
+            )
             before = await self._assistant_messages(page)
             before_count = len(before)
             await self._submit(page, prompt)

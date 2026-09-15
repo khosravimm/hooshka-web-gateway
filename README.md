@@ -2,7 +2,7 @@
 
 **Canonical id:** `hooshka-web-gateway`
 **Hooshka module:** `web_gateway`
-**Current release:** `0.6.6`
+**Current release:** `0.7.0`
 
 Hooshka Web Gateway is the unified local API gateway for governed access to supported Web-chat providers. It gives Hooshka, local agents and compatible clients one OpenAI-style interface while isolating provider-specific browser, session, frontend and transport behavior.
 
@@ -100,7 +100,7 @@ Historical research/evidence documents remain under `docs/`.
 git diff --check
 ```
 
-Current deterministic baseline verified on 2026-09-15: **127 passed**. DeepSeek, Z.ai and Qwen have KiloGate-WM E2 smoke evidence for read/search/write/edit/shell tool paths on their certified baselines. The compile gate excludes ignored `.runtime/` operational artifacts. Qwen certification is limited to `qwen3.8-max`; other explicit Qwen models require separate tool-execution evidence.
+Current deterministic baseline verified on 2026-09-15: **129 passed**. DeepSeek, Z.ai and Qwen have KiloGate-WM E2 smoke evidence for read/search/write/edit/shell tool paths on their certified baselines. The compile gate excludes ignored `.runtime/` operational artifacts. Qwen certification is limited to `qwen3.8-max`; other explicit Qwen models require separate tool-execution evidence.
 
 ## Security rules
 

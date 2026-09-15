@@ -54,6 +54,8 @@ class ZaiBrowserControllerTransport:
         self.last_session_mode: str = "unknown"
         self.last_selected_model_label: Optional[str] = None
         self.last_backend_request_model: Optional[str] = None
+        self.last_backend_features: dict = {}
+        self.last_backend_features_original: dict = {}
         self.last_requested_model: Optional[str] = None
         self.last_backend_response_status: Optional[int] = None
         self.last_backend_response_content_type: Optional[str] = None
@@ -77,8 +79,22 @@ class ZaiBrowserControllerTransport:
                 payload = json.loads(req.post_data or "{}")
                 model = payload.get("model") if isinstance(payload, dict) else None
                 self.last_backend_request_model = str(model) if model else None
+                features = payload.get("features") if isinstance(payload, dict) else None
+                if isinstance(features, dict):
+                    self.last_backend_features_original = {
+                        key: features.get(key)
+                        for key in (
+                            "enable_thinking",
+                            "reasoning_effort",
+                            "web_search",
+                            "auto_web_search",
+                        )
+                    }
+                else:
+                    self.last_backend_features_original = {}
             except Exception:
                 self.last_backend_request_model = None
+                self.last_backend_features_original = {}
             self._record_backend_lifecycle({
                 "event": "request",
                 "model": self.last_backend_request_model,
@@ -455,7 +471,14 @@ class ZaiBrowserControllerTransport:
                 {"model": upstream_model, "selected": selected[:80]},
             )
 
-    async def stream_text(self, prompt: str, *, upstream_model: Optional[str] = None) -> AsyncIterator[dict]:
+    async def stream_text(
+        self,
+        prompt: str,
+        *,
+        upstream_model: Optional[str] = None,
+        thinking: bool = False,
+        search: bool = False,
+    ) -> AsyncIterator[dict]:
         if not prompt.strip():
             raise ProviderError("Z.ai prompt is empty", "invalid_request", self.provider_id)
 
@@ -472,6 +495,8 @@ class ZaiBrowserControllerTransport:
             # Evidence must reflect an observed backend request, not the requested
             # model. The request listener sets this only when it sees the payload.
             self.last_backend_request_model = None
+            self.last_backend_features = {}
+            self.last_backend_features_original = {}
             start = time.monotonic()
             first_deadline = start + self.first_event_timeout
             total_deadline = start + self.total_timeout
@@ -479,8 +504,40 @@ class ZaiBrowserControllerTransport:
             emitted = ""
             reasoning_emitted = ""
             committed = False
+            feature_route_installed = False
+            feature_verified = False
+
+            async def feature_route(route, req):
+                try:
+                    payload = json.loads(req.post_data or "{}")
+                    if not isinstance(payload, dict):
+                        raise ValueError("completion payload is not an object")
+                    features = payload.get("features")
+                    if not isinstance(features, dict):
+                        features = {}
+                        payload["features"] = features
+                    features["enable_thinking"] = bool(thinking)
+                    features["reasoning_effort"] = "max" if thinking else "low"
+                    features["web_search"] = bool(search)
+                    features["auto_web_search"] = bool(search)
+                    await route.continue_(post_data=json.dumps(payload, ensure_ascii=False))
+                    self.last_backend_features = {
+                        key: features.get(key)
+                        for key in (
+                            "enable_thinking",
+                            "reasoning_effort",
+                            "web_search",
+                            "auto_web_search",
+                        )
+                    }
+                except Exception:
+                    logger.exception("Z.ai feature payload rewrite failed")
+                    await route.abort("failed")
 
             try:
+                await page.route("**/api/chat/completions**", feature_route)
+                await page.route("**/api/v2/chat/completions**", feature_route)
+                feature_route_installed = True
                 await page.evaluate(
                     """(prompt) => {
                       window.postMessage(
@@ -524,6 +581,22 @@ class ZaiBrowserControllerTransport:
                         "marker_seen": signal.marker_seen,
                         "backend_request_seen": signal.backend_request_seen,
                     }
+                    if self.last_backend_request_model and not feature_verified:
+                        observed = dict(self.last_backend_features or {})
+                        expected = {
+                            "enable_thinking": bool(thinking),
+                            "reasoning_effort": "max" if thinking else "low",
+                            "web_search": bool(search),
+                            "auto_web_search": bool(search),
+                        }
+                        if any(observed.get(key) != value for key, value in expected.items()):
+                            raise ProviderError(
+                                "Z.ai feature control verification failed",
+                                "feature_control_failed",
+                                self.provider_id,
+                                {"expected": expected, "observed": observed},
+                            )
+                        feature_verified = True
                     if snap.get("matched"):
                         reasoning = snap.get("reasoning") or ""
                         if reasoning != reasoning_emitted:
@@ -568,6 +641,13 @@ class ZaiBrowserControllerTransport:
                             )
 
                         if snap.get("done") and snap.get("phase") == "done":
+                            if not feature_verified:
+                                raise ProviderError(
+                                    "Z.ai completion finished without feature-control evidence",
+                                    "feature_control_failed",
+                                    self.provider_id,
+                                    {"thinking": thinking, "search": search},
+                                )
                             return
 
                     if now - last_meaningful > self.idle_timeout:
@@ -581,6 +661,13 @@ class ZaiBrowserControllerTransport:
                     except Exception:
                         logger.debug("Z.ai active-generation cancel hook failed", exc_info=True)
                 raise
+            finally:
+                if feature_route_installed:
+                    try:
+                        await page.unroute("**/api/chat/completions**", feature_route)
+                        await page.unroute("**/api/v2/chat/completions**", feature_route)
+                    except Exception:
+                        logger.debug("Z.ai feature route cleanup failed", exc_info=True)
 
     async def cancel_active_generation(self, reason: str = "client_cancelled") -> dict:
         """Best-effort click of the provider Web Chat stop/cancel control."""

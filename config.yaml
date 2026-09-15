@@ -18,6 +18,12 @@ providers:
     headless: false
     timeout: 120
     long_text_chunk_size: 2048
+    feature_defaults:
+      thinking: false
+      search: false
+    feature_controls:
+      thinking: true
+      search: true
   capabilities:
     chat_completion: true
     streaming: true
@@ -28,6 +34,10 @@ providers:
     max_context_tokens: 128000
     supported_models:
     - chatgpt-web
+    search: true
+    reasoning: true
+    files: false
+    transport_mode: browser_ui
 - id: qwen-web
   type: qwen_web
   enabled: true
@@ -36,7 +46,7 @@ providers:
     transport_mode: browser_controller
     default_upstream_model: qwen3.8-max
     tool_certified_upstream_models:
-      - qwen3.8-max
+    - qwen3.8-max
     require_authenticated: true
     profile_dir: .runtime\qwen-profile
     runtime_label: HWG-Qwen-Web-Controller
@@ -49,6 +59,12 @@ providers:
     total_timeout: 180
     poll_interval: 0.08
     requests_per_minute: 12
+    feature_defaults:
+      thinking: false
+      search: false
+    feature_controls:
+      thinking: true
+      search: true
   capabilities:
     chat_completion: true
     streaming: true
@@ -59,7 +75,7 @@ providers:
     max_context_tokens: 1000000
     supported_models:
     - qwen-web
-    search: false
+    search: true
     reasoning: true
     files: false
     transport_mode: browser_backend_controller
@@ -84,6 +100,12 @@ providers:
     connect_timeout: 10
     header_timeout: 30
     requests_per_minute: 6
+    feature_defaults:
+      thinking: false
+      search: false
+    feature_controls:
+      thinking: true
+      search: true
   capabilities:
     chat_completion: true
     streaming: true
@@ -94,7 +116,7 @@ providers:
     max_context_tokens: 128000
     supported_models:
     - zai-web
-    search: false
+    search: true
     reasoning: true
     files: false
     transport_mode: browser_frontend_backend_sse_capture
@@ -114,6 +136,12 @@ providers:
     total_timeout: 180
     poll_interval: 0.5
     requests_per_minute: 4
+    feature_defaults:
+      thinking: false
+      search: false
+    feature_controls:
+      thinking: true
+      search: true
   capabilities:
     chat_completion: true
     streaming: true
@@ -124,7 +152,7 @@ providers:
     max_context_tokens: 128000
     supported_models:
     - deepseek-web
-    search: false
+    search: true
     reasoning: true
     files: false
     transport_mode: browser_ui

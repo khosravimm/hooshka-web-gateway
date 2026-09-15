@@ -2,13 +2,37 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
-## Unreleased
+## 0.7.0 - 2026-09-15
+
+### Added
+- Normalized per-provider `thinking` and `search` feature defaults.
+- Request-level `thinking` and `search` overrides for `/v1/chat/completions`, `/v1/chat/code`, and `/v1/chat/conversation`.
+- `GET/PUT /v1/providers/<provider-id>/features` for reading and persisting feature defaults.
+- Control Panel switches for Thinking and Search on every registered Web Chat provider.
+- Provider feature-state reporting under `/modes`.
+- `docs/WEBCHAT_FEATURE_CONTROLS.md` with provider mappings, fail-closed rules and evidence levels.
+
+### Changed
+- ChatGPT maps `thinking=false` to the minimum available reasoning effort and controls Web Search through the composer selection surface with post-change verification.
+- Qwen uses its existing browser-controller thinking/search flags under the common feature contract.
+- Z.ai rewrites only the authenticated frontend completion feature flags (`enable_thinking`, `reasoning_effort`, `web_search`, `auto_web_search`) before the Web Chat request is sent.
+- DeepSeek has DeepThink/Search UI-control wiring, but remains E2-pending while the project account is suspended.
 
 ### Fixed
 - ChatGPT composer verification now compares normalized content rather than raw character length, reducing false mismatches caused by whitespace, NBSP and zero-width characters.
-- Canonical documentation now reflects the actual local checkout path, current provider certification state and the 127-test deterministic baseline.
+- Canonical documentation now reflects the actual local checkout path and current provider certification state.
 - Documentation index mojibake and duplicate Stop Contract entries were removed.
-- The deterministic compile gate now excludes ignored `.runtime/` operational artifacts from release-source validation.
+- The deterministic compile gate excludes ignored `.runtime/` operational artifacts from release-source validation.
+- Service-manager CDP ownership now recognizes the two known Hooshka Web Gateway checkout roots without weakening the non-project Chrome guard.
+
+### Evidence
+- Deterministic suite: 129 passed.
+- ChatGPT control-only live test: Thinking/Search `off -> on -> off` verified without submitting a user message.
+- Public feature API persisted and restored Qwen defaults; Control Panel Thinking and Search switches were each exercised independently and restored to `false/false`.
+- Post-restart `/health`, `/ready`, and `/modes` passed with four providers and feature state exposed for all four.
+- Z.ai authenticated frontend payload observation confirmed the native feature fields used by the Web Chat request.
+- DeepSeek feature controls are implementation/E1 only until authenticated E2 retest is possible.
+- No E3 reliability claim is made.
 
 ## 0.6.6 - 2026-09-11
 

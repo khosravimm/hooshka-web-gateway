@@ -38,8 +38,9 @@ class FakeZaiTransport:
     async def model_catalog(self):
         return list(self._catalog)
 
-    async def stream_text(self, prompt, *, upstream_model=None):
+    async def stream_text(self, prompt, *, upstream_model=None, thinking=False, search=False):
         self.prompts.append(prompt)
+        self.last_features = {"thinking": thinking, "search": search}
         self.last_selected_model_label = "GLM-5.3" if upstream_model == "glm-5.3" else None
         self.last_backend_request_model = upstream_model
         model = upstream_model

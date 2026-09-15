@@ -13,6 +13,7 @@ from core.provider_registry import provider_registry
 from core.mcp import mcp_session_manager
 from core.governance import auth_manager, rate_limiter
 from core.config import load_config, deep_merge, get_default_config
+from core.feature_settings import persist_provider_feature_defaults, provider_feature_state
 
 control_panel_bp = Blueprint('control_panel', __name__, url_prefix='/panel')
 
@@ -192,6 +193,8 @@ DASHBOARD_HTML = """
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Priority</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Capabilities</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thinking</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Search</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Models</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                             </tr>
@@ -412,12 +415,49 @@ function updateProviders(data) {
             <td class="px-6 py-4 text-sm">
                 ${Object.entries(p.capabilities).filter(([k,v]) => v).map(([k]) => `<span class="mr-1 px-1 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">${k}</span>`).join('')}
             </td>
+            <td class="px-6 py-4 text-sm">
+                <label class="inline-flex items-center gap-2">
+                    <input type="checkbox"
+                        ${p.features?.defaults?.thinking ? 'checked' : ''}
+                        ${p.features?.controls?.thinking ? '' : 'disabled'}
+                        onchange="setProviderFeature('${p.id}', 'thinking', this.checked, this)">
+                    <span>${p.features?.controls?.thinking ? (p.features?.defaults?.thinking ? 'On' : 'Off') : 'N/A'}</span>
+                </label>
+            </td>
+            <td class="px-6 py-4 text-sm">
+                <label class="inline-flex items-center gap-2">
+                    <input type="checkbox"
+                        ${p.features?.defaults?.search ? 'checked' : ''}
+                        ${p.features?.controls?.search ? '' : 'disabled'}
+                        onchange="setProviderFeature('${p.id}', 'search', this.checked, this)">
+                    <span>${p.features?.controls?.search ? (p.features?.defaults?.search ? 'On' : 'Off') : 'N/A'}</span>
+                </label>
+            </td>
             <td class="px-6 py-4 text-sm">${(p.capabilities.supported_models || []).join(', ')}</td>
             <td class="px-6 py-4">
                 <button onclick="testProvider('${p.id}')" class="text-blue-600 hover:underline text-sm">Test</button>
             </td>
         </tr>
     `).join('');
+}
+
+async function setProviderFeature(providerId, feature, value, checkbox) {
+    const previous = !value;
+    checkbox.disabled = true;
+    try {
+        const resp = await fetch('/panel/api/providers/' + encodeURIComponent(providerId) + '/features', {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({[feature]: value})
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || data.message || 'Update failed');
+        await loadProviders();
+    } catch (e) {
+        checkbox.checked = previous;
+        checkbox.disabled = false;
+        alert('Feature update failed: ' + e.message);
+    }
 }
 
 function updateSessions(data) {
@@ -731,7 +771,8 @@ def _get_initial_providers():
                         "embeddings": p.capabilities.embeddings,
                         "max_context_tokens": p.capabilities.max_context_tokens,
                         "supported_models": p.capabilities.supported_models,
-                    }
+                    },
+                    "features": provider_feature_state(p),
                 }
                 for p in providers
             ]
@@ -884,11 +925,29 @@ def api_providers():
                     "embeddings": p.capabilities.embeddings,
                     "max_context_tokens": p.capabilities.max_context_tokens,
                     "supported_models": p.capabilities.supported_models,
-                }
+                },
+                "features": provider_feature_state(p),
             }
             for p in providers
         ]
     })
+
+@control_panel_bp.route('/api/providers/<provider_id>/features', methods=['GET', 'PUT'])
+def api_provider_features(provider_id):
+    provider = provider_registry.get(provider_id)
+    if not provider:
+        return jsonify({"error": "Provider not found"}), 404
+    if request.method == 'GET':
+        return jsonify({"provider": provider_id, "features": provider_feature_state(provider)})
+    data = request.get_json(force=True) or {}
+    try:
+        state = persist_provider_feature_defaults(provider, data, CONFIG_PATH)
+        return jsonify({"success": True, "provider": provider_id, "features": state})
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        logger.exception("Failed to update provider feature defaults")
+        return jsonify({"error": str(exc)}), 500
 
 @control_panel_bp.route('/api/sessions')
 def api_sessions():

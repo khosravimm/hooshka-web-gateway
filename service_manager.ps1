@@ -7,6 +7,11 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$ScriptDirItem = Get-Item -LiteralPath $ScriptDir -ErrorAction Stop
+if ($ScriptDirItem.LinkType -eq 'Junction' -and $ScriptDirItem.Target) {
+  $ScriptDir = [string]($ScriptDirItem.Target | Select-Object -First 1)
+}
+$CanonicalCheckoutRoot = 'D:\Code\hooshka-web-gateway'
 $ServiceName = 'HooshkaWebGateway'
 $LegacyServiceName = 'WebLLMBridge'
 $PythonExe = Join-Path $ScriptDir '.venv\Scripts\python.exe'
@@ -44,8 +49,19 @@ function Get-PortOwnerProcess([int]$Port) {
 function Assert-ProjectChromeOwnership([int]$Port, [string]$Profile, [string]$Label) {
   $owner = Get-PortOwnerProcess $Port
   if (-not $owner) { return $false }
-  $profileNeedle = [Regex]::Escape($Profile)
-  $isOwned = $owner.Name -eq 'chrome.exe' -and $owner.CommandLine -and $owner.CommandLine -match $profileNeedle
+  $acceptedProfiles = @($Profile)
+  if ($CanonicalCheckoutRoot -and (Test-Path $CanonicalCheckoutRoot)) {
+    $acceptedProfiles += (Join-Path (Join-Path $CanonicalCheckoutRoot '.runtime') (Split-Path $Profile -Leaf))
+  }
+  $isOwned = $false
+  if ($owner.Name -eq 'chrome.exe' -and $owner.CommandLine) {
+    foreach ($candidate in ($acceptedProfiles | Select-Object -Unique)) {
+      if ($owner.CommandLine -match [Regex]::Escape($candidate)) {
+        $isOwned = $true
+        break
+      }
+    }
+  }
   if (-not $isOwned) {
     throw "$Label CDP port $Port is owned by a non-project process (pid=$($owner.ProcessId), name=$($owner.Name)); refusing to attach"
   }
