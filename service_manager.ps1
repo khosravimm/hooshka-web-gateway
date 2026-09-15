@@ -282,11 +282,9 @@ switch ($Command) {
    Stop-Service $ServiceName -Force
    $runtimeCredential = Ensure-RuntimeCredential
    & $Nssm set $ServiceName AppEnvironmentExtra "BRIDGE_API_KEY=$($runtimeCredential.ApiKey)" "BRIDGE_API_IDENTITY=$($runtimeCredential.Identity)" | Out-Null
-   # Keep Qwen's authenticated CDP runtime alive across service restarts so
-   # the official-login session is not disturbed. Ensure-* verifies ownership
-   # and starts it only when it is missing.
-   Stop-ChatGPTChromeCdp
-   Stop-ZaiChromeCdp
+   # Keep authenticated provider CDP runtimes alive across service restarts.
+   # Restarting the gateway must not destroy provider login/session state.
+   # Ensure-* verifies ownership and starts a runtime only when it is missing.
    Ensure-ChatGPTChromeCdp
    Ensure-QwenChromeCdp
    Ensure-ZaiChromeCdp

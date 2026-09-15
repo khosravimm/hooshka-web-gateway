@@ -2,6 +2,11 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## Unreleased
+
+### Fixed
+- Gateway restart now preserves authenticated provider CDP runtimes instead of deliberately stopping ChatGPT/Z.ai browser sessions; explicit `stop` and `uninstall` still close project-owned runtimes.
+
 ## 0.7.0 - 2026-09-15
 
 ### Added
