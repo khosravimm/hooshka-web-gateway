@@ -6,6 +6,7 @@ All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` i
 
 ### Fixed
 - Gateway restart now preserves authenticated provider CDP runtimes instead of deliberately stopping ChatGPT/Z.ai browser sessions; explicit `stop` and `uninstall` still close project-owned runtimes.
+- Qwen provider metadata now reports the effective Thinking/Search booleans for both sidecar and browser-controller transports.
 
 ## 0.7.0 - 2026-09-15
 

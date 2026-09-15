@@ -674,6 +674,10 @@ class QwenWebProvider(Provider):
                     "provider": self.provider_id,
                     "transport_mode": "browser_backend_sidecar",
                     "streaming_mode": "buffered",
+                    "features": {
+                        "thinking": bool(opts.get("thinking", False)),
+                        "search": bool(opts.get("search", False)),
+                    },
                     "frontend_version": data.get("frontend_version"),
                     "session_mode": data.get("session_mode"),
                     "conversation_id": data.get("conversation_id"),
@@ -759,6 +763,10 @@ class QwenWebProvider(Provider):
                     "provider": self.provider_id,
                     "transport_mode": "browser_backend_controller",
                     "streaming_mode": "reconstructed",
+                    "features": {
+                        "thinking": bool(opts.get("thinking", False)),
+                        "search": bool(opts.get("search", False)),
+                    },
                     "frontend_version": self._browser.frontend_version,
                     "session_mode": self._browser.last_session_mode,
                     "conversation_id": chat_id or None,
