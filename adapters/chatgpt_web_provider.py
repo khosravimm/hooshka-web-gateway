@@ -314,19 +314,36 @@ class ChatGPTWebProvider(Provider):
         self._context = None
         self._page = None
 
-    async def _composer_text_length(self, input_box) -> int:
-        actual_length = await input_box.evaluate(
+    @staticmethod
+    def _normalize_composer_text(value: str) -> str:
+        import re
+
+        text = str(value or "")
+        text = text.replace("\r\n", "\n").replace("\r", "\n").replace("\u00a0", " ")
+        text = re.sub(r"[\u200b\u200c\u200d\ufeff]", "", text)
+        text = re.sub(r"\s+", " ", text, flags=re.UNICODE).strip()
+        return text
+
+    async def _composer_text(self, input_box) -> str:
+        actual = await input_box.evaluate(
             """el => {
-              if (el.value !== undefined) return String(el.value || "").length;
+              if (el.value !== undefined) return String(el.value || "");
               const children = [...el.children];
               if (children.length) {
                 const nl = String.fromCharCode(10);
-                return children.map(x => x.textContent || "").join(nl).length;
+                return children.map(x => x.innerText || x.textContent || "").join(nl);
               }
-              return String(el.textContent || "").length;
+              return String(el.innerText || el.textContent || "");
             }"""
         )
-        return int(actual_length or 0)
+        return str(actual or "")
+
+    async def _composer_text_length(self, input_box) -> int:
+        return len(await self._composer_text(input_box))
+
+    async def _composer_content_matches(self, input_box, message: str) -> bool:
+        actual = await self._composer_text(input_box)
+        return self._normalize_composer_text(actual) == self._normalize_composer_text(message)
 
     async def _fill_composer(self, input_box, message: str) -> None:
         await input_box.click()
@@ -336,7 +353,7 @@ class ChatGPTWebProvider(Provider):
         except Exception as exc:
             fill_error = exc
 
-        if await self._composer_text_length(input_box) == len(message):
+        if await self._composer_content_matches(input_box, message):
             return
 
         # Current ChatGPT uses a ProseMirror contenteditable composer. Some
@@ -354,7 +371,7 @@ class ChatGPTWebProvider(Provider):
                 self.provider_id,
             ) from (fill_error or exc)
 
-        if await self._composer_text_length(input_box) != len(message):
+        if not await self._composer_content_matches(input_box, message):
             try:
                 await input_box.evaluate(
                     """(el, text) => {
@@ -374,12 +391,12 @@ class ChatGPTWebProvider(Provider):
             except Exception:
                 pass
 
-        actual_length = await self._composer_text_length(input_box)
-        if actual_length != len(message):
+        actual_text = await self._composer_text(input_box)
+        if self._normalize_composer_text(actual_text) != self._normalize_composer_text(message):
             logger.warning(
                 "ChatGPT composer verification failed: expected_len=%s actual_len=%s",
                 len(message),
-                actual_length,
+                len(actual_text),
             )
             raise ProviderError(
                 "ChatGPT composer content verification failed",
@@ -470,8 +487,19 @@ class ChatGPTWebProvider(Provider):
               }));
               await new Promise((resolve) => setTimeout(resolve, 800));
               const actual = composer.innerText || composer.textContent || composer.value || '';
-              if (actual.length !== text.length) {
-                return {ok: false, reason: 'composer_length_mismatch', actual_len: actual.length, expected_len: text.length, composer_visible: composerVisible, composer_rect: {x: Math.round(composerRect.x), y: Math.round(composerRect.y), w: Math.round(composerRect.width), h: Math.round(composerRect.height)}, viewport: {w: window.innerWidth, h: window.innerHeight}};
+              const norm = (value) => {
+                let v = String(value || '');
+                const lf = String.fromCharCode(10);
+                v = v.split(String.fromCharCode(13) + lf).join(lf);
+                v = v.split(String.fromCharCode(13)).join(lf);
+                v = v.split(String.fromCharCode(160)).join(' ');
+                for (const code of [0x200b, 0x200c, 0x200d, 0xfeff]) {
+                  v = v.split(String.fromCharCode(code)).join('');
+                }
+                return v.replace(new RegExp('\\s+', 'g'), ' ').trim();
+              };
+              if (norm(actual) !== norm(text)) {
+                return {ok: false, reason: 'composer_content_mismatch', actual_len: actual.length, expected_len: text.length, composer_visible: composerVisible, composer_rect: {x: Math.round(composerRect.x), y: Math.round(composerRect.y), w: Math.round(composerRect.width), h: Math.round(composerRect.height)}, viewport: {w: window.innerWidth, h: window.innerHeight}};
               }
               const buttons = Array.from(document.querySelectorAll('button,[role="button"]')).filter(visibleInViewport);
               const send = buttons.find((el) => {
