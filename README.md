@@ -37,7 +37,7 @@ Provider-specific fallback stays within a provider. There is no silent cross-pro
 ## Start
 
 ```powershell
-cd D:\Code\hooshka-web-gateway
+cd D:\Code\mcp-web-bridge
 .\service_manager.ps1 status
 .\service_manager.ps1 start
 ```
@@ -95,12 +95,12 @@ Historical research/evidence documents remain under `docs/`.
 ## Development gate
 
 ```powershell
-.\.venv\Scripts\python.exe -m compileall -q .
+.\.venv\Scripts\python.exe -m compileall -q main.py control_panel.py manage.py core adapters tests tools
 .\.venv\Scripts\python.exe -m pytest -q
 git diff --check
 ```
 
-Accepted deterministic baseline before DeepSeek integration: **70 passed**. DeepSeek, Z.ai and Qwen now have KiloGate-WM E2 smoke evidence for read/search/write/edit/shell tool paths on their certified baselines. Qwen certification is limited to `qwen3.8-max`; other explicit Qwen models require separate tool-execution evidence.
+Current deterministic baseline verified on 2026-09-15: **127 passed**. DeepSeek, Z.ai and Qwen have KiloGate-WM E2 smoke evidence for read/search/write/edit/shell tool paths on their certified baselines. The compile gate excludes ignored `.runtime/` operational artifacts. Qwen certification is limited to `qwen3.8-max`; other explicit Qwen models require separate tool-execution evidence.
 
 ## Security rules
 

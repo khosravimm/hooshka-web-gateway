@@ -1,4 +1,4 @@
-# Hooshka Web Gateway Ã¢â‚¬â€ Documentation Index
+# Hooshka Web Gateway — Documentation Index
 
 > Repository-level discovery starts at `../HOOSHKA_WEB_GATEWAY_START_HERE.md`. Agents and humans should read that file first.
 
@@ -34,30 +34,41 @@
 | KiloGate-WM Z.ai Gateway/Kilo audit | `KILOGATE_WM_ZAI_GATEWAY_KILO_AUDIT_2026-09-12.md` |
 | KiloGate-WM programming model status | `KILOGATE_WM_PROGRAMMING_MODEL_STATUS_2026-09-12.md` |
 | KiloGate-WM stop propagation report | `KILOGATE_WM_STOP_PROPAGATION_2026-09-12.md` |
+| KiloGate-WM Web Chat Stop Contracts | `KILOGATE_WM_WEBCHAT_STOP_CONTRACTS_2026-09-12.md` |
+| KiloGate-WM Active Stop Discovery | `KILOGATE_WM_ACTIVE_STOP_DISCOVERY_2026-09-12.md` |
 
 ## Canonical current documents
 
-- `START_HERE.md` Ã¢â‚¬â€ product orientation, current status and safe operating rules.
-- `ARCHITECTURE_CURRENT.md` Ã¢â‚¬â€ current component boundaries, routing, transports, retry and evidence model.
-- `BROWSER_OBSERVABILITY.md` Ã¢â‚¬â€ UI/frontend/backend/response evidence chain, drift detection and fail-closed model verification.
-- `API_REFERENCE.md` Ã¢â‚¬â€ endpoint contract, authentication, request/response and error semantics.
-- `PRACTICAL_USAGE.md` Ã¢â‚¬â€ PowerShell/Python/OpenAI-compatible examples and common operating scenarios.
-- `CONFIGURATION_REFERENCE.md` Ã¢â‚¬â€ tracked config, provider fields, runtime credentials and change gate.
-- `OPERATIONS_RUNBOOK.md` Ã¢â‚¬â€ start/stop/restart, health sequence, provider runtime ownership and incidents.
-- `PROVIDERS.md` Ã¢â‚¬â€ provider capability matrix and provider-specific engineering notes.
-- `SECURITY_GOVERNANCE.md` Ã¢â‚¬â€ trust boundaries, secrets, data governance, risk controls and incident classes.
-- `HOOSHKA_INTEGRATION_GUIDE.md` Ã¢â‚¬â€ stable `web_gateway` contract for Hooshka.
-- `DEVELOPMENT_GUIDE.md` Ã¢â‚¬â€ repository map, provider development workflow and release gates.
-- `TROUBLESHOOTING_CURRENT.md` Ã¢â‚¬â€ current diagnostic playbook.
-- `FINAL_REPORT_2026-09-10.md` Ã¢â‚¬â€ 0.5.0 release-level handoff.
-- `EXPLICIT_MODEL_SELECTION_EVIDENCE_2026-09-10.md` Ã¢â‚¬â€ dynamic catalog/default routing evidence and current Qwen quota state.
-- `KILO_E2_EVIDENCE_2026-09-11.md` Ã¢â‚¬â€ current Kilo CLI E2 evidence for ChatGPT, Z.ai and Qwen authenticated sessions.
-- `KILOGATE_WM_CONTROL_PIPELINE.md` — model-level control pipeline for certifying Web-chat models for Kilo programming, including thinking/search/stream/tool/recovery controls.
-- `KILOGATE_WM_PROGRAMMING_MODEL_STATUS_2026-09-12.md` — current programming allow-list and closure of held/uncertified explicit models.
-- `KILOGATE_WM_STOP_PROPAGATION_2026-09-12.md` — current evidence for Kilo/client Stop propagation to provider Web Chat generation.
+- `START_HERE.md` — product orientation, current status and safe operating rules.
+- `ARCHITECTURE_CURRENT.md` — current component boundaries, routing, transports, retry and evidence model.
+- `BROWSER_OBSERVABILITY.md` — UI/frontend/backend/response evidence chain, drift detection and fail-closed model verification.
+- `API_REFERENCE.md` — endpoint contract, authentication, request/response and error semantics.
+- `PRACTICAL_USAGE.md` — PowerShell/Python/OpenAI-compatible examples and common operating scenarios.
+- `CONFIGURATION_REFERENCE.md` — tracked config, provider fields, runtime credentials and change gate.
+- `OPERATIONS_RUNBOOK.md` — start/stop/restart, health sequence, provider runtime ownership and incidents.
+- `PROVIDERS.md` — provider capability matrix and provider-specific engineering notes.
+- `SECURITY_GOVERNANCE.md` — trust boundaries, secrets, data governance, risk controls and incident classes.
+- `HOOSHKA_INTEGRATION_GUIDE.md` — stable `web_gateway` contract for Hooshka.
+- `DEVELOPMENT_GUIDE.md` — repository map, provider development workflow and release gates.
+- `TROUBLESHOOTING_CURRENT.md` — current diagnostic playbook.
+- `FINAL_REPORT_2026-09-10.md` — 0.5.0 release-level handoff.
+- `EXPLICIT_MODEL_SELECTION_EVIDENCE_2026-09-10.md` — dynamic catalog/default routing evidence.
+- `KILO_E2_EVIDENCE_2026-09-11.md` — Kilo CLI E2 evidence for authenticated provider sessions.
+- `KILOGATE_WM_CONTROL_PIPELINE.md` — model-level control pipeline for programming certification.
+- `KILOGATE_WM_PROGRAMMING_MODEL_STATUS_2026-09-12.md` — current programming allow-list and held/uncertified explicit models.
+- `KILOGATE_WM_STOP_PROPAGATION_2026-09-12.md` — client Stop propagation evidence.
+- `KILOGATE_WM_DEEPSEEK_WEBCHAT_AUDIT_2026-09-12.md` — corrected DeepSeek Web Chat UI audit.
+- `KILOGATE_WM_DEEPSEEK_GATEWAY_KILO_AUDIT_2026-09-12.md` — DeepSeek Gateway/Kilo tool-capable E2 smoke audit.
 
-- `KILOGATE_WM_DEEPSEEK_WEBCHAT_AUDIT_2026-09-12.md` - corrected DeepSeek Web Chat UI audit; manual UI passes direct/tool-envelope/tool-result checks.
-- `KILOGATE_WM_DEEPSEEK_GATEWAY_KILO_AUDIT_2026-09-12.md` - DeepSeek Gateway provider and Kilo tool-capable E2 smoke audit; read/grep/write/edit/bash passed through Kilo.
+## Current deterministic baseline
+
+Verified on 2026-09-15:
+
+```text
+127 passed
+```
+
+The compile gate targets tracked source/test locations and intentionally excludes ignored `.runtime/` operational artifacts.
 
 ## Research, evidence and history
 
@@ -86,6 +97,3 @@ When a historical document conflicts with a canonical current document, use the 
 - E3: repeated predefined reliability evidence across independent windows
 
 No capability should be described as proven beyond its recorded evidence level.
-| KiloGate-WM Web Chat Stop Contracts | `KILOGATE_WM_WEBCHAT_STOP_CONTRACTS_2026-09-12.md` |
-| KiloGate-WM Web Chat Stop Contracts | `KILOGATE_WM_WEBCHAT_STOP_CONTRACTS_2026-09-12.md` |
-| KiloGate-WM Active Stop Discovery | `KILOGATE_WM_ACTIVE_STOP_DISCOVERY_2026-09-12.md` |

@@ -2,6 +2,14 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## Unreleased
+
+### Fixed
+- ChatGPT composer verification now compares normalized content rather than raw character length, reducing false mismatches caused by whitespace, NBSP and zero-width characters.
+- Canonical documentation now reflects the actual local checkout path, current provider certification state and the 127-test deterministic baseline.
+- Documentation index mojibake and duplicate Stop Contract entries were removed.
+- The deterministic compile gate now excludes ignored `.runtime/` operational artifacts from release-source validation.
+
 ## 0.6.6 - 2026-09-11
 
 ### Fixed

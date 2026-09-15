@@ -3,17 +3,19 @@
 ## Repository
 
 ```text
-D:\Code\hooshka-web-gateway
+D:\Code\mcp-web-bridge
 ```
 
 Default/release branch: `master`.
+
+The checkout directory still carries the legacy name `mcp-web-bridge`; the canonical project/repository id is `hooshka-web-gateway`. Rename/migration of the live checkout is an operational change and must be handled separately from documentation cleanup.
 
 ## Local setup
 
 Use the existing virtual environment for the accepted machine baseline:
 
 ```powershell
-cd D:\Code\hooshka-web-gateway
+cd D:\Code\mcp-web-bridge
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
@@ -101,7 +103,7 @@ No tools declared means empty allow-list, never wildcard.
 Minimum before commit:
 
 ```powershell
-.\.venv\Scripts\python.exe -m compileall -q .
+.\.venv\Scripts\python.exe -m compileall -q main.py control_panel.py manage.py core adapters tests tools
 .\.venv\Scripts\python.exe -m pytest -q
 git diff --check
 ```

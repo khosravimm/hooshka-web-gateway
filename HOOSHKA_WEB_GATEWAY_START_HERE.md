@@ -1,4 +1,4 @@
-# Hooshka Web Gateway Ã¢â‚¬â€ Start Here
+# Hooshka Web Gateway — Start Here
 
 > **Canonical discovery document for humans and agents**
 >
@@ -10,7 +10,8 @@
 - **Technical id:** `hooshka-web-gateway`
 - **Hooshka module id:** `web_gateway`
 - **Current baseline:** `0.6.6`
-- **Local path:** `D:\Code\hooshka-web-gateway`
+- **Current local checkout:** `D:\Code\mcp-web-bridge` (legacy directory name retained for runtime compatibility)
+- **Canonical project/repository id:** `hooshka-web-gateway`
 - **Windows service:** `HooshkaWebGateway`
 - **Local API:** `http://127.0.0.1:5000`
 - **Canonical GitHub repository:** `khosravimm/hooshka-web-gateway`
@@ -29,17 +30,17 @@ Hooshka itself should consume the gateway API and must not depend directly on pr
 
 | Provider | Canonical model | Basic chat | Stream API | Tools | Evidence/status |
 |---|---|---:|---:|---:|---|
-| ChatGPT Web | `chatgpt-web` | PASS | supported, buffered compatibility | PASS | E2 operational through Kilo; large agent prompt transport accepted |
-| Qwen Web | `qwen-web`, `qwen:qwen3.8-max` | PASS | reconstructed | disabled | E2 operational through Kilo `summary` agent; guest session rejected |
-| Z.ai Web | `zai-web`, `zai:glm-5.3` | PASS | reconstructed | disabled | E2 operational through Kilo `summary` agent; explicit GLM-5.3 evidence accepted |
-| DeepSeek Web | `deepseek-web` | blocked | blocked | blocked | account-state circuit breaker |
+| ChatGPT Web | `chatgpt-web` | PASS | buffered compatibility | PASS | E2 operational through Kilo; provider-side Stop certified for the Gateway/Kilo stream-disconnect path |
+| Qwen Web | `qwen-web`, `qwen:qwen3.8-max` | PASS | reconstructed | PASS on certified baseline | KiloGate-WM E2 tool-capable smoke PASS for `qwen3.8-max`; other explicit models require separate certification |
+| Z.ai Web | `zai-web`, `zai:glm-5.2` | PASS | reconstructed | PASS on certified baseline | KiloGate-WM E2 tool-capable smoke PASS for `glm-5.2`; explicit `glm-5.3` / `x-preview-l` remain Kilo HOLD |
+| DeepSeek Web | `deepseek-web` | PASS | buffered compatibility | PASS on certified baseline | KiloGate-WM E2 tool-capable smoke PASS; not E3/production-certified |
 
 **Evidence levels**
 
-- E0 Ã¢â‚¬â€ source/research evidence
-- E1 Ã¢â‚¬â€ deterministic unit/synthetic/prototype evidence
-- E2 Ã¢â‚¬â€ real Web-chat end-to-end evidence
-- E3 Ã¢â‚¬â€ repeated predefined reliability evidence across independent windows
+- E0 — source/research evidence
+- E1 — deterministic unit/synthetic/prototype evidence
+- E2 — real Web-chat end-to-end evidence
+- E3 — repeated predefined reliability evidence across independent windows
 
 The current release is an **E2 operational baseline**, not an E3 reliability claim.
 
@@ -181,14 +182,14 @@ Cleanup must use the owned profile path, not merely the URL `chat.z.ai`.
 
 ### DeepSeek Web
 
-Current state is blocked by provider account enforcement. Do not retry, rotate account/IP, or attempt circumvention. Human review is required before re-enabling live automation.
+Uses the project-owned DeepSeek browser profile on CDP port `9226`. The 2026-09-12 controlled audit and KiloGate-WM smoke evidence supersede the earlier blocked-account state. Anti-abuse/circuit-breaker rules remain in force if suspension, CAPTCHA, or challenge evidence reappears.
 
 ## First operational checks
 
 From PowerShell:
 
 ```powershell
-cd D:\Code\hooshka-web-gateway
+cd D:\Code\mcp-web-bridge
 .\service_manager.ps1 status
 .\service_manager.ps1 config
 Invoke-RestMethod http://127.0.0.1:5000/health
@@ -212,17 +213,19 @@ Never echo or copy `$GatewayKey` into shared output.
 Before committing code/config changes:
 
 ```powershell
-.\.venv\Scripts\python.exe -m compileall -q .
+.\.venv\Scripts\python.exe -m compileall -q main.py control_panel.py manage.py core adapters tests tools
 .\.venv\Scripts\python.exe -m pytest -q
 git diff --check
 git status --short --branch
 ```
 
-Accepted 0.6.6 deterministic baseline:
+Current deterministic baseline verified on 2026-09-15:
 
 ```text
-63 passed
+127 passed
 ```
+
+The compile gate intentionally targets tracked source/test paths and excludes `.runtime/`, which contains ignored operational artifacts rather than release source.
 
 Accepted 0.6.5 Kilo E2 evidence:
 
@@ -236,14 +239,14 @@ Do not run repeated live provider tests unless the change actually requires prov
 
 ## Main API surface
 
-- `GET /health` Ã¢â‚¬â€ process/liveness identity
-- `GET /ready` Ã¢â‚¬â€ provider readiness
-- `GET /health/deep` Ã¢â‚¬â€ deeper runtime/provider diagnostics
-- `GET /modes` Ã¢â‚¬â€ capability and transport provenance
-- `GET /v1/models` Ã¢â‚¬â€ canonical routable models
-- `POST /v1/chat/completions` Ã¢â‚¬â€ primary chat/stream endpoint
-- `POST /v1/chat/code` Ã¢â‚¬â€ code-oriented compatibility endpoint
-- `POST /v1/chat/conversation` Ã¢â‚¬â€ conversation continuity endpoint
+- `GET /health` — process/liveness identity
+- `GET /ready` — provider readiness
+- `GET /health/deep` — deeper runtime/provider diagnostics
+- `GET /modes` — capability and transport provenance
+- `GET /v1/models` — canonical routable models
+- `POST /v1/chat/completions` — primary chat/stream endpoint
+- `POST /v1/chat/code` — code-oriented compatibility endpoint
+- `POST /v1/chat/conversation` — conversation continuity endpoint
 
 See `docs/API_REFERENCE.md` and `docs/PRACTICAL_USAGE.md`.
 

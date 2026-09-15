@@ -1,8 +1,8 @@
-# Hooshka Web Gateway Ã¢â‚¬â€ Start Here
+# Hooshka Web Gateway — Start Here
 
 **Current baseline:** 0.6.6
 **Module id:** `web_gateway`
-**Local path:** `D:\Code\hooshka-web-gateway`
+**Current local checkout:** `D:\Code\mcp-web-bridge` (legacy directory name; canonical repository id is `hooshka-web-gateway`)
 **Windows service:** `HooshkaWebGateway`
 **API:** `http://127.0.0.1:5000`
 
@@ -12,10 +12,10 @@ Hooshka Web Gateway is the single local gateway for governed access to supported
 
 | Provider | Canonical model | Basic chat | Stream API | Tools | Notes |
 |---|---|---:|---:|---:|---|
-| ChatGPT Web | `chatgpt-web` | E2 PASS | supported, buffered compatibility | E2 PASS | project-owned ChatGPT CDP runtime on 9224; Kilo large-prompt E2 PASS |
-| Qwen Web | `qwen-web`, `qwen:qwen3.8-max` | E2 PASS | supported, reconstructed | disabled | Kilo text-only `summary` agent E2 PASS; guest rejected |
-| Z.ai Web | `zai-web`, `zai:glm-5.3` | E2 PASS | supported, reconstructed | disabled | Kilo text-only `summary` agent E2 PASS; tools disabled |
-| DeepSeek Web | `deepseek-web` | manual UI E2 PASS | not integrated | not certified | Web Chat account healthy; Gateway provider pending |
+| ChatGPT Web | `chatgpt-web` | E2 PASS | buffered compatibility | E2 PASS | project-owned ChatGPT CDP runtime on 9224; tool path and provider-side Stop path certified at E2 scope |
+| Qwen Web | `qwen-web`, `qwen:qwen3.8-max` | E2 PASS | reconstructed | E2 PASS on certified baseline | `qwen3.8-max` passed Kilo read/search/write/edit/bash smoke; other explicit models remain separately uncertified |
+| Z.ai Web | `zai-web`, `zai:glm-5.2` | E2 PASS | reconstructed | E2 PASS on certified baseline | `glm-5.2` passed Kilo read/search/write/edit/bash smoke; explicit `glm-5.3` / `x-preview-l` remain Kilo HOLD |
+| DeepSeek Web | `deepseek-web` | E2 PASS | buffered compatibility | E2 PASS on certified baseline | Gateway provider integrated on project-owned CDP 9226; Kilo read/search/write/edit/bash smoke passed |
 
 E2 means a real Web-chat end-to-end test passed. It does not mean long-duration/E3 reliability.
 
@@ -24,7 +24,7 @@ E2 means a real Web-chat end-to-end test passed. It does not mean long-duration/
 From PowerShell:
 
 ```powershell
-cd D:\Code\hooshka-web-gateway
+cd D:\Code\mcp-web-bridge
 .\service_manager.ps1 status
 .\service_manager.ps1 config
 Invoke-RestMethod http://127.0.0.1:5000/health
@@ -38,7 +38,7 @@ Run the deterministic test suite:
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Expected 0.6.6 baseline: **70 passed**. Current Kilo E2 evidence: `chatgpt-web` PASS; `zai:glm-5.3` PASS; `qwen:qwen3.8-max` PASS; Kilo Code optional-tools compatibility PASS for `qwen-web` and `zai-web`.
+Current deterministic baseline verified on 2026-09-15: **127 passed**. Current KiloGate-WM E2 tool-capable smoke evidence covers `chatgpt-web`, `qwen:qwen3.8-max`, `zai-web` on `glm-5.2`, and `deepseek-web`. Explicit models outside those certified baselines remain separately gated.
 
 ## Read next
 
