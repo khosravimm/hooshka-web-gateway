@@ -1577,10 +1577,37 @@ def api_stats():
     return jsonify(_build_request_history_window())
 
 def _model_usage_window(now=None, seconds=3600):
+    """Return model usage for the dashboard.
+
+    Always include configured providers so the UI can show zero-request rows and
+    make missing token accounting explicit instead of looking empty/broken.
+    """
     now = time.time() if now is None else now
     start = now - seconds
     audit_log = "logs/audit.log"
     by_key = {}
+
+    def ensure_row(provider, model):
+        provider = str(provider or "unknown")
+        model = str(model or provider or "unknown")
+        key = (provider, model)
+        return by_key.setdefault(key, {
+            "provider": provider,
+            "model": model,
+            "requests": 0,
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "tokens_available": False,
+        })
+
+    try:
+        for provider in provider_registry.list_providers(enabled_only=False):
+            model_state = _provider_model_state(provider)
+            ensure_row(provider.provider_id, model_state.get("default") or provider.provider_id)
+    except Exception:
+        pass
+
     chat_endpoints = ("/v1/chat/completions", "/v1/chat/code", "/v1/chat/conversation", "/v1/responses")
     if os.path.exists(audit_log):
         with open(audit_log, "r", encoding="utf-8") as f:
@@ -1599,16 +1626,7 @@ def _model_usage_window(now=None, seconds=3600):
                     model = str(entry.get("model") or "unknown")
                     if provider == "unknown" and model == "unknown":
                         continue
-                    key = (provider, model)
-                    row = by_key.setdefault(key, {
-                        "provider": provider,
-                        "model": model,
-                        "requests": 0,
-                        "prompt_tokens": 0,
-                        "completion_tokens": 0,
-                        "total_tokens": 0,
-                        "tokens_available": False,
-                    })
+                    row = ensure_row(provider, model)
                     row["requests"] += 1
                     for field in ("prompt_tokens", "completion_tokens", "total_tokens"):
                         value = int(entry.get(field, 0) or 0)
@@ -1617,7 +1635,7 @@ def _model_usage_window(now=None, seconds=3600):
                             row["tokens_available"] = True
                 except Exception:
                     pass
-    rows = sorted(by_key.values(), key=lambda r: (r["total_tokens"], r["requests"]), reverse=True)
+    rows = sorted(by_key.values(), key=lambda r: (r["requests"] > 0, r["total_tokens"], r["requests"], r["provider"]), reverse=True)
     return {"window_seconds": seconds, "models": rows}
 
 

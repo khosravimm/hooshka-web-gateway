@@ -159,3 +159,11 @@ def test_control_panel_config_summary_backend_exists():
     assert 'def _config_summary_from_dict' in text
     assert 'def _apply_config_summary' in text
     assert 'def api_config_summary' in text
+
+
+def test_model_usage_includes_zero_rows_for_configured_providers():
+    text = source()
+    assert 'Always include configured providers' in text
+    assert 'provider_registry.list_providers(enabled_only=False)' in text
+    assert 'ensure_row(provider.provider_id' in text
+    assert 'Zero-request rows' in Path('CHANGELOG.md').read_text(encoding='utf-8')

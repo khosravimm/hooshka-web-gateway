@@ -2,6 +2,15 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## 0.7.15 - 2026-09-16
+
+### Fixed
+- Model Usage now always shows every configured provider/default model, even when the last hour has zero model requests.
+- Zero-request rows explicitly show `0 req` and token accounting as unavailable instead of rendering an empty/no-data box.
+
+### Validation
+- Headless render verifies four model usage rows are visible for the four configured Web Chat providers.
+
 ## 0.7.13 - 2026-09-16
 
 ### Changed
