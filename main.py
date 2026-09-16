@@ -293,10 +293,9 @@ def create_app(config_path: str = "config.yaml") -> Flask:
     logger = logging.getLogger(__name__)
 
     # HTTP liveness must not share fate with slow/stuck Web-chat provider work.
-    # Waitress has a small fixed worker pool; if all workers block inside
-    # Playwright/browser-backed calls, even /health times out.  Keep provider
-    # work bounded and reject overload immediately so health/readiness/model
-    # discovery have free workers.
+    # Keep Web-chat provider work bounded and separate from the configurable
+    # Waitress HTTP worker pool. Provider overload returns explicit backpressure
+    # while fast liveness/readiness/model endpoints keep responding.
     provider_concurrency = int(
         os.getenv(
             "HOOSHKA_GW_PROVIDER_CONCURRENCY",
@@ -1169,12 +1168,19 @@ app = create_app()
 if __name__ == "__main__":
     config = load_config()
     server_config = config["server"]
+    http_threads = int(
+        os.getenv(
+            "HOOSHKA_GW_HTTP_THREADS",
+            str(server_config.get("threads", 12)),
+        )
+    )
+    http_threads = max(4, http_threads)
     from waitress import serve
 
     serve(
         app,
         host=server_config["host"],
         port=server_config["port"],
-        threads=4,
+        threads=http_threads,
     )
 

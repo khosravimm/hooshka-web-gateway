@@ -2,6 +2,8 @@ server:
   host: 127.0.0.1
   port: 5000
   debug: false
+  threads: 12
+  provider_concurrency: 2
 cdp:
   url: http://127.0.0.1:9224
   timeout: 30000

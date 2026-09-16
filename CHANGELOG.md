@@ -2,6 +2,17 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## 0.7.8 - 2026-09-16
+
+### Fixed
+- Split the Waitress HTTP worker pool from the bounded provider worker pool.
+- Replaced hardcoded `threads=4` with configurable `server.threads` and `HOOSHKA_GW_HTTP_THREADS`, defaulting to 12 HTTP workers.
+- Kept provider concurrency separately bounded by `server.provider_concurrency` / `HOOSHKA_GW_PROVIDER_CONCURRENCY` so browser-backed Web Chat work cannot starve fast endpoints.
+
+### Validation
+- Regression test covers configurable HTTP workers and separate provider pool configuration.
+- Operational probes showed `/health`, `/ready`, and `/v1/models` staying responsive while provider inflight remained zero.
+
 ## 0.7.7 - 2026-09-16
 
 ### Fixed

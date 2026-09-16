@@ -79,3 +79,14 @@ def test_async_timeout_is_recorded_for_operations_diagnostics():
     assert "FutureTimeoutError" in run_async_body
     assert "_provider_timeouts += 1" in run_async_body
     assert "Provider async operation timed out" in run_async_body
+
+
+def test_http_workers_are_configurable_and_separate_from_provider_pool():
+    text = source()
+    config = (ROOT / "config.yaml").read_text(encoding="utf-8-sig")
+    assert "HOOSHKA_GW_HTTP_THREADS" in text
+    assert 'server_config.get("threads", 12)' in text
+    assert "threads=http_threads" in text
+    assert "HOOSHKA_GW_PROVIDER_CONCURRENCY" in text
+    assert "provider_concurrency: 2" in config
+    assert "threads: 12" in config
