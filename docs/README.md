@@ -2,7 +2,7 @@
 
 > Repository-level discovery starts at `../HOOSHKA_WEB_GATEWAY_START_HERE.md`. Agents and humans should read that file first.
 
-**Release:** 0.7.0
+**Release:** 0.7.1
 **Canonical project:** `hooshka-web-gateway`
 **Module:** `web_gateway`
 
@@ -18,6 +18,7 @@
 | Hooshka integrator | `HOOSHKA_INTEGRATION_GUIDE.md` |
 | Provider engineer | `PROVIDERS.md` |
 | Thinking/Search controls | `WEBCHAT_FEATURE_CONTROLS.md` |
+| Thinking/Search E2 matrix | `WEBCHAT_FEATURE_MATRIX_E2_2026-09-16.md` |
 | Developer | `DEVELOPMENT_GUIDE.md` |
 | Security reviewer | `SECURITY_GOVERNANCE.md` |
 | Configuration change | `CONFIGURATION_REFERENCE.md` |
@@ -49,6 +50,7 @@
 - `OPERATIONS_RUNBOOK.md` — start/stop/restart, health sequence, provider runtime ownership and incidents.
 - `PROVIDERS.md` — provider capability matrix and provider-specific engineering notes.
 - `WEBCHAT_FEATURE_CONTROLS.md` — normalized Thinking/Search defaults, API/UI contract, provider mappings and evidence.
+- `WEBCHAT_FEATURE_MATRIX_E2_2026-09-16.md` — authenticated 4-provider Thinking/Search E2 matrix.
 - `SECURITY_GOVERNANCE.md` — trust boundaries, secrets, data governance, risk controls and incident classes.
 - `HOOSHKA_INTEGRATION_GUIDE.md` — stable `web_gateway` contract for Hooshka.
 - `DEVELOPMENT_GUIDE.md` — repository map, provider development workflow and release gates.
@@ -64,10 +66,10 @@
 
 ## Current deterministic baseline
 
-Verified on 2026-09-15:
+Verified on 2026-09-16:
 
 ```text
-129 passed
+131 passed
 ```
 
 The compile gate targets tracked source/test locations and intentionally excludes ignored `.runtime/` operational artifacts.

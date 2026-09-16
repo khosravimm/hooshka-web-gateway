@@ -579,10 +579,10 @@ class ChatGPTWebProvider(Provider):
         active = await search_pill.count() > 0
         if search and not active:
             plus = form.locator('button[data-testid="composer-plus-btn"]').first
-            await plus.click(timeout=5000)
+            await self._click_feature_control(plus, "search_menu")
             item = self._page.get_by_text("Web search", exact=True).last
             await item.wait_for(state="visible", timeout=5000)
-            await item.click(timeout=5000)
+            await self._click_feature_control(item, "web_search")
             await self._page.wait_for_timeout(120)
             active = await search_pill.count() > 0
         elif not search and active:
@@ -608,6 +608,113 @@ class ChatGPTWebProvider(Provider):
             )
         return active
 
+    async def _click_feature_control(self, locator, feature_surface: str) -> None:
+        """Click an already-visible feature control and let state verification decide.
+
+        ChatGPT's React/Radix composer pills can stay visibly usable while their
+        layout never satisfies Playwright's stability heuristic. Requiring
+        visibility/enabled state before a DOM click avoids that false negative;
+        callers still verify the resulting thinking/search state and fail closed.
+        """
+        count = await locator.count()
+        visible = bool(count) and await locator.is_visible()
+        enabled = bool(count) and await locator.is_enabled()
+        if not count or not visible or not enabled:
+            details = {
+                "surface": feature_surface,
+                "count": count,
+                "visible": visible,
+                "enabled": enabled,
+            }
+            if count:
+                for attr in ("aria-expanded", "data-state", "aria-label"):
+                    try:
+                        details[attr] = await locator.get_attribute(attr)
+                    except Exception:
+                        pass
+            raise ProviderError(
+                "ChatGPT feature control is not actionable",
+                "feature_control_failed",
+                self.provider_id,
+                details,
+            )
+        try:
+            await locator.click(timeout=3000, force=True)
+            return
+        except Exception as force_exc:
+            try:
+                await locator.dispatch_event("click")
+                return
+            except Exception as dispatch_exc:
+                raise ProviderError(
+                    "ChatGPT feature control click failed",
+                    "feature_control_failed",
+                    self.provider_id,
+                    {"surface": feature_surface},
+                ) from dispatch_exc
+
+    async def _resolve_effort_trigger(self):
+        """Find the visible reasoning-effort menu near the active composer.
+
+        The current ChatGPT DOM no longer guarantees that the effort pill is a
+        descendant of the composer's <form>.  Geometry is used only to narrow
+        visible menu buttons to the composer row; the selected candidate must
+        also have non-empty text and cannot be the composer-plus control.
+        """
+        deadline = asyncio.get_running_loop().time() + 10
+        last_count = 0
+        last_total = 0
+        last_composer_box = None
+        last_visible_labels = []
+        while asyncio.get_running_loop().time() < deadline:
+            composer = await self._resolve_composer()
+            composer_box = await composer.bounding_box()
+            if not composer_box:
+                await asyncio.sleep(0.15)
+                continue
+            last_composer_box = composer_box
+            candidates = self._page.locator(
+                'button[aria-haspopup="menu"]:not([data-testid="composer-plus-btn"])'
+            )
+            last_total = await candidates.count()
+            matches = []
+            visible_labels = []
+            for idx in range(min(last_total, 64)):
+                button = candidates.nth(idx)
+                try:
+                    if not await button.is_visible() or not await button.is_enabled():
+                        continue
+                    text = (await button.inner_text()).strip()
+                    if text and len(visible_labels) < 8:
+                        visible_labels.append(text[:80])
+                    box = await button.bounding_box()
+                    if not text or not box or not composer_box:
+                        continue
+                    composer_mid = composer_box["y"] + (composer_box["height"] / 2)
+                    button_mid = box["y"] + (box["height"] / 2)
+                    if abs(button_mid - composer_mid) <= 64:
+                        matches.append(button)
+                except Exception:
+                    continue
+            last_visible_labels = visible_labels
+            last_count = len(matches)
+            if last_count == 1:
+                return matches[0]
+            await asyncio.sleep(0.15)
+        raise ProviderError(
+            "ChatGPT reasoning effort control could not be resolved uniquely",
+            "feature_control_failed",
+            self.provider_id,
+            {
+                "surface": "reasoning_effort_menu",
+                "candidate_count": last_count,
+                "menu_button_count": last_total,
+                "composer_box": last_composer_box,
+                "visible_menu_labels": last_visible_labels,
+                "url": self._page.url,
+            },
+        )
+
     async def _apply_feature_controls(self, *, thinking: bool, search: bool) -> dict:
         """Apply and verify ChatGPT composer feature state before submission."""
         if self._page is None:
@@ -622,10 +729,8 @@ class ChatGPTWebProvider(Provider):
         # non-zero effort when enabled. ChatGPT may still perform internal
         # reasoning at the minimum effort, so this is an effort control rather
         # than a guarantee of zero hidden reasoning.
-        effort_trigger = form.locator(
-            'button[aria-haspopup="menu"]:not([data-testid="composer-plus-btn"])'
-        ).first
-        await effort_trigger.click(timeout=5000)
+        effort_trigger = await self._resolve_effort_trigger()
+        await self._click_feature_control(effort_trigger, "reasoning_effort_menu")
         power = self._page.locator('[role="menuitem"][aria-label="Power"]').first
         await power.wait_for(state="visible", timeout=5000)
         slider = self._page.locator('[data-model-reasoning-effort-slider] [role="slider"]').first

@@ -1,17 +1,26 @@
 # Changelog
 
+All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
+
 ## 0.7.1 - 2026-09-16
 
 ### Fixed
 - Allow true loopback clients (`127.0.0.1`, `::1`, `localhost`) to call local Hooshka Web Gateway endpoints without a bearer token.
 - Keep non-loopback requests protected by the existing bearer-token authentication path.
+- ChatGPT reasoning-effort control now survives current composer UI drift by resolving the visible effort pill near the active composer and using a bounded verified fallback click path.
+- DeepSeek DeepThink/Search control now covers current `.ds-toggle-button` surfaces and re-resolves toggles after React node replacement.
+
+### Evidence
+- Authenticated Thinking/Search matrix: 4/4 PASS for Qwen Web, ChatGPT Web, DeepSeek Web and Z.ai Web.
+- Qwen Web matrix used `qwen-web` with verified backend `qwen3.8-max`.
+- ChatGPT Web matrix verified `thinking_effort_index` 0/1 and search state in `provider_meta.features`.
+- DeepSeek Web matrix verified all four requested states in `provider_meta.features`.
+- Z.ai Web matrix used exact model `zai:glm-5.3` and verified backend feature fields: `enable_thinking`, `reasoning_effort`, `web_search`, `auto_web_search`.
+- Detailed feature evidence is recorded in `docs/WEBCHAT_FEATURE_MATRIX_E2_2026-09-16.md`.
 
 ### Validation
 - Added middleware tests for localhost bypass and non-loopback 401 behavior.
-- Full gateway suite: 131 passed.
-All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
-
-## Unreleased
+- Targeted deterministic feature-control suite: 42 passed.`n- Full gateway suite: 131 passed.`n`n## Unreleased
 
 ### Fixed
 - Gateway restart now preserves authenticated provider CDP runtimes instead of deliberately stopping ChatGPT/Z.ai browser sessions; explicit `stop` and `uninstall` still close project-owned runtimes.
@@ -329,4 +338,3 @@ All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` i
 ## Earlier history
 
 The repository did not maintain a formal VERSION/CHANGELOG contract before 0.3.0. Earlier commits remain the source of truth for pre-0.3.0 history.
-

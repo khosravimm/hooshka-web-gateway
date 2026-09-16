@@ -1,4 +1,5 @@
 import asyncio
+import re
 import time
 from typing import AsyncIterator, Optional
 
@@ -225,24 +226,33 @@ class DeepSeekBrowserUITransport:
     async def _apply_feature_controls(self, page: Page, *, thinking: bool, search: bool) -> dict:
         """Toggle DeepSeek Web Chat DeepThink/Search and verify visible state."""
         async def set_control(pattern: str, requested: bool, feature: str) -> bool:
-            candidates = page.locator("button,[role='button'],div[role='button']")
-            count = await candidates.count()
-            target = None
-            for i in range(count):
-                node = candidates.nth(i)
-                try:
-                    if not await node.is_visible():
-                        continue
-                    label = " ".join(filter(None, [
-                        (await node.inner_text()).strip(),
-                        await node.get_attribute("aria-label"),
-                        await node.get_attribute("title"),
-                    ]))
-                    if re.search(pattern, label, re.I):
-                        target = node
-                        break
-                except Exception:
-                    continue
+            async def find_target(timeout: float = 8.0):
+                deadline = time.monotonic() + timeout
+                while time.monotonic() < deadline:
+                    # Current DeepSeek renders DeepThink/Search as
+                    # div.ds-toggle-button without role/button semantics.
+                    candidates = page.locator(
+                        ".ds-toggle-button,button,[role='button'],div[role='button']"
+                    )
+                    count = await candidates.count()
+                    for i in range(count):
+                        node = candidates.nth(i)
+                        try:
+                            if not await node.is_visible():
+                                continue
+                            label = " ".join(filter(None, [
+                                (await node.inner_text()).strip(),
+                                await node.get_attribute("aria-label"),
+                                await node.get_attribute("title"),
+                            ]))
+                            if re.search(pattern, label, re.I):
+                                return node
+                        except Exception:
+                            continue
+                    await page.wait_for_timeout(150)
+                return None
+
+            target = await find_target()
             if target is None:
                 raise ProviderError(
                     f"DeepSeek {feature} control not found",
@@ -270,6 +280,15 @@ class DeepSeekBrowserUITransport:
             if observed != requested:
                 await target.click(timeout=5000)
                 await page.wait_for_timeout(180)
+                # React may replace the toggle node after selection changes.
+                target = await find_target(timeout=3.0)
+                if target is None:
+                    raise ProviderError(
+                        f"DeepSeek {feature} control disappeared after toggle",
+                        "feature_control_failed",
+                        self.provider_id,
+                        {"feature": feature, "requested": requested},
+                    )
                 observed = await active_state()
             if observed != requested:
                 raise ProviderError(

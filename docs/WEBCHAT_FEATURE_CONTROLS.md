@@ -1,7 +1,6 @@
 # Web Chat Thinking & Search Controls
 
-Release: 0.7.0  
-Date: 2026-09-15
+Release: 0.7.1`r`nDate: 2026-09-16
 
 Hooshka Web Gateway exposes a normalized feature-control contract for Web Chat providers.
 
@@ -80,10 +79,10 @@ The UI must not imply capability solely because a preference exists. `feature_co
 
 | Provider | Thinking mapping | Search mapping | Evidence |
 |---|---|---|---|
-| ChatGPT Web | `false` -> minimum available reasoning effort; `true` -> non-zero reasoning effort | ChatGPT composer Web search selection pill | live control-only E2 PASS on 2026-09-15 |
-| Qwen Web | frontend/backend `thinking` flag | frontend/backend `search` flag | existing E2 transport evidence + deterministic regression coverage |
-| Z.ai Web | completion payload `features.enable_thinking`; effort `low/max` | completion payload `features.web_search` and `auto_web_search` | payload discovery E2; implementation regression covered; full search-result E2 remains reliability evidence work |
-| DeepSeek Web | DeepThink control | Search control | implementation E1; E2 pending while the current project session/account is unavailable for authenticated feature retest |
+| ChatGPT Web | `false` -> minimum available reasoning effort; `true` -> non-zero reasoning effort | ChatGPT composer Web search selection pill | authenticated E2 4/4 matrix PASS on 2026-09-16 |
+| Qwen Web | frontend/backend `thinking` flag | frontend/backend `search` flag | authenticated E2 4/4 matrix PASS on 2026-09-16 |
+| Z.ai Web | completion payload `features.enable_thinking`; effort `low/max` | completion payload `features.web_search` and `auto_web_search` | authenticated E2 4/4 payload matrix PASS on `zai:glm-5.3` on 2026-09-16 |
+| DeepSeek Web | DeepThink control | Search control | authenticated E2 4/4 matrix PASS on 2026-09-16 |
 
 ## Important semantics
 
@@ -102,7 +101,8 @@ These controls depend on provider Web Chat surfaces. Selector/payload drift is e
 ## Evidence level
 
 - Feature contract and persistence: E1 deterministic.
-- ChatGPT control-only live toggle: E2.
-- Qwen control path: E2 inherited from the existing browser-controller transport and prior feature verification.
-- Z.ai payload shape: E2 observed on the authenticated Web Chat frontend; 0.7.0 wiring is E1 regression-tested and requires continued E2 monitoring.
-- DeepSeek: E1 only until account access is restored and both states are retested.
+- Authenticated Thinking/Search matrix: E2 4/4 PASS for ChatGPT Web, Qwen Web, DeepSeek Web and Z.ai Web on 2026-09-16.
+- Z.ai evidence is based on observed backend completion payload fields for `zai:glm-5.3`.
+- ChatGPT `thinking=false` remains an effort-floor control, not a guarantee of zero hidden reasoning.
+- Detailed matrix evidence is recorded in `docs/WEBCHAT_FEATURE_MATRIX_E2_2026-09-16.md`.
+- No E3 reliability claim is made.
