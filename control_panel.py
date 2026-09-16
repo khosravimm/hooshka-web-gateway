@@ -6,6 +6,7 @@ import subprocess
 import secrets
 import yaml
 import psutil
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 from flask import Blueprint, render_template_string, jsonify, request
@@ -20,6 +21,83 @@ control_panel_bp = Blueprint('control_panel', __name__, url_prefix='/panel')
 logger = logging.getLogger(__name__)
 
 CONFIG_PATH = str(Path(__file__).parent / "config.yaml")
+
+
+def _read_version():
+    try:
+        return (Path(__file__).parent / "VERSION").read_text(encoding="utf-8").strip() or "unknown"
+    except Exception:
+        return "unknown"
+
+
+def _git_value(*args):
+    roots = []
+    here = Path(__file__).parent
+    for candidate in (
+        here,
+        here.resolve(),
+        Path("D:/Code/mcp-web-bridge"),
+        Path("D:/Code/hooshka-web-gateway"),
+    ):
+        if candidate not in roots:
+            roots.append(candidate)
+    try:
+        for root in roots:
+            result = subprocess.run(
+                ["git", *args],
+                cwd=str(root),
+                text=True,
+                capture_output=True,
+                timeout=3,
+                check=False,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return result.stdout.strip()
+    except Exception:
+        pass
+    return "unknown"
+
+
+def _get_panel_meta():
+    commit = _git_value("rev-parse", "--short", "HEAD")
+    branch = _git_value("branch", "--show-current")
+    if commit == "unknown" or branch == "unknown":
+        for root in (Path("D:/Code/hooshka-web-gateway"), Path("D:/Code/mcp-web-bridge")):
+            head_path = root / ".git" / "HEAD"
+            if not head_path.exists():
+                continue
+            try:
+                head = head_path.read_text(encoding="utf-8").strip()
+                if head.startswith("ref:"):
+                    ref = head.split(" ", 1)[1].strip()
+                    branch = ref.rsplit("/", 1)[-1]
+                    ref_path = root / ".git" / ref.replace("/", os.sep)
+                    if ref_path.exists():
+                        commit = ref_path.read_text(encoding="utf-8").strip()[:7]
+                elif head:
+                    branch = "detached"
+                    commit = head[:7]
+                break
+            except Exception:
+                pass
+    return {
+        "version": _read_version(),
+        "commit": commit,
+        "branch": branch,
+        "evidence": "E2 Thinking/Search 4x4",
+    }
+
+
+def _check_cdp(cdp_url):
+    if not cdp_url:
+        return {"cdp_url": None, "ready": None, "status": "not_applicable"}
+    try:
+        with urllib.request.urlopen(cdp_url.rstrip("/") + "/json/version", timeout=1.5) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+            ready = response.status == 200 and bool(payload.get("webSocketDebuggerUrl"))
+            return {"cdp_url": cdp_url, "ready": ready, "status": "ready" if ready else "unverified"}
+    except Exception as exc:
+        return {"cdp_url": cdp_url, "ready": False, "status": "unavailable", "error": type(exc).__name__}
 
 
 def _load_config_file():
@@ -87,14 +165,28 @@ DASHBOARD_HTML = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hooshka Web Gateway - Control Panel</title>
+    <link rel="icon" href="data:,">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .hwg-shell { max-width: 1680px !important; }
+        .hwg-card { border: 1px solid #e2e8f0; box-shadow: 0 10px 24px rgba(15, 23, 42, .06); }
+        .hwg-subtle { color: #cbd5e1; font-size: 12px; font-weight: 500; }
+        .hwg-chip { display: inline-block; border-radius: 999px; padding: 2px 8px; font-size: 12px; font-weight: 700; }
+        .hwg-ok { background: #dcfce7; color: #166534; }
+        .hwg-bad { background: #fee2e2; color: #991b1b; }
+        .hwg-neutral { background: #e2e8f0; color: #334155; }
+        .hwg-runtime-card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; background: #f8fafc; }
+    </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
     <nav class="bg-gray-900 text-white p-4 shadow-lg">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <h1 class="text-2xl font-bold"><i class="fas fa-server mr-2"></i>Hooshka Web Gateway Control Panel</h1>
+        <div class="hwg-shell max-w-7xl mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold"><i class="fas fa-server mr-2"></i>Hooshka Web Gateway Control Panel</h1>
+                <div class="hwg-subtle mt-1">Version <b id="meta-version">-</b> | Commit <b id="meta-commit">-</b> | Branch <b id="meta-branch">-</b> | Evidence <b id="meta-evidence">-</b></div>
+            </div>
             <div class="flex items-center space-x-4">
                 <span id="service-status" class="px-3 py-1 rounded-full text-sm font-medium bg-gray-700">Checking...</span>
                 <button onclick="location.reload()" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm">
@@ -104,9 +196,9 @@ DASHBOARD_HTML = """
         </div>
     </nav>
 
-    <div class="max-w-7xl mx-auto p-6">
+    <div class="hwg-shell max-w-7xl mx-auto p-6">
         <!-- Stats Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
             <div class="bg-white rounded-lg shadow p-6">
                 <div class="flex items-center">
                     <div class="p-3 bg-blue-100 rounded-full"><i class="fas fa-heartbeat text-blue-600 text-2xl"></i></div>
@@ -122,6 +214,15 @@ DASHBOARD_HTML = """
                     <div class="ml-4">
                         <p class="text-sm text-gray-600">Providers</p>
                         <p id="stat-providers" class="text-2xl font-bold">-</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6 hwg-card">
+                <div class="flex items-center">
+                    <div class="p-3 bg-emerald-100 rounded-full"><i class="fas fa-circle-check text-emerald-600 text-2xl"></i></div>
+                    <div class="ml-4">
+                        <p class="text-sm text-gray-600">Ready Providers</p>
+                        <p id="stat-ready" class="text-2xl font-bold">-</p>
                     </div>
                 </div>
             </div>
@@ -169,8 +270,10 @@ DASHBOARD_HTML = """
                             <div class="flex justify-between"><span>Uptime</span><span id="health-uptime" class="font-medium">-</span></div>
                             <div class="flex justify-between"><span>Memory Usage</span><span id="health-memory" class="font-medium">-</span></div>
                             <div class="flex justify-between"><span>CPU Usage</span><span id="health-cpu" class="font-medium">-</span></div>
-                            <div class="flex justify-between"><span>Chrome CDP</span><span id="health-cdp" class="font-medium">-</span></div>
+                            <div class="flex justify-between"><span>Global Chrome CDP</span><span id="health-cdp" class="font-medium">-</span></div>
                         </div>
+                        <h3 class="text-lg font-semibold mt-6 mb-3">Provider Runtime Readiness</h3>
+                        <div id="provider-runtime-summary" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
                     </div>
                     <div>
                         <h3 class="text-lg font-semibold mb-4">Recent Requests</h3>
@@ -191,6 +294,7 @@ DASHBOARD_HTML = """
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Runtime</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Priority</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Capabilities</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thinking</th>
@@ -325,6 +429,8 @@ const INITIAL_SESSIONS = readInitialData('data-sessions', {sessions: []});
 const INITIAL_STATS = readInitialData('data-stats', {requests_1h: 0, requests_history: []});
 const INITIAL_AUTH = readInitialData('data-auth', {auth_enabled: false, api_keys: []});
 const INITIAL_SERVICE = readInitialData('data-service', {exists: false, status: 'Unknown', output: ''});
+const INITIAL_META = readInitialData('data-meta', {version: '-', commit: '-', branch: '-', evidence: '-'});
+const INITIAL_CONFIG = readInitialData('data-config', '');
 
 // Tab management
 function showTab(tabName) {
@@ -358,7 +464,8 @@ async function loadAll() {
             api('/health'),
             api('/providers'),
             api('/sessions'),
-            api('/stats')
+            api('/stats'),
+            api('/meta')
         ]);
         
         if (results[0].status === 'fulfilled') updateHealth(results[0].value);
@@ -366,6 +473,7 @@ async function loadAll() {
         if (results[2].status === 'fulfilled') updateSessions(results[2].value);
         if (results[3].status === 'fulfilled') updateStats(results[3].value);
         if (results[3].status === 'fulfilled') initChart(results[3].value.requests_history || []);
+        if (results[4].status === 'fulfilled') updateMeta(results[4].value);
     } catch (e) {
         console.error('loadAll error:', e);
     }
@@ -383,6 +491,14 @@ function renderInitialData() {
     if (INITIAL_AUTH) updateApiKeys(INITIAL_AUTH);
     if (INITIAL_CONFIG) document.getElementById('config-content').value = INITIAL_CONFIG;
     if (INITIAL_SERVICE) updateServiceStatus(INITIAL_SERVICE);
+    if (INITIAL_META) updateMeta(INITIAL_META);
+}
+
+function updateMeta(m) {
+    document.getElementById('meta-version').textContent = m.version || '-';
+    document.getElementById('meta-commit').textContent = m.commit || '-';
+    document.getElementById('meta-branch').textContent = m.branch || '-';
+    document.getElementById('meta-evidence').textContent = m.evidence || '-';
 }
 
 function updateHealth(h) {
@@ -400,9 +516,25 @@ function updateHealth(h) {
 }
 
 function updateProviders(data) {
-    document.getElementById('stat-providers').textContent = data.providers?.length || 0;
+    const providers = data.providers || [];
+    document.getElementById('stat-providers').textContent = providers.length;
+    const ready = providers.filter(p => p.runtime && p.runtime.ready === true).length;
+    const statReady = document.getElementById('stat-ready');
+    if (statReady) statReady.textContent = ready + '/' + providers.length;
+    const runtimeSummary = document.getElementById('provider-runtime-summary');
+    if (runtimeSummary) {
+        runtimeSummary.innerHTML = providers.map(p => `
+            <div class="hwg-runtime-card">
+                <div class="flex justify-between gap-2 items-center">
+                    <span class="font-mono text-sm">${p.id}</span>
+                    <span class="hwg-chip ${p.runtime?.ready ? 'hwg-ok' : (p.runtime?.ready === null ? 'hwg-neutral' : 'hwg-bad')}">${p.runtime?.status || 'unknown'}</span>
+                </div>
+                <div class="text-xs text-gray-500 mt-1 font-mono">${p.runtime?.cdp_url || 'no dedicated CDP'}</div>
+            </div>
+        `).join('');
+    }
     const tbody = document.getElementById('providers-body');
-    tbody.innerHTML = (data.providers || []).map(p => `
+    tbody.innerHTML = providers.map(p => `
         <tr>
             <td class="px-6 py-4 font-mono text-sm">${p.id}</td>
             <td class="px-6 py-4"><span class="px-2 py-1 bg-gray-100 rounded text-sm">${p.type}</span></td>
@@ -410,6 +542,10 @@ function updateProviders(data) {
                 <span class="px-2 py-1 rounded text-sm ${p.enabled ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
                     ${p.enabled ? 'Enabled' : 'Disabled'}
                 </span>
+            </td>
+            <td class="px-6 py-4">
+                <span class="hwg-chip ${p.runtime?.ready ? 'hwg-ok' : (p.runtime?.ready === null ? 'hwg-neutral' : 'hwg-bad')}">${p.runtime?.status || 'unknown'}</span>
+                <div class="font-mono text-xs text-gray-500 mt-1">${p.runtime?.cdp_url || '-'}</div>
             </td>
             <td class="px-6 py-4">${p.priority}</td>
             <td class="px-6 py-4 text-sm">
@@ -717,6 +853,8 @@ def dashboard():
         '<script type="application/json" id="data-stats">' + json.dumps(stats_data) + '</script>\n'
         '<script type="application/json" id="data-auth">' + json.dumps(auth_data) + '</script>\n'
         '<script type="application/json" id="data-service">' + json.dumps(service_data) + '</script>\n'
+        '<script type="application/json" id="data-meta">' + json.dumps(_get_panel_meta()) + '</script>\n'
+        '<script type="application/json" id="data-config">' + json.dumps(config_content) + '</script>\n'
     )
     html = html.replace('</body>', data_scripts + '\n</body>')
     
@@ -773,6 +911,7 @@ def _get_initial_providers():
                         "supported_models": p.capabilities.supported_models,
                     },
                     "features": provider_feature_state(p),
+                    "runtime": _check_cdp(p.config.config.get("cdp_url")),
                 }
                 for p in providers
             ]
@@ -907,6 +1046,11 @@ def api_health():
         "uptime": uptime
     })
 
+@control_panel_bp.route('/api/meta')
+def api_meta():
+    return jsonify(_get_panel_meta())
+
+
 @control_panel_bp.route('/api/providers')
 def api_providers():
     providers = provider_registry.list_providers(enabled_only=False)
@@ -927,6 +1071,7 @@ def api_providers():
                     "supported_models": p.capabilities.supported_models,
                 },
                 "features": provider_feature_state(p),
+                "runtime": _check_cdp(p.config.config.get("cdp_url")),
             }
             for p in providers
         ]

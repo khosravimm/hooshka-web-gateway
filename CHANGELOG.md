@@ -2,6 +2,27 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## 0.7.2 - 2026-09-16
+
+### Added
+- Control Panel header now shows release version, git commit, branch and current evidence label.
+- Overview now shows Ready Providers and per-provider runtime/CDP readiness.
+- Providers tab now has a dedicated Runtime column with CDP URL and readiness state for each Web Chat provider.
+- Added `GET /panel/api/meta` for panel metadata.
+- Added an inline empty favicon to avoid the browser's default `/favicon.ico` 404.
+
+### Changed
+- Widened the panel shell from the previous narrow dashboard layout to a 1680px operations-oriented layout.
+
+### Validation
+- Full gateway suite: 131 passed.
+- Isolated headless Chrome render test with a temporary profile confirmed version/commit header, Ready Providers, runtime summary, provider table, all four provider IDs and all four CDP URLs.
+- `/panel/api/meta` reports `version=0.7.1` before this release bump, `commit=8c7109c`, `branch=master`; after tagging, the same endpoint reports the current checked-out commit.
+- `/panel/api/providers` reports all four provider CDP runtimes ready: ChatGPT 9224, Qwen 9225, Z.ai 9223 and DeepSeek 9226.
+
+### Known Debt
+- The panel still uses CDN-hosted Tailwind/Chart.js/FontAwesome assets. External CDN network errors do not break the local panel contract, but asset bundling remains a production-hardening task.
+
 ## 0.7.1 - 2026-09-16
 
 ### Fixed
@@ -20,7 +41,10 @@ All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` i
 
 ### Validation
 - Added middleware tests for localhost bypass and non-loopback 401 behavior.
-- Targeted deterministic feature-control suite: 42 passed.`n- Full gateway suite: 131 passed.`n`n## Unreleased
+- Targeted deterministic feature-control suite: 42 passed.
+- Full gateway suite: 131 passed.
+
+## Unreleased
 
 ### Fixed
 - Gateway restart now preserves authenticated provider CDP runtimes instead of deliberately stopping ChatGPT/Z.ai browser sessions; explicit `stop` and `uninstall` still close project-owned runtimes.

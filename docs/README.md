@@ -2,7 +2,7 @@
 
 > Repository-level discovery starts at `../HOOSHKA_WEB_GATEWAY_START_HERE.md`. Agents and humans should read that file first.
 
-**Release:** 0.7.1
+**Release:** 0.7.2
 **Canonical project:** `hooshka-web-gateway`
 **Module:** `web_gateway`
 
@@ -12,6 +12,7 @@
 |---|---|
 | First-time reader | `START_HERE.md` |
 | Operator / service owner | `OPERATIONS_RUNBOOK.md` |
+| Control Panel | `CONTROL_PANEL.md` |
 | Browser/runtime observability | `BROWSER_OBSERVABILITY.md` |
 | API consumer | `API_REFERENCE.md` |
 | Day-to-day examples | `PRACTICAL_USAGE.md` |
