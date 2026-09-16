@@ -551,13 +551,49 @@ DASHBOARD_HTML = r"""
             <!-- Config Tab -->
             <div id="panel-config" class="tab-panel p-6 hidden">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold">Configuration (config.yaml)</h3>
+                    <div>
+                        <h3 class="text-lg font-semibold">Human Settings</h3>
+                        <p class="text-sm text-gray-500 mt-1">Common gateway settings as forms. Raw YAML is under Advanced.</p>
+                    </div>
                     <div class="flex gap-2">
-                        <button onclick="saveConfig()" class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700">Save</button>
+                        <button onclick="saveHumanConfig()" class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700">Save Settings</button>
                         <button onclick="loadConfig()" class="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700">Refresh</button>
                     </div>
                 </div>
-                <textarea id="config-content" class="bg-gray-900 text-gray-100 p-4 rounded h-96 w-full overflow-auto text-sm font-mono" spellcheck="false"></textarea>
+                <div id="config-status" class="mb-4 text-sm text-gray-600"></div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-medium mb-3">Server</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                            <label>Host<input id="cfg-server-host" class="w-full px-3 py-2 border rounded mt-1 font-mono"></label>
+                            <label>Port<input id="cfg-server-port" type="number" min="1" max="65535" class="w-full px-3 py-2 border rounded mt-1"></label>
+                            <label>Threads<input id="cfg-server-threads" type="number" min="1" max="128" class="w-full px-3 py-2 border rounded mt-1"></label>
+                            <label>Provider Concurrency<input id="cfg-provider-concurrency" type="number" min="1" max="32" class="w-full px-3 py-2 border rounded mt-1"></label>
+                            <label class="inline-flex items-center gap-2 mt-2"><input id="cfg-server-debug" type="checkbox"> Debug mode</label>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-medium mb-3">Runtime / Security</h4>
+                        <div class="grid grid-cols-1 gap-3 text-sm">
+                            <label>Global Chrome CDP URL<input id="cfg-cdp-url" class="w-full px-3 py-2 border rounded mt-1 font-mono"></label>
+                            <label>CDP Timeout (ms)<input id="cfg-cdp-timeout" type="number" min="1000" max="300000" class="w-full px-3 py-2 border rounded mt-1"></label>
+                            <label class="inline-flex items-center gap-2 mt-2"><input id="cfg-auth-enabled" type="checkbox"> Require API authentication for non-loopback clients</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                    <h4 class="font-medium mb-3">Provider Defaults</h4>
+                    <div id="config-providers" class="space-y-3"></div>
+                </div>
+                <details class="bg-gray-50 rounded-lg p-4">
+                    <summary class="font-medium cursor-pointer">Advanced Raw YAML</summary>
+                    <p class="text-sm text-gray-500 mt-2 mb-3">Use only for keys not mapped to the human settings form.</p>
+                    <div class="flex gap-2 mb-3">
+                        <button onclick="saveRawConfig()" class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700">Save Raw YAML</button>
+                        <button onclick="loadConfig()" class="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700">Reload YAML</button>
+                    </div>
+                    <textarea id="config-content" class="bg-gray-900 text-gray-100 p-4 rounded h-64 w-full overflow-auto text-sm font-mono" spellcheck="false"></textarea>
+                </details>
             </div>
         </div>
     </div>
@@ -641,7 +677,6 @@ function renderInitialData() {
         initChart(INITIAL_STATS.requests_history || []);
     }
     if (INITIAL_AUTH) updateApiKeys(INITIAL_AUTH);
-    if (INITIAL_CONFIG) document.getElementById('config-content').value = INITIAL_CONFIG;
     loadServiceStatus();
     if (INITIAL_META) updateMeta(INITIAL_META);
 }
@@ -970,13 +1005,95 @@ async function loadLogs() {
     document.getElementById('log-content').textContent = data.content || '(empty)';
 }
 
-async function loadConfig() {
-    const data = await api('/config');
-    document.getElementById('config-content').value = data.content || '';
+function setConfigStatus(message, isError=false) {
+    const el = document.getElementById('config-status');
+    if (!el) return;
+    el.textContent = message || '';
+    el.className = 'mb-4 text-sm ' + (isError ? 'text-red-600' : 'text-green-600');
 }
 
-async function saveConfig() {
+function renderHumanConfig(data) {
+    const server = data.server || {};
+    const cdp = data.cdp || {};
+    const auth = data.auth || {};
+    document.getElementById('cfg-server-host').value = server.host || '';
+    document.getElementById('cfg-server-port').value = server.port || '';
+    document.getElementById('cfg-server-threads').value = server.threads || '';
+    document.getElementById('cfg-provider-concurrency').value = server.provider_concurrency || '';
+    document.getElementById('cfg-server-debug').checked = server.debug === true;
+    document.getElementById('cfg-cdp-url').value = cdp.url || '';
+    document.getElementById('cfg-cdp-timeout').value = cdp.timeout || '';
+    document.getElementById('cfg-auth-enabled').checked = auth.enabled === true;
+    const providerBox = document.getElementById('config-providers');
+    providerBox.innerHTML = (data.providers || []).map(p => `
+        <div class="hwg-runtime-card">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end text-sm">
+                <div><div class="text-xs text-gray-500 uppercase">Provider</div><div class="font-semibold font-mono">${p.id}</div></div>
+                <label class="inline-flex items-center gap-2"><input id="cfg-provider-enabled-${p.id}" type="checkbox" ${p.enabled ? 'checked' : ''}> Enabled</label>
+                <label>Priority<input id="cfg-provider-priority-${p.id}" type="number" min="0" max="1000" class="w-full px-3 py-2 border rounded mt-1" value="${p.priority ?? ''}"></label>
+                <label>CDP URL<input id="cfg-provider-cdp-${p.id}" class="w-full px-3 py-2 border rounded mt-1 font-mono" value="${p.cdp_url || ''}"></label>
+                <label>Default Model<input id="cfg-provider-model-${p.id}" class="w-full px-3 py-2 border rounded mt-1 font-mono" value="${p.default_upstream_model || ''}"></label>
+                <label class="inline-flex items-center gap-2"><input id="cfg-provider-thinking-${p.id}" type="checkbox" ${p.thinking ? 'checked' : ''}> Thinking default</label>
+                <label class="inline-flex items-center gap-2"><input id="cfg-provider-search-${p.id}" type="checkbox" ${p.search ? 'checked' : ''}> Search default</label>
+            </div>
+        </div>`).join('');
+}
+
+function collectHumanConfig() {
+    const providers = [];
+    document.querySelectorAll('#config-providers .hwg-runtime-card').forEach(card => {
+        const id = card.querySelector('.font-mono')?.textContent?.trim();
+        if (!id) return;
+        providers.push({
+            id,
+            enabled: document.getElementById('cfg-provider-enabled-' + id)?.checked === true,
+            priority: Number(document.getElementById('cfg-provider-priority-' + id)?.value || 0),
+            cdp_url: document.getElementById('cfg-provider-cdp-' + id)?.value || '',
+            default_upstream_model: document.getElementById('cfg-provider-model-' + id)?.value || '',
+            thinking: document.getElementById('cfg-provider-thinking-' + id)?.checked === true,
+            search: document.getElementById('cfg-provider-search-' + id)?.checked === true,
+        });
+    });
+    return {
+        server: {
+            host: document.getElementById('cfg-server-host').value,
+            port: Number(document.getElementById('cfg-server-port').value || 0),
+            debug: document.getElementById('cfg-server-debug').checked,
+            threads: Number(document.getElementById('cfg-server-threads').value || 0),
+            provider_concurrency: Number(document.getElementById('cfg-provider-concurrency').value || 0),
+        },
+        cdp: {
+            url: document.getElementById('cfg-cdp-url').value,
+            timeout: Number(document.getElementById('cfg-cdp-timeout').value || 0),
+        },
+        auth: { enabled: document.getElementById('cfg-auth-enabled').checked },
+        providers,
+    };
+}
+
+async function saveHumanConfig() {
+    setConfigStatus('Saving settings...');
+    try {
+        const resp = await fetch('/panel/api/config/summary', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(collectHumanConfig())});
+        const result = await resp.json();
+        if (!resp.ok || result.success !== true) throw new Error(result.error || 'Save failed');
+        setConfigStatus('Settings saved. Restart may be required for server/runtime changes.');
+        await loadConfig();
+    } catch (e) {
+        setConfigStatus('Error: ' + e.message, true);
+    }
+}
+
+async function loadConfig() {
+    const [raw, summary] = await Promise.all([api('/config'), api('/config/summary')]);
+    document.getElementById('config-content').value = raw.content || '';
+    renderHumanConfig(summary);
+    setConfigStatus('');
+}
+
+async function saveRawConfig() {
     const content = document.getElementById('config-content').value;
+    setConfigStatus('Saving raw YAML...');
     try {
         const resp = await fetch('/panel/api/config', {
             method: 'PUT',
@@ -984,13 +1101,10 @@ async function saveConfig() {
             body: JSON.stringify({ content: content })
         });
         const result = await resp.json();
-        if (result.success) {
-            alert('Config saved successfully');
-        } else {
-            alert('Error: ' + (result.error || 'Unknown error'));
-        }
+        if (!resp.ok || result.success !== true) setConfigStatus('Error: ' + (result.error || 'Unknown error'), true);
+        else { setConfigStatus('Raw YAML saved.'); await loadConfig(); }
     } catch (e) {
-        alert('Error: ' + e.message);
+        setConfigStatus('Error: ' + e.message, true);
     }
 }
 
@@ -1527,6 +1641,79 @@ def api_logs(log_type):
             lines = f.readlines()
             content = "".join(lines[-100:])  # Last 100 lines
     return jsonify({"content": content})
+
+def _config_summary_from_dict(config):
+    providers=[]
+    for item in config.get("providers", []) or []:
+        pcfg=item.get("config", {}) or {}
+        fdefaults=item.get("feature_defaults", {}) or {}
+        providers.append({
+            "id": item.get("id", ""),
+            "enabled": bool(item.get("enabled", True)),
+            "priority": item.get("priority", 0),
+            "cdp_url": pcfg.get("cdp_url", ""),
+            "default_upstream_model": pcfg.get("default_upstream_model") or pcfg.get("upstream_model") or item.get("id", ""),
+            "thinking": bool(fdefaults.get("thinking", False)),
+            "search": bool(fdefaults.get("search", False)),
+        })
+    return {
+        "server": {
+            "host": config.get("server", {}).get("host", ""),
+            "port": config.get("server", {}).get("port", 0),
+            "debug": bool(config.get("server", {}).get("debug", False)),
+            "threads": config.get("server", {}).get("threads", 0),
+            "provider_concurrency": config.get("server", {}).get("provider_concurrency", 0),
+        },
+        "cdp": {
+            "url": config.get("cdp", {}).get("url", ""),
+            "timeout": config.get("cdp", {}).get("timeout", 0),
+        },
+        "auth": {"enabled": bool(config.get("governance", {}).get("auth", {}).get("enabled", False))},
+        "providers": providers,
+    }
+
+
+def _apply_config_summary(config, data):
+    server=data.get("server", {}) or {}; cdp=data.get("cdp", {}) or {}; auth=data.get("auth", {}) or {}
+    config.setdefault("server", {})
+    for key in ("host", "port", "debug", "threads", "provider_concurrency"):
+        if key in server: config["server"][key]=server[key]
+    config.setdefault("cdp", {})
+    for key in ("url", "timeout"):
+        if key in cdp: config["cdp"][key]=cdp[key]
+    config.setdefault("governance", {}).setdefault("auth", {})
+    if "enabled" in auth: config["governance"]["auth"]["enabled"]=bool(auth["enabled"])
+    incoming={p.get("id"):p for p in data.get("providers", []) or [] if p.get("id")}
+    for item in config.get("providers", []) or []:
+        pid=item.get("id")
+        if pid not in incoming: continue
+        src=incoming[pid]
+        if "enabled" in src: item["enabled"]=bool(src["enabled"])
+        if "priority" in src: item["priority"]=int(src["priority"])
+        pcfg=item.setdefault("config", {})
+        if "cdp_url" in src: pcfg["cdp_url"]=str(src.get("cdp_url") or "")
+        model=str(src.get("default_upstream_model") or "").strip()
+        if model: pcfg["default_upstream_model"]=model
+        fdefaults=item.setdefault("feature_defaults", {})
+        if "thinking" in src: fdefaults["thinking"]=bool(src["thinking"])
+        if "search" in src: fdefaults["search"]=bool(src["search"])
+    return config
+
+
+@control_panel_bp.route('/api/config/summary', methods=['GET', 'PUT'])
+def api_config_summary():
+    config=_load_config_file()
+    if request.method == 'GET':
+        return jsonify(_config_summary_from_dict(config))
+    data=request.get_json(force=True) or {}
+    try:
+        updated=_apply_config_summary(config, data)
+        _save_config_file(updated); _sync_auth_keys()
+        return jsonify({"success": True, "summary": _config_summary_from_dict(updated)})
+    except Exception as exc:
+        logger.exception("Failed to save config summary")
+        return jsonify({"error": str(exc)}), 400
+
 
 @control_panel_bp.route('/api/config', methods=['GET', 'PUT'])
 def api_config():

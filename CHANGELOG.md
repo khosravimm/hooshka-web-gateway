@@ -4,6 +4,13 @@ All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` i
 
 ## 0.7.13 - 2026-09-16
 
+### Changed
+- Replaced the primary Config tab raw YAML editor with a Human Settings form for common server, CDP, auth, and provider defaults.
+- Moved raw YAML editing into an Advanced Raw YAML expander.
+
+### Added
+- Added `/panel/api/config/summary`.
+
 ### Added
 - Added Model Usage (1h) to the Overview tab, grouped by provider/model with request counts and prompt/completion/total token counters when audit data is available.
 - Added `/panel/api/model_usage`.

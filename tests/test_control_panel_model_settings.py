@@ -138,3 +138,24 @@ def test_control_panel_overview_has_model_usage_summary():
     assert 'tokens unavailable' in text
     assert 'def api_model_usage' in text
     assert 'prompt_tokens' in text and 'completion_tokens' in text and 'total_tokens' in text
+
+
+def test_control_panel_config_has_human_settings_and_advanced_yaml():
+    text = source()
+    assert 'Human Settings' in text
+    assert 'cfg-server-host' in text
+    assert 'cfg-cdp-url' in text
+    assert 'cfg-auth-enabled' in text
+    assert 'config-providers' in text
+    assert 'Advanced Raw YAML' in text
+    assert 'saveHumanConfig' in text
+    assert 'saveRawConfig' in text
+    assert "/api/config/summary" in text
+    assert 'Configuration (config.yaml)' not in text
+
+
+def test_control_panel_config_summary_backend_exists():
+    text = source()
+    assert 'def _config_summary_from_dict' in text
+    assert 'def _apply_config_summary' in text
+    assert 'def api_config_summary' in text
