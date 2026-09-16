@@ -473,6 +473,34 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             },
         )
 
+    def _estimate_request_prompt_tokens(req: ChatCompletionRequest) -> int:
+        total_chars = 0
+        for message in req.messages or []:
+            total_chars += len(str(message.get("role", "")))
+            total_chars += len(str(message.get("content", "")))
+        return max(1, total_chars // 4) if total_chars else 0
+
+    def _finalize_usage_for_audit(req: ChatCompletionRequest, normalized) -> None:
+        usage = normalized.usage
+        estimated = bool((normalized.provider_meta or {}).get("usage_estimated"))
+        if usage.prompt_tokens == 0:
+            usage.prompt_tokens = _estimate_request_prompt_tokens(req)
+            estimated = True
+        if usage.total_tokens == 0:
+            usage.total_tokens = usage.prompt_tokens + usage.completion_tokens
+            estimated = True
+        elif usage.total_tokens < usage.prompt_tokens + usage.completion_tokens:
+            usage.total_tokens = usage.prompt_tokens + usage.completion_tokens
+            estimated = True
+        if estimated:
+            normalized.provider_meta = normalized.provider_meta or {}
+            normalized.provider_meta["usage_estimated"] = True
+            normalized.provider_meta.setdefault("usage_estimation_method", "text_chars_div_4")
+        g.prompt_tokens = usage.prompt_tokens
+        g.completion_tokens = usage.completion_tokens
+        g.total_tokens = usage.total_tokens
+        g.usage_estimated = estimated
+
     def _validate_request(req: ChatCompletionRequest) -> tuple[bool, str]:
         if not req.messages:
             return False, "messages is required"
@@ -880,9 +908,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                         normalized.provider_meta["conversation_id"]
                     )
 
-                g.prompt_tokens = normalized.usage.prompt_tokens
-                g.completion_tokens = normalized.usage.completion_tokens
-                g.total_tokens = normalized.usage.total_tokens
+                _finalize_usage_for_audit(req, normalized)
 
                 return jsonify(_format_response(normalized, provider))
         except Exception as e:
@@ -1037,6 +1063,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             translated_req = mcp_translator.translate_request(req, provider)
             response = _run_async(provider.chat_completion(translated_req), timeout=240)
             normalized = mcp_normalizer.normalize_response(response, provider)
+            _finalize_usage_for_audit(req, normalized)
 
             from core.code_parser import extract_code_blocks, save_code_block
             response_text = normalized.choices[0].message.content or ""
@@ -1141,6 +1168,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             else:
                 response = _run_async(provider.chat_completion(translated_req, session), timeout=240)
                 normalized = mcp_normalizer.normalize_response(response, provider)
+                _finalize_usage_for_audit(req, normalized)
 
                 if normalized.provider_meta.get("conversation_id"):
                     mcp_session_manager.update_provider_session_id(

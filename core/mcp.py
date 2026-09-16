@@ -76,27 +76,32 @@ class MCPNormalizer:
             },
         )
         
-        if provider.provider_type.value == "chatgpt_web":
-            normalized = MCPNormalizer._normalize_chatgpt_web(normalized, provider)
+        normalized = MCPNormalizer._normalize_text_response(normalized, provider)
         
         return normalized
     
     @staticmethod
-    def _normalize_chatgpt_web(response: ChatCompletionResponse, provider: Provider) -> ChatCompletionResponse:
+    def _normalize_text_response(response: ChatCompletionResponse, provider: Provider) -> ChatCompletionResponse:
         for choice in response.choices:
             if choice.message and choice.message.content:
                 choice.message.content = choice.message.content.strip()
         
         if response.usage.total_tokens == 0:
-            total_chars = sum(
+            completion_chars = sum(
                 len(c.message.content or "") for c in response.choices
             )
-            estimated_tokens = total_chars // 4
+            completion_tokens = max(1, completion_chars // 4) if completion_chars else 0
+            # Web-chat providers usually do not expose authoritative usage. This
+            # is explicitly an estimate for dashboard/accounting visibility, not
+            # a billing-grade upstream token count.
             response.usage = Usage(
-                prompt_tokens=estimated_tokens // 3,
-                completion_tokens=estimated_tokens * 2 // 3,
-                total_tokens=estimated_tokens,
+                prompt_tokens=0,
+                completion_tokens=completion_tokens,
+                total_tokens=completion_tokens,
             )
+            response.provider_meta = response.provider_meta or {}
+            response.provider_meta["usage_estimated"] = True
+            response.provider_meta["usage_estimation_method"] = "completion_chars_div_4"
         
         return response
     

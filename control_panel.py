@@ -849,12 +849,21 @@ function updateModelUsage(data) {
     if (!box) return;
     const rows = data.models || [];
     if (!rows.length) {
-        box.innerHTML = '<div class="hwg-runtime-card text-gray-500">No model requests in the last hour.</div>';
+        const monitored = (data.monitored || []).map(m => `${m.provider}/${m.model}`).join(', ');
+        box.innerHTML = `
+            <div class="hwg-runtime-card text-gray-600">
+                <div class="font-semibold text-gray-800">No measured model traffic in the last hour.</div>
+                <div class="text-xs mt-1">Monitoring: ${monitored || 'no configured providers'}</div>
+                <div class="text-xs mt-1 text-yellow-800">This panel shows measured /v1/chat traffic only; placeholders are not counted as statistics.</div>
+            </div>`;
         return;
     }
     box.innerHTML = rows.map(r => {
-        const tokenText = r.tokens_available ? String(r.total_tokens) : 'tokens unavailable';
-        const tokenClass = r.tokens_available ? 'text-gray-700' : 'text-yellow-800';
+        const fmt = (value, available) => available ? String(value) + (r.tokens_estimated ? ' est.' : '') : 'unavailable';
+        const cls = (available) => available ? 'text-gray-700' : 'text-yellow-800';
+        const promptAvailable = r.prompt_tokens_available === true;
+        const completionAvailable = r.completion_tokens_available === true;
+        const totalAvailable = r.total_tokens_available === true || r.tokens_available === true;
         return `
             <div class="hwg-runtime-card">
                 <div class="flex justify-between gap-3 items-start">
@@ -865,9 +874,9 @@ function updateModelUsage(data) {
                     <span class="hwg-chip hwg-neutral">${r.requests} req</span>
                 </div>
                 <div class="grid grid-cols-3 gap-2 mt-2 text-xs">
-                    <div><span class="text-gray-500">Prompt</span><br><b>${r.prompt_tokens}</b></div>
-                    <div><span class="text-gray-500">Completion</span><br><b>${r.completion_tokens}</b></div>
-                    <div><span class="text-gray-500">Total</span><br><b class="${tokenClass}">${tokenText}</b></div>
+                    <div><span class="text-gray-500">Prompt</span><br><b class="${cls(promptAvailable)}">${fmt(r.prompt_tokens, promptAvailable)}</b></div>
+                    <div><span class="text-gray-500">Completion</span><br><b class="${cls(completionAvailable)}">${fmt(r.completion_tokens, completionAvailable)}</b></div>
+                    <div><span class="text-gray-500">Total</span><br><b class="${cls(totalAvailable)}">${fmt(r.total_tokens, totalAvailable)}</b></div>
                 </div>
             </div>`;
     }).join('');
@@ -1577,19 +1586,30 @@ def api_stats():
     return jsonify(_build_request_history_window())
 
 def _model_usage_window(now=None, seconds=3600):
-    """Return model usage for the dashboard.
+    """Return measured model usage for the dashboard.
 
-    Always include configured providers so the UI can show zero-request rows and
-    make missing token accounting explicit instead of looking empty/broken.
+    Do not fabricate zero-request rows as statistics. Configured providers are
+    returned separately as monitored targets; the models array contains only
+    measured chat traffic from audit events.
     """
     now = time.time() if now is None else now
     start = now - seconds
     audit_log = "logs/audit.log"
     by_key = {}
+    monitored = []
+    chat_endpoints = ("/v1/chat/completions", "/v1/chat/code", "/v1/chat/conversation", "/v1/responses")
+
+    try:
+        for provider in provider_registry.list_providers(enabled_only=False):
+            model_state = _provider_model_state(provider)
+            monitored.append({
+                "provider": provider.provider_id,
+                "model": model_state.get("default") or provider.provider_id,
+            })
+    except Exception:
+        pass
 
     def ensure_row(provider, model):
-        provider = str(provider or "unknown")
-        model = str(model or provider or "unknown")
         key = (provider, model)
         return by_key.setdefault(key, {
             "provider": provider,
@@ -1599,16 +1619,12 @@ def _model_usage_window(now=None, seconds=3600):
             "completion_tokens": 0,
             "total_tokens": 0,
             "tokens_available": False,
+            "tokens_estimated": False,
+            "prompt_tokens_available": False,
+            "completion_tokens_available": False,
+            "total_tokens_available": False,
         })
 
-    try:
-        for provider in provider_registry.list_providers(enabled_only=False):
-            model_state = _provider_model_state(provider)
-            ensure_row(provider.provider_id, model_state.get("default") or provider.provider_id)
-    except Exception:
-        pass
-
-    chat_endpoints = ("/v1/chat/completions", "/v1/chat/code", "/v1/chat/conversation", "/v1/responses")
     if os.path.exists(audit_log):
         with open(audit_log, "r", encoding="utf-8") as f:
             for line in f:
@@ -1633,10 +1649,18 @@ def _model_usage_window(now=None, seconds=3600):
                         row[field] += value
                         if value > 0:
                             row["tokens_available"] = True
+                            row[field + "_available"] = True
+                    if entry.get("usage_estimated") is True:
+                        row["tokens_estimated"] = True
                 except Exception:
                     pass
-    rows = sorted(by_key.values(), key=lambda r: (r["requests"] > 0, r["total_tokens"], r["requests"], r["provider"]), reverse=True)
-    return {"window_seconds": seconds, "models": rows}
+    rows = sorted(by_key.values(), key=lambda r: (r["total_tokens"], r["requests"], r["provider"]), reverse=True)
+    return {
+        "window_seconds": seconds,
+        "models": rows,
+        "monitored": monitored,
+        "status": "measured" if rows else "no_measured_traffic",
+    }
 
 
 @control_panel_bp.route('/api/model_usage')

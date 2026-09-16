@@ -2,6 +2,17 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## 0.7.16 - 2026-09-16
+
+### Fixed
+- Removed fabricated zero-request model-usage rows from the Control Panel; empty telemetry now states that no measured model traffic exists instead of presenting placeholders as statistics.
+- Added estimated usage accounting for Web-chat responses that return zero upstream usage, marking estimates with `usage_estimated` metadata.
+- Added prompt-token estimates for audit accounting so per-model dashboards can show request-side usage when Web-chat providers do not expose upstream billing data.
+- Added field-level token availability so missing prompt/completion values are shown as unavailable rather than misleading zeroes.
+
+### Validation
+- Deterministic tests verify model usage no longer fabricates zero rows and zero-usage text responses receive explicit estimated usage metadata.
+
 ## 0.7.15 - 2026-09-16
 
 ### Fixed

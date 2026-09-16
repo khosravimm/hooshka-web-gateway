@@ -1,4 +1,5 @@
 import pytest
+from pathlib import Path
 import asyncio
 from core.providers import (
     Provider,
@@ -483,3 +484,26 @@ class TestMockProviderIntegration:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+def test_normalizer_estimates_usage_for_zero_usage_text_response():
+    provider = MockProvider(provider_id="qwen-web")
+    response = ChatCompletionResponse(
+        id="test-zero-usage",
+        created=123,
+        model="qwen-web",
+        choices=[Choice(index=0, message=Message(role="assistant", content="abcd" * 20), finish_reason="stop")],
+        usage=Usage(),
+    )
+    normalized = MCPNormalizer.normalize_response(response, provider)
+    assert normalized.usage.total_tokens > 0
+    assert normalized.usage.completion_tokens > 0
+    assert normalized.provider_meta["usage_estimated"] is True
+
+
+def test_main_records_usage_estimated_in_audit_payload_contract():
+    text = Path('main.py').read_text(encoding='utf-8')
+    gov = Path('core/governance.py').read_text(encoding='utf-8')
+    assert 'def _finalize_usage_for_audit' in text
+    assert 'def _estimate_request_prompt_tokens' in text
+    assert 'g.usage_estimated = estimated' in text
+    assert '"usage_estimated": getattr(g, "usage_estimated", False)' in gov

@@ -135,7 +135,7 @@ def test_control_panel_overview_has_model_usage_summary():
     assert 'model-usage-summary' in text
     assert "api('/model_usage')" in text
     assert 'updateModelUsage' in text
-    assert 'tokens unavailable' in text
+    assert 'unavailable' in text
     assert 'def api_model_usage' in text
     assert 'prompt_tokens' in text and 'completion_tokens' in text and 'total_tokens' in text
 
@@ -161,9 +161,27 @@ def test_control_panel_config_summary_backend_exists():
     assert 'def api_config_summary' in text
 
 
-def test_model_usage_includes_zero_rows_for_configured_providers():
+def legacy_removed_model_usage_includes_zero_rows_for_configured_providers():
     text = source()
     assert 'Always include configured providers' in text
     assert 'provider_registry.list_providers(enabled_only=False)' in text
     assert 'ensure_row(provider.provider_id' in text
     assert 'Zero-request rows' in Path('CHANGELOG.md').read_text(encoding='utf-8')
+
+
+def test_model_usage_does_not_fabricate_zero_rows():
+    text = source()
+    assert 'Do not fabricate zero-request rows as statistics' in text
+    assert 'no_measured_traffic' in text
+    assert 'monitored' in text
+    assert 'No measured model traffic in the last hour.' in text
+    assert 'ensure_row(provider.provider_id' not in text
+
+
+def test_model_usage_uses_field_level_token_availability():
+    text = source()
+    assert 'prompt_tokens_available' in text
+    assert 'completion_tokens_available' in text
+    assert 'total_tokens_available' in text
+    assert "fmt(r.prompt_tokens, promptAvailable)" in text
+    assert "unavailable" in text

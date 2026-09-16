@@ -187,6 +187,7 @@ def audit_middleware(response):
         "prompt_tokens": getattr(g, "prompt_tokens", 0),
         "completion_tokens": getattr(g, "completion_tokens", 0),
         "total_tokens": getattr(g, "total_tokens", 0),
+        "usage_estimated": getattr(g, "usage_estimated", False),
     })
     
     for key, value in g.get("rate_limit_headers", {}).items():
