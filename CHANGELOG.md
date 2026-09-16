@@ -2,6 +2,14 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## 0.7.12 - 2026-09-16
+
+### Changed
+- Replaced raw JSON rendering in the Control Panel Service tab with user-facing service summary cards, state labels, action messages, and an optional raw service-manager output expander for debugging.
+
+### Validation
+- Headless render verifies the Service tab maps the service payload to UI fields instead of exposing JSON directly.
+
 ## 0.7.11 - 2026-09-16
 
 ### Fixed

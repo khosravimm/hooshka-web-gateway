@@ -514,8 +514,20 @@ DASHBOARD_HTML = r"""
                         <p class="text-xs text-gray-500 mt-2">Canonical service: <span class="font-mono">HooshkaWebGateway</span></p>
                     </div>
                     <div class="bg-gray-50 rounded-lg p-4">
-                        <h4 class="font-medium mb-2">Info</h4>
-                        <pre id="service-info" class="bg-gray-900 text-green-300 p-3 rounded h-32 overflow-auto text-sm font-mono"></pre>
+                        <h4 class="font-medium mb-3">Service Summary</h4>
+                        <div id="service-summary" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                            <div class="hwg-runtime-card"><div class="text-gray-500 text-xs uppercase">Canonical Service</div><div id="svc-name" class="font-semibold font-mono">-</div></div>
+                            <div class="hwg-runtime-card"><div class="text-gray-500 text-xs uppercase">Windows Status</div><div id="svc-status-text" class="font-semibold">-</div></div>
+                            <div class="hwg-runtime-card"><div class="text-gray-500 text-xs uppercase">Start Type</div><div id="svc-start-type" class="font-semibold">-</div></div>
+                            <div class="hwg-runtime-card"><div class="text-gray-500 text-xs uppercase">Can Stop</div><div id="svc-can-stop" class="font-semibold">-</div></div>
+                            <div class="hwg-runtime-card"><div class="text-gray-500 text-xs uppercase">Service Type</div><div id="svc-service-type" class="font-semibold">-</div></div>
+                            <div class="hwg-runtime-card"><div class="text-gray-500 text-xs uppercase">Legacy Service</div><div id="svc-legacy" class="font-semibold font-mono">-</div></div>
+                        </div>
+                        <div id="service-message" class="mt-3 text-sm text-gray-600"></div>
+                        <details class="mt-3">
+                            <summary class="text-xs text-gray-500 cursor-pointer">Raw service-manager output</summary>
+                            <pre id="service-raw" class="bg-gray-900 text-green-300 p-3 rounded h-24 overflow-auto text-xs font-mono mt-2"></pre>
+                        </details>
                     </div>
                 </div>
             </div>
@@ -1027,14 +1039,16 @@ async function loadServiceStatus() {
         const data = await api('/service/status');
         updateServiceStatus(data);
     } catch (e) {
-        document.getElementById('service-info').textContent = 'Error: ' + e.message;
+        const message = document.getElementById('service-message'); if (message) message.textContent = 'Error: ' + e.message;
     }
 }
 
 function updateServiceStatus(data) {
     const badge = document.getElementById('service-status-badge');
-    const status = data.status || data.service?.status || 'Unknown';
-    const exists = data.exists === true || data.service?.exists === true;
+    const service = data.service || {};
+    const legacy = data.legacy_service || {};
+    const status = data.status || service.status || 'Unknown';
+    const exists = data.exists === true || service.exists === true;
     if (exists) {
         badge.textContent = status;
         badge.className = 'px-3 py-1 rounded-full text-sm font-medium ' +
@@ -1051,7 +1065,27 @@ function updateServiceStatus(data) {
     if (startBtn) startBtn.disabled = exists && status === 'Running';
     if (stopBtn) stopBtn.disabled = !exists || status !== 'Running';
     if (restartBtn) restartBtn.disabled = !exists;
-    document.getElementById('service-info').textContent = JSON.stringify(data, null, 2) || '(no info)';
+
+    const setText = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value || '-';
+    };
+    setText('svc-name', service.name || 'HooshkaWebGateway');
+    setText('svc-status-text', exists ? status : 'Not installed');
+    setText('svc-start-type', service.start_type || '-');
+    setText('svc-can-stop', exists ? (service.can_stop ? 'Yes' : 'No') : '-');
+    setText('svc-service-type', service.service_type || '-');
+    setText('svc-legacy', (legacy.name || 'WebLLMBridge') + ': ' + (legacy.status || 'Unknown'));
+
+    const message = document.getElementById('service-message');
+    if (message) {
+        if (!exists) message.textContent = 'Canonical Windows service is not installed.';
+        else if (status === 'Running') message.textContent = 'Gateway service is installed, automatic, and currently running.';
+        else if (status === 'Stopped') message.textContent = 'Gateway service is installed but stopped.';
+        else message.textContent = 'Gateway service state requires attention: ' + status;
+    }
+    const raw = document.getElementById('service-raw');
+    if (raw) raw.textContent = data.output || '(no raw output)';
 }
 
 async function serviceAction(action) {
@@ -1059,13 +1093,14 @@ async function serviceAction(action) {
     if (!confirm(actionText + ' service?')) return;
     const btn = document.getElementById('svc-' + action);
     if (btn) btn.disabled = true;
-    document.getElementById('service-info').textContent = actionText + ' requested...';
+    const message = document.getElementById('service-message');
+    if (message) message.textContent = actionText + ' requested...';
     try {
         const resp = await fetch('/panel/api/service/' + action, { method: 'POST' });
         const result = await resp.json();
         updateServiceStatus(result);
     } catch (e) {
-        document.getElementById('service-info').textContent = 'Error: ' + e.message;
+        if (message) message.textContent = 'Error: ' + e.message;
     } finally {
         await loadServiceStatus();
     }

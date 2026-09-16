@@ -115,3 +115,15 @@ def test_control_panel_service_tab_uses_structured_windows_service_status():
     assert 'Canonical service:' in text
     assert 'svc-start' in text and 'svc-stop' in text and 'svc-restart' in text
     assert "if (tabName === 'service') loadServiceStatus();" in text
+
+
+def test_control_panel_service_tab_maps_payload_to_ui_elements():
+    text = source()
+    assert 'service-summary' in text
+    assert 'svc-status-text' in text
+    assert 'svc-start-type' in text
+    assert 'svc-can-stop' in text
+    assert 'svc-legacy' in text
+    assert 'Raw service-manager output' in text
+    assert 'service-info' not in text
+    assert "JSON.stringify(data, null, 2)" not in text
