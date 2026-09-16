@@ -25,6 +25,7 @@ from core.mcp import mcp_translator, mcp_normalizer, mcp_session_manager
 from core.governance import init_governance, auth_manager, rate_limiter
 from core.config import load_config
 from core.tool_compat import drop_optional_tools_for_text_only_provider, request_requires_tools
+from core.agent_boundary import boundary_is_active_for_request, enforce_response_boundary
 from core.feature_settings import (
     apply_feature_defaults,
     persist_provider_feature_defaults,
@@ -900,7 +901,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                 return _stream_response(provider, translated_req, session, "chat_completions")
             else:
                 response = _run_async(provider.chat_completion(translated_req, session), timeout=240)
-                normalized = mcp_normalizer.normalize_response(response, provider)
+                normalized = mcp_normalizer.normalize_response(response, provider, translated_req)
 
                 if session and normalized.provider_meta.get("conversation_id"):
                     mcp_session_manager.update_provider_session_id(
@@ -927,6 +928,39 @@ def create_app(config_path: str = "config.yaml") -> Flask:
 
             async def produce():
                 try:
+                    if boundary_is_active_for_request(req):
+                        buffered_text = []
+                        last_chunk = None
+                        for_finish_reason = "stop"
+                        async for chunk in provider.chat_completion_stream(req, session):
+                            normalized = mcp_normalizer.normalize_chunk(chunk, provider)
+                            last_chunk = normalized
+                            for choice in normalized.choices:
+                                if choice.delta and choice.delta.content:
+                                    buffered_text.append(choice.delta.content)
+                                if choice.finish_reason:
+                                    for_finish_reason = choice.finish_reason
+                        result = enforce_response_boundary("".join(buffered_text))
+                        meta = dict((last_chunk.provider_meta if last_chunk else {}) or {})
+                        meta["provider_id"] = provider.provider_id
+                        meta["provider_type"] = provider.provider_type.value
+                        meta["agent_boundary"] = result.meta()
+                        payload = {
+                            "id": getattr(last_chunk, "id", f"chatcmpl-{int(time.time() * 1000)}") if last_chunk else f"chatcmpl-{int(time.time() * 1000)}",
+                            "object": "chat.completion.chunk",
+                            "created": getattr(last_chunk, "created", int(time.time())) if last_chunk else int(time.time()),
+                            "model": getattr(last_chunk, "model", req.model) if last_chunk else req.model,
+                            "choices": [{
+                                "index": 0,
+                                "delta": {"role": None, "content": result.safe_content, "tool_calls": None},
+                                "finish_reason": None,
+                            }],
+                            "provider_meta": meta,
+                        }
+                        event_queue.put(("data", payload))
+                        event_queue.put(("done", sentinel))
+                        return
+
                     async for chunk in provider.chat_completion_stream(req, session):
                         normalized = mcp_normalizer.normalize_chunk(chunk, provider)
                         event_queue.put(("data", _format_stream_chunk(normalized)))
@@ -1062,7 +1096,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         try:
             translated_req = mcp_translator.translate_request(req, provider)
             response = _run_async(provider.chat_completion(translated_req), timeout=240)
-            normalized = mcp_normalizer.normalize_response(response, provider)
+            normalized = mcp_normalizer.normalize_response(response, provider, translated_req)
             _finalize_usage_for_audit(req, normalized)
 
             from core.code_parser import extract_code_blocks, save_code_block
@@ -1167,7 +1201,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                 return _stream_response(provider, translated_req, session, "conversation_chat")
             else:
                 response = _run_async(provider.chat_completion(translated_req, session), timeout=240)
-                normalized = mcp_normalizer.normalize_response(response, provider)
+                normalized = mcp_normalizer.normalize_response(response, provider, translated_req)
                 _finalize_usage_for_audit(req, normalized)
 
                 if normalized.provider_meta.get("conversation_id"):

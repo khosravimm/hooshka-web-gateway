@@ -13,6 +13,7 @@ from core.providers import (
 )
 import logging
 import time
+from core.agent_boundary import apply_request_context_boundary, boundary_is_active_for_request, enforce_response_boundary
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,8 @@ class MCPTranslator:
             provider_options=request.provider_options,
         )
         
+        translated = apply_request_context_boundary(translated)
+
         if provider.provider_type.value == "chatgpt_web":
             translated = MCPTranslator._adapt_for_chatgpt_web(translated, provider)
         
@@ -61,7 +64,7 @@ class MCPTranslator:
 
 class MCPNormalizer:
     @staticmethod
-    def normalize_response(response: ChatCompletionResponse, provider: Provider) -> ChatCompletionResponse:
+    def normalize_response(response: ChatCompletionResponse, provider: Provider, request: Optional[ChatCompletionRequest] = None) -> ChatCompletionResponse:
         normalized = ChatCompletionResponse(
             id=response.id or f"chatcmpl-{int(time.time() * 1000)}",
             object=response.object or "chat.completion",
@@ -76,15 +79,39 @@ class MCPNormalizer:
             },
         )
         
-        normalized = MCPNormalizer._normalize_text_response(normalized, provider)
+        normalized = MCPNormalizer._normalize_text_response(normalized, provider, request)
         
         return normalized
     
     @staticmethod
-    def _normalize_text_response(response: ChatCompletionResponse, provider: Provider) -> ChatCompletionResponse:
+    def _normalize_text_response(response: ChatCompletionResponse, provider: Provider, request: Optional[ChatCompletionRequest] = None) -> ChatCompletionResponse:
+        boundary_active = boundary_is_active_for_request(request)
+        boundary_totals = {
+            "hidden_executable_count": 0,
+            "hidden_copy_artifact_count": 0,
+            "hidden_hallucination_count": 0,
+        }
         for choice in response.choices:
             if choice.message and choice.message.content:
-                choice.message.content = choice.message.content.strip()
+                content = choice.message.content.strip()
+                if boundary_active:
+                    result = enforce_response_boundary(content)
+                    choice.message.content = result.safe_content
+                    meta = result.meta()
+                    for key in boundary_totals:
+                        boundary_totals[key] += int(meta.get(key, 0) or 0)
+                else:
+                    choice.message.content = content
+        if boundary_active:
+            response.provider_meta = response.provider_meta or {}
+            response.provider_meta["agent_boundary"] = {
+                "active": True,
+                "policy": "hooshka_wg_agent_boundary_v1",
+                "delivery": "safe_chat_only",
+                "canonical_cag": "Hooshka Controlled Action Gateway",
+                "raw_payload_omitted": True,
+                **boundary_totals,
+            }
         
         if response.usage.total_tokens == 0:
             completion_chars = sum(

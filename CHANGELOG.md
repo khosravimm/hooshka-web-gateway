@@ -1,3 +1,11 @@
+## 0.7.20 - 2026-09-16
+### Fixed
+- Added a Gateway-level Hooshka/CAG context boundary so CAG is defined as Hooshka Controlled Action Gateway, not Client Access Gateway.
+- Added an agentic response boundary that prevents executable shell/code snippets and Copy/Download artifacts from leaving `/v1/chat/completions` as human chat content in Hooshka context.
+- Streaming Hooshka-context responses are buffered at the Gateway boundary before safe-chat delivery to avoid partial command leakage.
+### Validation
+- Added unit tests for context injection, response boundary metadata, and no raw command leakage in message content or provider metadata.
+
 # Changelog
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
