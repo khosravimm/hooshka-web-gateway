@@ -191,7 +191,7 @@ def test_model_usage_uses_human_labels_and_compact_grid():
     text = source()
     assert 'Model Traffic & Token Accounting (1h)' in text
     assert 'grid grid-cols-1 md:grid-cols-2 gap-3 text-sm' in text
-    assert 'Requests: ${r.requests}' in text
+    assert 'Requests: ${formatCompactNumber(r.requests)}' in text
     assert 'Input tokens' in text
     assert 'Output tokens' in text
     assert 'Total tokens' in text
@@ -199,3 +199,14 @@ def test_model_usage_uses_human_labels_and_compact_grid():
     assert '${r.requests} req' not in text
     assert '>Prompt<' not in text
     assert '>Completion<' not in text
+
+
+def test_model_accounting_uses_compact_number_formatting():
+    text = source()
+    assert 'function formatCompactNumber' in text
+    assert " + 'B'" in text
+    assert " + 'M'" in text
+    assert " + 'k'" in text
+    assert 'Requests: ${formatCompactNumber(r.requests)}' in text
+    assert 'formatCompactNumber(value)' in text
+    assert 'fullValue(r.total_tokens, totalAvailable)' in text

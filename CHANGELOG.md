@@ -2,6 +2,14 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## 0.7.18 - 2026-09-16
+
+### Changed
+- Compact large request and token counters in the model accounting panel using k/M/B suffixes while preserving full values in tooltips.
+
+### Validation
+- Deterministic tests verify compact number formatting and updated model accounting labels.
+
 ## 0.7.17 - 2026-09-16
 
 ### Changed

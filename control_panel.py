@@ -844,6 +844,15 @@ function updateStats(data) {
     document.getElementById('stat-requests').textContent = data.requests_1h || 0;
 }
 
+function formatCompactNumber(value) {
+    const n = Number(value || 0);
+    const abs = Math.abs(n);
+    if (abs >= 1_000_000_000) return (n / 1_000_000_000).toFixed(abs >= 10_000_000_000 ? 0 : 1).replace(/\.0$/, '') + 'B';
+    if (abs >= 1_000_000) return (n / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1).replace(/\.0$/, '') + 'M';
+    if (abs >= 1_000) return (n / 1_000).toFixed(abs >= 10_000 ? 0 : 1).replace(/\.0$/, '') + 'k';
+    return String(n);
+}
+
 function updateModelUsage(data) {
     const box = document.getElementById('model-usage-summary');
     if (!box) return;
@@ -859,7 +868,8 @@ function updateModelUsage(data) {
         return;
     }
     box.innerHTML = rows.map(r => {
-        const tokenValue = (value, available) => available ? String(value) + (r.tokens_estimated ? ' estimated' : '') : 'not captured';
+        const tokenValue = (value, available) => available ? formatCompactNumber(value) + (r.tokens_estimated ? ' estimated' : '') : 'not captured';
+        const fullValue = (value, available) => available ? String(Number(value || 0)) + (r.tokens_estimated ? ' estimated' : '') : 'not captured';
         const tokenClass = (available) => available ? 'text-gray-800' : 'text-yellow-800';
         const promptAvailable = r.prompt_tokens_available === true;
         const completionAvailable = r.completion_tokens_available === true;
@@ -871,12 +881,12 @@ function updateModelUsage(data) {
                         <div class="font-semibold font-mono leading-tight">${r.model || 'unknown model'}</div>
                         <div class="text-xs text-gray-500">${r.provider || 'unknown provider'}</div>
                     </div>
-                    <span class="hwg-chip hwg-neutral" title="Completed model requests routed to this provider/model in the last hour">Requests: ${r.requests}</span>
+                    <span class="hwg-chip hwg-neutral" title="Completed model requests routed to this provider/model in the last hour: ${Number(r.requests || 0)}">Requests: ${formatCompactNumber(r.requests)}</span>
                 </div>
                 <div class="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-xs">
-                    <div><span class="text-gray-500">Input tokens:</span> <b class="${tokenClass(promptAvailable)}">${tokenValue(r.prompt_tokens, promptAvailable)}</b></div>
-                    <div><span class="text-gray-500">Output tokens:</span> <b class="${tokenClass(completionAvailable)}">${tokenValue(r.completion_tokens, completionAvailable)}</b></div>
-                    <div><span class="text-gray-500">Total tokens:</span> <b class="${tokenClass(totalAvailable)}">${tokenValue(r.total_tokens, totalAvailable)}</b></div>
+                    <div title="${fullValue(r.prompt_tokens, promptAvailable)}"><span class="text-gray-500">Input tokens:</span> <b class="${tokenClass(promptAvailable)}">${tokenValue(r.prompt_tokens, promptAvailable)}</b></div>
+                    <div title="${fullValue(r.completion_tokens, completionAvailable)}"><span class="text-gray-500">Output tokens:</span> <b class="${tokenClass(completionAvailable)}">${tokenValue(r.completion_tokens, completionAvailable)}</b></div>
+                    <div title="${fullValue(r.total_tokens, totalAvailable)}"><span class="text-gray-500">Total tokens:</span> <b class="${tokenClass(totalAvailable)}">${tokenValue(r.total_tokens, totalAvailable)}</b></div>
                     <div><span class="text-gray-500">Accounting:</span> <b class="text-gray-800">${r.tokens_estimated ? 'estimated' : 'measured'}</b></div>
                 </div>
             </div>`;
