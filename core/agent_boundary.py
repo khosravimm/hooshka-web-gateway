@@ -9,7 +9,11 @@ commands/code there.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import json
+import os
 import re
+import urllib.error
+import urllib.request
 from typing import Any
 
 from core.providers import ChatCompletionRequest
@@ -238,3 +242,81 @@ def enforce_response_boundary(content: str | None) -> AgentBoundaryResult:
         hidden_hallucination_count=hidden_hallucination,
         notes=notes,
     )
+
+
+def _request_haystack(request: ChatCompletionRequest | None) -> str:
+    if request is None:
+        return ""
+    return "\n".join(_message_text(m) for m in (request.messages or []) if isinstance(m, dict))
+
+
+def infer_action_candidate_payload(request: ChatCompletionRequest | None, boundary_meta: dict[str, Any], provider_id: str) -> dict[str, Any] | None:
+    if not boundary_meta or not boundary_meta.get("active"):
+        return None
+    hidden_total = int(boundary_meta.get("hidden_executable_count") or 0) + int(boundary_meta.get("hidden_hallucination_count") or 0)
+    if hidden_total <= 0:
+        return None
+    hay = _request_haystack(request)
+    low = hay.lower()
+    project_id = "unknown"
+    if "naghsheyar" in low or "\u0646\u0642\u0634\u0647" in low:
+        project_id = "naghsheyar"
+    elif "sotoon" in low:
+        project_id = "sotoon"
+    elif "tavana" in low:
+        project_id = "tavana"
+    intent_name = "controlled_action_review"
+    capabilities: list[str] = []
+    if any(x in low for x in ("status", "\u0648\u0636\u0639\u06cc\u062a", "check", "inspect", "review")):
+        intent_name = "project_status_check"
+        capabilities.extend(["git.status", "git.diff_summary"])
+    if "service" in low or "\u0633\u0631\u0648\u06cc\u0633" in low:
+        capabilities.append("service.health_read")
+    if not capabilities:
+        capabilities.append("git.status")
+    # Keep only safe metadata. Never include raw model output or held commands.
+    return {
+        "source": {"channel": "hooshka.web_gateway", "tool": "Hooshka.WG.agent_boundary", "provider": provider_id},
+        "project": {"id": project_id},
+        "intent": {
+            "name": intent_name,
+            "human_goal": "AI output required controlled execution; convert it to a CAG action candidate.",
+        },
+        "capabilities": sorted(set(capabilities)),
+        "constraints": {"requires_cag": True, "raw_shell_allowed": False, "requires_human_approval": False},
+        "raw_payload_omitted": True,
+        "gateway_boundary": {
+            "policy": boundary_meta.get("policy"),
+            "delivery": boundary_meta.get("delivery"),
+            "hidden_executable_count": int(boundary_meta.get("hidden_executable_count") or 0),
+            "hidden_copy_artifact_count": int(boundary_meta.get("hidden_copy_artifact_count") or 0),
+            "hidden_hallucination_count": int(boundary_meta.get("hidden_hallucination_count") or 0),
+            "raw_payload_omitted": True,
+        },
+    }
+
+
+def register_action_candidate_for_boundary(request: ChatCompletionRequest | None, boundary_meta: dict[str, Any], provider_id: str) -> dict[str, Any]:
+    if str(os.getenv("HOOSHKA_WG_CAG_CANDIDATES", "1")).lower() not in {"1", "true", "yes", "on"}:
+        return {"enabled": False, "registered": False, "reason": "disabled"}
+    payload = infer_action_candidate_payload(request, boundary_meta, provider_id)
+    if payload is None:
+        return {"enabled": True, "registered": False, "reason": "no_action_candidate"}
+    base = os.getenv("HOOSHKA_CAG_BASE_URL", "http://127.0.0.1:8777").rstrip("/")
+    url = base + "/api/action-candidates"
+    try:
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(req, timeout=float(os.getenv("HOOSHKA_CAG_TIMEOUT", "3"))) as response:
+            data = json.loads(response.read().decode("utf-8"))
+        return {
+            "enabled": True,
+            "registered": True,
+            "candidate_id": data.get("candidate_id"),
+            "state": data.get("state"),
+            "schema": data.get("schema"),
+            "project": data.get("project"),
+            "capabilities": data.get("capabilities"),
+        }
+    except Exception as exc:
+        return {"enabled": True, "registered": False, "error_type": type(exc).__name__, "reason": str(exc)[:180]}

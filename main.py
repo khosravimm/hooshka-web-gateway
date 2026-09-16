@@ -25,7 +25,7 @@ from core.mcp import mcp_translator, mcp_normalizer, mcp_session_manager
 from core.governance import init_governance, auth_manager, rate_limiter
 from core.config import load_config
 from core.tool_compat import drop_optional_tools_for_text_only_provider, request_requires_tools
-from core.agent_boundary import boundary_is_active_for_request, enforce_response_boundary
+from core.agent_boundary import boundary_is_active_for_request, enforce_response_boundary, register_action_candidate_for_boundary
 from core.feature_settings import (
     apply_feature_defaults,
     persist_provider_feature_defaults,
@@ -945,6 +945,8 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                         meta["provider_id"] = provider.provider_id
                         meta["provider_type"] = provider.provider_type.value
                         meta["agent_boundary"] = result.meta()
+                        if result.changed:
+                            meta["agent_boundary"]["action_candidate"] = register_action_candidate_for_boundary(req, meta["agent_boundary"], provider.provider_id)
                         payload = {
                             "id": getattr(last_chunk, "id", f"chatcmpl-{int(time.time() * 1000)}") if last_chunk else f"chatcmpl-{int(time.time() * 1000)}",
                             "object": "chat.completion.chunk",

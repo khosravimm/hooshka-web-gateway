@@ -13,7 +13,7 @@ from core.providers import (
 )
 import logging
 import time
-from core.agent_boundary import apply_request_context_boundary, boundary_is_active_for_request, enforce_response_boundary
+from core.agent_boundary import apply_request_context_boundary, boundary_is_active_for_request, enforce_response_boundary, register_action_candidate_for_boundary
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +112,8 @@ class MCPNormalizer:
                 "raw_payload_omitted": True,
                 **boundary_totals,
             }
+            if any(int(response.provider_meta["agent_boundary"].get(k, 0) or 0) for k in ("hidden_executable_count", "hidden_hallucination_count")):
+                response.provider_meta["agent_boundary"]["action_candidate"] = register_action_candidate_for_boundary(request, response.provider_meta["agent_boundary"], provider.provider_id)
         
         if response.usage.total_tokens == 0:
             completion_chars = sum(

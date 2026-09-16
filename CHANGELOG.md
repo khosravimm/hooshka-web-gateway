@@ -1,3 +1,11 @@
+## 0.7.21 - 2026-09-16
+
+### Action Orchestration
+- Added Gateway-to-CAG Action Candidate bridge.
+- Agentic Hooshka-context output that is stopped at the Gateway boundary now creates a CAG action candidate.
+- Candidate metadata omits raw model output and held commands.
+- Streaming Hooshka-context boundary also registers candidates after buffering and classification.
+
 ## 0.7.20 - 2026-09-16
 ### Fixed
 - Added a Gateway-level Hooshka/CAG context boundary so CAG is defined as Hooshka Controlled Action Gateway, not Client Access Gateway.
