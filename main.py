@@ -41,7 +41,7 @@ SWAGGER_TEMPLATE = {
     "info": {
         "title": "Hooshka Web Gateway API",
         "description": "Hooshka Web Gateway exposes one governed OpenAI-compatible local API for supported Web-chat providers. Provider-specific browser/session/transport behavior remains behind exact fail-closed routing.",
-        "version": "0.7.0",
+        "version": "0.7.1",
         "contact": {
             "name": "Hooshka Web Gateway",
         },
@@ -1026,3 +1026,4 @@ if __name__ == "__main__":
         port=server_config["port"],
         threads=4,
     )
+

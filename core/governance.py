@@ -123,11 +123,16 @@ def auth_middleware():
         g.identity = {"identity": "health-check", "metadata": {}}
         g.api_key = None
         return
-    if request.path.startswith("/panel") and _is_loopback_request():
-        g.identity = {"identity": "local-admin-panel", "metadata": {"source": "loopback-panel"}}
+
+    # Localhost is the trusted same-host control plane for Hooshka Console, CAG,
+    # and internal provider probes. Do not require a bearer token for true
+    # loopback clients, but do not extend this to LAN/private ranges or forwarded
+    # headers. request.remote_addr is the socket peer address observed by Flask.
+    if _is_loopback_request():
+        g.identity = {"identity": "local-loopback", "metadata": {"source": "loopback", "path": request.path}}
         g.api_key = None
         return
-    
+
     api_key = auth_manager.extract_key()
     identity_info = auth_manager.verify(api_key) if api_key else None
     

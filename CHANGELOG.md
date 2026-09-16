@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.1 - 2026-09-16
+
+### Fixed
+- Allow true loopback clients (`127.0.0.1`, `::1`, `localhost`) to call local Hooshka Web Gateway endpoints without a bearer token.
+- Keep non-loopback requests protected by the existing bearer-token authentication path.
+
+### Validation
+- Added middleware tests for localhost bypass and non-loopback 401 behavior.
+- Full gateway suite: 131 passed.
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
 ## Unreleased
@@ -320,3 +329,4 @@ All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` i
 ## Earlier history
 
 The repository did not maintain a formal VERSION/CHANGELOG contract before 0.3.0. Earlier commits remain the source of truth for pre-0.3.0 history.
+

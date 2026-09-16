@@ -21,7 +21,7 @@ from core.providers import (
 )
 from core.mcp import MCPTranslator, MCPNormalizer, MCPSessionManager
 from core.provider_registry import ProviderRegistry, ProviderRouter
-from core.governance import RateLimiter, AuthManager, AuditLogger
+from core.governance import RateLimiter, AuthManager, AuditLogger, auth_middleware, auth_manager
 
 
 class MockProvider(Provider):
@@ -395,6 +395,43 @@ class TestAuthManager:
         self.auth.load_keys({"legacy-key": "legacy-user"})
         result = self.auth.verify("legacy-key")
         assert result == {"identity": "legacy-user", "metadata": {}}
+
+
+class TestLoopbackAuthMiddleware:
+    def test_loopback_v1_models_bypasses_bearer_auth(self):
+        from flask import Flask, g
+        old_enabled = auth_manager._enabled
+        old_keys = dict(auth_manager._api_keys)
+        try:
+            auth_manager._enabled = True
+            auth_manager._api_keys = {}
+            app = Flask(__name__)
+            with app.test_request_context('/v1/models', environ_base={'REMOTE_ADDR': '127.0.0.1'}):
+                result = auth_middleware()
+                assert result is None
+                assert g.identity['identity'] == 'local-loopback'
+                assert g.api_key is None
+        finally:
+            auth_manager._enabled = old_enabled
+            auth_manager._api_keys = old_keys
+
+    def test_non_loopback_v1_models_still_requires_auth_when_enabled(self):
+        from flask import Flask
+        old_enabled = auth_manager._enabled
+        old_keys = dict(auth_manager._api_keys)
+        try:
+            auth_manager._enabled = True
+            auth_manager._api_keys = {}
+            app = Flask(__name__)
+            with app.test_request_context('/v1/models', environ_base={'REMOTE_ADDR': '192.168.1.50'}):
+                result = auth_middleware()
+                assert result is not None
+                response, status = result
+                assert status == 401
+                assert response.get_json()['error']['type'] == 'authentication_error'
+        finally:
+            auth_manager._enabled = old_enabled
+            auth_manager._api_keys = old_keys
 
 
 @pytest.mark.asyncio
