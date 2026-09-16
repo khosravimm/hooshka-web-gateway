@@ -102,3 +102,16 @@ def test_control_panel_providers_table_prevents_horizontal_overflow():
     assert 'provider-capabilities-col' in text
     assert 'capability-badges' in text
     assert 'runtime-url' in text
+
+
+def test_control_panel_service_tab_uses_structured_windows_service_status():
+    text = source()
+    assert 'SERVICE_NAME = "HooshkaWebGateway"' in text
+    assert 'LEGACY_SERVICE_NAME = "WebLLMBridge"' in text
+    assert 'def _query_windows_service' in text
+    assert 'Get-Service -Name' in text
+    assert 'ConvertTo-Json -Compress' in text
+    assert 'def _service_status_payload' in text
+    assert 'Canonical service:' in text
+    assert 'svc-start' in text and 'svc-stop' in text and 'svc-restart' in text
+    assert "if (tabName === 'service') loadServiceStatus();" in text

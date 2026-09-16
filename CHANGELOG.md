@@ -2,6 +2,16 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## 0.7.11 - 2026-09-16
+
+### Fixed
+- Reworked the Control Panel Service tab to read the canonical Windows service state from structured `Get-Service` and `Get-CimInstance` data instead of parsing formatted PowerShell table output.
+- Service Management now reports the canonical `HooshkaWebGateway` service correctly and includes legacy `WebLLMBridge` status for migration visibility.
+- Service action buttons are now state-aware and disabled when the action is not valid for the current service state.
+
+### Validation
+- Headless render verifies the Service tab shows `Running` for the installed canonical service using live `/panel/api/service/status`, not a stale initial snapshot.
+
 ## 0.7.10 - 2026-09-16
 
 ### Fixed

@@ -201,17 +201,70 @@ def _run_service_manager(action):
     """Run a service action via the PowerShell script. Returns (success, output)."""
     script = f"""
     $ErrorActionPreference = 'Stop'
-    . "{Path(__file__).parent / 'service_manager.ps1'}" {action}
+    & "{Path(__file__).parent / 'service_manager.ps1'}" {action}
     """
     try:
         result = subprocess.run(
             ["powershell", "-ExecutionPolicy", "Bypass", "-Command", script],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, timeout=45,
         )
         output = (result.stdout + result.stderr).strip()
         return result.returncode == 0, output
     except Exception as e:
         return False, str(e)
+
+
+SERVICE_NAME = "HooshkaWebGateway"
+LEGACY_SERVICE_NAME = "WebLLMBridge"
+
+
+def _query_windows_service(name=SERVICE_NAME):
+    """Return structured Windows Service state without parsing table output."""
+    script = f"""
+    $svc = Get-Service -Name '{name}' -ErrorAction SilentlyContinue
+    if ($null -eq $svc) {{
+      [pscustomobject]@{{exists=$false; name='{name}'; display_name=''; status='NotInstalled'; start_type=''; can_stop=$false; service_type=''; dependent_services=0}} | ConvertTo-Json -Compress
+      exit 0
+    }}
+    $wmi = Get-CimInstance Win32_Service -Filter "Name='{name}'" -ErrorAction SilentlyContinue
+    [pscustomobject]@{{
+      exists=$true
+      name=$svc.Name
+      display_name=$svc.DisplayName
+      status=$svc.Status.ToString()
+      start_type=if ($wmi) {{ $wmi.StartMode }} else {{ '' }}
+      can_stop=$svc.CanStop
+      service_type=$svc.ServiceType.ToString()
+      dependent_services=@($svc.DependentServices).Count
+    }} | ConvertTo-Json -Compress
+    """
+    try:
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
+            capture_output=True, text=True, timeout=10,
+        )
+        output = (result.stdout or "").strip()
+        if result.returncode != 0:
+            return {"exists": False, "name": name, "status": "Unknown", "error": (result.stderr or "").strip()}
+        data = json.loads(output) if output else {}
+        data.setdefault("exists", False)
+        data.setdefault("name", name)
+        data.setdefault("status", "Unknown")
+        return data
+    except Exception as exc:
+        return {"exists": False, "name": name, "status": "Unknown", "error": str(exc)}
+
+
+def _service_status_payload(output=""):
+    service = _query_windows_service(SERVICE_NAME)
+    legacy = _query_windows_service(LEGACY_SERVICE_NAME)
+    return {
+        "exists": bool(service.get("exists")),
+        "status": service.get("status", "Unknown"),
+        "service": service,
+        "legacy_service": legacy,
+        "output": output,
+    }
 
 DASHBOARD_HTML = r"""
 <!DOCTYPE html>
@@ -454,10 +507,11 @@ DASHBOARD_HTML = r"""
                     <div class="bg-gray-50 rounded-lg p-4">
                         <h4 class="font-medium mb-2">Action</h4>
                         <div class="flex gap-2">
-                            <button onclick="serviceAction('start')" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Start</button>
-                            <button onclick="serviceAction('stop')" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-orange-700">Stop</button>
-                            <button onclick="serviceAction('restart')" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Restart</button>
+                            <button id="svc-start" onclick="serviceAction('start')" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Start</button>
+                            <button id="svc-stop" onclick="serviceAction('stop')" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-orange-700">Stop</button>
+                            <button id="svc-restart" onclick="serviceAction('restart')" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Restart</button>
                         </div>
+                        <p class="text-xs text-gray-500 mt-2">Canonical service: <span class="font-mono">HooshkaWebGateway</span></p>
                     </div>
                     <div class="bg-gray-50 rounded-lg p-4">
                         <h4 class="font-medium mb-2">Info</h4>
@@ -528,7 +582,7 @@ function showTab(tabName) {
     if (tabName === 'providers') loadProviders();
     if (tabName === 'sessions') loadSessions();
     if (tabName === 'api_keys') { if (INITIAL_AUTH) updateApiKeys(INITIAL_AUTH); else loadApiKeys(); }
-    if (tabName === 'service') { if (INITIAL_SERVICE) updateServiceStatus(INITIAL_SERVICE); else loadServiceStatus(); }
+    if (tabName === 'service') loadServiceStatus();
     if (tabName === 'logs') loadLogs();
     if (tabName === 'config') loadConfig();
 }
@@ -572,7 +626,7 @@ function renderInitialData() {
     }
     if (INITIAL_AUTH) updateApiKeys(INITIAL_AUTH);
     if (INITIAL_CONFIG) document.getElementById('config-content').value = INITIAL_CONFIG;
-    if (INITIAL_SERVICE) updateServiceStatus(INITIAL_SERVICE);
+    loadServiceStatus();
     if (INITIAL_META) updateMeta(INITIAL_META);
 }
 
@@ -979,29 +1033,41 @@ async function loadServiceStatus() {
 
 function updateServiceStatus(data) {
     const badge = document.getElementById('service-status-badge');
-    if (data.exists) {
-        badge.textContent = data.status;
+    const status = data.status || data.service?.status || 'Unknown';
+    const exists = data.exists === true || data.service?.exists === true;
+    if (exists) {
+        badge.textContent = status;
         badge.className = 'px-3 py-1 rounded-full text-sm font-medium ' +
-            (data.status === 'Running' ? 'bg-green-100 text-green-800' :
-             data.status === 'Stopped' ? 'bg-red-100 text-red-800' :
+            (status === 'Running' ? 'bg-green-100 text-green-800' :
+             status === 'Stopped' ? 'bg-red-100 text-red-800' :
              'bg-yellow-100 text-yellow-800');
     } else {
         badge.textContent = 'Not Installed';
         badge.className = 'px-3 py-1 rounded-full text-sm font-medium bg-gray-200 text-gray-800';
     }
+    const startBtn = document.getElementById('svc-start');
+    const stopBtn = document.getElementById('svc-stop');
+    const restartBtn = document.getElementById('svc-restart');
+    if (startBtn) startBtn.disabled = exists && status === 'Running';
+    if (stopBtn) stopBtn.disabled = !exists || status !== 'Running';
+    if (restartBtn) restartBtn.disabled = !exists;
     document.getElementById('service-info').textContent = JSON.stringify(data, null, 2) || '(no info)';
 }
 
 async function serviceAction(action) {
     const actionText = action.charAt(0).toUpperCase() + action.slice(1);
     if (!confirm(actionText + ' service?')) return;
+    const btn = document.getElementById('svc-' + action);
+    if (btn) btn.disabled = true;
+    document.getElementById('service-info').textContent = actionText + ' requested...';
     try {
         const resp = await fetch('/panel/api/service/' + action, { method: 'POST' });
         const result = await resp.json();
-        document.getElementById('service-info').textContent = result.output || '';
-        loadServiceStatus();
+        updateServiceStatus(result);
     } catch (e) {
         document.getElementById('service-info').textContent = 'Error: ' + e.message;
+    } finally {
+        await loadServiceStatus();
     }
 }
 
@@ -1189,22 +1255,7 @@ def _get_initial_config():
 
 
 def _get_initial_service():
-    try:
-        success, output = _run_service_manager("status")
-        lines = output.strip().splitlines() if output else []
-        status = "Unknown"
-        exists = False
-        for line in lines:
-            if "Service:" in line and "NOT INSTALLED" in line:
-                exists = False
-                status = "NotInstalled"
-            elif "Service:" in line:
-                exists = True
-            elif "Status:" in line:
-                status = line.split("Status:")[1].strip()
-        return {"exists": exists, "status": status, "output": output}
-    except Exception:
-        return {"exists": False, "status": "Unknown", "output": ""}
+    return _service_status_payload()
 
 @control_panel_bp.route('/api/health')
 def api_health():
@@ -1501,22 +1552,9 @@ def api_auth_settings():
 @control_panel_bp.route('/api/service/status')
 def api_service_status():
     success, output = _run_service_manager("status")
-    lines = output.strip().splitlines() if output else []
-    status = "Unknown"
-    exists = False
-    for line in lines:
-        if "Service:" in line and "NOT INSTALLED" in line:
-            exists = False
-            status = "NotInstalled"
-        elif "Service:" in line:
-            exists = True
-        elif "Status:" in line:
-            status = line.split("Status:")[1].strip()
-    return jsonify({
-        "exists": exists,
-        "status": status,
-        "output": output,
-    })
+    payload = _service_status_payload(output)
+    payload["success"] = success
+    return jsonify(payload)
 
 
 @control_panel_bp.route('/api/service/<action>', methods=['POST'])
@@ -1524,8 +1562,7 @@ def api_service_action(action):
     if action not in ("start", "stop", "restart"):
         return jsonify({"error": "Invalid action"}), 400
     success, output = _run_service_manager(action)
-    return jsonify({
-        "success": success,
-        "action": action,
-        "output": output,
-    })
+    payload = _service_status_payload(output)
+    payload["success"] = success
+    payload["action"] = action
+    return jsonify(payload)
