@@ -2,6 +2,19 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## 0.7.4 - 2026-09-16
+
+### Fixed
+- Fixed Gateway worker-pool starvation where stuck browser/provider work could make `/health`, `/ready`, and `/v1/models` time out.
+- Added bounded provider work slots with immediate `503 provider_busy` backpressure instead of unbounded HTTP worker queue growth.
+- Changed `/ready` to a fast static readiness endpoint and moved browser/provider probing to bounded `/health/deep`.
+- Changed `/v1/models` to fast static discovery so model selectors do not block on live browser sessions.
+- Added provider runtime counters to `/health`, `/ready`, and `/v1/models` for inflight, rejected, and timeout diagnostics.
+
+### Evidence
+- Regression tests cover fast health/ready/models and provider slot acquire/release paths.
+- Root-cause evidence before the fix showed Hooshka Web Gateway `Task queue depth` growth and Playwright `EPIPE`/closed-pipe errors while `/health` timed out.
+
 ## 0.7.3 - 2026-09-16
 
 ### Fixed

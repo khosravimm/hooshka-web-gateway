@@ -17,6 +17,7 @@ from core.providers import (
     ProviderCapabilities,
     ProviderError,
     ChatCompletionRequest,
+    ModelInfo,
     SessionContext,
 )
 from core.provider_registry import provider_registry, provider_router
@@ -41,7 +42,7 @@ SWAGGER_TEMPLATE = {
     "info": {
         "title": "Hooshka Web Gateway API",
         "description": "Hooshka Web Gateway exposes one governed OpenAI-compatible local API for supported Web-chat providers. Provider-specific browser/session/transport behavior remains behind exact fail-closed routing.",
-        "version": "0.7.1",
+        "version": "0.7.4",
         "contact": {
             "name": "Hooshka Web Gateway",
         },
@@ -291,6 +292,89 @@ def create_app(config_path: str = "config.yaml") -> Flask:
     )
     logger = logging.getLogger(__name__)
 
+    # HTTP liveness must not share fate with slow/stuck Web-chat provider work.
+    # Waitress has a small fixed worker pool; if all workers block inside
+    # Playwright/browser-backed calls, even /health times out.  Keep provider
+    # work bounded and reject overload immediately so health/readiness/model
+    # discovery have free workers.
+    provider_concurrency = int(
+        os.getenv(
+            "HOOSHKA_GW_PROVIDER_CONCURRENCY",
+            str(config.get("server", {}).get("provider_concurrency", 2)),
+        )
+    )
+    provider_concurrency = max(1, provider_concurrency)
+    _provider_slots = threading.BoundedSemaphore(provider_concurrency)
+    _provider_state_lock = threading.Lock()
+    _provider_inflight = 0
+    _provider_rejected = 0
+    _provider_timeouts = 0
+
+    def _provider_state() -> dict:
+        with _provider_state_lock:
+            return {
+                "max_concurrency": provider_concurrency,
+                "inflight": _provider_inflight,
+                "rejected": _provider_rejected,
+                "timeouts": _provider_timeouts,
+            }
+
+    def _try_acquire_provider_slot(kind: str, provider_id: str = "unknown") -> bool:
+        nonlocal _provider_inflight, _provider_rejected
+        acquired = _provider_slots.acquire(blocking=False)
+        with _provider_state_lock:
+            if acquired:
+                _provider_inflight += 1
+                logger.info("Provider slot acquired: kind=%s provider=%s inflight=%s/%s", kind, provider_id, _provider_inflight, provider_concurrency)
+            else:
+                _provider_rejected += 1
+                logger.warning("Provider worker pool busy: kind=%s provider=%s inflight=%s/%s rejected=%s", kind, provider_id, _provider_inflight, provider_concurrency, _provider_rejected)
+        return acquired
+
+    def _release_provider_slot(kind: str, provider_id: str = "unknown") -> None:
+        nonlocal _provider_inflight
+        with _provider_state_lock:
+            _provider_inflight = max(0, _provider_inflight - 1)
+            logger.info("Provider slot released: kind=%s provider=%s inflight=%s/%s", kind, provider_id, _provider_inflight, provider_concurrency)
+        try:
+            _provider_slots.release()
+        except ValueError:
+            logger.error("Provider slot release called without matching acquire")
+
+    def _provider_busy_response(kind: str, provider_id: str = "unknown"):
+        return jsonify({
+            "error": {
+                "message": "Provider worker pool is busy; retry later.",
+                "type": "server_overloaded",
+                "code": "provider_busy",
+                "provider": provider_id,
+                "operation": kind,
+                "details": _provider_state(),
+            }
+        }), 503
+
+    def _static_models_for_provider(provider) -> list[ModelInfo]:
+        ids = list(getattr(provider.capabilities, "supported_models", []) or [])
+        if provider.provider_id not in ids:
+            ids.insert(0, provider.provider_id)
+
+        cfg = getattr(provider.config, "config", {}) or {}
+        default_upstream = cfg.get("default_upstream_model")
+        if default_upstream:
+            if provider.provider_id == "qwen-web":
+                ids.append(f"qwen:{default_upstream}")
+            elif provider.provider_id == "zai-web":
+                ids.append(f"zai:{default_upstream}")
+
+        seen = set()
+        models = []
+        for mid in ids:
+            if not mid or mid in seen:
+                continue
+            seen.add(mid)
+            models.append(ModelInfo(id=mid, owned_by=provider.provider_id, provider=provider.provider_id))
+        return models
+
     init_governance(app, config["governance"])
 
     for provider_config in config["providers"]:
@@ -489,11 +573,15 @@ def create_app(config_path: str = "config.yaml") -> Flask:
     _async_thread.start()
 
     def _run_async(coro, timeout: float | None = None):
+        nonlocal _provider_timeouts
         future = asyncio.run_coroutine_threadsafe(coro, _async_loop)
         try:
             return future.result(timeout=timeout)
         except FutureTimeoutError:
             future.cancel()
+            with _provider_state_lock:
+                _provider_timeouts += 1
+            logger.warning("Provider async operation timed out after %s seconds", timeout)
             raise
 
     def _shutdown_async_loop():
@@ -523,28 +611,75 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             schema:
               $ref: '#/definitions/HealthResponse'
         """
-        return jsonify({"status": "ok", "service": "hooshka-web-gateway", "legacy_service": "mcp-web-bridge"})
+        return jsonify({
+            "status": "ok",
+            "service": "hooshka-web-gateway",
+            "legacy_service": "mcp-web-bridge",
+            "provider_runtime": _provider_state(),
+        })
 
     @app.route("/ready", methods=["GET"])
     def ready():
-        """Readiness check for at least one usable provider runtime."""
+        """Fast readiness check.
+
+        This endpoint intentionally does not touch browser/provider backends.
+        Deep provider probes belong to /health/deep so /ready cannot be starved
+        by stuck Playwright/Web-chat sessions.
+        """
         providers = provider_registry.list_providers()
-        details = []
-        ready_any = False
-        for provider in providers:
-            try:
-                ok = bool(_run_async(provider.health_check(), timeout=15))
-            except Exception as e:
-                ok = False
-                logger.warning(f"Readiness check failed for {provider.provider_id}: {e}")
-            details.append({"provider": provider.provider_id, "ready": ok})
-            ready_any = ready_any or ok
-        return jsonify({"status": "ready" if ready_any else "not_ready", "providers": details}), (200 if ready_any else 503)
+        state = _provider_state()
+        ready_any = bool(providers) and _async_loop.is_running()
+        details = [
+            {
+                "provider": p.provider_id,
+                "registered": True,
+                "capabilities": {
+                    "chat_completion": p.capabilities.chat_completion,
+                    "streaming": p.capabilities.streaming,
+                    "transport_mode": p.capabilities.transport_mode,
+                },
+            }
+            for p in providers
+        ]
+        return jsonify({
+            "status": "ready" if ready_any else "not_ready",
+            "mode": "fast",
+            "provider_runtime": state,
+            "providers": details,
+        }), (200 if ready_any else 503)
 
     @app.route("/health/deep", methods=["GET"])
     def deep_health():
-        """Alias for readiness, kept explicit for operational tooling."""
-        return ready()
+        """Bounded deep provider readiness check.
+
+        It is intentionally separate from /health and /ready, and it uses the
+        provider worker semaphore so it cannot consume all HTTP workers.
+        """
+        if not _try_acquire_provider_slot("deep_health", "all"):
+            return _provider_busy_response("deep_health", "all")
+        try:
+            providers = provider_registry.list_providers()
+            async def probe_provider(provider):
+                try:
+                    ok = bool(await asyncio.wait_for(provider.health_check(), timeout=2.0))
+                except Exception as e:
+                    ok = False
+                    logger.warning(f"Deep readiness check failed for {provider.provider_id}: {e}")
+                return {"provider": provider.provider_id, "ready": ok}
+
+            async def probe_all():
+                return await asyncio.gather(*(probe_provider(p) for p in providers))
+
+            details = _run_async(probe_all(), timeout=3.0) if providers else []
+            ready_any = any(item.get("ready") for item in details)
+            return jsonify({
+                "status": "ready" if ready_any else "not_ready",
+                "mode": "deep",
+                "provider_runtime": _provider_state(),
+                "providers": details,
+            }), (200 if ready_any else 503)
+        finally:
+            _release_provider_slot("deep_health", "all")
 
     @app.route("/modes", methods=["GET"])
     def list_modes():
@@ -652,14 +787,12 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         """
         all_models = []
         for provider in provider_registry.list_providers():
-            try:
-                models = _run_async(provider.list_models(), timeout=25)
-                all_models.extend(models)
-            except Exception as e:
-                logger.error(f"Failed to list models from {provider.provider_id}: {e}")
+            all_models.extend(_static_models_for_provider(provider))
 
         return jsonify({
             "object": "list",
+            "mode": "fast_static",
+            "provider_runtime": _provider_state(),
             "data": [
                 {"id": m.id, "object": m.object, "owned_by": m.owned_by, "provider": m.provider}
                 for m in all_models
@@ -729,12 +862,15 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         apply_feature_defaults(req, provider)
         drop_optional_tools_for_text_only_provider(req, provider)
 
+        if not _try_acquire_provider_slot("chat_completions", provider.provider_id):
+            return _provider_busy_response("chat_completions", provider.provider_id)
+
         try:
             translated_req = mcp_translator.translate_request(req, provider)
             session = _get_session(req)
 
             if req.stream:
-                return _stream_response(provider, translated_req, session)
+                return _stream_response(provider, translated_req, session, "chat_completions")
             else:
                 response = _run_async(provider.chat_completion(translated_req, session), timeout=240)
                 normalized = mcp_normalizer.normalize_response(response, provider)
@@ -754,8 +890,11 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             logger.error(f"Chat completion error: {e}")
             error_resp = mcp_normalizer.normalize_error(e, provider)
             return jsonify(error_resp), _http_status_for_error(e)
+        finally:
+            if not req.stream:
+                _release_provider_slot("chat_completions", provider.provider_id)
 
-    def _stream_response(provider, req: ChatCompletionRequest, session):
+    def _stream_response(provider, req: ChatCompletionRequest, session, slot_kind: str):
         def generate():
             event_queue = queue.Queue()
             sentinel = object()
@@ -823,6 +962,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                         )
                 if not future.done():
                     future.cancel()
+                _release_provider_slot(slot_kind, provider.provider_id)
 
         return Response(stream_with_context(generate()), mimetype="text/event-stream")
 
@@ -891,6 +1031,9 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         apply_feature_defaults(req, provider)
         drop_optional_tools_for_text_only_provider(req, provider)
 
+        if not _try_acquire_provider_slot("code_chat", provider.provider_id):
+            return _provider_busy_response("code_chat", provider.provider_id)
+
         try:
             translated_req = mcp_translator.translate_request(req, provider)
             response = _run_async(provider.chat_completion(translated_req), timeout=240)
@@ -923,6 +1066,8 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             logger.error(f"Code chat error: {e}")
             error_resp = mcp_normalizer.normalize_error(e, provider)
             return jsonify(error_resp), _http_status_for_error(e)
+        finally:
+            _release_provider_slot("code_chat", provider.provider_id)
 
     @app.route("/v1/chat/conversation", methods=["POST"])
     def conversation_chat():
@@ -985,12 +1130,15 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         apply_feature_defaults(req, provider)
         drop_optional_tools_for_text_only_provider(req, provider)
 
+        if not _try_acquire_provider_slot("conversation_chat", provider.provider_id):
+            return _provider_busy_response("conversation_chat", provider.provider_id)
+
         try:
             translated_req = mcp_translator.translate_request(req, provider)
             session = _get_session(req)
 
             if req.stream:
-                return _stream_response(provider, translated_req, session)
+                return _stream_response(provider, translated_req, session, "conversation_chat")
             else:
                 response = _run_async(provider.chat_completion(translated_req, session), timeout=240)
                 normalized = mcp_normalizer.normalize_response(response, provider)
@@ -1009,6 +1157,9 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             logger.error(f"Conversation chat error: {e}")
             error_resp = mcp_normalizer.normalize_error(e, provider)
             return jsonify(error_resp), _http_status_for_error(e)
+        finally:
+            if not req.stream:
+                _release_provider_slot("conversation_chat", provider.provider_id)
 
     return app
 
