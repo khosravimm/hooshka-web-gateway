@@ -231,6 +231,23 @@ DASHBOARD_HTML = r"""
         .hwg-neutral { background: #e2e8f0; color: #334155; }
         .hwg-runtime-card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; background: #f8fafc; }
         :root{font-family:Segoe UI,Tahoma,Arial,sans-serif;color:#111827}*{box-sizing:border-box}body{margin:0}button,input,select,textarea{font:inherit}button{border:0;cursor:pointer}button:disabled{opacity:.6;cursor:not-allowed}table{width:100%;border-collapse:collapse}pre,textarea,.font-mono{font-family:Consolas,Cascadia Mono,Courier New,monospace}.max-w-7xl,.hwg-shell{max-width:1680px!important}.mx-auto{margin-left:auto;margin-right:auto}.min-h-screen{min-height:100vh}.min-w-full{min-width:100%}.w-full{width:100%}.bg-white{background:#fff}.bg-gray-50{background:#f9fafb}.bg-gray-100{background:#f3f4f6}.bg-gray-200{background:#e5e7eb}.bg-gray-600{background:#4b5563}.bg-gray-700{background:#374151}.bg-gray-900{background:#111827}.bg-blue-50{background:#eff6ff}.bg-blue-100{background:#dbeafe}.bg-blue-600{background:#2563eb}.bg-green-100{background:#dcfce7}.bg-green-600{background:#16a34a}.bg-red-100{background:#fee2e2}.bg-red-600{background:#dc2626}.bg-purple-100{background:#f3e8ff}.bg-orange-100{background:#ffedd5}.bg-emerald-100{background:#d1fae5}.bg-yellow-100{background:#fef3c7}.text-white{color:#fff}.text-gray-100{color:#f3f4f6}.text-gray-300{color:#d1d5db}.text-gray-500{color:#6b7280}.text-gray-600{color:#4b5563}.text-gray-700{color:#374151}.text-gray-800{color:#1f2937}.text-blue-600{color:#2563eb}.text-blue-700{color:#1d4ed8}.text-green-300{color:#86efac}.text-green-600{color:#16a34a}.text-green-800{color:#166534}.text-red-600{color:#dc2626}.text-red-800{color:#991b1b}.text-purple-600{color:#9333ea}.text-orange-600{color:#ea580c}.text-emerald-600{color:#059669}.text-yellow-800{color:#854d0e}.p-3{padding:.75rem}.p-4{padding:1rem}.p-6{padding:1.5rem}.px-1{padding-left:.25rem;padding-right:.25rem}.px-2{padding-left:.5rem;padding-right:.5rem}.py-1{padding-top:.25rem;padding-bottom:.25rem}.px-3{padding-left:.75rem;padding-right:.75rem}.py-2{padding-top:.5rem;padding-bottom:.5rem}.px-4{padding-left:1rem;padding-right:1rem}.py-3{padding-top:.75rem;padding-bottom:.75rem}.px-6{padding-left:1.5rem;padding-right:1.5rem}.py-4{padding-top:1rem;padding-bottom:1rem}.mt-1{margin-top:.25rem}.mt-6{margin-top:1.5rem}.mb-2{margin-bottom:.5rem}.mb-3{margin-bottom:.75rem}.mb-4{margin-bottom:1rem}.mb-6{margin-bottom:1.5rem}.mb-8{margin-bottom:2rem}.ml-4{margin-left:1rem}.mr-1{margin-right:.25rem}.mr-2{margin-right:.5rem}.flex{display:flex}.inline-flex{display:inline-flex}.grid{display:grid}.hidden{display:none!important}.items-center{align-items:center}.justify-between{justify-content:space-between}.gap-2{gap:.5rem}.gap-3{gap:.75rem}.gap-6{gap:1.5rem}.space-y-3>*+*{margin-top:.75rem}.space-x-4>*+*{margin-left:1rem}.grid-cols-1{grid-template-columns:repeat(1,minmax(0,1fr))}@media(min-width:768px){.md\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(min-width:1024px){.lg\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.lg\:grid-cols-5{grid-template-columns:repeat(5,minmax(0,1fr))}}.rounded{border-radius:.375rem}.rounded-lg{border-radius:.5rem}.rounded-full{border-radius:999px}.border{border:1px solid #d1d5db}.border-b{border-bottom:1px solid #e5e7eb}.border-b-2{border-bottom:2px solid transparent}.border-blue-600{border-color:#2563eb}.border-transparent{border-color:transparent}.border-gray-200{border-color:#e5e7eb}.shadow,.shadow-lg{box-shadow:0 10px 24px rgba(15,23,42,.08)}.divide-y>*+*{border-top:1px solid #e5e7eb}.overflow-auto{overflow:auto}.overflow-x-auto{overflow-x:auto}.break-all{word-break:break-all}.text-left{text-align:left}.text-xs{font-size:.75rem;line-height:1rem}.text-sm{font-size:.875rem;line-height:1.25rem}.text-lg{font-size:1.125rem;line-height:1.75rem}.text-2xl{font-size:1.5rem;line-height:2rem}.font-medium{font-weight:500}.font-semibold{font-weight:600}.font-bold{font-weight:700}.uppercase{text-transform:uppercase}.h-32{height:8rem}.h-96{height:24rem}.hover\:bg-blue-700:hover,.hover\:bg-green-700:hover,.hover\:bg-red-700:hover,.hover\:bg-orange-700:hover{filter:brightness(.92)}.hover\:bg-gray-200:hover{background:#e5e7eb}.hover\:underline:hover{text-decoration:underline}.hover\:text-gray-700:hover{color:#374151}.tab-btn{background:transparent}.hwg-icon{display:inline-flex;align-items:center;justify-content:center;width:1.7rem;height:1.7rem;font-weight:800}.hwg-chart-wrap{position:relative;height:250px;width:100%;border:1px solid #e5e7eb;border-radius:10px;background:linear-gradient(#fff,#f8fafc)}#requests-chart{width:100%;height:100%;display:block}
+#providers-table{overflow-x:hidden}
+#providers-table table{table-layout:fixed;width:100%;min-width:0}
+#providers-table th,#providers-table td{padding:.75rem .55rem;vertical-align:top;overflow-wrap:anywhere;word-break:normal}
+#providers-table .provider-id-col{width:7%}
+#providers-table .provider-type-col{width:8%}
+#providers-table .provider-status-col{width:8%}
+#providers-table .provider-runtime-col{width:12%}
+#providers-table .provider-priority-col{width:6%}
+#providers-table .provider-capabilities-col{width:27%}
+#providers-table .provider-toggle-col{width:6%}
+#providers-table .provider-model-col{width:17%}
+#providers-table .provider-actions-col{width:5%}
+#providers-table select{max-width:100%;min-width:0}
+#providers-table .capability-badges{display:flex;flex-wrap:wrap;gap:.25rem;max-width:100%}
+#providers-table .capability-badges span{white-space:normal;line-height:1.1}
+#providers-table .runtime-url{overflow-wrap:anywhere;word-break:break-all}
+
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -340,8 +357,20 @@ DASHBOARD_HTML = r"""
             <!-- Providers Tab -->
             <div id="panel-providers" class="tab-panel p-6 hidden">
                 <h3 class="text-lg font-semibold mb-4">Registered Providers</h3>
-                <div id="providers-table" class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
+                <div id="providers-table">
+                    <table class="divide-y divide-gray-200">
+                        <colgroup>
+                            <col class="provider-id-col">
+                            <col class="provider-type-col">
+                            <col class="provider-status-col">
+                            <col class="provider-runtime-col">
+                            <col class="provider-priority-col">
+                            <col class="provider-capabilities-col">
+                            <col class="provider-toggle-col">
+                            <col class="provider-toggle-col">
+                            <col class="provider-model-col">
+                            <col class="provider-actions-col">
+                        </colgroup>
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
@@ -598,12 +627,12 @@ function updateProviders(data) {
             </td>
             <td class="px-6 py-4">
                 <span class="hwg-chip ${p.runtime?.ready ? 'hwg-ok' : (p.runtime?.ready === null ? 'hwg-neutral' : 'hwg-bad')}">${p.runtime?.status || 'unknown'}</span>
-                <div class="font-mono text-xs text-gray-500 mt-1">${p.runtime?.cdp_url || '-'}</div>
+                <div class="runtime-url font-mono text-xs text-gray-500 mt-1">${p.runtime?.cdp_url || '-'}</div>
             </td>
             <td class="px-6 py-4">${p.priority}</td>
-            <td class="px-6 py-4 text-sm max-w-xs">
-                <div class="flex flex-wrap gap-1 max-w-xs">
-                    ${Object.entries(p.capabilities).filter(([k,v]) => v).map(([k]) => `<span class="inline-block px-1 py-0.5 bg-blue-50 text-blue-700 rounded text-xs whitespace-nowrap">${k}</span>`).join('')}
+            <td class="text-sm">
+                <div class="capability-badges">
+                    ${Object.entries(p.capabilities).filter(([k,v]) => v).map(([k]) => `<span class="inline-block px-1 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">${k}</span>`).join('')}
                 </div>
             </td>
             <td class="px-6 py-4 text-sm">

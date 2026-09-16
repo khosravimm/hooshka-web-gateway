@@ -89,6 +89,16 @@ def test_control_panel_uses_select_for_default_model_picker():
 
 def test_control_panel_wraps_capability_badges_to_reduce_horizontal_scroll():
     text = source()
-    assert 'flex flex-wrap gap-1 max-w-xs' in text
-    assert 'whitespace-nowrap' in text
-    assert 'max-w-xs' in text
+    assert 'capability-badges' in text
+    assert '#providers-table .capability-badges{display:flex;flex-wrap:wrap' in text
+    assert '#providers-table .capability-badges span{white-space:normal' in text
+
+
+def test_control_panel_providers_table_prevents_horizontal_overflow():
+    text = source()
+    assert '#providers-table{overflow-x:hidden}' in text
+    assert '#providers-table table{table-layout:fixed;width:100%;min-width:0}' in text
+    assert '<colgroup>' in text
+    assert 'provider-capabilities-col' in text
+    assert 'capability-badges' in text
+    assert 'runtime-url' in text

@@ -2,6 +2,15 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## 0.7.10 - 2026-09-16
+
+### Fixed
+- Removed horizontal overflow from the Control Panel Providers table by using a fixed-layout table, explicit column widths, reduced provider-cell padding, breakable runtime URLs, and wrapped capability badges.
+- Scoped the layout changes to the Providers table so Sessions and API Keys tables keep their existing behavior.
+
+### Validation
+- Headless render verifies the Providers table has no horizontal overflow at the user-observed viewport width.
+
 ## 0.7.9 - 2026-09-16
 
 ### Fixed
