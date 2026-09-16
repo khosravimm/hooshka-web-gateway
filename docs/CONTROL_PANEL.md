@@ -1,6 +1,6 @@
 # Hooshka Web Gateway Control Panel
 
-Release: 0.7.2  
+Release: 0.7.3
 Date: 2026-09-16
 
 The local management UI is available at:
@@ -42,7 +42,7 @@ Returns:
 
 ```json
 {
-  "version": "0.7.2",
+  "version": "0.7.3",
   "commit": "<short-sha>",
   "branch": "master",
   "evidence": "E2 Thinking/Search 4x4"
@@ -58,8 +58,9 @@ Validated on 2026-09-16 with an isolated temporary Chrome profile, not by reusin
 - Ready Providers card rendered.
 - Provider Runtime Readiness section rendered.
 - Providers tab showed all four Web Chat providers and their CDP URLs.
+- No runtime CDN dependency or external panel asset request was required.
 - Service status and `/panel/api/providers` reported all four CDP runtimes ready.
 
-## Known debt
+## External asset policy
 
-The panel still loads Tailwind, Chart.js and FontAwesome from CDNs. This is acceptable for the local operator panel baseline, but production hardening should bundle these assets locally and remove CDN dependency.
+The panel has no runtime CDN dependency. It uses inline local CSS, inline text badges instead of icon fonts, and a native Canvas chart instead of Chart.js. Validation should confirm that panel rendering creates no external network requests.

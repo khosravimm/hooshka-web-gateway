@@ -2,6 +2,19 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## 0.7.3 - 2026-09-16
+
+### Fixed
+- Removed all Control Panel runtime CDN dependencies.
+- Replaced CDN Tailwind usage with a local inline CSS utility baseline.
+- Replaced FontAwesome icons with lightweight inline text badges.
+- Replaced Chart.js dependency with a native Canvas request chart.
+
+### Validation
+- Control Panel Python template compiles without warnings.
+- No `https://`, `cdn`, `font-awesome`, `fas fa`, `new Chart(` or `requestsChart` runtime dependency remains in `control_panel.py`.
+- Isolated headless Chrome validation uses a temporary profile and does not touch user/provider browser tabs.
+
 ## 0.7.2 - 2026-09-16
 
 ### Added

@@ -158,7 +158,7 @@ def _run_service_manager(action):
     except Exception as e:
         return False, str(e)
 
-DASHBOARD_HTML = """
+DASHBOARD_HTML = r"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -166,9 +166,6 @@ DASHBOARD_HTML = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hooshka Web Gateway - Control Panel</title>
     <link rel="icon" href="data:,">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         .hwg-shell { max-width: 1680px !important; }
         .hwg-card { border: 1px solid #e2e8f0; box-shadow: 0 10px 24px rgba(15, 23, 42, .06); }
@@ -178,19 +175,20 @@ DASHBOARD_HTML = """
         .hwg-bad { background: #fee2e2; color: #991b1b; }
         .hwg-neutral { background: #e2e8f0; color: #334155; }
         .hwg-runtime-card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; background: #f8fafc; }
+        :root{font-family:Segoe UI,Tahoma,Arial,sans-serif;color:#111827}*{box-sizing:border-box}body{margin:0}button,input,select,textarea{font:inherit}button{border:0;cursor:pointer}button:disabled{opacity:.6;cursor:not-allowed}table{width:100%;border-collapse:collapse}pre,textarea,.font-mono{font-family:Consolas,Cascadia Mono,Courier New,monospace}.max-w-7xl,.hwg-shell{max-width:1680px!important}.mx-auto{margin-left:auto;margin-right:auto}.min-h-screen{min-height:100vh}.min-w-full{min-width:100%}.w-full{width:100%}.bg-white{background:#fff}.bg-gray-50{background:#f9fafb}.bg-gray-100{background:#f3f4f6}.bg-gray-200{background:#e5e7eb}.bg-gray-600{background:#4b5563}.bg-gray-700{background:#374151}.bg-gray-900{background:#111827}.bg-blue-50{background:#eff6ff}.bg-blue-100{background:#dbeafe}.bg-blue-600{background:#2563eb}.bg-green-100{background:#dcfce7}.bg-green-600{background:#16a34a}.bg-red-100{background:#fee2e2}.bg-red-600{background:#dc2626}.bg-purple-100{background:#f3e8ff}.bg-orange-100{background:#ffedd5}.bg-emerald-100{background:#d1fae5}.bg-yellow-100{background:#fef3c7}.text-white{color:#fff}.text-gray-100{color:#f3f4f6}.text-gray-300{color:#d1d5db}.text-gray-500{color:#6b7280}.text-gray-600{color:#4b5563}.text-gray-700{color:#374151}.text-gray-800{color:#1f2937}.text-blue-600{color:#2563eb}.text-blue-700{color:#1d4ed8}.text-green-300{color:#86efac}.text-green-600{color:#16a34a}.text-green-800{color:#166534}.text-red-600{color:#dc2626}.text-red-800{color:#991b1b}.text-purple-600{color:#9333ea}.text-orange-600{color:#ea580c}.text-emerald-600{color:#059669}.text-yellow-800{color:#854d0e}.p-3{padding:.75rem}.p-4{padding:1rem}.p-6{padding:1.5rem}.px-1{padding-left:.25rem;padding-right:.25rem}.px-2{padding-left:.5rem;padding-right:.5rem}.py-1{padding-top:.25rem;padding-bottom:.25rem}.px-3{padding-left:.75rem;padding-right:.75rem}.py-2{padding-top:.5rem;padding-bottom:.5rem}.px-4{padding-left:1rem;padding-right:1rem}.py-3{padding-top:.75rem;padding-bottom:.75rem}.px-6{padding-left:1.5rem;padding-right:1.5rem}.py-4{padding-top:1rem;padding-bottom:1rem}.mt-1{margin-top:.25rem}.mt-6{margin-top:1.5rem}.mb-2{margin-bottom:.5rem}.mb-3{margin-bottom:.75rem}.mb-4{margin-bottom:1rem}.mb-6{margin-bottom:1.5rem}.mb-8{margin-bottom:2rem}.ml-4{margin-left:1rem}.mr-1{margin-right:.25rem}.mr-2{margin-right:.5rem}.flex{display:flex}.inline-flex{display:inline-flex}.grid{display:grid}.hidden{display:none!important}.items-center{align-items:center}.justify-between{justify-content:space-between}.gap-2{gap:.5rem}.gap-3{gap:.75rem}.gap-6{gap:1.5rem}.space-y-3>*+*{margin-top:.75rem}.space-x-4>*+*{margin-left:1rem}.grid-cols-1{grid-template-columns:repeat(1,minmax(0,1fr))}@media(min-width:768px){.md\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(min-width:1024px){.lg\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.lg\:grid-cols-5{grid-template-columns:repeat(5,minmax(0,1fr))}}.rounded{border-radius:.375rem}.rounded-lg{border-radius:.5rem}.rounded-full{border-radius:999px}.border{border:1px solid #d1d5db}.border-b{border-bottom:1px solid #e5e7eb}.border-b-2{border-bottom:2px solid transparent}.border-blue-600{border-color:#2563eb}.border-transparent{border-color:transparent}.border-gray-200{border-color:#e5e7eb}.shadow,.shadow-lg{box-shadow:0 10px 24px rgba(15,23,42,.08)}.divide-y>*+*{border-top:1px solid #e5e7eb}.overflow-auto{overflow:auto}.overflow-x-auto{overflow-x:auto}.break-all{word-break:break-all}.text-left{text-align:left}.text-xs{font-size:.75rem;line-height:1rem}.text-sm{font-size:.875rem;line-height:1.25rem}.text-lg{font-size:1.125rem;line-height:1.75rem}.text-2xl{font-size:1.5rem;line-height:2rem}.font-medium{font-weight:500}.font-semibold{font-weight:600}.font-bold{font-weight:700}.uppercase{text-transform:uppercase}.h-32{height:8rem}.h-96{height:24rem}.hover\:bg-blue-700:hover,.hover\:bg-green-700:hover,.hover\:bg-red-700:hover,.hover\:bg-orange-700:hover{filter:brightness(.92)}.hover\:bg-gray-200:hover{background:#e5e7eb}.hover\:underline:hover{text-decoration:underline}.hover\:text-gray-700:hover{color:#374151}.tab-btn{background:transparent}.hwg-icon{display:inline-flex;align-items:center;justify-content:center;width:1.7rem;height:1.7rem;font-weight:800}.hwg-chart-wrap{position:relative;height:250px;width:100%;border:1px solid #e5e7eb;border-radius:10px;background:linear-gradient(#fff,#f8fafc)}#requests-chart{width:100%;height:100%;display:block}
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
     <nav class="bg-gray-900 text-white p-4 shadow-lg">
         <div class="hwg-shell max-w-7xl mx-auto flex justify-between items-center">
             <div>
-                <h1 class="text-2xl font-bold"><i class="fas fa-server mr-2"></i>Hooshka Web Gateway Control Panel</h1>
+                <h1 class="text-2xl font-bold"><span class="hwg-icon mr-2">HWG</span>Hooshka Web Gateway Control Panel</h1>
                 <div class="hwg-subtle mt-1">Version <b id="meta-version">-</b> | Commit <b id="meta-commit">-</b> | Branch <b id="meta-branch">-</b> | Evidence <b id="meta-evidence">-</b></div>
             </div>
             <div class="flex items-center space-x-4">
                 <span id="service-status" class="px-3 py-1 rounded-full text-sm font-medium bg-gray-700">Checking...</span>
                 <button onclick="location.reload()" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm">
-                    <i class="fas fa-sync-alt mr-1"></i> Refresh
+                    <span class="mr-1">[R]</span> Refresh
                 </button>
             </div>
         </div>
@@ -201,7 +199,7 @@ DASHBOARD_HTML = """
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
             <div class="bg-white rounded-lg shadow p-6">
                 <div class="flex items-center">
-                    <div class="p-3 bg-blue-100 rounded-full"><i class="fas fa-heartbeat text-blue-600 text-2xl"></i></div>
+                    <div class="p-3 bg-blue-100 rounded-full"><span class="hwg-icon text-blue-600">H</span></div>
                     <div class="ml-4">
                         <p class="text-sm text-gray-600">Service Status</p>
                         <p id="stat-service" class="text-2xl font-bold">-</p>
@@ -210,7 +208,7 @@ DASHBOARD_HTML = """
             </div>
             <div class="bg-white rounded-lg shadow p-6">
                 <div class="flex items-center">
-                    <div class="p-3 bg-green-100 rounded-full"><i class="fas fa-plug text-green-600 text-2xl"></i></div>
+                    <div class="p-3 bg-green-100 rounded-full"><span class="hwg-icon text-green-600">P</span></div>
                     <div class="ml-4">
                         <p class="text-sm text-gray-600">Providers</p>
                         <p id="stat-providers" class="text-2xl font-bold">-</p>
@@ -219,7 +217,7 @@ DASHBOARD_HTML = """
             </div>
             <div class="bg-white rounded-lg shadow p-6 hwg-card">
                 <div class="flex items-center">
-                    <div class="p-3 bg-emerald-100 rounded-full"><i class="fas fa-circle-check text-emerald-600 text-2xl"></i></div>
+                    <div class="p-3 bg-emerald-100 rounded-full"><span class="hwg-icon text-emerald-600">OK</span></div>
                     <div class="ml-4">
                         <p class="text-sm text-gray-600">Ready Providers</p>
                         <p id="stat-ready" class="text-2xl font-bold">-</p>
@@ -228,7 +226,7 @@ DASHBOARD_HTML = """
             </div>
             <div class="bg-white rounded-lg shadow p-6">
                 <div class="flex items-center">
-                    <div class="p-3 bg-purple-100 rounded-full"><i class="fas fa-comments text-purple-600 text-2xl"></i></div>
+                    <div class="p-3 bg-purple-100 rounded-full"><span class="hwg-icon text-purple-600">S</span></div>
                     <div class="ml-4">
                         <p class="text-sm text-gray-600">Active Sessions</p>
                         <p id="stat-sessions" class="text-2xl font-bold">-</p>
@@ -237,7 +235,7 @@ DASHBOARD_HTML = """
             </div>
             <div class="bg-white rounded-lg shadow p-6">
                 <div class="flex items-center">
-                    <div class="p-3 bg-orange-100 rounded-full"><i class="fas fa-chart-line text-orange-600 text-2xl"></i></div>
+                    <div class="p-3 bg-orange-100 rounded-full"><span class="hwg-icon text-orange-600">G</span></div>
                     <div class="ml-4">
                         <p class="text-sm text-gray-600">Requests (1h)</p>
                         <p id="stat-requests" class="text-2xl font-bold">-</p>
@@ -277,7 +275,7 @@ DASHBOARD_HTML = """
                     </div>
                     <div>
                         <h3 class="text-lg font-semibold mb-4">Recent Requests</h3>
-                        <div style="position: relative; height: 250px; width: 100%;">
+                        <div class="hwg-chart-wrap">
                             <canvas id="requests-chart"></canvas>
                         </div>
                     </div>
@@ -343,7 +341,7 @@ DASHBOARD_HTML = """
                 </div>
                 <div class="mb-4">
                     <button onclick="addApiKey()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                        <i class="fas fa-plus mr-1"></i> Generate New Key
+                        <span class="mr-1">[+]</span> Generate New Key
                     </button>
                 </div>
                 <div class="overflow-x-auto">
@@ -617,28 +615,64 @@ function updateStats(data) {
     document.getElementById('stat-requests').textContent = data.requests_1h || 0;
 }
 
-let requestsChart = null;
 function initChart(history) {
-    const ctx = document.getElementById('requests-chart').getContext('2d');
-    if (requestsChart) requestsChart.destroy();
-    
-    const labels = history.map(h => new Date(h.timestamp * 1000).toLocaleTimeString());
-    const data = history.map(h => h.count);
-    
-    requestsChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Requests/min',
-                data: data,
-                borderColor: 'rgb(59, 130, 246)',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                tension: 0.3,
-                fill: true
-            }]
-        },
-        options: { responsive: true, maintainAspectRatio: false }
+    const canvas = document.getElementById('requests-chart');
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const ratio = window.devicePixelRatio || 1;
+    const width = Math.max(320, Math.floor(rect.width));
+    const height = Math.max(180, Math.floor(rect.height));
+    canvas.width = width * ratio;
+    canvas.height = height * ratio;
+    canvas.style.width = width + 'px';
+    canvas.style.height = height + 'px';
+
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+
+    const padding = {left: 40, right: 18, top: 18, bottom: 28};
+    const points = (history || []).map(h => ({value: Number(h.count || 0)}));
+    const maxValue = Math.max(1, ...points.map(p => p.value));
+    const plotW = width - padding.left - padding.right;
+    const plotH = height - padding.top - padding.bottom;
+
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, padding.top);
+    ctx.lineTo(padding.left, height - padding.bottom);
+    ctx.lineTo(width - padding.right, height - padding.bottom);
+    ctx.stroke();
+
+    ctx.fillStyle = '#64748b';
+    ctx.font = '12px Segoe UI, Arial, sans-serif';
+    ctx.fillText('Requests/min', padding.left, 14);
+    ctx.fillText(String(maxValue), 8, padding.top + 4);
+    ctx.fillText('0', 24, height - padding.bottom + 4);
+
+    if (!points.length) {
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText('No request samples in the current window', padding.left + 16, padding.top + 44);
+        return;
+    }
+
+    const xFor = i => padding.left + (points.length === 1 ? plotW / 2 : i * plotW / (points.length - 1));
+    const yFor = v => height - padding.bottom - (v / maxValue) * plotH;
+
+    ctx.beginPath();
+    points.forEach((p, i) => {
+        const x = xFor(i), y = yFor(p.value);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = '#2563eb';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = '#2563eb';
+    points.forEach((p, i) => {
+        ctx.beginPath();
+        ctx.arc(xFor(i), yFor(p.value), 3, 0, Math.PI * 2);
+        ctx.fill();
     });
 }
 
