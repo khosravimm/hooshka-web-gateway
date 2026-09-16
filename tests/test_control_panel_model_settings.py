@@ -131,11 +131,11 @@ def test_control_panel_service_tab_maps_payload_to_ui_elements():
 
 def test_control_panel_overview_has_model_usage_summary():
     text = source()
-    assert 'Model Usage (1h)' in text
+    assert 'Model Traffic & Token Accounting (1h)' in text
     assert 'model-usage-summary' in text
     assert "api('/model_usage')" in text
     assert 'updateModelUsage' in text
-    assert 'unavailable' in text
+    assert 'not captured' in text
     assert 'def api_model_usage' in text
     assert 'prompt_tokens' in text and 'completion_tokens' in text and 'total_tokens' in text
 
@@ -183,5 +183,19 @@ def test_model_usage_uses_field_level_token_availability():
     assert 'prompt_tokens_available' in text
     assert 'completion_tokens_available' in text
     assert 'total_tokens_available' in text
-    assert "fmt(r.prompt_tokens, promptAvailable)" in text
-    assert "unavailable" in text
+    assert "tokenValue(r.prompt_tokens, promptAvailable)" in text
+    assert "not captured" in text
+
+
+def test_model_usage_uses_human_labels_and_compact_grid():
+    text = source()
+    assert 'Model Traffic & Token Accounting (1h)' in text
+    assert 'grid grid-cols-1 md:grid-cols-2 gap-3 text-sm' in text
+    assert 'Requests: ${r.requests}' in text
+    assert 'Input tokens' in text
+    assert 'Output tokens' in text
+    assert 'Total tokens' in text
+    assert 'not captured' in text
+    assert '${r.requests} req' not in text
+    assert '>Prompt<' not in text
+    assert '>Completion<' not in text

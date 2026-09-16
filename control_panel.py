@@ -397,8 +397,8 @@ DASHBOARD_HTML = r"""
                         </div>
                         <h3 class="text-lg font-semibold mt-6 mb-3">Provider Runtime Readiness</h3>
                         <div id="provider-runtime-summary" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
-                        <h3 class="text-lg font-semibold mt-6 mb-3">Model Usage (1h)</h3>
-                        <div id="model-usage-summary" class="space-y-3 text-sm"></div>
+                        <h3 class="text-lg font-semibold mt-6 mb-3">Model Traffic & Token Accounting (1h)</h3>
+                        <div id="model-usage-summary" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm"></div>
                     </div>
                     <div>
                         <h3 class="text-lg font-semibold mb-4">Recent Requests</h3>
@@ -851,32 +851,33 @@ function updateModelUsage(data) {
     if (!rows.length) {
         const monitored = (data.monitored || []).map(m => `${m.provider}/${m.model}`).join(', ');
         box.innerHTML = `
-            <div class="hwg-runtime-card text-gray-600">
+            <div class="hwg-runtime-card md:col-span-2 text-gray-600">
                 <div class="font-semibold text-gray-800">No measured model traffic in the last hour.</div>
-                <div class="text-xs mt-1">Monitoring: ${monitored || 'no configured providers'}</div>
-                <div class="text-xs mt-1 text-yellow-800">This panel shows measured /v1/chat traffic only; placeholders are not counted as statistics.</div>
+                <div class="text-xs mt-1">Configured monitoring targets: ${monitored || 'no configured providers'}</div>
+                <div class="text-xs mt-1 text-yellow-800">Only completed /v1/chat requests are counted here. Placeholder rows are not shown as usage statistics.</div>
             </div>`;
         return;
     }
     box.innerHTML = rows.map(r => {
-        const fmt = (value, available) => available ? String(value) + (r.tokens_estimated ? ' est.' : '') : 'unavailable';
-        const cls = (available) => available ? 'text-gray-700' : 'text-yellow-800';
+        const tokenValue = (value, available) => available ? String(value) + (r.tokens_estimated ? ' estimated' : '') : 'not captured';
+        const tokenClass = (available) => available ? 'text-gray-800' : 'text-yellow-800';
         const promptAvailable = r.prompt_tokens_available === true;
         const completionAvailable = r.completion_tokens_available === true;
         const totalAvailable = r.total_tokens_available === true || r.tokens_available === true;
         return `
-            <div class="hwg-runtime-card">
+            <div class="hwg-runtime-card py-2">
                 <div class="flex justify-between gap-3 items-start">
                     <div>
-                        <div class="font-semibold font-mono">${r.model || 'unknown'}</div>
+                        <div class="font-semibold font-mono leading-tight">${r.model || 'unknown model'}</div>
                         <div class="text-xs text-gray-500">${r.provider || 'unknown provider'}</div>
                     </div>
-                    <span class="hwg-chip hwg-neutral">${r.requests} req</span>
+                    <span class="hwg-chip hwg-neutral" title="Completed model requests routed to this provider/model in the last hour">Requests: ${r.requests}</span>
                 </div>
-                <div class="grid grid-cols-3 gap-2 mt-2 text-xs">
-                    <div><span class="text-gray-500">Prompt</span><br><b class="${cls(promptAvailable)}">${fmt(r.prompt_tokens, promptAvailable)}</b></div>
-                    <div><span class="text-gray-500">Completion</span><br><b class="${cls(completionAvailable)}">${fmt(r.completion_tokens, completionAvailable)}</b></div>
-                    <div><span class="text-gray-500">Total</span><br><b class="${cls(totalAvailable)}">${fmt(r.total_tokens, totalAvailable)}</b></div>
+                <div class="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-xs">
+                    <div><span class="text-gray-500">Input tokens:</span> <b class="${tokenClass(promptAvailable)}">${tokenValue(r.prompt_tokens, promptAvailable)}</b></div>
+                    <div><span class="text-gray-500">Output tokens:</span> <b class="${tokenClass(completionAvailable)}">${tokenValue(r.completion_tokens, completionAvailable)}</b></div>
+                    <div><span class="text-gray-500">Total tokens:</span> <b class="${tokenClass(totalAvailable)}">${tokenValue(r.total_tokens, totalAvailable)}</b></div>
+                    <div><span class="text-gray-500">Accounting:</span> <b class="text-gray-800">${r.tokens_estimated ? 'estimated' : 'measured'}</b></div>
                 </div>
             </div>`;
     }).join('');

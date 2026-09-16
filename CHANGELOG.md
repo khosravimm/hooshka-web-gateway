@@ -2,6 +2,17 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## 0.7.17 - 2026-09-16
+
+### Changed
+- Renamed the Overview model panel to `Model Traffic & Token Accounting (1h)`.
+- Replaced ambiguous `req`, `Prompt`, `Completion`, and `Total` labels with `Requests`, `Input tokens`, `Output tokens`, and `Total tokens`.
+- Made model accounting cards compact and side-by-side instead of large sparse vertical cards.
+- Display token fields that were not captured as `not captured` instead of showing misleading zero values.
+
+### Validation
+- Added deterministic UI assertions for compact model accounting labels and removal of the ambiguous `req` badge.
+
 ## 0.7.16 - 2026-09-16
 
 ### Fixed
