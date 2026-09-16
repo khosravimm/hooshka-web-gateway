@@ -55,3 +55,24 @@ def test_config_declares_selectable_upstream_models_for_model_picker():
     assert "qwen3.8-max" in cfg
     assert "glm-5.3" in cfg
     assert "glm-5.3-flash" in cfg
+
+
+def test_control_panel_request_chart_has_operational_axes():
+    text = source()
+    assert "function niceCeil" in text
+    assert "function formatChartTime" in text
+    assert "Requests per minute" in text
+    assert "const yTicks = 5" in text
+    assert "labelStep" in text
+    assert "No recent request data" in text
+    assert "max " in text
+    assert "points.length > 45" in text
+
+
+def test_control_panel_stats_builds_continuous_sixty_minute_window():
+    text = source()
+    assert "def _build_request_history_window" in text
+    assert "minutes=60" in text
+    assert "minute_counts = {start_minute + (i * 60): 0 for i in range(minutes)}" in text
+    assert "start_minute <= minute <= end_minute" in text
+    assert "return jsonify(_build_request_history_window())" in text

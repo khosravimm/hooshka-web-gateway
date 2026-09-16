@@ -2,6 +2,16 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## 0.7.7 - 2026-09-16
+
+### Fixed
+- Improved the native Control Panel request chart with dynamic Y-axis scaling, grid ticks, X-axis time labels, better padding, max annotation, and clearer empty-state rendering.
+- Changed `/panel/api/stats` to emit a continuous 60-minute series, including zero-count minutes, so the X-axis preserves real time gaps.
+- Reduced visual clutter by thinning zero-value point markers for dense request windows.
+
+### Validation
+- Control Panel chart remains self-contained with no external CDN dependency.
+
 ## 0.7.6 - 2026-09-16
 
 ### Fixed

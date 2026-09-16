@@ -708,12 +708,28 @@ function updateStats(data) {
     document.getElementById('stat-requests').textContent = data.requests_1h || 0;
 }
 
+function niceCeil(value) {
+    if (value <= 5) return 5;
+    if (value <= 10) return 10;
+    if (value <= 20) return 20;
+    if (value <= 50) return 50;
+    if (value <= 100) return 100;
+    const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
+    return Math.ceil(value / magnitude) * magnitude;
+}
+
+function formatChartTime(timestamp) {
+    if (!timestamp) return '';
+    return new Date(timestamp * 1000).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+}
+
 function initChart(history) {
     const canvas = document.getElementById('requests-chart');
+    if (!canvas || !canvas.parentElement) return;
     const rect = canvas.parentElement.getBoundingClientRect();
     const ratio = window.devicePixelRatio || 1;
-    const width = Math.max(320, Math.floor(rect.width));
-    const height = Math.max(180, Math.floor(rect.height));
+    const width = Math.max(360, Math.floor(rect.width));
+    const height = Math.max(220, Math.floor(rect.height));
     canvas.width = width * ratio;
     canvas.height = height * ratio;
     canvas.style.width = width + 'px';
@@ -723,51 +739,90 @@ function initChart(history) {
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.clearRect(0, 0, width, height);
 
-    const padding = {left: 40, right: 18, top: 18, bottom: 28};
-    const points = (history || []).map(h => ({value: Number(h.count || 0)}));
-    const maxValue = Math.max(1, ...points.map(p => p.value));
+    const padding = {left: 52, right: 18, top: 30, bottom: 38};
+    const points = (history || []).map(h => ({
+        timestamp: Number(h.timestamp || 0),
+        value: Math.max(0, Number(h.count || 0)),
+    }));
+    const values = points.map(p => p.value);
+    const maxObserved = values.length ? Math.max(...values) : 0;
+    const yMax = niceCeil(Math.max(5, maxObserved * 1.15));
     const plotW = width - padding.left - padding.right;
     const plotH = height - padding.top - padding.bottom;
 
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#334155';
+    ctx.font = '12px Segoe UI, Arial, sans-serif';
+    ctx.fillText('Requests per minute', padding.left, 18);
+
     ctx.strokeStyle = '#e5e7eb';
     ctx.lineWidth = 1;
+    ctx.fillStyle = '#64748b';
+    ctx.font = '11px Segoe UI, Arial, sans-serif';
+    const yTicks = 5;
+    for (let i = 0; i <= yTicks; i++) {
+        const y = padding.top + (plotH * i / yTicks);
+        const tickValue = Math.round(yMax - (yMax * i / yTicks));
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(width - padding.right, y);
+        ctx.stroke();
+        ctx.fillText(String(tickValue), 12, y + 4);
+    }
+
+    ctx.strokeStyle = '#cbd5e1';
     ctx.beginPath();
     ctx.moveTo(padding.left, padding.top);
     ctx.lineTo(padding.left, height - padding.bottom);
     ctx.lineTo(width - padding.right, height - padding.bottom);
     ctx.stroke();
 
-    ctx.fillStyle = '#64748b';
-    ctx.font = '12px Segoe UI, Arial, sans-serif';
-    ctx.fillText('Requests/min', padding.left, 14);
-    ctx.fillText(String(maxValue), 8, padding.top + 4);
-    ctx.fillText('0', 24, height - padding.bottom + 4);
-
-    if (!points.length) {
+    if (!points.length || maxObserved === 0) {
         ctx.fillStyle = '#94a3b8';
-        ctx.fillText('No request samples in the current window', padding.left + 16, padding.top + 44);
+        ctx.font = '12px Segoe UI, Arial, sans-serif';
+        ctx.fillText('No recent request data', padding.left + 14, padding.top + 44);
         return;
     }
 
-    const xFor = i => padding.left + (points.length === 1 ? plotW / 2 : i * plotW / (points.length - 1));
-    const yFor = v => height - padding.bottom - (v / maxValue) * plotH;
-
-    ctx.beginPath();
+    const denom = Math.max(1, points.length - 1);
+    const xFor = i => padding.left + (i * plotW / denom);
+    const yFor = v => padding.top + plotH - (v / yMax) * plotH;
+    const labelStep = Math.max(1, Math.ceil(points.length / 6));
+    ctx.fillStyle = '#64748b';
+    ctx.font = '11px Segoe UI, Arial, sans-serif';
     points.forEach((p, i) => {
-        const x = xFor(i), y = yFor(p.value);
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        if (i % labelStep !== 0 && i !== points.length - 1) return;
+        const label = formatChartTime(p.timestamp);
+        if (!label) return;
+        const x = Math.min(width - padding.right - 32, Math.max(padding.left, xFor(i) - 16));
+        ctx.fillText(label, x, height - 12);
     });
+
     ctx.strokeStyle = '#2563eb';
     ctx.lineWidth = 2;
+    ctx.beginPath();
+    points.forEach((p, i) => {
+        const x = xFor(i);
+        const y = yFor(p.value);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    });
     ctx.stroke();
 
     ctx.fillStyle = '#2563eb';
     points.forEach((p, i) => {
+        if (p.value === 0 && points.length > 45 && i % 5 !== 0) return;
         ctx.beginPath();
-        ctx.arc(xFor(i), yFor(p.value), 3, 0, Math.PI * 2);
+        ctx.arc(xFor(i), yFor(p.value), p.value === 0 ? 1.5 : 2.5, 0, Math.PI * 2);
         ctx.fill();
     });
+
+    ctx.fillStyle = '#334155';
+    ctx.font = '11px Segoe UI, Arial, sans-serif';
+    ctx.fillText('max ' + maxObserved, width - padding.right - 58, 18);
 }
+
 
 async function loadProviders() {
     const data = await api('/providers');
@@ -1223,42 +1278,39 @@ def api_sessions():
     sessions = mcp_session_manager.list_sessions()
     return jsonify({"sessions": sessions})
 
-@control_panel_bp.route('/api/stats')
-def api_stats():
-    # Parse audit log for stats
-    audit_log = "logs/audit.log"
+def _build_request_history_window(now=None, minutes=60):
+    now = time.time() if now is None else now
+    end_minute = int(now // 60) * 60
+    start_minute = end_minute - ((minutes - 1) * 60)
+    minute_counts = {start_minute + (i * 60): 0 for i in range(minutes)}
     requests_1h = 0
-    requests_history = []
-    now = time.time()
-    hour_ago = now - 3600
-    
+    audit_log = "logs/audit.log"
+
     if os.path.exists(audit_log):
-        with open(audit_log, 'r') as f:
+        with open(audit_log, 'r', encoding='utf-8') as f:
             for line in f:
                 try:
                     entry = json.loads(line)
-                    if entry.get("event") == "request_complete":
-                        ts = entry.get("timestamp", 0)
-                        if ts >= hour_ago:
-                            requests_1h += 1
-                        # Aggregate by minute for chart
-                        minute = int(ts // 60) * 60
-                        requests_history.append({"timestamp": minute, "count": 1})
-                except:
+                    if entry.get("event") != "request_complete":
+                        continue
+                    ts = float(entry.get("timestamp", 0) or 0)
+                    minute = int(ts // 60) * 60
+                    if start_minute <= minute <= end_minute:
+                        requests_1h += 1
+                        minute_counts[minute] = minute_counts.get(minute, 0) + 1
+                except Exception:
                     pass
-    
-    # Aggregate by minute
-    from collections import defaultdict
-    minute_counts = defaultdict(int)
-    for h in requests_history:
-        minute_counts[h["timestamp"]] += h["count"]
-    
-    history = [{"timestamp": k, "count": v} for k, v in sorted(minute_counts.items())]
-    
-    return jsonify({
-        "requests_1h": requests_1h,
-        "requests_history": history[-60:]  # Last 60 minutes
-    })
+
+    history = [
+        {"timestamp": minute, "count": minute_counts.get(minute, 0)}
+        for minute in sorted(minute_counts)
+    ]
+    return {"requests_1h": requests_1h, "requests_history": history}
+
+
+@control_panel_bp.route('/api/stats')
+def api_stats():
+    return jsonify(_build_request_history_window())
 
 @control_panel_bp.route('/api/logs/<log_type>')
 def api_logs(log_type):
