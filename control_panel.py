@@ -397,6 +397,8 @@ DASHBOARD_HTML = r"""
                         </div>
                         <h3 class="text-lg font-semibold mt-6 mb-3">Provider Runtime Readiness</h3>
                         <div id="provider-runtime-summary" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+                        <h3 class="text-lg font-semibold mt-6 mb-3">Model Usage (1h)</h3>
+                        <div id="model-usage-summary" class="space-y-3 text-sm"></div>
                     </div>
                     <div>
                         <h3 class="text-lg font-semibold mb-4">Recent Requests</h3>
@@ -613,7 +615,8 @@ async function loadAll() {
             api('/providers'),
             api('/sessions'),
             api('/stats'),
-            api('/meta')
+            api('/meta'),
+            api('/model_usage')
         ]);
         
         if (results[0].status === 'fulfilled') updateHealth(results[0].value);
@@ -622,6 +625,7 @@ async function loadAll() {
         if (results[3].status === 'fulfilled') updateStats(results[3].value);
         if (results[3].status === 'fulfilled') initChart(results[3].value.requests_history || []);
         if (results[4].status === 'fulfilled') updateMeta(results[4].value);
+        if (results[5].status === 'fulfilled') updateModelUsage(results[5].value);
     } catch (e) {
         console.error('loadAll error:', e);
     }
@@ -803,6 +807,35 @@ function updateSessions(data) {
 
 function updateStats(data) {
     document.getElementById('stat-requests').textContent = data.requests_1h || 0;
+}
+
+function updateModelUsage(data) {
+    const box = document.getElementById('model-usage-summary');
+    if (!box) return;
+    const rows = data.models || [];
+    if (!rows.length) {
+        box.innerHTML = '<div class="hwg-runtime-card text-gray-500">No model requests in the last hour.</div>';
+        return;
+    }
+    box.innerHTML = rows.map(r => {
+        const tokenText = r.tokens_available ? String(r.total_tokens) : 'tokens unavailable';
+        const tokenClass = r.tokens_available ? 'text-gray-700' : 'text-yellow-800';
+        return `
+            <div class="hwg-runtime-card">
+                <div class="flex justify-between gap-3 items-start">
+                    <div>
+                        <div class="font-semibold font-mono">${r.model || 'unknown'}</div>
+                        <div class="text-xs text-gray-500">${r.provider || 'unknown provider'}</div>
+                    </div>
+                    <span class="hwg-chip hwg-neutral">${r.requests} req</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 mt-2 text-xs">
+                    <div><span class="text-gray-500">Prompt</span><br><b>${r.prompt_tokens}</b></div>
+                    <div><span class="text-gray-500">Completion</span><br><b>${r.completion_tokens}</b></div>
+                    <div><span class="text-gray-500">Total</span><br><b class="${tokenClass}">${tokenText}</b></div>
+                </div>
+            </div>`;
+    }).join('');
 }
 
 function niceCeil(value) {
@@ -1428,6 +1461,56 @@ def _build_request_history_window(now=None, minutes=60):
 @control_panel_bp.route('/api/stats')
 def api_stats():
     return jsonify(_build_request_history_window())
+
+def _model_usage_window(now=None, seconds=3600):
+    now = time.time() if now is None else now
+    start = now - seconds
+    audit_log = "logs/audit.log"
+    by_key = {}
+    chat_endpoints = ("/v1/chat/completions", "/v1/chat/code", "/v1/chat/conversation", "/v1/responses")
+    if os.path.exists(audit_log):
+        with open(audit_log, "r", encoding="utf-8") as f:
+            for line in f:
+                try:
+                    entry = json.loads(line)
+                    if entry.get("event") != "request_complete":
+                        continue
+                    ts = float(entry.get("timestamp", 0) or 0)
+                    if ts < start or ts > now:
+                        continue
+                    endpoint = str(entry.get("endpoint") or "")
+                    if not any(endpoint.startswith(prefix) for prefix in chat_endpoints):
+                        continue
+                    provider = str(entry.get("provider") or "unknown")
+                    model = str(entry.get("model") or "unknown")
+                    if provider == "unknown" and model == "unknown":
+                        continue
+                    key = (provider, model)
+                    row = by_key.setdefault(key, {
+                        "provider": provider,
+                        "model": model,
+                        "requests": 0,
+                        "prompt_tokens": 0,
+                        "completion_tokens": 0,
+                        "total_tokens": 0,
+                        "tokens_available": False,
+                    })
+                    row["requests"] += 1
+                    for field in ("prompt_tokens", "completion_tokens", "total_tokens"):
+                        value = int(entry.get(field, 0) or 0)
+                        row[field] += value
+                        if value > 0:
+                            row["tokens_available"] = True
+                except Exception:
+                    pass
+    rows = sorted(by_key.values(), key=lambda r: (r["total_tokens"], r["requests"]), reverse=True)
+    return {"window_seconds": seconds, "models": rows}
+
+
+@control_panel_bp.route('/api/model_usage')
+def api_model_usage():
+    return jsonify(_model_usage_window())
+
 
 @control_panel_bp.route('/api/logs/<log_type>')
 def api_logs(log_type):

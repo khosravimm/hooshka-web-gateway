@@ -2,6 +2,15 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## 0.7.13 - 2026-09-16
+
+### Added
+- Added Model Usage (1h) to the Overview tab, grouped by provider/model with request counts and prompt/completion/total token counters when audit data is available.
+- Added `/panel/api/model_usage`.
+
+### Validation
+- Deterministic tests verify the model usage UI and backend endpoint wiring.
+
 ## 0.7.12 - 2026-09-16
 
 ### Changed

@@ -127,3 +127,14 @@ def test_control_panel_service_tab_maps_payload_to_ui_elements():
     assert 'Raw service-manager output' in text
     assert 'service-info' not in text
     assert "JSON.stringify(data, null, 2)" not in text
+
+
+def test_control_panel_overview_has_model_usage_summary():
+    text = source()
+    assert 'Model Usage (1h)' in text
+    assert 'model-usage-summary' in text
+    assert "api('/model_usage')" in text
+    assert 'updateModelUsage' in text
+    assert 'tokens unavailable' in text
+    assert 'def api_model_usage' in text
+    assert 'prompt_tokens' in text and 'completion_tokens' in text and 'total_tokens' in text
