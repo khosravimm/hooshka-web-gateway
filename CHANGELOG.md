@@ -2,6 +2,17 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## 0.7.19 - 2026-09-16
+
+### Fixed
+- Clarified Overview request metrics by separating gateway requests from model traffic.
+- Added a Request Breakdown card so panel polling is not confused with model usage.
+- Model accounting empty state now shows excluded panel/health/metadata request counts.
+- Model accounting now reports `token capture unavailable` when requests are counted but token fields were not captured.
+
+### Validation
+- Deterministic tests verify request bucketing and dashboard labels.
+
 ## 0.7.18 - 2026-09-16
 
 ### Changed

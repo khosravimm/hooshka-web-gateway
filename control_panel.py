@@ -362,7 +362,7 @@ DASHBOARD_HTML = r"""
                 <div class="flex items-center">
                     <div class="p-3 bg-orange-100 rounded-full"><span class="hwg-icon text-orange-600">G</span></div>
                     <div class="ml-4">
-                        <p class="text-sm text-gray-600">Requests (1h)</p>
+                        <p class="text-sm text-gray-600">Gateway Requests (1h)</p>
                         <p id="stat-requests" class="text-2xl font-bold">-</p>
                     </div>
                 </div>
@@ -397,11 +397,13 @@ DASHBOARD_HTML = r"""
                         </div>
                         <h3 class="text-lg font-semibold mt-6 mb-3">Provider Runtime Readiness</h3>
                         <div id="provider-runtime-summary" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+                        <h3 class="text-lg font-semibold mt-6 mb-3">Request Breakdown (1h)</h3>
+                        <div id="request-breakdown-summary" class="grid grid-cols-2 gap-3 text-sm"></div>
                         <h3 class="text-lg font-semibold mt-6 mb-3">Model Traffic & Token Accounting (1h)</h3>
                         <div id="model-usage-summary" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm"></div>
                     </div>
                     <div>
-                        <h3 class="text-lg font-semibold mb-4">Recent Requests</h3>
+                        <h3 class="text-lg font-semibold mb-4">Gateway Requests</h3>
                         <div class="hwg-chart-wrap">
                             <canvas id="requests-chart"></canvas>
                         </div>
@@ -659,6 +661,7 @@ async function loadAll() {
         if (results[1].status === 'fulfilled') updateProviders(results[1].value);
         if (results[2].status === 'fulfilled') updateSessions(results[2].value);
         if (results[3].status === 'fulfilled') updateStats(results[3].value);
+        if (results[3].status === 'fulfilled') updateRequestBreakdown(results[3].value);
         if (results[3].status === 'fulfilled') initChart(results[3].value.requests_history || []);
         if (results[4].status === 'fulfilled') updateMeta(results[4].value);
         if (results[5].status === 'fulfilled') updateModelUsage(results[5].value);
@@ -674,6 +677,7 @@ function renderInitialData() {
     if (INITIAL_SESSIONS) updateSessions(INITIAL_SESSIONS);
     if (INITIAL_STATS) {
         updateStats(INITIAL_STATS);
+        updateRequestBreakdown(INITIAL_STATS);
         initChart(INITIAL_STATS.requests_history || []);
     }
     if (INITIAL_AUTH) updateApiKeys(INITIAL_AUTH);
@@ -844,6 +848,23 @@ function updateStats(data) {
     document.getElementById('stat-requests').textContent = data.requests_1h || 0;
 }
 
+function updateRequestBreakdown(data) {
+    const box = document.getElementById('request-breakdown-summary');
+    if (!box) return;
+    const b = data.breakdown || {};
+    const items = [
+        ['Model requests', b.model || 0, 'Completed /v1/chat and /v1/responses traffic'],
+        ['Panel requests', b.panel || 0, 'Control panel API polling and UI refresh traffic'],
+        ['Health/meta', b.health_metadata || 0, 'Health, readiness, modes, and model metadata traffic'],
+        ['Other', b.other || 0, 'Other completed gateway requests']
+    ];
+    box.innerHTML = items.map(([label, value, title]) => `
+        <div class="hwg-runtime-card py-2" title="${title}">
+            <div class="text-xs text-gray-500">${label}</div>
+            <div class="text-lg font-bold">${formatCompactNumber(value)}</div>
+        </div>`).join('');
+}
+
 function formatCompactNumber(value) {
     const n = Number(value || 0);
     const abs = Math.abs(n);
@@ -859,11 +880,13 @@ function updateModelUsage(data) {
     const rows = data.models || [];
     if (!rows.length) {
         const monitored = (data.monitored || []).map(m => `${m.provider}/${m.model}`).join(', ');
+        const excluded = data.excluded || {};
         box.innerHTML = `
             <div class="hwg-runtime-card md:col-span-2 text-gray-600">
-                <div class="font-semibold text-gray-800">No measured model traffic in the last hour.</div>
+                <div class="font-semibold text-gray-800">No completed model requests in the last hour.</div>
+                <div class="text-xs mt-1">Excluded from model accounting: panel ${formatCompactNumber(excluded.panel || 0)}, health/meta ${formatCompactNumber(excluded.health_metadata || 0)}, other ${formatCompactNumber(excluded.other || 0)}.</div>
                 <div class="text-xs mt-1">Configured monitoring targets: ${monitored || 'no configured providers'}</div>
-                <div class="text-xs mt-1 text-yellow-800">Only completed /v1/chat requests are counted here. Placeholder rows are not shown as usage statistics.</div>
+                <div class="text-xs mt-1 text-yellow-800">Only completed /v1/chat and /v1/responses traffic is counted as model traffic.</div>
             </div>`;
         return;
     }
@@ -874,6 +897,7 @@ function updateModelUsage(data) {
         const promptAvailable = r.prompt_tokens_available === true;
         const completionAvailable = r.completion_tokens_available === true;
         const totalAvailable = r.total_tokens_available === true || r.tokens_available === true;
+        const accountingLabel = r.tokens_available ? (r.tokens_estimated ? 'estimated' : 'measured') : 'token capture unavailable';
         return `
             <div class="hwg-runtime-card py-2">
                 <div class="flex justify-between gap-3 items-start">
@@ -887,7 +911,7 @@ function updateModelUsage(data) {
                     <div title="${fullValue(r.prompt_tokens, promptAvailable)}"><span class="text-gray-500">Input tokens:</span> <b class="${tokenClass(promptAvailable)}">${tokenValue(r.prompt_tokens, promptAvailable)}</b></div>
                     <div title="${fullValue(r.completion_tokens, completionAvailable)}"><span class="text-gray-500">Output tokens:</span> <b class="${tokenClass(completionAvailable)}">${tokenValue(r.completion_tokens, completionAvailable)}</b></div>
                     <div title="${fullValue(r.total_tokens, totalAvailable)}"><span class="text-gray-500">Total tokens:</span> <b class="${tokenClass(totalAvailable)}">${tokenValue(r.total_tokens, totalAvailable)}</b></div>
-                    <div><span class="text-gray-500">Accounting:</span> <b class="text-gray-800">${r.tokens_estimated ? 'estimated' : 'measured'}</b></div>
+                    <div><span class="text-gray-500">Accounting:</span> <b class="text-gray-800">${accountingLabel}</b></div>
                 </div>
             </div>`;
     }).join('');
@@ -939,7 +963,7 @@ function initChart(history) {
     ctx.fillRect(0, 0, width, height);
     ctx.fillStyle = '#334155';
     ctx.font = '12px Segoe UI, Arial, sans-serif';
-    ctx.fillText('Requests per minute', padding.left, 18);
+    ctx.fillText('Gateway requests per minute', padding.left, 18);
 
     ctx.strokeStyle = '#e5e7eb';
     ctx.lineWidth = 1;
@@ -1562,12 +1586,25 @@ def api_sessions():
     sessions = mcp_session_manager.list_sessions()
     return jsonify({"sessions": sessions})
 
+def _request_bucket(endpoint):
+    endpoint = str(endpoint or "")
+    if endpoint.startswith("/panel/"):
+        return "panel"
+    if endpoint.startswith("/v1/chat/") or endpoint.startswith("/v1/responses"):
+        return "model"
+    if endpoint.startswith("/v1/models") or endpoint.startswith("/health") or endpoint.startswith("/ready") or endpoint.startswith("/modes"):
+        return "health_metadata"
+    return "other"
+
+
 def _build_request_history_window(now=None, minutes=60):
     now = time.time() if now is None else now
     end_minute = int(now // 60) * 60
     start_minute = end_minute - ((minutes - 1) * 60)
     minute_counts = {start_minute + (i * 60): 0 for i in range(minutes)}
+    model_minute_counts = {start_minute + (i * 60): 0 for i in range(minutes)}
     requests_1h = 0
+    breakdown = {"model": 0, "panel": 0, "health_metadata": 0, "other": 0}
     audit_log = "logs/audit.log"
 
     if os.path.exists(audit_log):
@@ -1580,16 +1617,20 @@ def _build_request_history_window(now=None, minutes=60):
                     ts = float(entry.get("timestamp", 0) or 0)
                     minute = int(ts // 60) * 60
                     if start_minute <= minute <= end_minute:
+                        bucket = _request_bucket(entry.get("endpoint"))
                         requests_1h += 1
+                        breakdown[bucket] = breakdown.get(bucket, 0) + 1
                         minute_counts[minute] = minute_counts.get(minute, 0) + 1
+                        if bucket == "model":
+                            model_minute_counts[minute] = model_minute_counts.get(minute, 0) + 1
                 except Exception:
                     pass
 
     history = [
-        {"timestamp": minute, "count": minute_counts.get(minute, 0)}
+        {"timestamp": minute, "count": minute_counts.get(minute, 0), "model_count": model_minute_counts.get(minute, 0)}
         for minute in sorted(minute_counts)
     ]
-    return {"requests_1h": requests_1h, "requests_history": history}
+    return {"requests_1h": requests_1h, "requests_history": history, "breakdown": breakdown}
 
 
 @control_panel_bp.route('/api/stats')
@@ -1608,6 +1649,7 @@ def _model_usage_window(now=None, seconds=3600):
     audit_log = "logs/audit.log"
     by_key = {}
     monitored = []
+    excluded = {"panel": 0, "health_metadata": 0, "other": 0}
     chat_endpoints = ("/v1/chat/completions", "/v1/chat/code", "/v1/chat/conversation", "/v1/responses")
 
     try:
@@ -1648,6 +1690,11 @@ def _model_usage_window(now=None, seconds=3600):
                         continue
                     endpoint = str(entry.get("endpoint") or "")
                     if not any(endpoint.startswith(prefix) for prefix in chat_endpoints):
+                        bucket = _request_bucket(endpoint)
+                        if bucket in excluded:
+                            excluded[bucket] += 1
+                        else:
+                            excluded["other"] += 1
                         continue
                     provider = str(entry.get("provider") or "unknown")
                     model = str(entry.get("model") or "unknown")
@@ -1670,6 +1717,7 @@ def _model_usage_window(now=None, seconds=3600):
         "window_seconds": seconds,
         "models": rows,
         "monitored": monitored,
+        "excluded": excluded,
         "status": "measured" if rows else "no_measured_traffic",
     }
 

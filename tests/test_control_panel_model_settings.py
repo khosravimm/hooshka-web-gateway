@@ -61,7 +61,7 @@ def test_control_panel_request_chart_has_operational_axes():
     text = source()
     assert "function niceCeil" in text
     assert "function formatChartTime" in text
-    assert "Requests per minute" in text
+    assert "Gateway requests per minute" in text
     assert "const yTicks = 5" in text
     assert "labelStep" in text
     assert "No recent request data" in text
@@ -174,7 +174,7 @@ def test_model_usage_does_not_fabricate_zero_rows():
     assert 'Do not fabricate zero-request rows as statistics' in text
     assert 'no_measured_traffic' in text
     assert 'monitored' in text
-    assert 'No measured model traffic in the last hour.' in text
+    assert 'No completed model requests in the last hour.' in text
     assert 'ensure_row(provider.provider_id' not in text
 
 
@@ -210,3 +210,22 @@ def test_model_accounting_uses_compact_number_formatting():
     assert 'Requests: ${formatCompactNumber(r.requests)}' in text
     assert 'formatCompactNumber(value)' in text
     assert 'fullValue(r.total_tokens, totalAvailable)' in text
+
+
+def test_control_panel_separates_gateway_requests_from_model_traffic():
+    text = source()
+    assert 'Gateway Requests (1h)' in text
+    assert 'Gateway requests per minute' in text
+    assert 'Request Breakdown (1h)' in text
+    assert 'request-breakdown-summary' in text
+    assert 'function updateRequestBreakdown' in text
+    assert 'def _request_bucket' in text
+    assert '"model_count"' in text
+    assert 'Excluded from model accounting' in text
+    assert 'Only completed /v1/chat and /v1/responses traffic is counted as model traffic.' in text
+
+
+def test_model_accounting_reports_unavailable_when_no_tokens_captured():
+    text = source()
+    assert 'token capture unavailable' in text
+    assert 'const accountingLabel = r.tokens_available' in text
