@@ -100,6 +100,61 @@ def _check_cdp(cdp_url):
         return {"cdp_url": cdp_url, "ready": False, "status": "unavailable", "error": type(exc).__name__}
 
 
+def _provider_model_state(provider):
+    cfg = provider.config.config or {}
+    default_model = cfg.get("default_upstream_model") or cfg.get("upstream_model") or provider.provider_id
+    configured = cfg.get("selectable_upstream_models") or []
+    if isinstance(configured, str):
+        configured = [configured]
+    model_options = []
+    for item in [default_model, *configured, *list(provider.capabilities.supported_models or [])]:
+        if item and item not in model_options:
+            model_options.append(item)
+    return {
+        "default": default_model,
+        "options": model_options,
+        "config_key": "default_upstream_model",
+    }
+
+
+def _provider_payload(provider):
+    return {
+        "id": provider.provider_id,
+        "type": provider.provider_type.value,
+        "enabled": provider.config.enabled,
+        "priority": provider.config.priority,
+        "capabilities": {
+            "chat_completion": provider.capabilities.chat_completion,
+            "streaming": provider.capabilities.streaming,
+            "tools": provider.capabilities.tools,
+            "vision": provider.capabilities.vision,
+            "embeddings": provider.capabilities.embeddings,
+            "max_context_tokens": provider.capabilities.max_context_tokens,
+            "supported_models": provider.capabilities.supported_models,
+        },
+        "features": provider_feature_state(provider),
+        "runtime": _check_cdp(provider.config.config.get("cdp_url")),
+        "model": _provider_model_state(provider),
+    }
+
+
+def _persist_provider_config_value(provider_id, key, value):
+    config = _load_config_file()
+    for item in config.get("providers", []) or []:
+        if item.get("id") == provider_id:
+            provider_cfg = item.setdefault("config", {})
+            provider_cfg[key] = value
+            _save_config_file(config)
+            provider = provider_registry.get(provider_id)
+            if provider:
+                provider.config.config[key] = value
+                attr = f"_{key}"
+                if hasattr(provider, attr):
+                    setattr(provider, attr, value)
+            return True
+    return False
+
+
 def _load_config_file():
     if os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
@@ -297,7 +352,7 @@ DASHBOARD_HTML = r"""
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Capabilities</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thinking</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Search</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Models</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Default Model</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                             </tr>
                         </thead>
@@ -567,9 +622,19 @@ function updateProviders(data) {
                     <span>${p.features?.controls?.search ? (p.features?.defaults?.search ? 'On' : 'Off') : 'N/A'}</span>
                 </label>
             </td>
-            <td class="px-6 py-4 text-sm">${(p.capabilities.supported_models || []).join(', ')}</td>
+            <td class="px-6 py-4 text-sm">
+                <div class="flex gap-2 items-center">
+                    <input id="model-${p.id}" list="model-options-${p.id}" class="px-2 py-1 border rounded text-sm font-mono" value="${p.model?.default || p.id}">
+                    <datalist id="model-options-${p.id}">
+                        ${(p.model?.options || []).map(m => `<option value="${m}"></option>`).join('')}
+                    </datalist>
+                    <button onclick="setProviderModel('${p.id}')" class="px-2 py-1 bg-blue-600 text-white rounded text-xs">Save</button>
+                </div>
+                <div id="model-status-${p.id}" class="text-xs text-gray-500 mt-1"></div>
+            </td>
             <td class="px-6 py-4">
-                <button onclick="testProvider('${p.id}')" class="text-blue-600 hover:underline text-sm">Test</button>
+                <button id="test-${p.id}" onclick="testProvider('${p.id}', this)" class="text-blue-600 hover:underline text-sm">Test</button>
+                <div id="test-status-${p.id}" class="text-xs text-gray-500 mt-1"></div>
             </td>
         </tr>
     `).join('');
@@ -591,6 +656,34 @@ async function setProviderFeature(providerId, feature, value, checkbox) {
         checkbox.checked = previous;
         checkbox.disabled = false;
         alert('Feature update failed: ' + e.message);
+    }
+}
+
+async function setProviderModel(providerId) {
+    const input = document.getElementById('model-' + providerId);
+    const status = document.getElementById('model-status-' + providerId);
+    const model = (input.value || '').trim();
+    if (!model) {
+        status.textContent = 'model is required';
+        status.className = 'text-xs text-red-600 mt-1';
+        return;
+    }
+    status.textContent = 'Saving...';
+    status.className = 'text-xs text-gray-500 mt-1';
+    try {
+        const resp = await fetch('/panel/api/providers/' + encodeURIComponent(providerId) + '/model', {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({default_upstream_model: model})
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'model update failed');
+        status.textContent = 'Saved';
+        status.className = 'text-xs text-green-600 mt-1';
+        await loadProviders();
+    } catch (e) {
+        status.textContent = 'Error: ' + e.message;
+        status.className = 'text-xs text-red-600 mt-1';
     }
 }
 
@@ -928,28 +1021,7 @@ def _get_initial_health():
 def _get_initial_providers():
     try:
         providers = provider_registry.list_providers(enabled_only=False)
-        return {
-            "providers": [
-                {
-                    "id": p.provider_id,
-                    "type": p.provider_type.value,
-                    "enabled": p.config.enabled,
-                    "priority": p.config.priority,
-                    "capabilities": {
-                        "chat_completion": p.capabilities.chat_completion,
-                        "streaming": p.capabilities.streaming,
-                        "tools": p.capabilities.tools,
-                        "vision": p.capabilities.vision,
-                        "embeddings": p.capabilities.embeddings,
-                        "max_context_tokens": p.capabilities.max_context_tokens,
-                        "supported_models": p.capabilities.supported_models,
-                    },
-                    "features": provider_feature_state(p),
-                    "runtime": _check_cdp(p.config.config.get("cdp_url")),
-                }
-                for p in providers
-            ]
-        }
+        return {"providers": [_provider_payload(p) for p in providers]}
     except Exception:
         return {"providers": []}
 
@@ -1088,28 +1160,7 @@ def api_meta():
 @control_panel_bp.route('/api/providers')
 def api_providers():
     providers = provider_registry.list_providers(enabled_only=False)
-    return jsonify({
-        "providers": [
-            {
-                "id": p.provider_id,
-                "type": p.provider_type.value,
-                "enabled": p.config.enabled,
-                "priority": p.config.priority,
-                "capabilities": {
-                    "chat_completion": p.capabilities.chat_completion,
-                    "streaming": p.capabilities.streaming,
-                    "tools": p.capabilities.tools,
-                    "vision": p.capabilities.vision,
-                    "embeddings": p.capabilities.embeddings,
-                    "max_context_tokens": p.capabilities.max_context_tokens,
-                    "supported_models": p.capabilities.supported_models,
-                },
-                "features": provider_feature_state(p),
-                "runtime": _check_cdp(p.config.config.get("cdp_url")),
-            }
-            for p in providers
-        ]
-    })
+    return jsonify({"providers": [_provider_payload(p) for p in providers]})
 
 @control_panel_bp.route('/api/providers/<provider_id>/features', methods=['GET', 'PUT'])
 def api_provider_features(provider_id):
@@ -1127,6 +1178,27 @@ def api_provider_features(provider_id):
     except Exception as exc:
         logger.exception("Failed to update provider feature defaults")
         return jsonify({"error": str(exc)}), 500
+
+
+@control_panel_bp.route('/api/providers/<provider_id>/model', methods=['PUT'])
+def api_provider_model(provider_id):
+    provider = provider_registry.get(provider_id)
+    if not provider:
+        return jsonify({"error": "Provider not found"}), 404
+    data = request.get_json(force=True) or {}
+    model = str(data.get("default_upstream_model") or data.get("model") or "").strip()
+    if not model:
+        return jsonify({"error": "default_upstream_model is required"}), 400
+    options = _provider_model_state(provider).get("options", [])
+    if options and model not in options:
+        return jsonify({"error": "Model is not in selectable options", "options": options}), 400
+    if not _persist_provider_config_value(provider_id, "default_upstream_model", model):
+        return jsonify({"error": "Provider not found in config"}), 404
+    return jsonify({
+        "success": True,
+        "provider": provider_id,
+        "model": _provider_model_state(provider),
+    })
 
 @control_panel_bp.route('/api/sessions')
 def api_sessions():

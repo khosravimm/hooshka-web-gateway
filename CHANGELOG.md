@@ -2,6 +2,17 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## 0.7.5 - 2026-09-16
+
+### Added
+- Control Panel provider table now exposes editable Default Model controls backed by provider configuration.
+- Added `PUT /panel/api/providers/<provider_id>/model` with validation against selectable provider model options.
+- Provider payloads now include model defaults and selectable options for UI use.
+
+### Validation
+- Added regression tests for Control Panel provider model state, editable UI contract, API route, validation, and persistence path.
+- Full Gateway suite: 140 passed.
+
 ## 0.7.4 - 2026-09-16
 
 ### Fixed
