@@ -2,6 +2,16 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## 0.7.9 - 2026-09-16
+
+### Fixed
+- Replaced the Control Panel Default Model `input+datalist` with a real `<select>` control so all selectable upstream model options are visible and reliably selectable.
+- Added a visible current-model line under each provider model selector.
+- Wrapped provider capability badges into multiple lines to reduce horizontal table overflow.
+
+### Validation
+- Headless Control Panel render verifies Qwen and Z.ai model selectors expose multiple concrete options.
+
 ## 0.7.8 - 2026-09-16
 
 ### Fixed

@@ -601,8 +601,10 @@ function updateProviders(data) {
                 <div class="font-mono text-xs text-gray-500 mt-1">${p.runtime?.cdp_url || '-'}</div>
             </td>
             <td class="px-6 py-4">${p.priority}</td>
-            <td class="px-6 py-4 text-sm">
-                ${Object.entries(p.capabilities).filter(([k,v]) => v).map(([k]) => `<span class="mr-1 px-1 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">${k}</span>`).join('')}
+            <td class="px-6 py-4 text-sm max-w-xs">
+                <div class="flex flex-wrap gap-1 max-w-xs">
+                    ${Object.entries(p.capabilities).filter(([k,v]) => v).map(([k]) => `<span class="inline-block px-1 py-0.5 bg-blue-50 text-blue-700 rounded text-xs whitespace-nowrap">${k}</span>`).join('')}
+                </div>
             </td>
             <td class="px-6 py-4 text-sm">
                 <label class="inline-flex items-center gap-2">
@@ -624,12 +626,12 @@ function updateProviders(data) {
             </td>
             <td class="px-6 py-4 text-sm">
                 <div class="flex gap-2 items-center">
-                    <input id="model-${p.id}" list="model-options-${p.id}" class="px-2 py-1 border rounded text-sm font-mono" value="${p.model?.default || p.id}">
-                    <datalist id="model-options-${p.id}">
-                        ${(p.model?.options || []).map(m => `<option value="${m}"></option>`).join('')}
-                    </datalist>
+                    <select id="model-${p.id}" class="px-2 py-1 border rounded text-sm font-mono bg-white">
+                        ${(p.model?.options || [p.model?.default || p.id]).map(m => `<option value="${m}" ${m === (p.model?.default || p.id) ? 'selected' : ''}>${m}</option>`).join('')}
+                    </select>
                     <button onclick="setProviderModel('${p.id}')" class="px-2 py-1 bg-blue-600 text-white rounded text-xs">Save</button>
                 </div>
+                <div class="text-xs text-gray-500 mt-1">current: <span class="font-mono">${p.model?.default || p.id}</span></div>
                 <div id="model-status-${p.id}" class="text-xs text-gray-500 mt-1"></div>
             </td>
             <td class="px-6 py-4">

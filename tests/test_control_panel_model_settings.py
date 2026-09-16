@@ -76,3 +76,19 @@ def test_control_panel_stats_builds_continuous_sixty_minute_window():
     assert "minute_counts = {start_minute + (i * 60): 0 for i in range(minutes)}" in text
     assert "start_minute <= minute <= end_minute" in text
     assert "return jsonify(_build_request_history_window())" in text
+
+
+def test_control_panel_uses_select_for_default_model_picker():
+    text = source()
+    assert '<select id="model-${p.id}"' in text
+    assert '<option value="${m}"' in text
+    assert 'input id="model-${p.id}"' not in text
+    assert 'datalist id="model-options-${p.id}"' not in text
+    assert 'current: <span class="font-mono">${p.model?.default || p.id}</span>' in text
+
+
+def test_control_panel_wraps_capability_badges_to_reduce_horizontal_scroll():
+    text = source()
+    assert 'flex flex-wrap gap-1 max-w-xs' in text
+    assert 'whitespace-nowrap' in text
+    assert 'max-w-xs' in text
