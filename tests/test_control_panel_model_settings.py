@@ -32,3 +32,26 @@ def test_control_panel_model_update_is_validated_and_persisted():
     assert "Model is not in selectable options" in text
     assert "_persist_provider_config_value(provider_id, \"default_upstream_model\", model)" in text
     assert '"success": True' in text
+
+
+def test_control_panel_provider_test_is_fast_runtime_probe():
+    text = source()
+    marker = "def api_test_provider(provider_id):"
+    assert marker in text
+    block = text.split(marker, 1)[1].split("@control_panel_bp.route('/api/sessions", 1)[0]
+    assert '_check_cdp(provider.config.config.get("cdp_url"))' in block
+    assert "provider.health_check" not in block
+    assert '"check": "cdp_runtime"' in block
+    assert "duration_ms" in block
+    assert "AbortController" in text
+    assert "finally" in text
+    assert "test-status-" in text
+
+
+def test_config_declares_selectable_upstream_models_for_model_picker():
+    cfg = (ROOT / "config.yaml").read_text(encoding="utf-8-sig")
+    assert "selectable_upstream_models:" in cfg
+    assert "qwen3.7-plus" in cfg
+    assert "qwen3.8-max" in cfg
+    assert "glm-5.3" in cfg
+    assert "glm-5.3-flash" in cfg

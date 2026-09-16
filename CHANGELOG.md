@@ -2,6 +2,17 @@
 
 All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` is the legacy compatibility identity during migration.
 
+## 0.7.6 - 2026-09-16
+
+### Fixed
+- Changed the Control Panel provider Test action from full provider `health_check()` to a bounded CDP runtime probe.
+- Provider Test now updates only the clicked provider row and always restores the button state in `finally`.
+- Added browser-side abort timeout and inline OK/FAILED/ERROR status instead of modal-only feedback.
+- Added selectable upstream model options for Qwen and Z.ai provider default-model pickers.
+
+### Validation
+- Control Panel Test no longer initiates Web Chat completion or long Playwright provider work.
+
 ## 0.7.5 - 2026-09-16
 
 ### Added

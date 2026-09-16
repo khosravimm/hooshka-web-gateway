@@ -919,19 +919,37 @@ async function serviceAction(action) {
     }
 }
 
-async function testProvider(id) {
-    const btn = event.target;
+async function testProvider(id, btn) {
+    const status = document.getElementById('test-status-' + id);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
     btn.disabled = true;
     btn.textContent = 'Testing...';
-    try {
-        const resp = await fetch('/panel/api/test_provider/' + id, { method: 'POST' });
-        const result = await resp.json();
-        alert(result.message || JSON.stringify(result));
-    } catch (e) {
-        alert('Error: ' + e.message);
+    if (status) {
+        status.textContent = 'Testing runtime...';
+        status.className = 'text-xs text-gray-500 mt-1';
     }
-    btn.disabled = false;
-    btn.textContent = 'Test';
+    try {
+        const resp = await fetch('/panel/api/test_provider/' + encodeURIComponent(id), {
+            method: 'POST',
+            signal: controller.signal,
+        });
+        const result = await resp.json();
+        const ok = resp.ok && result.success === true;
+        if (status) {
+            status.textContent = ok ? ('OK - ' + (result.runtime?.status || 'ready')) : ('FAILED - ' + (result.message || result.error || 'unavailable'));
+            status.className = 'text-xs mt-1 ' + (ok ? 'text-green-600' : 'text-red-600');
+        }
+    } catch (e) {
+        if (status) {
+            status.textContent = e.name === 'AbortError' ? 'ERROR - timeout' : ('ERROR - ' + e.message);
+            status.className = 'text-xs text-red-600 mt-1';
+        }
+    } finally {
+        clearTimeout(timer);
+        btn.disabled = false;
+        btn.textContent = 'Test';
+    }
 }
 
 async function deleteSession(id) {
@@ -1284,13 +1302,19 @@ def api_test_provider(provider_id):
     provider = provider_registry.get(provider_id)
     if not provider:
         return jsonify({"error": "Provider not found"}), 404
-    
-    try:
-        import asyncio
-        health = asyncio.run(provider.health_check())
-        return jsonify({"success": health, "message": f"Health check: {'OK' if health else 'FAILED'}"})
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)})
+
+    started = time.time()
+    runtime = _check_cdp(provider.config.config.get("cdp_url"))
+    ok = runtime.get("ready") is True
+    status = runtime.get("status") or ("ready" if ok else "unavailable")
+    return jsonify({
+        "success": ok,
+        "provider": provider_id,
+        "check": "cdp_runtime",
+        "runtime": runtime,
+        "duration_ms": int((time.time() - started) * 1000),
+        "message": f"Runtime check: {'OK' if ok else 'FAILED'} ({status})",
+    })
 
 @control_panel_bp.route('/api/sessions/<conversation_id>', methods=['DELETE'])
 def api_delete_session(conversation_id):

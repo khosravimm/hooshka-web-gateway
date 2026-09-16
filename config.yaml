@@ -45,6 +45,12 @@ providers:
   config:
     transport_mode: browser_controller
     default_upstream_model: qwen3.8-max
+    selectable_upstream_models:
+    - qwen3.7-plus
+    - qwen3.8-max
+    - qwen3.7-max
+    - qwen3.6-plus
+    - qwen3.5-plus
     tool_certified_upstream_models:
     - qwen3.8-max
     require_authenticated: true
@@ -87,6 +93,10 @@ providers:
     base_url: https://chat.z.ai
     frontend_version: prod-fe-1.1.93
     default_upstream_model: glm-5.2
+    selectable_upstream_models:
+    - glm-5.3
+    - glm-5.3-flash
+    - glm-5.2
     launch_timeout: 120
     require_authenticated: true
     runtime_label: HWG-Zai-Web-SSE-Capture
@@ -159,8 +169,6 @@ providers:
 governance:
   auth:
     enabled: true
-    # Runtime key is supplied via BRIDGE_API_KEY in the Windows service
-    # environment. Never store bearer credentials in this tracked file.
     api_keys: {}
   rate_limiting:
     enabled: true
