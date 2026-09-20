@@ -360,11 +360,9 @@ def create_app(config_path: str = "config.yaml") -> Flask:
 
         cfg = getattr(provider.config, "config", {}) or {}
         default_upstream = cfg.get("default_upstream_model")
-        if default_upstream:
-            if provider.provider_id == "qwen-web":
-                ids.append(f"qwen:{default_upstream}")
-            elif provider.provider_id == "zai-web":
-                ids.append(f"zai:{default_upstream}")
+        namespace = cfg.get("model_namespace")
+        if namespace and default_upstream:
+            ids.append(f"{namespace}:{default_upstream}")
 
         seen = set()
         models = []
@@ -403,6 +401,14 @@ def create_app(config_path: str = "config.yaml") -> Flask:
 
     init_governance(app, config["governance"])
 
+    def _provider_rpm(provider_id: str) -> int:
+        rate_limiting = config.get("governance", {}).get("rate_limiting", {}) or {}
+        per = rate_limiting.get("per_provider", {}) or {}
+        entry = per.get(provider_id)
+        if isinstance(entry, dict) and entry.get("requests_per_minute"):
+            return int(entry["requests_per_minute"])
+        return int(rate_limiting.get("default_requests_per_minute", 60))
+
     for provider_config in config["providers"]:
         if not provider_config.get("enabled", True):
             continue
@@ -416,44 +422,47 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             capabilities=ProviderCapabilities(**provider_config.get("capabilities", {})),
         )
 
+        provisioned = None
         if pconfig.provider_type == ProviderType.CHATGPT_WEB:
-            provider = create_chatgpt_web_provider(
+            chat_overrides = {
+                k: v for k, v in pconfig.config.items()
+                if k not in {"adapter", "cdp_url", "chatgpt_url"}
+            }
+            if pconfig.config.get("cdp_url"):
+                chat_overrides["cdp_url"] = pconfig.config["cdp_url"]
+            if pconfig.config.get("chatgpt_url"):
+                chat_overrides["chatgpt_url"] = pconfig.config["chatgpt_url"]
+            provisioned = create_chatgpt_web_provider(
                 provider_id=pconfig.provider_id,
                 adapter=pconfig.config.get("adapter", "dom"),
-                cdp_url=pconfig.config.get("cdp_url", "http://127.0.0.1:9224"),
-                chatgpt_url=pconfig.config.get("chatgpt_url", "https://chatgpt.com"),
                 priority=pconfig.priority,
-                **{
-                    k: v for k, v in pconfig.config.items()
-                    if k not in {"adapter", "cdp_url", "chatgpt_url"}
-                },
+                **chat_overrides,
             )
-            provider_registry.register(provider)
-            rate_limiter.set_rate(pconfig.provider_id, pconfig.config.get("requests_per_minute", 20))
         elif pconfig.provider_type == ProviderType.QWEN_WEB:
-            provider = create_qwen_web_provider(
+            provisioned = create_qwen_web_provider(
                 provider_id=pconfig.provider_id,
                 priority=pconfig.priority,
                 **pconfig.config,
             )
-            provider_registry.register(provider)
-            rate_limiter.set_rate(pconfig.provider_id, pconfig.config.get("requests_per_minute", 12))
         elif pconfig.provider_type == ProviderType.ZAI_WEB:
-            provider = create_zai_web_provider(
+            provisioned = create_zai_web_provider(
                 provider_id=pconfig.provider_id,
                 priority=pconfig.priority,
                 **pconfig.config,
             )
-            provider_registry.register(provider)
-            rate_limiter.set_rate(pconfig.provider_id, pconfig.config.get("requests_per_minute", 6))
         elif pconfig.provider_type == ProviderType.DEEPSEEK_WEB:
-            provider = create_deepseek_web_provider(
+            provisioned = create_deepseek_web_provider(
                 provider_id=pconfig.provider_id,
                 priority=pconfig.priority,
                 **pconfig.config,
             )
-            provider_registry.register(provider)
-            rate_limiter.set_rate(pconfig.provider_id, pconfig.config.get("requests_per_minute", 4))
+
+        if provisioned is not None:
+            provider_registry.register(provisioned)
+            rate_limiter.set_rate(provisioned.provider_id, _provider_rpm(provisioned.provider_id))
+
+    default_provider = provider_registry.get_default()
+    default_model_id = default_provider.provider_id if default_provider else ""
 
     server_config = config["server"]
 
@@ -478,7 +487,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             messages.append(normalized_message)
 
         return ChatCompletionRequest(
-            model=data.get("model", "chatgpt-web"),
+            model=data.get("model") or default_model_id,
             messages=messages,
             temperature=data.get("temperature", 1.0),
             top_p=data.get("top_p", 1.0),
@@ -930,7 +939,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
 
         if not provider:
             return jsonify({"error": {
-                "message": f"No provider supports model '{req.model}' with the requested capabilities. If using Kilo Code with qwen/zai, tool schemas are only optional; required tool calls need chatgpt-web or a tool-capable provider.",
+                "message": f"No enabled provider supports model '{req.model}' with the requested capabilities (including optional vs required tool support).",
                 "type": "invalid_request_error",
                 "code": "model_not_found",
                 "details": {"requested_tools": bool(req.tools), "tool_choice": req.tool_choice},

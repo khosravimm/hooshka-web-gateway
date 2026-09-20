@@ -5,7 +5,11 @@ from typing import Any, Dict, Optional
 
 def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
     if not os.path.exists(config_path):
-        return get_default_config()
+        raise FileNotFoundError(
+            f"config file not found: {config_path}. "
+            "HWG is configuration-driven; providers are never hardcoded, "
+            "so no gateway can start without a config that declares them."
+        )
     
     with open(config_path, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f) or {}
@@ -38,41 +42,7 @@ def get_default_config() -> Dict[str, Any]:
             "url": os.getenv("BRIDGE_CDP_URL", "http://127.0.0.1:9224"),
             "timeout": 30000,
         },
-        "chatgpt": {
-            "url": os.getenv("BRIDGE_CHATGPT_URL", "https://chatgpt.com"),
-            "adapter": os.getenv("BRIDGE_ADAPTER", "dom"),
-            "long_text_chunk_size": 2048,
-            "request_timeout": 120,
-        },
-        "providers": [
-            {
-                "id": "chatgpt-web",
-                "type": "chatgpt_web",
-                "enabled": True,
-                "priority": 100,
-                "config": {
-                    "cdp_url": os.getenv("BRIDGE_CDP_URL", "http://127.0.0.1:9224"),
-                    "chatgpt_url": os.getenv("BRIDGE_CHATGPT_URL", "https://chatgpt.com"),
-                    "adapter": os.getenv("BRIDGE_ADAPTER", "dom"),
-                    "require_authenticated": True,
-                    "headless": False,
-                    "timeout": 120,
-                    "long_text_chunk_size": 2048,
-                },
-                "capabilities": {
-                    "chat_completion": True,
-                    # DOM provides buffered OpenAI-compatible streaming and the
-                    # provider normalizes Web Chat tool protocol into tool_calls.
-                    "streaming": True,
-                    "streaming_mode": "buffered",
-                    "tools": True,
-                    "vision": False,
-                    "embeddings": False,
-                    "max_context_tokens": 128000,
-                    "supported_models": ["chatgpt-web"],
-                },
-            }
-        ],
+        "providers": [],
         "governance": {
             "auth": {
                 "enabled": os.getenv("BRIDGE_AUTH_ENABLED", "false").lower() == "true",
@@ -81,9 +51,7 @@ def get_default_config() -> Dict[str, Any]:
             "rate_limiting": {
                 "enabled": True,
                 "default_requests_per_minute": int(os.getenv("BRIDGE_RATE_LIMIT", "60")),
-                "per_provider": {
-                    "chatgpt-web": {"requests_per_minute": 20},
-                },
+                "per_provider": {},
             },
             "audit": {
                 "enabled": True,

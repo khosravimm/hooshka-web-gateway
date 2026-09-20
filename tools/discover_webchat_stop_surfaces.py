@@ -13,18 +13,47 @@ import re
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
+import yaml
 from playwright.async_api import async_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / ".runtime" / "kgwm_webchat_stop_surface_discovery_20260912.json"
 
-PROVIDERS = {
-    "zai-web": {"cdp": "http://127.0.0.1:9223", "host": "chat.z.ai"},
-    "chatgpt-web": {"cdp": "http://127.0.0.1:9224", "host": "chatgpt.com"},
-    "qwen-web": {"cdp": "http://127.0.0.1:9225", "host": "chat.qwen.ai"},
-    "deepseek-web": {"cdp": "http://127.0.0.1:9226", "host": "chat.deepseek.com"},
-}
+
+def providers_from_config(config_path: Path | None = None) -> dict[str, dict[str, Any]]:
+    config_path = Path(config_path or (ROOT / "config.yaml"))
+    if not config_path.exists():
+        raise FileNotFoundError(f"config file not found: {config_path}")
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    providers = {}
+    for p in data.get("providers", []) or []:
+        pid = p.get("id")
+        if not pid:
+            continue
+        runtime = p.get("runtime", {}) or {}
+        pconfig = p.get("config", {}) or {}
+        cdp = (runtime.get("cdp_url") or pconfig.get("cdp_url") or "").strip()
+        if cdp and "://" not in cdp:
+            cdp = f"http://{cdp}"
+        home = (
+            runtime.get("home_url")
+            or pconfig.get("base_url")
+            or pconfig.get("chatgpt_url")
+            or ""
+        )
+        host = urlparse(home).hostname if home.startswith("http") else ""
+        providers[pid] = {
+            "cdp": cdp,
+            "host": host,
+            "enabled": bool(p.get("enabled", True)),
+            "type": p.get("type"),
+        }
+    return providers
+
+
+PROVIDERS = providers_from_config()
 
 RISK_RE = re.compile(r"captcha|human verification|security verification|verify you are human|slider|daily usage|usage limit|quota|too many requests|rate limit|please wait|cloudflare|turnstile", re.I)
 STOP_RE = re.compile(r"stop|cancel|interrupt|abort|停止|中止|取消|终止|توقف|لغو", re.I)

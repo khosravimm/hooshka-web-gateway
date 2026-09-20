@@ -71,6 +71,7 @@ providers:
   config:
     transport_mode: browser_controller
     default_upstream_model: qwen3.8-max
+    model_namespace: qwen
     selectable_upstream_models:
     - qwen3.7-plus
     - qwen3.8-max
@@ -128,6 +129,7 @@ providers:
     base_url: https://chat.z.ai
     frontend_version: prod-fe-1.1.93
     default_upstream_model: glm-5.3
+    model_namespace: zai
     selectable_upstream_models:
     - glm-5.3
     - glm-5.3-flash
