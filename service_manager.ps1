@@ -1,104 +1,20 @@
-<# Hooshka Web Gateway Service Manager (NSSM) #>
+﻿<# Hooshka Web Gateway Service Manager (NSSM)
+   Provider/runtime inventory and Windows service identities are read from config.yaml.
+#>
 param(
- [Parameter(Mandatory=$true,Position=0)]
- [ValidateSet('install','uninstall','start','stop','restart','status','logs','config')]
- [string]$Command
+  [Parameter(Mandatory=$true,Position=0)]
+  [ValidateSet('install','uninstall','start','stop','restart','status','logs','config','runtime-start','runtime-restart','runtime-repair','runtime-status')]
+  [string]$Command,
+  [Parameter(Position=1)]
+  [string]$Provider='all'
 )
 
 $ErrorActionPreference = 'Stop'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$ScriptDirItem = Get-Item -LiteralPath $ScriptDir -ErrorAction Stop
-if ($ScriptDirItem.LinkType -eq 'Junction' -and $ScriptDirItem.Target) {
-  $ScriptDir = [string]($ScriptDirItem.Target | Select-Object -First 1)
-}
-$CanonicalCheckoutRoot = 'D:\Code\hooshka-web-gateway'
-$ServiceName = 'HooshkaWebGateway'
-$LegacyServiceName = 'WebLLMBridge'
 $PythonExe = Join-Path $ScriptDir '.venv\Scripts\python.exe'
 $MainScript = Join-Path $ScriptDir 'main.py'
 $Nssm = 'D:\nssm-2.24-103-gdee49fc\win64\nssm.exe'
 $EnvFile = Join-Path $ScriptDir '.env'
-$ChatGPTProfile = Join-Path $ScriptDir '.runtime\chatgpt-profile'
-$ChatGPTRuntimeLabel = 'HWG-ChatGPT-Web-CDP'
-$ChatGPTCdpPort = 9224
-$QwenProfile = Join-Path $ScriptDir '.runtime\qwen-profile'
-$QwenRuntimeLabel = 'HWG-Qwen-Web-Controller'
-$QwenCdpPort = 9225
-$ZaiProfile = Join-Path $ScriptDir '.runtime\zai-profile'
-$ZaiLegacyProfile = Join-Path $ScriptDir '.runtime\zai-cdp-profile'
-$ZaiRuntimeLabel = 'HWG-Zai-Web-SSE-Capture'
-$ZaiCdpPort = 9223
-$DeepSeekProfile = Join-Path $ScriptDir '.runtime\deepseek-profile'
-$DeepSeekRuntimeLabel = 'HWG-DeepSeek-Web-UI'
-$DeepSeekCdpPort = 9226
-
-function Get-ChromeExecutable {
-  $roots = @($env:ProgramFiles, ${env:ProgramFiles(x86)}, $env:LOCALAPPDATA) | Where-Object { $_ -and $_.Trim() }
-  $chromeCandidates = foreach ($root in $roots) {
-    Join-Path $root 'Google\Chrome\Application\chrome.exe'
-  }
-  return ($chromeCandidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1)
-}
-
-function Get-PortOwnerProcess([int]$Port) {
-  $listener = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
-  if (-not $listener) { return $null }
-  return Get-CimInstance Win32_Process -Filter "ProcessId=$($listener.OwningProcess)" -ErrorAction SilentlyContinue
-}
-
-function Assert-ProjectChromeOwnership([int]$Port, [string]$Profile, [string]$Label) {
-  $owner = Get-PortOwnerProcess $Port
-  if (-not $owner) { return $false }
-  $acceptedProfiles = @($Profile)
-  if ($CanonicalCheckoutRoot -and (Test-Path $CanonicalCheckoutRoot)) {
-    $acceptedProfiles += (Join-Path (Join-Path $CanonicalCheckoutRoot '.runtime') (Split-Path $Profile -Leaf))
-  }
-  $isOwned = $false
-  if ($owner.Name -eq 'chrome.exe' -and $owner.CommandLine) {
-    foreach ($candidate in ($acceptedProfiles | Select-Object -Unique)) {
-      if ($owner.CommandLine -match [Regex]::Escape($candidate)) {
-        $isOwned = $true
-        break
-      }
-    }
-  }
-  if (-not $isOwned) {
-    throw "$Label CDP port $Port is owned by a non-project process (pid=$($owner.ProcessId), name=$($owner.Name)); refusing to attach"
-  }
-  return $true
-}
-
-function Ensure-ChatGPTChromeCdp {
-  if (Assert-ProjectChromeOwnership $ChatGPTCdpPort $ChatGPTProfile $ChatGPTRuntimeLabel) { return }
-
-  $chrome = Get-ChromeExecutable
-  if (-not $chrome) { throw 'Chrome not found for ChatGPT Web CDP runtime' }
-
-  New-Item -ItemType Directory -Force $ChatGPTProfile | Out-Null
-  Start-Process -FilePath $chrome -ArgumentList @(
-    "--remote-debugging-port=$ChatGPTCdpPort",
-    '--remote-debugging-address=127.0.0.1',
-    "--user-data-dir=$ChatGPTProfile",
-    '--no-first-run',
-    '--disable-default-apps',
-    '--new-window',
-    'https://chatgpt.com/'
-  ) | Out-Null
-  Start-Sleep -Seconds 5
-  if (-not (Assert-ProjectChromeOwnership $ChatGPTCdpPort $ChatGPTProfile $ChatGPTRuntimeLabel)) {
-    throw 'ChatGPT Web project-owned Chrome CDP runtime did not start'
-  }
-}
-
-function Stop-ChatGPTChromeCdp {
-  $needle = [Regex]::Escape($ChatGPTProfile)
-  $procs = Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -and $_.CommandLine -match $needle }
-  foreach ($proc in $procs) {
-    Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
-  }
-  if ($procs) { Start-Sleep -Milliseconds 500 }
-}
 
 function Assert-Prereqs {
   if (-not (Test-Path $Nssm)) { throw "NSSM not found: $Nssm" }
@@ -106,17 +22,35 @@ function Assert-Prereqs {
   if (-not (Test-Path $MainScript)) { throw "main.py not found: $MainScript" }
 }
 
+function Get-RuntimeConfiguration {
+  if (-not (Test-Path $PythonExe)) { throw "Python venv not found: $PythonExe" }
+  Push-Location $ScriptDir
+  try {
+    $raw = & $PythonExe -m core.runtime_inventory 2>&1
+    if ($LASTEXITCODE -ne 0) { throw ($raw -join "`n") }
+    return (($raw -join "`n") | ConvertFrom-Json)
+  } finally {
+    Pop-Location
+  }
+}
+
+$RuntimeConfiguration = Get-RuntimeConfiguration
+$Orchestration = $RuntimeConfiguration.orchestration
+$ServiceName = [string]$Orchestration.gateway_service
+$LegacyServiceName = [string]$Orchestration.legacy_gateway_service
+$AgentBase = ([string]$Orchestration.desktop_agent_url).TrimEnd('/')
+$GatewayHealthUrl = [string]$Orchestration.gateway_health_url
+$RuntimeProviders = @($RuntimeConfiguration.providers)
+
 function Ensure-RuntimeCredential {
   $apiKey = $null
   $identity = 'local-user'
-
   if (Test-Path $EnvFile) {
     foreach ($line in Get-Content $EnvFile) {
       if ($line -match '^BRIDGE_API_KEY=(.+)$') { $apiKey = $Matches[1].Trim() }
       elseif ($line -match '^BRIDGE_API_IDENTITY=(.+)$') { $identity = $Matches[1].Trim() }
     }
   }
-
   if (-not $apiKey) {
     $apiKey = 'sk-local-' + [guid]::NewGuid().ToString('N')
     @(
@@ -124,210 +58,126 @@ function Ensure-RuntimeCredential {
       "BRIDGE_API_IDENTITY=$identity"
     ) | Set-Content -Path $EnvFile -Encoding ASCII
   }
-
   return [pscustomobject]@{ ApiKey=$apiKey; Identity=$identity }
 }
 
-function Stop-OrphanQwenBrowsers {
-  $needle = [Regex]::Escape($QwenProfile)
-  $procs = Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -and $_.CommandLine -match $needle }
-  foreach ($proc in $procs) {
-    Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
+function Get-SelectedProviders([string]$RequestedProvider, [bool]$IncludeDisabledForAll) {
+  if ($RequestedProvider -eq 'all') {
+    if ($IncludeDisabledForAll) { return @($RuntimeProviders) }
+    return @($RuntimeProviders | Where-Object { $_.enabled -eq $true })
   }
-  if ($procs) { Start-Sleep -Milliseconds 500 }
+  $match = @($RuntimeProviders | Where-Object { $_.id -eq $RequestedProvider })
+  if ($match.Count -eq 0) { throw "Provider runtime is not configured: $RequestedProvider" }
+  return $match
 }
 
-
-function Ensure-QwenChromeCdp {
-  if (Assert-ProjectChromeOwnership $QwenCdpPort $QwenProfile $QwenRuntimeLabel) { return }
-
-  $chrome = Get-ChromeExecutable
-  if (-not $chrome) { throw 'Chrome not found for Qwen Web CDP runtime' }
-
-  New-Item -ItemType Directory -Force $QwenProfile | Out-Null
-  Start-Process -FilePath $chrome -ArgumentList @(
-    "--remote-debugging-port=$QwenCdpPort",
-    '--remote-debugging-address=127.0.0.1',
-    "--user-data-dir=$QwenProfile",
-    '--no-first-run',
-    '--disable-default-apps',
-    '--new-window',
-    'https://chat.qwen.ai/'
-  ) | Out-Null
-  Start-Sleep -Seconds 6
-  if (-not (Assert-ProjectChromeOwnership $QwenCdpPort $QwenProfile $QwenRuntimeLabel)) {
-    throw 'Qwen Web project-owned Chrome CDP runtime did not start'
-  }
+function Invoke-AgentAction([string]$ProviderId, [string]$Action) {
+  $encodedProvider = [uri]::EscapeDataString($ProviderId)
+  $encodedAction = [uri]::EscapeDataString($Action)
+  return Invoke-RestMethod -Method Post -Uri ("{0}/providers/{1}/{2}" -f $AgentBase, $encodedProvider, $encodedAction) -TimeoutSec 65
 }
 
-function Stop-QwenChromeCdp {
-  # Prefer graceful CDP browser close so cookies/local storage/session state
-  # are flushed. Force kill is only a final fallback for remaining project-owned
-  # processes after a short grace period.
-  if (Assert-ProjectChromeOwnership $QwenCdpPort $QwenProfile $QwenRuntimeLabel) {
+function Invoke-RuntimeAction([string]$RequestedProvider, [string]$Action, [bool]$IncludeDisabledForAll=$false) {
+  $selected = @(Get-SelectedProviders $RequestedProvider $IncludeDisabledForAll)
+  $results = @()
+  foreach ($runtime in $selected) {
     try {
-      Invoke-RestMethod "http://127.0.0.1:$QwenCdpPort/json/close" -TimeoutSec 3 | Out-Null
-      Start-Sleep -Seconds 2
-    } catch { }
-  }
-  $needle = [Regex]::Escape($QwenProfile)
-  $procs = Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -and $_.CommandLine -match $needle }
-  foreach ($proc in $procs) {
-    Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
-  }
-  if ($procs) { Start-Sleep -Milliseconds 500 }
-}
-
-function Ensure-ZaiChromeCdp {
-  if (Assert-ProjectChromeOwnership $ZaiCdpPort $ZaiProfile $ZaiRuntimeLabel) { return }
-
-  $chrome = Get-ChromeExecutable
-  if (-not $chrome) { throw 'Chrome not found for Z.ai CDP runtime' }
-
-  New-Item -ItemType Directory -Force $ZaiProfile | Out-Null
-  Start-Process -FilePath $chrome -ArgumentList @(
-    "--remote-debugging-port=$ZaiCdpPort",
-    '--remote-debugging-address=127.0.0.1',
-    "--user-data-dir=$ZaiProfile",
-    '--no-first-run',
-    '--disable-default-apps',
-    '--new-window',
-    'https://chat.z.ai/'
-  ) | Out-Null
-  Start-Sleep -Seconds 5
-  if (-not (Assert-ProjectChromeOwnership $ZaiCdpPort $ZaiProfile $ZaiRuntimeLabel)) {
-    throw 'Z.ai project-owned Chrome CDP runtime did not start'
-  }
-}
-
-function Stop-ZaiChromeCdp {
-  $needles = @([Regex]::Escape($ZaiProfile), [Regex]::Escape($ZaiLegacyProfile))
-  $procs = Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" -ErrorAction SilentlyContinue |
-    Where-Object {
-      $cmd = $_.CommandLine
-      $cmd -and ($needles | Where-Object { $cmd -match $_ })
+      $response = Invoke-AgentAction ([string]$runtime.id) $Action
+      $results += [pscustomobject]@{ id=[string]$runtime.id; enabled=[bool]$runtime.enabled; success=[bool]$response.ok; response=$response }
+    } catch {
+      $results += [pscustomobject]@{ id=[string]$runtime.id; enabled=[bool]$runtime.enabled; success=$false; error=$_.Exception.Message }
     }
-  foreach ($proc in $procs) {
-    Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
   }
-  if ($procs) { Start-Sleep -Milliseconds 500 }
+  return $results
 }
 
-function Ensure-DeepSeekChromeCdp {
-  if (Assert-ProjectChromeOwnership $DeepSeekCdpPort $DeepSeekProfile $DeepSeekRuntimeLabel) { return }
-
-  $chrome = Get-ChromeExecutable
-  if (-not $chrome) { throw 'Chrome not found for DeepSeek Web CDP runtime' }
-
-  New-Item -ItemType Directory -Force $DeepSeekProfile | Out-Null
-  Start-Process -FilePath $chrome -ArgumentList @(
-    "--remote-debugging-port=$DeepSeekCdpPort",
-    '--remote-debugging-address=127.0.0.1',
-    "--user-data-dir=$DeepSeekProfile",
-    '--no-first-run',
-    '--disable-default-apps',
-    '--new-window',
-    'https://chat.deepseek.com/'
-  ) | Out-Null
-  Start-Sleep -Seconds 6
-  if (-not (Assert-ProjectChromeOwnership $DeepSeekCdpPort $DeepSeekProfile $DeepSeekRuntimeLabel)) {
-    throw 'DeepSeek Web project-owned Chrome CDP runtime did not start'
-  }
+function Get-RuntimeStatus {
+  return Invoke-RestMethod -Uri ($AgentBase + '/status') -TimeoutSec 10
 }
 
-function Stop-DeepSeekChromeCdp {
-  $needle = [Regex]::Escape($DeepSeekProfile)
-  $procs = Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -and $_.CommandLine -match $needle }
-  foreach ($proc in $procs) {
-    Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
+function Stop-AllConfiguredRuntimes {
+  $results = @(Invoke-RuntimeAction 'all' 'stop' $true)
+  foreach ($item in $results) {
+    if (-not $item.success) { Write-Warning ("Runtime stop failed for {0}: {1}" -f $item.id, $item.error) }
   }
-  if ($procs) { Start-Sleep -Milliseconds 500 }
 }
 
 switch ($Command) {
- 'install' {
-   Assert-Prereqs
-   $runtimeCredential = Ensure-RuntimeCredential
-   & $Nssm install $ServiceName $PythonExe $MainScript | Out-Null
-   & $Nssm set $ServiceName AppDirectory $ScriptDir | Out-Null
-   & $Nssm set $ServiceName Start SERVICE_AUTO_START | Out-Null
-   & $Nssm set $ServiceName AppStdout (Join-Path $ScriptDir 'logs\nssm-out.log') | Out-Null
-   & $Nssm set $ServiceName AppStderr (Join-Path $ScriptDir 'logs\nssm-error.log') | Out-Null
-   & $Nssm set $ServiceName AppEnvironmentExtra "BRIDGE_API_KEY=$($runtimeCredential.ApiKey)" "BRIDGE_API_IDENTITY=$($runtimeCredential.Identity)" | Out-Null
-   Write-Output "INSTALLED $ServiceName"
-   Write-Output "RUNTIME_CREDENTIAL_READY source=.env+nssm_environment"
- }
- 'start' {
-   $runtimeCredential = Ensure-RuntimeCredential
-   & $Nssm set $ServiceName AppEnvironmentExtra "BRIDGE_API_KEY=$($runtimeCredential.ApiKey)" "BRIDGE_API_IDENTITY=$($runtimeCredential.Identity)" | Out-Null
-   Ensure-ChatGPTChromeCdp
-   Ensure-QwenChromeCdp
-   Ensure-ZaiChromeCdp
-   Ensure-DeepSeekChromeCdp
-   Start-Service $ServiceName
-   (Get-Service $ServiceName) | Format-Table -AutoSize
- }
- 'stop' {
-   Stop-Service $ServiceName -Force
-   Stop-QwenChromeCdp
-   Stop-ChatGPTChromeCdp
-   Stop-ZaiChromeCdp
-   Stop-DeepSeekChromeCdp
-   (Get-Service $ServiceName) | Format-Table -AutoSize
- }
- 'restart' {
-   Stop-Service $ServiceName -Force
-   $runtimeCredential = Ensure-RuntimeCredential
-   & $Nssm set $ServiceName AppEnvironmentExtra "BRIDGE_API_KEY=$($runtimeCredential.ApiKey)" "BRIDGE_API_IDENTITY=$($runtimeCredential.Identity)" | Out-Null
-   # Keep authenticated provider CDP runtimes alive across service restarts.
-   # Restarting the gateway must not destroy provider login/session state.
-   # Ensure-* verifies ownership and starts a runtime only when it is missing.
-   Ensure-ChatGPTChromeCdp
-   Ensure-QwenChromeCdp
-   Ensure-ZaiChromeCdp
-   Ensure-DeepSeekChromeCdp
-   Start-Service $ServiceName
-   Start-Sleep -Seconds 1
-   (Get-Service $ServiceName) | Format-Table -AutoSize
- }
- 'status' { Get-Service $ServiceName }
- 'uninstall' {
-   foreach ($name in @($ServiceName, $LegacyServiceName)) {
-     if (Get-Service $name -ErrorAction SilentlyContinue) {
-       Stop-Service $name -Force -ErrorAction SilentlyContinue
-       & $Nssm remove $name confirm | Out-Null
-       Write-Output "REMOVED $name"
-     }
-   }
-   Stop-QwenChromeCdp
-   Stop-ChatGPTChromeCdp
-   Stop-ZaiChromeCdp
-   Stop-DeepSeekChromeCdp
- }
- 'logs' { Get-Content (Join-Path $ScriptDir 'logs\bridge.log') -Tail 80 }
- 'config' {
-   Assert-Prereqs
-   [ordered]@{
-     service=$ServiceName
-     legacy_service=$LegacyServiceName
-     python=$PythonExe
-     app=$MainScript
-     directory=$ScriptDir
-     nssm=$Nssm
-     runtime_credential_source='.env+nssm_environment'
-     bind='127.0.0.1:5000'
-     chatgpt_cdp="127.0.0.1:$ChatGPTCdpPort"
-     chatgpt_profile=$ChatGPTProfile
-     qwen_cdp="127.0.0.1:$QwenCdpPort"
-     qwen_profile=$QwenProfile
-     zai_cdp="127.0.0.1:$ZaiCdpPort"
-     zai_profile=$ZaiProfile
-     deepseek_cdp="127.0.0.1:$DeepSeekCdpPort"
-     deepseek_profile=$DeepSeekProfile
-   } | ConvertTo-Json
- }
+  'install' {
+    Assert-Prereqs
+    $runtimeCredential = Ensure-RuntimeCredential
+    & $Nssm install $ServiceName $PythonExe $MainScript | Out-Null
+    & $Nssm set $ServiceName AppDirectory $ScriptDir | Out-Null
+    & $Nssm set $ServiceName Start SERVICE_AUTO_START | Out-Null
+    & $Nssm set $ServiceName AppStdout (Join-Path $ScriptDir 'logs\nssm-out.log') | Out-Null
+    & $Nssm set $ServiceName AppStderr (Join-Path $ScriptDir 'logs\nssm-error.log') | Out-Null
+    & $Nssm set $ServiceName AppEnvironmentExtra "BRIDGE_API_KEY=$($runtimeCredential.ApiKey)" "BRIDGE_API_IDENTITY=$($runtimeCredential.Identity)" | Out-Null
+    Write-Output "INSTALLED $ServiceName"
+    Write-Output "RUNTIME_CREDENTIAL_READY source=.env+nssm_environment"
+  }
+  'start' {
+    $runtimeCredential = Ensure-RuntimeCredential
+    & $Nssm set $ServiceName AppEnvironmentExtra "BRIDGE_API_KEY=$($runtimeCredential.ApiKey)" "BRIDGE_API_IDENTITY=$($runtimeCredential.Identity)" | Out-Null
+    Start-Service $ServiceName
+    Get-Service $ServiceName
+  }
+  'stop' {
+    Stop-Service $ServiceName -Force
+    Stop-AllConfiguredRuntimes
+    Get-Service $ServiceName
+  }
+  'restart' {
+    $runtimeCredential = Ensure-RuntimeCredential
+    & $Nssm set $ServiceName AppEnvironmentExtra "BRIDGE_API_KEY=$($runtimeCredential.ApiKey)" "BRIDGE_API_IDENTITY=$($runtimeCredential.Identity)" | Out-Null
+    # Gateway restart deliberately preserves browser/CDP runtimes and login state.
+    Restart-Service $ServiceName -Force
+    Start-Sleep -Seconds 1
+    Get-Service $ServiceName
+  }
+  'runtime-start' {
+    @(Invoke-RuntimeAction $Provider 'start' $false) | ConvertTo-Json -Depth 8
+  }
+  'runtime-restart' {
+    @(Invoke-RuntimeAction $Provider 'restart' $false) | ConvertTo-Json -Depth 8
+  }
+  'runtime-repair' {
+    # Explicit Repair All includes disabled runtimes; ordinary all-start/all-restart do not.
+    @(Invoke-RuntimeAction $Provider 'repair' ($Provider -eq 'all')) | ConvertTo-Json -Depth 8
+  }
+  'runtime-status' {
+    Get-RuntimeStatus | ConvertTo-Json -Depth 8
+  }
+  'status' {
+    Get-Service $ServiceName
+  }
+  'uninstall' {
+    $serviceNames = @($ServiceName)
+    if ($LegacyServiceName) { $serviceNames += $LegacyServiceName }
+    foreach ($name in ($serviceNames | Select-Object -Unique)) {
+      if (Get-Service $name -ErrorAction SilentlyContinue) {
+        Stop-Service $name -Force -ErrorAction SilentlyContinue
+        & $Nssm remove $name confirm | Out-Null
+        Write-Output "REMOVED $name"
+      }
+    }
+    Stop-AllConfiguredRuntimes
+  }
+  'logs' {
+    Get-Content (Join-Path $ScriptDir 'logs\bridge.log') -Tail 80
+  }
+  'config' {
+    Assert-Prereqs
+    [ordered]@{
+      service=$ServiceName
+      legacy_service=$LegacyServiceName
+      python=$PythonExe
+      app=$MainScript
+      directory=$ScriptDir
+      nssm=$Nssm
+      runtime_credential_source='.env+nssm_environment'
+      gateway_health_url=$GatewayHealthUrl
+      desktop_agent_url=$AgentBase
+      providers=$RuntimeProviders
+    } | ConvertTo-Json -Depth 8
+  }
 }
-

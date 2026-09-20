@@ -1,3 +1,64 @@
+﻿## 1.0.0-dev.0 - 2026-09-20 - WIP (new development line)
+- Project bootstrapped at `D:\Code\hwg-next\hwg-next-1.0.0` from the operational
+  `hooshka-web-gateway` v0.7.29 seed (adapters/core/runtime/tools/tests/docs copied;
+  `.venv/.runtime/logs/.env` excluded).
+- Isolated development configuration: new server port **5080**, dedicated dev CDP
+  ports `9323/9324/9325/9326`, profiles under `.runtime-dev`, dev orchestration
+  service/task names (production service on port 5000 untouched).
+- Registered owner requirements + mission + knowledge-transfer requirements as the
+  versioned register (moved into `docs/requirements/`).
+- Added `HWG_1.0_AGENT_API_SPEC_v1.0.0-dev.0` — the standard, OpenAI-compatible
+  agent API contract for HWG (target of the owner goal: agents such as the VS Code
+  kilo extension consume HWG through this API).
+- Goal: one standard API for Web-chat providers so external agents use standard
+  tools; provider-specific browser/session/transport stays isolated.
+
+## 0.7.29 - 2026-09-18
+- Removed hard-coded provider/runtime inventory from restart orchestration, desktop runtime agent, service manager, and control-panel runtime actions.
+- Added canonical `runtime` metadata per provider plus `runtime_orchestration` settings in `config.yaml`; provider IDs, count, CDP ports, profiles, home URLs, service/task names, and desktop-agent endpoint are now configuration-driven.
+- Normal Restart-All operates only on enabled provider runtimes from config; explicit Repair-All may include disabled runtimes for diagnostic recovery.
+- Added config validation for duplicate provider IDs/CDP ports and required Chrome CDP runtime fields.
+## 0.7.28 - 2026-09-18
+- Fixed Control Panel Service Restart self-termination: gateway restart is now executed by an independent SYSTEM Scheduled Task instead of synchronously from inside the HooshkaWebGateway service process.
+- Added restart request/state tracking for the Service Restart action and UI recovery polling until gateway health is restored.
+- Service Restart intentionally preserves provider CDP/browser runtimes; it restarts only HooshkaWebGateway. Configuration-triggered Restart-All remains a separate orchestration path and may restart provider runtimes.
+- Validated real restart lifecycle through Running -> StopPending -> StartPending -> Running with final `/health` status `ok`.
+
+## 0.7.27 - 2026-09-17
+- Fixed Control Panel Open Browser false-positive: success now requires a real visible top-level Chrome window in the interactive user session for the provider profile.
+- Added controlled runtime restart fallback when Chrome profile singleton/background state absorbs `--new-window` without surfacing a desktop window.
+- Ready Providers now counts only enabled providers; disabled providers remain manually inspectable via Open Browser.
+
+## 0.7.26 - 2026-09-17
+
+- Provider Open Browser no longer depends on the enabled provider registry; all four configured providers can be opened for login/CAPTCHA/restriction inspection even when a provider is disabled for routing.
+- Open Browser resolves CDP from canonical config and keeps Desktop Runtime Agent as the primary interactive launcher with CDP as fallback.
+
+## 0.7.25 - 2026-09-17
+
+- Fixed restart-state persistence bug caused by PowerShell case-insensitive collision between the state-file variable and the state function parameter.
+- Restart-all now tolerates slow provider restart calls and determines final success from gateway health plus bounded readiness of all four dedicated CDP runtimes, rather than treating an intermediate provider-call timeout as a permanent failure.
+- Provider restart timeout increased and final CDP readiness is polled before completion is recorded.
+
+## 0.7.24 - 2026-09-17
+
+- Restart-all orchestration moved to an independent SYSTEM Scheduled Task so configuration-triggered restarts survive termination/restart of the gateway process itself.
+- Added restart request/state contract (`scheduled -> running -> completed/failed`) and `/panel/api/restart/status`; Config UI waits for the exact restart request to finish instead of inferring recovery from a transient health response.
+- Restart completion now requires gateway health plus all four dedicated provider CDP ports ready.
+
+## 0.7.23 - 2026-09-17
+
+- Config Save Settings and raw YAML save now schedule a full HWG restart cycle: all four provider browser runtimes via the interactive Desktop Runtime Agent, then the Desktop Runtime Agent task, then the HooshkaWebGateway Windows service.
+- Control Panel waits for gateway recovery after configuration saves and refreshes live state instead of only warning that a restart may be required.
+- Windows service manager no longer launches interactive provider Chrome runtimes from LocalSystem/Session 0 during gateway start/restart; interactive runtimes are owned by the Desktop Runtime Agent in the logged-in user session.
+- Continued hardening of Provider Open Browser and interactive runtime ownership.
+
+## 0.7.22 - 2026-09-17
+
+- Control Panel `Open Browser` now delegates to the Session-1 desktop runtime agent so provider Chrome windows become visibly available to the logged-in user; direct CDP target creation remains a fallback only.
+- Provider action layout widened and normalized for readable `Open Browser`, `Restart CDP`, and `Test` controls.
+- Canonical runtime remains `D:\Code\hooshka-web-gateway`; retired `mcp-web-bridge` is not accepted as a runtime source.
+
 ## 0.7.21 - 2026-09-16
 
 ### Action Orchestration
@@ -550,3 +611,4 @@ All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` i
 ## Earlier history
 
 The repository did not maintain a formal VERSION/CHANGELOG contract before 0.3.0. Earlier commits remain the source of truth for pre-0.3.0 history.
+

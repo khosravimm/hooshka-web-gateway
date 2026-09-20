@@ -1,0 +1,27 @@
+{
+  "name": "hwg-next",
+  "version": "1.0.0-dev.0",
+  "canonical_id": "hooshka-web-gateway-next",
+  "release_channel": "dev",
+  "build_date": "2026-09-20",
+  "status": "IN_DEVELOPMENT",
+  "port": 5080,
+  "parents": [
+    {
+      "component": "hooshka-web-gateway",
+      "version": "0.7.29",
+      "source_dir": "D:\\Code\\hooshka-web-gateway",
+      "relationship": "seed"
+    }
+  ],
+  "gates": {
+    "e1_local": {},
+    "e2_provider": {},
+    "e3_reliability": {}
+  },
+  "docs": {
+    "requirements_register": "docs/requirements/HWG_1.0_REQUIREMENTS_REGISTER_20260920.md",
+    "agent_api_spec": "docs/HWG_1.0_AGENT_API_SPEC_v1.0.0-dev.0.md",
+    "development_baseline": "docs/HWG_1.0_DEVELOPMENT_BASELINE_20260920.md"
+  }
+}

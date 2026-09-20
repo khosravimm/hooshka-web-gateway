@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTROL_PANEL = ROOT / "control_panel.py"
@@ -39,7 +39,8 @@ def test_control_panel_provider_test_is_fast_runtime_probe():
     marker = "def api_test_provider(provider_id):"
     assert marker in text
     block = text.split(marker, 1)[1].split("@control_panel_bp.route('/api/sessions", 1)[0]
-    assert '_check_cdp(provider.config.config.get("cdp_url"))' in block
+    assert 'inventory_by_id(CONFIG_PATH).get(provider_id)' in block
+    assert 'runtime_cfg["cdp_url"]' in block
     assert "provider.health_check" not in block
     assert '"check": "cdp_runtime"' in block
     assert "duration_ms" in block
@@ -106,8 +107,10 @@ def test_control_panel_providers_table_prevents_horizontal_overflow():
 
 def test_control_panel_service_tab_uses_structured_windows_service_status():
     text = source()
-    assert 'SERVICE_NAME = "HooshkaWebGateway"' in text
-    assert 'LEGACY_SERVICE_NAME = "WebLLMBridge"' in text
+    assert 'def _service_names()' in text
+    assert 'load_orchestration_settings(CONFIG_PATH)' in text
+    assert 'settings["gateway_service"]' in text
+    assert 'settings.get("legacy_gateway_service")' in text
     assert 'def _query_windows_service' in text
     assert 'Get-Service -Name' in text
     assert 'ConvertTo-Json -Compress' in text
@@ -229,3 +232,7 @@ def test_model_accounting_reports_unavailable_when_no_tokens_captured():
     text = source()
     assert 'token capture unavailable' in text
     assert 'const accountingLabel = r.tokens_available' in text
+
+
+
+

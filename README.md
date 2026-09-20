@@ -1,147 +1,46 @@
-# Hooshka Web Gateway
+# Hooshka Web Gateway Next — 1.0.0
 
-**Canonical id:** `hooshka-web-gateway`
-**Hooshka module:** `web_gateway`
-**Current release:** `0.7.0`
+**Canonical id:** `hooshka-web-gateway-next`
+**نسخه:** `1.0.0-dev.0` (توسعه)
+**وضعیت:** IN_DEVELOPMENT — روی پرت 5080 (تولیدیِ 5000 دست‌نخورده)
 
-Hooshka Web Gateway is the unified local API gateway for governed access to supported Web-chat providers. It gives Hooshka, local agents and compatible clients one OpenAI-style interface while isolating provider-specific browser, session, frontend and transport behavior.
+هدف اصلی: **رابط API استاندارد برای وب‌چت‌ها** تا سایر Agentها (مثل افزونه kilo در VS Code) با ابزارهای استاندارد و از طریق یک OpenAI-compatible API، از HWG استفاده کنند.
 
-## Current provider baseline
+## مسیرها
 
-| Provider | Canonical model | Status | Current accepted scope |
-|---|---|---|---|
-| ChatGPT Web | `chatgpt-web` | E2 operational via Kilo | chat, stream compatibility, tool-call path, large agent prompt transport |
-| Qwen Web | `qwen-web`, `qwen:qwen3.8-max` | KiloGate-WM E2 tool-capable smoke PASS for `qwen3.8-max`; other explicit models remain separately uncertified | model-aware thinking/search, reconstructed stream; read/grep/write/edit/bash passed for `qwen3.8-max`; `qwen3.5-omni-plus` quarantined |
-| Z.ai Web | `zai-web`, `zai:glm-5.2` | KiloGate-WM E2 tool-capable smoke PASS for `zai-web` / `glm-5.2`; explicit `glm-5.3` and `GLM-5.3-Flash` remain held | Web Chat/CDP 9223; read/grep/write/edit/bash passed for `glm-5.2`; `glm-5.3`/`x-preview-l` provider/API E2 passed but Kilo explicit rows are HOLD and `tool_call=false` |
-| DeepSeek Web | `deepseek-web` | KiloGate-WM E2 tool-capable smoke PASS | browser-UI transport via dedicated 9226 runtime; read/grep/write/edit/bash passed; not E3/production-certified |
+- `main.py` — برنامه‌ی سرور Flask (پورت از `config.yaml`، پیش‌فرض 5080)
+- `control_panel.py` — control panel در `/panel/` (blueprint همان app)
+- `adapters/` — پل‌های پروایدر (chatgpt/deepseek/zai/qwen web)
+- `core/` — تنظیم، ثبت پروایدر، gouvernance، mcp، feature، مرز agent
+- `docs/` — اسناد نسخه‌دار (نیازمندی‌ها، مشخصات API، baseline، شواهد)
+- `manage.py` — مدیریت سرویس/پروایدر/نشست/آمار
+- `tests/` — آزمون‌ها
 
-This release is an **E2 baseline**, not an E3/production-reliability claim.
-
-## Architecture
-
-```text
-Hooshka / local client
-        |
-        v
-OpenAI-compatible localhost API
-        |
-        v
-Exact fail-closed router
-   |        |        |
-ChatGPT    Qwen     Z.ai     DeepSeek
- Web       Web      Web      Web
-```
-
-Provider-specific fallback stays within a provider. There is no silent cross-provider fallback.
-
-## Start
+## راه‌اندازی (توسعه)
 
 ```powershell
-cd D:\Code\mcp-web-bridge
-.\service_manager.ps1 status
-.\service_manager.ps1 start
+# ۱) venv + وابستگی‌ها
+python -m venv .venv
+.\.venv\Scripts\python -m pip install -r requirements.txt
+# ۲) اجرا (بدون سرویس ویندوز، در ترمینال)
+.\.venv\Scripts\python main.py
+# ۳) پنل و API
+#    http://127.0.0.1:5080/panel/
+#    http://127.0.0.1:5080/v1/models
+#    http://127.0.0.1:5080/health
 ```
 
-Service:
+## مستندات کلیدی
 
-```text
-HooshkaWebGateway
-```
+| سند | موضوع |
+|---|---|
+| `docs/requirements/HWG_1.0_REQUIREMENTS_REGISTER_20260920.md` | لیست درخواست‌ها (رجیستری) |
+| `docs/HWG_1.0_AGENT_API_SPEC_v1.0.0-dev.0.md` | قرارداد API عامل‌ها (OpenAI-compatible) |
+| `docs/HWG_1.0_DEVELOPMENT_BASELINE_20260920.md` | خط مبنای توسعه و ایزوله‌سازی |
+| `CHANGELOG.md` · `VERSION` · `MANIFEST.json` | نسخه‌گذاری |
 
-API bind:
+## نکته‌ی امنیتی
 
-```text
-http://127.0.0.1:5000
-```
-
-## Main API endpoints
-
-- `GET /health`
-- `GET /ready`
-- `GET /health/deep`
-- `GET /modes`
-- `GET /v1/models`
-- `POST /v1/chat/completions`
-- `POST /v1/chat/code`
-- `POST /v1/chat/conversation`
-
-Authenticated operational calls require the runtime bearer key.
-
-## Documentation
-
-**Primary discovery document for humans and agents:**
-
-```text
-HOOSHKA_WEB_GATEWAY_START_HERE.md
-```
-
-The detailed documentation index is in `docs/README.md`.
-
-Then use:
-
-- `docs/ARCHITECTURE_CURRENT.md`
-- `docs/API_REFERENCE.md`
-- `docs/CONFIGURATION_REFERENCE.md`
-- `docs/OPERATIONS_RUNBOOK.md`
-- `docs/PROVIDERS.md`
-- `docs/SECURITY_GOVERNANCE.md`
-- `docs/HOOSHKA_INTEGRATION_GUIDE.md`
-- `docs/DEVELOPMENT_GUIDE.md`
-- `docs/TROUBLESHOOTING_CURRENT.md`
-- `docs/FINAL_REPORT_2026-09-10.md`
-
-Historical research/evidence documents remain under `docs/`.
-
-## Development gate
-
-```powershell
-.\.venv\Scripts\python.exe -m compileall -q main.py control_panel.py manage.py core adapters tests tools
-.\.venv\Scripts\python.exe -m pytest -q
-git diff --check
-```
-
-Current deterministic baseline verified on 2026-09-15: **129 passed**. DeepSeek, Z.ai and Qwen have KiloGate-WM E2 smoke evidence for read/search/write/edit/shell tool paths on their certified baselines. The compile gate excludes ignored `.runtime/` operational artifacts. Qwen certification is limited to `qwen3.8-max`; other explicit Qwen models require separate tool-execution evidence.
-
-## Security rules
-
-- Loopback only by default.
-- Runtime secrets outside Git.
-- Browser profiles are security boundaries.
-- No CAPTCHA/WAF/account-suspension bypass.
-- No silent provider substitution.
-- No post-commit automatic replay.
-- No stress/load testing against personal Web-chat accounts.
-- Do not send organizational/sensitive SUMS data through unofficial Web-chat transports without an explicit governance decision.
-
-## Repository
-
-Canonical GitHub repository:
-
-```text
-khosravimm/hooshka-web-gateway
-```
-
-Legacy project name `mcp-web-bridge` is retained only in historical/migration compatibility records.
-
-Z.ai KiloGate-WM E2 smoke passed read/search/write/edit/shell through the browser Web Chat path using the evidence-backed `glm-5.2` baseline. A later selector retest showed `zai:glm-5.3` and `zai:x-preview-l` / `GLM-5.3-Flash` pass provider-level and Gateway API E2 tool-call checks, but they are not yet Kilo full tool-execution certified. Deep Think latency remains a separate E3 reliability concern.
-
-
-Qwen KiloGate-WM retest corrected the previous text-only status: `qwen:qwen3.8-max` passed provider-level, Gateway API and Kilo read/search/write/edit/bash tool checks. Manual Web Chat screenshots also motivated XML-ish `tool_call` parser hardening. This remains E2 smoke certification, not E3 reliability.
-
-
-KiloGate-WM programming model status is recorded in `docs/KILOGATE_WM_PROGRAMMING_MODEL_STATUS_2026-09-12.md`. Explicit Z.ai `glm-5.3` / `x-preview-l` rows are held as `KILO_INIT_STALL_BEFORE_SESSION_PROMPT`; Qwen `qwen3.7-max` remains held by provider quota. These models are intentionally left `tool_call=false`.
-
-
-Stop/cancel propagation is best-effort and documented in `docs/KILOGATE_WM_STOP_PROPAGATION_2026-09-12.md`; immediate provider-side Stop is not certified unless a provider/model row proves it.
-
-Immediate Stop certification on 2026-09-12 found no provider with confirmed immediate provider-side cancellation; DeepSeek continued to the final marker after the stop attempt.
-
-Web Chat Stop certification now requires provider-specific Stop Contracts based on idle and active-generation DOM/runtime/backend discovery.
-
-Active stop-surface discovery now records Qwen runtime-stop as a candidate blocked from final repeat by quota, DeepSeek immediate stop as failed after continuation to marker, and Z.ai as rebind-aware but inconclusive. No Web Chat provider currently has final `STOP_PROVIDER_CONFIRMED` status.
-
-ChatGPT focused Stop work hardened explicit Stop-button cancellation, but live certification is currently blocked by `CHATGPT_AUTH_REQUIRED_FOR_STOP_CERT` because the configured CDP 9224 session is logged out.
-
-### ChatGPT Stop certification
-
-`chatgpt-web` is certified for provider-side Stop through the Gateway/Kilo-style stream-disconnect path. The confirmed UI control is `button[data-testid="stop-button"]` with `aria="Stop answering"`. Login state is preserved only by the project Chrome profile; credentials, browser session artifacts, and tokens are not read or stored by the gateway.
+- این مخزن برای توسعه است؛ سرویس تولیدی روی 5000 را لمس نکنید.
+- API remote از مخزن‌گیت seed حذف شده تا push ناخواسته به `khosravimm/hooshka-web-gateway` رخ ندهد.
+- دسترسی غیر loopback فقط با کلید مجاز است.

@@ -7,6 +7,7 @@ import secrets
 import yaml
 import psutil
 import urllib.request
+import urllib.parse
 from datetime import datetime
 from pathlib import Path
 from flask import Blueprint, render_template_string, jsonify, request
@@ -15,12 +16,71 @@ from core.mcp import mcp_session_manager
 from core.governance import auth_manager, rate_limiter
 from core.config import load_config, deep_merge, get_default_config
 from core.feature_settings import persist_provider_feature_defaults, provider_feature_state
+from core.runtime_inventory import inventory_by_id, load_orchestration_settings
 
 control_panel_bp = Blueprint('control_panel', __name__, url_prefix='/panel')
 
 logger = logging.getLogger(__name__)
 
 CONFIG_PATH = str(Path(__file__).parent / "config.yaml")
+
+
+def _schedule_restart_all(reason="config-save"):
+    """Schedule restart-all through an independent SYSTEM Scheduled Task and return a traceable request id."""
+    request_id = secrets.token_hex(8)
+    state_path = Path(__file__).parent / ".runtime" / "restart_state.json"
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(json.dumps({
+        "request_id": request_id, "state": "scheduled", "success": False,
+        "reason": reason, "updated_at": datetime.now().isoformat(), "errors": []
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    task_name = str(load_orchestration_settings(CONFIG_PATH)["restart_all_task"])
+    result = subprocess.run(
+        ["schtasks", "/Run", "/TN", task_name],
+        capture_output=True, text=True, timeout=8,
+    )
+    if result.returncode != 0:
+        raise RuntimeError((result.stdout + result.stderr).strip() or "Failed to start restart-all task")
+    return {"scheduled": True, "reason": reason, "request_id": request_id, "task": task_name}
+
+
+def _restart_state():
+    state_path = Path(__file__).parent / ".runtime" / "restart_state.json"
+    if not state_path.exists():
+        return {"state": "idle", "success": None, "errors": []}
+    try:
+        return json.loads(state_path.read_text(encoding="utf-8-sig"))
+    except Exception as exc:
+        return {"state": "invalid", "success": False, "errors": [type(exc).__name__]}
+
+
+def _schedule_gateway_restart(reason="panel-service-restart"):
+    """Schedule gateway restart outside the service process so it cannot kill its own restart worker."""
+    request_id = secrets.token_hex(8)
+    state_path = Path(__file__).parent / ".runtime" / "service_restart_state.json"
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(json.dumps({
+        "request_id": request_id, "state": "scheduled", "success": False,
+        "reason": reason, "updated_at": datetime.now().isoformat(), "errors": []
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    task_name = str(load_orchestration_settings(CONFIG_PATH)["restart_gateway_task"])
+    result = subprocess.run(
+        ["schtasks", "/Run", "/TN", task_name],
+        capture_output=True, text=True, timeout=8,
+    )
+    if result.returncode != 0:
+        raise RuntimeError((result.stdout + result.stderr).strip() or "Failed to start gateway restart task")
+    return {"scheduled": True, "reason": reason, "request_id": request_id, "task": task_name}
+
+
+def _gateway_restart_state():
+    state_path = Path(__file__).parent / ".runtime" / "service_restart_state.json"
+    if not state_path.exists():
+        return {"state": "idle", "success": None, "errors": []}
+    try:
+        return json.loads(state_path.read_text(encoding="utf-8-sig"))
+    except Exception as exc:
+        return {"state": "invalid", "success": False, "errors": [type(exc).__name__]}
 
 
 def _read_version():
@@ -197,11 +257,11 @@ def _sync_auth_keys():
             "metadata": {"source": "config", "persistent": True},
         }
 
-def _run_service_manager(action):
+def _run_service_manager(action, provider=None):
     """Run a service action via the PowerShell script. Returns (success, output)."""
     script = f"""
     $ErrorActionPreference = 'Stop'
-    & "{Path(__file__).parent / 'service_manager.ps1'}" {action}
+    & "{Path(__file__).parent / 'service_manager.ps1'}" {action} {provider or 'all'}
     """
     try:
         result = subprocess.run(
@@ -214,11 +274,15 @@ def _run_service_manager(action):
         return False, str(e)
 
 
-SERVICE_NAME = "HooshkaWebGateway"
-LEGACY_SERVICE_NAME = "WebLLMBridge"
+def _service_names():
+    settings = load_orchestration_settings(CONFIG_PATH)
+    return (
+        str(settings["gateway_service"]),
+        str(settings.get("legacy_gateway_service") or "").strip(),
+    )
 
 
-def _query_windows_service(name=SERVICE_NAME):
+def _query_windows_service(name):
     """Return structured Windows Service state without parsing table output."""
     script = f"""
     $svc = Get-Service -Name '{name}' -ErrorAction SilentlyContinue
@@ -256,8 +320,11 @@ def _query_windows_service(name=SERVICE_NAME):
 
 
 def _service_status_payload(output=""):
-    service = _query_windows_service(SERVICE_NAME)
-    legacy = _query_windows_service(LEGACY_SERVICE_NAME)
+    service_name, legacy_name = _service_names()
+    service = _query_windows_service(service_name)
+    legacy = _query_windows_service(legacy_name) if legacy_name else {
+        "exists": False, "name": "", "status": "NotConfigured"
+    }
     return {
         "exists": bool(service.get("exists")),
         "status": service.get("status", "Unknown"),
@@ -292,14 +359,14 @@ DASHBOARD_HTML = r"""
 #providers-table .provider-status-col{width:8%}
 #providers-table .provider-runtime-col{width:12%}
 #providers-table .provider-priority-col{width:6%}
-#providers-table .provider-capabilities-col{width:27%}
+#providers-table .provider-capabilities-col{width:20%}
 #providers-table .provider-toggle-col{width:6%}
-#providers-table .provider-model-col{width:17%}
-#providers-table .provider-actions-col{width:5%}
+#providers-table .provider-model-col{width:16%}
+#providers-table .provider-actions-col{width:13%}
 #providers-table select{max-width:100%;min-width:0}
 #providers-table .capability-badges{display:flex;flex-wrap:wrap;gap:.25rem;max-width:100%}
 #providers-table .capability-badges span{white-space:normal;line-height:1.1}
-#providers-table .runtime-url{overflow-wrap:anywhere;word-break:break-all}
+#providers-table .runtime-url{overflow-wrap:anywhere;word-break:break-all} #providers-table .provider-actions{display:flex;flex-wrap:wrap;gap:.35rem;align-items:center} #providers-table .provider-actions button{white-space:nowrap;padding:.35rem .55rem;border-radius:.4rem;font-size:.75rem;font-weight:600} .btn-open{background:#eef2ff;color:#3730a3}.btn-runtime{background:#fff7ed;color:#9a3412}.btn-test{background:#eff6ff;color:#1d4ed8}
 
     </style>
 </head>
@@ -413,7 +480,13 @@ DASHBOARD_HTML = r"""
 
             <!-- Providers Tab -->
             <div id="panel-providers" class="tab-panel p-6 hidden">
-                <h3 class="text-lg font-semibold mb-4">Registered Providers</h3>
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold">Registered Providers</h3>
+                    <div class="flex items-center gap-2">
+                        <button id="repair-all-runtimes" onclick="providerRuntimeAction('all', 'repair', this)" class="px-3 py-2 bg-amber-600 text-white rounded text-sm hover:bg-amber-700">Repair All Runtimes</button>
+                        <span id="runtime-action-global" class="text-xs text-gray-500"></span>
+                    </div>
+                </div>
                 <div id="providers-table">
                     <table class="divide-y divide-gray-200">
                         <colgroup>
@@ -709,9 +782,10 @@ function updateHealth(h) {
 function updateProviders(data) {
     const providers = data.providers || [];
     document.getElementById('stat-providers').textContent = providers.length;
-    const ready = providers.filter(p => p.runtime && p.runtime.ready === true).length;
+    const enabledProviders = providers.filter(p => p.enabled === true);
+    const ready = enabledProviders.filter(p => p.runtime && p.runtime.ready === true).length;
     const statReady = document.getElementById('stat-ready');
-    if (statReady) statReady.textContent = ready + '/' + providers.length;
+    if (statReady) statReady.textContent = ready + '/' + enabledProviders.length;
     const runtimeSummary = document.getElementById('provider-runtime-summary');
     if (runtimeSummary) {
         runtimeSummary.innerHTML = providers.map(p => `
@@ -773,7 +847,11 @@ function updateProviders(data) {
                 <div id="model-status-${p.id}" class="text-xs text-gray-500 mt-1"></div>
             </td>
             <td class="px-6 py-4">
-                <button id="test-${p.id}" onclick="testProvider('${p.id}', this)" class="text-blue-600 hover:underline text-sm">Test</button>
+                <div class="provider-actions">
+                    <button onclick="openProviderBrowser('${p.id}', this)" class="btn-open">Open Browser</button>
+                    <button id="runtime-${p.id}" onclick="providerRuntimeAction('${p.id}', '${p.runtime?.ready ? 'restart' : 'start'}', this)" class="btn-runtime">${p.runtime?.ready ? 'Restart CDP' : 'Start CDP'}</button>
+                    <button id="test-${p.id}" onclick="testProvider('${p.id}', this)" class="btn-test">Test</button>
+                </div>
                 <div id="test-status-${p.id}" class="text-xs text-gray-500 mt-1"></div>
             </td>
         </tr>
@@ -1115,14 +1193,38 @@ function collectHumanConfig() {
     };
 }
 
+async function waitForGatewayRecovery(requestId) {
+    await new Promise(r => setTimeout(r, 800));
+    for (let i = 0; i < 100; i++) {
+        try {
+            const resp = await fetch('/panel/api/restart/status?probe=' + Date.now(), {cache:'no-store'});
+            if (resp.ok) {
+                const st = await resp.json();
+                if (st.request_id === requestId) {
+                    if (st.state === 'completed' && st.success === true) return st;
+                    if (st.state === 'failed') throw new Error((st.errors || []).join('; ') || 'Restart-all failed');
+                    setConfigStatus('Restart in progress: ' + (st.state || 'unknown') + ' (' + (i + 1) + '/100)');
+                }
+            }
+        } catch (e) {
+            if (String(e.message || '').includes('Restart-all failed') || String(e.message || '').includes('CDP')) throw e;
+        }
+        await new Promise(r => setTimeout(r, 1000));
+    }
+    throw new Error('Restart-all did not complete within the expected time');
+}
+
 async function saveHumanConfig() {
     setConfigStatus('Saving settings...');
     try {
         const resp = await fetch('/panel/api/config/summary', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(collectHumanConfig())});
         const result = await resp.json();
         if (!resp.ok || result.success !== true) throw new Error(result.error || 'Save failed');
-        setConfigStatus('Settings saved. Restart may be required for server/runtime changes.');
+        setConfigStatus('Settings saved. Restarting provider runtimes and gateway...');
+        await waitForGatewayRecovery(result.restart?.request_id);
+        setConfigStatus('Settings saved. All HWG services restarted and recovered.');
         await loadConfig();
+        await refreshAll();
     } catch (e) {
         setConfigStatus('Error: ' + e.message, true);
     }
@@ -1146,7 +1248,13 @@ async function saveRawConfig() {
         });
         const result = await resp.json();
         if (!resp.ok || result.success !== true) setConfigStatus('Error: ' + (result.error || 'Unknown error'), true);
-        else { setConfigStatus('Raw YAML saved.'); await loadConfig(); }
+        else {
+            setConfigStatus('Raw YAML saved. Restarting provider runtimes and gateway...');
+            await waitForGatewayRecovery(result.restart?.request_id);
+            setConfigStatus('Raw YAML saved. All HWG services restarted and recovered.');
+            await loadConfig();
+            await refreshAll();
+        }
     } catch (e) {
         setConfigStatus('Error: ' + e.message, true);
     }
@@ -1279,6 +1387,28 @@ function updateServiceStatus(data) {
     if (raw) raw.textContent = data.output || '(no raw output)';
 }
 
+async function waitForServiceRecovery(requestId) {
+    await new Promise(r => setTimeout(r, 900));
+    for (let i = 0; i < 60; i++) {
+        try {
+            const resp = await fetch('/panel/api/service/restart/status?probe=' + Date.now(), {cache:'no-store'});
+            if (resp.ok) {
+                const st = await resp.json();
+                if (st.request_id === requestId) {
+                    if (st.state === 'completed' && st.success === true) return st;
+                    if (st.state === 'failed') throw new Error((st.errors || []).join('; ') || 'Gateway restart failed');
+                    const message = document.getElementById('service-message');
+                    if (message) message.textContent = 'Restart in progress: ' + (st.state || 'unknown');
+                }
+            }
+        } catch (e) {
+            if (String(e.message || '').includes('Gateway restart failed')) throw e;
+        }
+        await new Promise(r => setTimeout(r, 1000));
+    }
+    throw new Error('Gateway did not recover within the expected time');
+}
+
 async function serviceAction(action) {
     const actionText = action.charAt(0).toUpperCase() + action.slice(1);
     if (!confirm(actionText + ' service?')) return;
@@ -1289,11 +1419,52 @@ async function serviceAction(action) {
     try {
         const resp = await fetch('/panel/api/service/' + action, { method: 'POST' });
         const result = await resp.json();
-        updateServiceStatus(result);
+        if (!resp.ok || result.success !== true) throw new Error(result.error || 'Service action failed');
+        if (action === 'restart' && result.restart?.request_id) {
+            if (message) message.textContent = 'Restart scheduled; waiting for gateway recovery...';
+            await waitForServiceRecovery(result.restart.request_id);
+            if (message) message.textContent = 'Gateway restarted and health check passed.';
+        } else {
+            updateServiceStatus(result);
+        }
     } catch (e) {
         if (message) message.textContent = 'Error: ' + e.message;
     } finally {
         await loadServiceStatus();
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function providerRuntimeAction(id, action, btn) {
+    const status = id === 'all' ? document.getElementById('runtime-action-global') : document.getElementById('test-status-' + id);
+    const original = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = action === 'restart' ? 'Restarting...' : (id === 'all' ? 'Repairing...' : 'Starting...'); }
+    if (status) { status.textContent = 'Runtime action in progress...'; status.className = 'text-xs text-amber-700 mt-1'; }
+    try {
+        const resp = await fetch('/panel/api/providers/runtime/' + encodeURIComponent(id) + '/' + encodeURIComponent(action), {method: 'POST'});
+        const result = await resp.json();
+        if (!resp.ok || result.success !== true) throw new Error(result.error || result.message || 'runtime action failed');
+        if (status) { status.textContent = result.message || 'Runtime action completed'; status.className = 'text-xs text-green-600 mt-1'; }
+        await loadProviders();
+    } catch (e) {
+        if (status) { status.textContent = 'FAILED - ' + e.message; status.className = 'text-xs text-red-600 mt-1'; }
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = original; }
+    }
+}
+
+async function openProviderBrowser(id, btn) {
+    const original = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Opening...';
+    try {
+        const resp = await fetch('/panel/api/providers/' + encodeURIComponent(id) + '/open', {method:'POST'});
+        const result = await resp.json();
+        if (!resp.ok || result.success !== true) throw new Error(result.message || result.error || 'Open failed');
+        btn.textContent = 'Opened';
+        setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 1200);
+    } catch (e) {
+        btn.textContent = 'Failed'; btn.disabled = false;
+        setTimeout(() => { btn.textContent = original; }, 1500);
     }
 }
 
@@ -1747,12 +1918,13 @@ def _config_summary_from_dict(config):
     providers=[]
     for item in config.get("providers", []) or []:
         pcfg=item.get("config", {}) or {}
+        runtime=item.get("runtime", {}) or {}
         fdefaults=item.get("feature_defaults", {}) or {}
         providers.append({
             "id": item.get("id", ""),
             "enabled": bool(item.get("enabled", True)),
             "priority": item.get("priority", 0),
-            "cdp_url": pcfg.get("cdp_url", ""),
+            "cdp_url": runtime.get("cdp_url") or pcfg.get("cdp_url", ""),
             "default_upstream_model": pcfg.get("default_upstream_model") or pcfg.get("upstream_model") or item.get("id", ""),
             "thinking": bool(fdefaults.get("thinking", False)),
             "search": bool(fdefaults.get("search", False)),
@@ -1792,7 +1964,12 @@ def _apply_config_summary(config, data):
         if "enabled" in src: item["enabled"]=bool(src["enabled"])
         if "priority" in src: item["priority"]=int(src["priority"])
         pcfg=item.setdefault("config", {})
-        if "cdp_url" in src: pcfg["cdp_url"]=str(src.get("cdp_url") or "")
+        if "cdp_url" in src:
+            new_cdp_url=str(src.get("cdp_url") or "")
+            pcfg["cdp_url"]=new_cdp_url
+            runtime=item.get("runtime", {}) or {}
+            if runtime.get("kind") == "chrome_cdp":
+                item.setdefault("runtime", {})["cdp_url"]=new_cdp_url
         model=str(src.get("default_upstream_model") or "").strip()
         if model: pcfg["default_upstream_model"]=model
         fdefaults=item.setdefault("feature_defaults", {})
@@ -1800,6 +1977,12 @@ def _apply_config_summary(config, data):
         if "search" in src: fdefaults["search"]=bool(src["search"])
     return config
 
+
+
+
+@control_panel_bp.route('/api/restart/status', methods=['GET'])
+def api_restart_status():
+    return jsonify(_restart_state())
 
 @control_panel_bp.route('/api/config/summary', methods=['GET', 'PUT'])
 def api_config_summary():
@@ -1810,7 +1993,8 @@ def api_config_summary():
     try:
         updated=_apply_config_summary(config, data)
         _save_config_file(updated); _sync_auth_keys()
-        return jsonify({"success": True, "summary": _config_summary_from_dict(updated)})
+        restart = _schedule_restart_all("config-summary-save")
+        return jsonify({"success": True, "summary": _config_summary_from_dict(updated), "restart": restart})
     except Exception as exc:
         logger.exception("Failed to save config summary")
         return jsonify({"error": str(exc)}), 400
@@ -1835,7 +2019,82 @@ def api_config():
         with open(config_path, 'w', encoding='utf-8') as f:
             f.write(content)
         _sync_auth_keys()
-        return jsonify({"success": True})
+        restart = _schedule_restart_all("raw-config-save")
+        return jsonify({"success": True, "restart": restart})
+
+@control_panel_bp.route('/api/providers/runtime/<provider_id>/<action>', methods=['POST'])
+def api_provider_runtime_action(provider_id, action):
+    valid_actions = {'start', 'restart', 'repair'}
+    if action not in valid_actions:
+        return jsonify({'error': 'Invalid runtime action'}), 400
+    runtimes = inventory_by_id(CONFIG_PATH)
+    if provider_id == 'all':
+        selected = list(runtimes.values()) if action == 'repair' else [r for r in runtimes.values() if r.get('enabled')]
+    else:
+        runtime = runtimes.get(provider_id)
+        if not runtime:
+            return jsonify({'error': 'Provider runtime is not configured'}), 404
+        selected = [runtime]
+    agent_base = str(load_orchestration_settings(CONFIG_PATH)['desktop_agent_url']).rstrip('/')
+    results = []
+    ok = True
+    for runtime in selected:
+        pid = runtime['id']
+        try:
+            req = urllib.request.Request(
+                f"{agent_base}/providers/{urllib.parse.quote(pid)}/{urllib.parse.quote(action)}",
+                method='POST',
+            )
+            with urllib.request.urlopen(req, timeout=65) as response:
+                body = json.loads(response.read().decode('utf-8') or '{}')
+                item_ok = 200 <= response.status < 300 and body.get('ok') is True
+                results.append({'provider': pid, 'success': item_ok, 'response': body})
+                ok = ok and item_ok
+        except Exception as exc:
+            ok = False
+            results.append({'provider': pid, 'success': False, 'error': type(exc).__name__})
+    return jsonify({
+        'success': ok,
+        'action': action,
+        'provider': provider_id,
+        'message': ('Runtime action completed' if ok else 'One or more runtime actions failed'),
+        'results': results,
+    }), (200 if ok else 503)
+
+
+@control_panel_bp.route('/api/providers/<provider_id>/open', methods=['POST'])
+def api_open_provider_browser(provider_id):
+    runtime = inventory_by_id(CONFIG_PATH).get(provider_id)
+    if not runtime:
+        return jsonify({"error": "Provider runtime is not configured"}), 404
+    home = runtime["home_url"]
+    cdp_url = runtime["cdp_url"]
+    agent_base = str(load_orchestration_settings(CONFIG_PATH)['desktop_agent_url']).rstrip('/')
+
+    # Primary path: interactive desktop agent in the logged-in user session.
+    try:
+        req = urllib.request.Request(
+            f"{agent_base}/providers/{urllib.parse.quote(provider_id)}/open",
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=12) as response:
+            body = json.loads(response.read().decode("utf-8") or "{}")
+            if 200 <= response.status < 300 and body.get("ok") is True:
+                return jsonify({"success": True, "provider": provider_id, "url": home, "launcher": "desktop_runtime_agent"})
+    except Exception as agent_exc:
+        logger.warning("Desktop runtime agent open failed for %s: %s", provider_id, agent_exc)
+
+    # Fallback: CDP creates a provider tab; this may not foreground the window.
+    if not cdp_url:
+        return jsonify({"success": False, "message": "No browser runtime configured"}), 400
+    try:
+        req = urllib.request.Request(cdp_url + "/json/new?" + urllib.parse.quote(home, safe=":/?=&"), method="PUT")
+        with urllib.request.urlopen(req, timeout=3) as response:
+            ok = 200 <= response.status < 300
+        return jsonify({"success": ok, "provider": provider_id, "url": home, "launcher": "cdp_fallback"})
+    except Exception as exc:
+        return jsonify({"success": False, "message": f"Browser open failed: {type(exc).__name__}"}), 503
+
 
 @control_panel_bp.route('/api/test_provider/<provider_id>', methods=['POST'])
 def api_test_provider(provider_id):
@@ -1844,7 +2103,9 @@ def api_test_provider(provider_id):
         return jsonify({"error": "Provider not found"}), 404
 
     started = time.time()
-    runtime = _check_cdp(provider.config.config.get("cdp_url"))
+    runtime_cfg = inventory_by_id(CONFIG_PATH).get(provider_id)
+    cdp_url = runtime_cfg["cdp_url"] if runtime_cfg else provider.config.config.get("cdp_url")
+    runtime = _check_cdp(cdp_url)
     ok = runtime.get("ready") is True
     status = runtime.get("status") or ("ready" if ok else "unavailable")
     return jsonify({
@@ -1963,12 +2224,25 @@ def api_service_status():
     return jsonify(payload)
 
 
+@control_panel_bp.route('/api/service/restart/status', methods=['GET'])
+def api_service_restart_status():
+    return jsonify(_gateway_restart_state())
+
+
 @control_panel_bp.route('/api/service/<action>', methods=['POST'])
 def api_service_action(action):
     if action not in ("start", "stop", "restart"):
         return jsonify({"error": "Invalid action"}), 400
+    if action == "restart":
+        try:
+            restart = _schedule_gateway_restart("panel-service-restart")
+            return jsonify({"success": True, "action": action, "restart": restart}), 202
+        except Exception as exc:
+            logger.exception("Failed to schedule independent gateway restart")
+            return jsonify({"success": False, "action": action, "error": str(exc)}), 500
     success, output = _run_service_manager(action)
     payload = _service_status_payload(output)
     payload["success"] = success
     payload["action"] = action
     return jsonify(payload)
+

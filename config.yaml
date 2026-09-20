@@ -1,19 +1,33 @@
 server:
   host: 127.0.0.1
-  port: 5000
+  port: 5080
   debug: false
   threads: 12
   provider_concurrency: 2
+runtime_orchestration:
+  gateway_service: HooshkaHWGNGDevGateway
+  legacy_gateway_service: WebLLMBridgeDev
+  gateway_health_url: http://127.0.0.1:5080/health
+  desktop_agent_task: Hooshka-HWG-NG-Dev-Desktop-Runtime-Agent
+  desktop_agent_url: http://127.0.0.1:5181
+  restart_all_task: Hooshka-HWG-NG-Dev-Restart-All
+  restart_gateway_task: Hooshka-HWG-NG-Dev-Restart-Gateway
 cdp:
-  url: http://127.0.0.1:9224
+  url: http://127.0.0.1:9324
   timeout: 30000
 providers:
 - id: chatgpt-web
   type: chatgpt_web
   enabled: true
   priority: 100
+  runtime:
+    kind: chrome_cdp
+    cdp_url: http://127.0.0.1:9324
+    profile_dir: .runtime-dev\chatgpt-profile
+    home_url: https://chatgpt.com/
+    label: HWG-NG-ChatGPT-Web-CDP
   config:
-    cdp_url: http://127.0.0.1:9224
+    cdp_url: http://127.0.0.1:9324
     chatgpt_url: https://chatgpt.com
     adapter: dom
     require_authenticated: true
@@ -26,6 +40,7 @@ providers:
     feature_controls:
       thinking: true
       search: true
+    default_upstream_model: chatgpt-web
   capabilities:
     chat_completion: true
     streaming: true
@@ -40,10 +55,19 @@ providers:
     reasoning: true
     files: false
     transport_mode: browser_ui
+  feature_defaults:
+    thinking: false
+    search: false
 - id: qwen-web
   type: qwen_web
-  enabled: true
+  enabled: false
   priority: 90
+  runtime:
+    kind: chrome_cdp
+    cdp_url: http://127.0.0.1:9325
+    profile_dir: .runtime-dev\qwen-profile
+    home_url: https://chat.qwen.ai/
+    label: HWG-NG-Qwen-Web-Controller
   config:
     transport_mode: browser_controller
     default_upstream_model: qwen3.8-max
@@ -56,9 +80,9 @@ providers:
     tool_certified_upstream_models:
     - qwen3.8-max
     require_authenticated: true
-    profile_dir: .runtime\qwen-profile
-    runtime_label: HWG-Qwen-Web-Controller
-    cdp_url: http://127.0.0.1:9225
+    profile_dir: .runtime-dev\qwen-profile
+    runtime_label: HWG-NG-Qwen-Web-Controller
+    cdp_url: http://127.0.0.1:9325
     browser_channel: chrome
     headless: false
     launch_timeout: 45
@@ -87,24 +111,33 @@ providers:
     reasoning: true
     files: false
     transport_mode: browser_backend_controller
+  feature_defaults:
+    thinking: false
+    search: false
 - id: zai-web
   type: zai_web
   enabled: true
   priority: 80
+  runtime:
+    kind: chrome_cdp
+    cdp_url: http://127.0.0.1:9323
+    profile_dir: .runtime-dev\zai-profile
+    home_url: https://chat.z.ai/
+    label: HWG-NG-Zai-Web-SSE-Capture
   config:
     base_url: https://chat.z.ai
     frontend_version: prod-fe-1.1.93
-    default_upstream_model: glm-5.2
+    default_upstream_model: glm-5.3
     selectable_upstream_models:
     - glm-5.3
     - glm-5.3-flash
     - glm-5.2
     launch_timeout: 120
     require_authenticated: true
-    runtime_label: HWG-Zai-Web-SSE-Capture
-    profile_dir: .runtime\zai-profile
+    runtime_label: HWG-NG-Zai-Web-SSE-Capture
+    profile_dir: .runtime-dev\zai-profile
     transport_mode: browser_ui_capture
-    cdp_url: http://127.0.0.1:9223
+    cdp_url: http://127.0.0.1:9323
     first_event_timeout: 240
     idle_timeout: 300
     total_timeout: 600
@@ -132,16 +165,25 @@ providers:
     reasoning: true
     files: false
     transport_mode: browser_frontend_backend_sse_capture
+  feature_defaults:
+    thinking: false
+    search: false
 - id: deepseek-web
   type: deepseek_web
   enabled: true
   priority: 70
+  runtime:
+    kind: chrome_cdp
+    cdp_url: http://127.0.0.1:9326
+    profile_dir: .runtime-dev\deepseek-profile
+    home_url: https://chat.deepseek.com/
+    label: HWG-NG-DeepSeek-Web-UI
   config:
     base_url: https://chat.deepseek.com/
     require_authenticated: true
-    runtime_label: HWG-DeepSeek-Web-UI
+    runtime_label: HWG-NG-DeepSeek-Web-UI
     transport_mode: browser_ui
-    cdp_url: http://127.0.0.1:9226
+    cdp_url: http://127.0.0.1:9326
     launch_timeout: 45
     first_event_timeout: 45
     idle_timeout: 90
@@ -154,6 +196,7 @@ providers:
     feature_controls:
       thinking: true
       search: true
+    default_upstream_model: deepseek-web
   capabilities:
     chat_completion: true
     streaming: true
@@ -168,6 +211,9 @@ providers:
     reasoning: true
     files: false
     transport_mode: browser_ui
+  feature_defaults:
+    thinking: false
+    search: false
 governance:
   auth:
     enabled: true
