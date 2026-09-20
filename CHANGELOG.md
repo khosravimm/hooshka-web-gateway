@@ -13,6 +13,11 @@
 - Goal: one standard API for Web-chat providers so external agents use standard
   tools; provider-specific browser/session/transport stays isolated.
 
+### Verified
+- WU-AP-001 E1 (local, no provider): app load + smoke `/health /ready /v1/models
+  /panel/` all 200; 110 unit tests pass (0.88s). Evidence:
+  `docs/evidence/HWG_WU_AP_001_E1_EVIDENCE_20260920.md`.
+
 ## 0.7.29 - 2026-09-18
 - Removed hard-coded provider/runtime inventory from restart orchestration, desktop runtime agent, service manager, and control-panel runtime actions.
 - Added canonical `runtime` metadata per provider plus `runtime_orchestration` settings in `config.yaml`; provider IDs, count, CDP ports, profiles, home URLs, service/task names, and desktop-agent endpoint are now configuration-driven.

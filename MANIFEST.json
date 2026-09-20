@@ -15,7 +15,12 @@
     }
   ],
   "gates": {
-    "e1_local": {},
+    "e1_local": {
+      "status": "PASS",
+      "date": "2026-09-20",
+      "evidence": "docs/evidence/HWG_WU_AP_001_E1_EVIDENCE_20260920.md",
+      "tests": 110
+    },
     "e2_provider": {},
     "e3_reliability": {}
   },
