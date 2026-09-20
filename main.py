@@ -375,6 +375,32 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             models.append(ModelInfo(id=mid, owned_by=provider.provider_id, provider=provider.provider_id))
         return models
 
+    def _providers_summary() -> list[dict]:
+        return [
+            {
+                "id": p.provider_id,
+                "type": p.provider_type.value,
+                "enabled": p.config.enabled,
+                "priority": p.config.priority,
+                "capabilities": {
+                    "chat_completion": p.capabilities.chat_completion,
+                    "streaming": p.capabilities.streaming,
+                    "streaming_mode": p.capabilities.streaming_mode,
+                    "tools": p.capabilities.tools,
+                    "vision": p.capabilities.vision,
+                    "embeddings": p.capabilities.embeddings,
+                    "max_context_tokens": p.capabilities.max_context_tokens,
+                    "supported_models": p.capabilities.supported_models,
+                    "search": p.capabilities.search,
+                    "reasoning": p.capabilities.reasoning,
+                    "files": p.capabilities.files,
+                    "transport_mode": p.capabilities.transport_mode,
+                },
+                "features": provider_feature_state(p),
+            }
+            for p in provider_registry.list_providers()
+        ]
+
     init_governance(app, config["governance"])
 
     for provider_config in config["providers"]:
@@ -546,12 +572,13 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         }
 
     def _http_status_for_error(error: Exception) -> int:
+        if isinstance(error, ProviderError) and error.code in {"invalid_model", "model_not_found"}:
+            return 404
+        if isinstance(error, ProviderError) and error.code in {"authentication_failed", "auth_required"}:
+            return 401
         if isinstance(error, ProviderError) and error.code in {
-            "invalid_model",
             "unsupported_feature",
             "unsupported_tools",
-            "authentication_failed",
-            "auth_required",
         }:
             return 400
         return 500
@@ -725,31 +752,54 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         """
         providers = provider_registry.list_providers()
         return jsonify({
-            "providers": [
-                {
-                    "id": p.provider_id,
-                    "type": p.provider_type.value,
-                    "enabled": p.config.enabled,
-                    "priority": p.config.priority,
-                    "capabilities": {
-                        "chat_completion": p.capabilities.chat_completion,
-                        "streaming": p.capabilities.streaming,
-                        "streaming_mode": p.capabilities.streaming_mode,
-                        "tools": p.capabilities.tools,
-                        "vision": p.capabilities.vision,
-                        "embeddings": p.capabilities.embeddings,
-                        "max_context_tokens": p.capabilities.max_context_tokens,
-                        "supported_models": p.capabilities.supported_models,
-                        "search": p.capabilities.search,
-                        "reasoning": p.capabilities.reasoning,
-                        "files": p.capabilities.files,
-                        "transport_mode": p.capabilities.transport_mode,
-                    },
-                    "features": provider_feature_state(p),
-                }
-                for p in providers
-            ],
+            "providers": _providers_summary(),
             "default": provider_registry.get_default().provider_id if provider_registry.get_default() else None,
+        })
+
+    @app.route("/v1/providers", methods=["GET"])
+    def v1_list_providers():
+        """
+        List Providers (v1)
+        ---
+        tags:
+          - Providers
+        summary: OpenAI-adjacent discovery of registered providers and capabilities
+        responses:
+          200:
+            description: List of providers with capabilities
+        """
+        return jsonify({
+            "object": "list",
+            "providers": _providers_summary(),
+            "default": provider_registry.get_default().provider_id if provider_registry.get_default() else None,
+        })
+
+    @app.route("/v1/capabilities", methods=["GET"])
+    def v1_capabilities():
+        """
+        Capability Manifest (v1)
+        ---
+        tags:
+          - Providers
+        summary: Versioned capability manifest for automatic discovery by agents
+        responses:
+          200:
+            description: Capability manifest
+        """
+        governance_config = config.get("governance", {})
+        auth_enabled = bool(governance_config.get("auth", {}).get("enabled", True))
+        return jsonify({
+            "manifest_version": "1.0",
+            "spec_version": "1.0.0-dev.0",
+            "compatibility_baseline": "openai-2026-09-20",
+            "generated_at": int(time.time()),
+            "providers": _providers_summary(),
+            "access": {
+                "loopback_without_key": True,
+                "loopback_policy": "local_trust_configurable",
+                "non_loopback": "api_key_required",
+                "auth_enabled": auth_enabled,
+            },
         })
 
     @app.route("/v1/providers/<provider_id>/features", methods=["GET", "PUT"])
@@ -870,7 +920,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                 "message": f"Unknown provider: {provider_id}",
                 "type": "invalid_request_error",
                 "code": "unknown_provider",
-            }}), 400
+            }}), 404
         provider = provider_router.select_provider(
             model=req.model,
             provider_id=provider_id,
@@ -882,9 +932,9 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             return jsonify({"error": {
                 "message": f"No provider supports model '{req.model}' with the requested capabilities. If using Kilo Code with qwen/zai, tool schemas are only optional; required tool calls need chatgpt-web or a tool-capable provider.",
                 "type": "invalid_request_error",
-                "code": "unknown_or_unsupported_model",
+                "code": "model_not_found",
                 "details": {"requested_tools": bool(req.tools), "tool_choice": req.tool_choice},
-            }}), 400
+            }}), 404
 
         g.selected_provider_id = provider.provider_id
         apply_feature_defaults(req, provider)

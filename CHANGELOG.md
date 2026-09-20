@@ -17,6 +17,12 @@
 - WU-AP-001 E1 (local, no provider): app load + smoke `/health /ready /v1/models
   /panel/` all 200; 110 unit tests pass (0.88s). Evidence:
   `docs/evidence/HWG_WU_AP_001_E1_EVIDENCE_20260920.md`.
+- WU-AP-002 (contract validation) + WU-AP-003 (endpoints): unknown
+  model/provider now `404` with codes `model_not_found`/`unknown_provider`
+  (was 400); added `GET /v1/providers` and `GET /v1/capabilities` (versioned
+  manifest with `compatibility_baseline: openai-2026-09-20` + access policy);
+  spec §3/§9 updated; 6 new contract tests; **116 tests pass (0.80s)**. Evidence:
+  `docs/evidence/HWG_WU_AP_002_003_CONTRACT_20260920.md`.
 
 ## 0.7.29 - 2026-09-18
 - Removed hard-coded provider/runtime inventory from restart orchestration, desktop runtime agent, service manager, and control-panel runtime actions.

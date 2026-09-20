@@ -22,7 +22,14 @@
       "tests": 110
     },
     "e2_provider": {},
-    "e3_reliability": {}
+    "e3_reliability": {},
+    "contract_apt": {
+      "status": "PASS",
+      "date": "2026-09-20",
+      "evidence": "docs/evidence/HWG_WU_AP_002_003_CONTRACT_20260920.md",
+      "tests": 116,
+      "note": "WU-AP-002 contract validation + WU-AP-003 providers/capabilities endpoints"
+    }
   },
   "docs": {
     "requirements_register": "docs/requirements/HWG_1.0_REQUIREMENTS_REGISTER_20260920.md",

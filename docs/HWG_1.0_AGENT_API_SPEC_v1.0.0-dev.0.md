@@ -31,8 +31,8 @@
 | `POST /v1/chat/completions` | POST | موجود؛ نیازمند اعتبارسنجی دقیق قرارداد | چت/کدنویسی Agent (استاندارد OpenAI) |
 | `POST /v1/chat/completions?stream=true` | POST | موجود (buffered compatibility)؛ نیازمند گواهی SSE | استریم پاسخ |
 | `GET /v1/providers/<id>/features` | GET/PUT | موجود | بازخوانی/تنظیم ویژگی‌ها (thinking/search) |
-| `GET /v1/providers` | GET | جدید — اضافه شود | فهرست و وضعیت در دسترس پروایدرها |
-| `GET /v1/capabilities` | GET | جدید — اضافه شود | Manifest توانمندی نسخه‌دار برای کشف خودکار |
+| `GET /v1/providers` | GET | پیاده‌سازی‌شده (WU-AP-003) | فهرست و وضعیت در دسترس پروایدرها + capabilities |
+| `GET /v1/capabilities` | GET | پیاده‌سازی‌شده (WU-AP-003) | Manifest توانمندی نسخه‌دار برای کشف خودکار |
 | `POST /v1/files` | POST | جدید — placeholder | آپلود فایل/تصویر (مرحله‌ی چندوجهی) |
 
 ## ۴. قرارداد درخواست/پاسخ هسته
@@ -111,5 +111,9 @@
 
 ## ۹. وضعیت اجرا در این نسخه
 
-- Endpointهای «موجود» از seed 0.7.29 به‌ارث‌رسیده‌اند و هنوز با this spec اعتبارسنجی/گواهی نشده‌اند (کار بعدی).
-- «جدید»ها باید با Research/Reuse و آزمون E1 قبل از پیاده‌سازی افزوده شوند.
+- WU-AP-002 (اعتبارسنجی قرارداد) و WU-AP-003 (افزودن `/v1/providers` و `/v1/capabilities`) کامل شد:
+  - مدل/پروایدر ناشناس → `404` + کد `model_not_found` / `unknown_provider`.
+  - `GET /v1/providers` (فهرست + capabilities + features) و `GET /v1/capabilities`
+    (manifest نسخه‌دار + `compatibility_baseline: openai-2026-09-20` + خط‌مشی دسترسی) فعال شد.
+  - آزمون‌های قرارداد در `tests/test_agent_api_contract.py` (پاس؛ مجموع 116 آزمون سبز).
+- Endpointهای «موجود از seed» با گواهی E2 (پروایدر واقعی) هنوز اعتبارسنجی نشده‌اند (کار بعدی).
