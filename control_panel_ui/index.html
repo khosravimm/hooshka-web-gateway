@@ -82,8 +82,8 @@
           <div class="stat-label">گفتگوهای فعال</div>
           <div class="stat-value" id="stat-sessions">-</div>
         </div>
-        <div class="card stat-card">
-          <div class="stat-label">درخواست‌ها (۱س)</div>
+        <div class="card stat-card accent-card">
+          <div class="stat-label">ارسال واقعی به Web Chat (۱س)</div>
           <div class="stat-value" id="stat-requests">-</div>
         </div>
       </div>
@@ -103,16 +103,15 @@
           <div class="runtime-grid" id="provider-runtime-summary"></div>
         </div>
         <div class="card">
-          <h3 class="card-title">درخواست‌های گیت‌وی</h3>
+          <div class="card-head"><div><h3 class="card-title">ترافیک واقعی Web Chat</h3><p class="hint">فقط درخواست‌هایی که به یک Provider انتخاب‌شده ارسال شده‌اند؛ Polling پنل و Health شمرده نمی‌شوند.</p></div></div>
           <div class="chart-wrap"><canvas id="requests-chart"></canvas></div>
-          <h3 class="card-title mt">تفکیک درخواست (۱س)</h3>
-          <div class="mini-grid" id="request-breakdown-summary"></div>
+          <div class="dashboard-kpis mt" id="outbound-kpis"></div>
         </div>
       </div>
 
       <div class="card mt">
-        <h3 class="card-title">ترافیک مدل و شمارش توکن (۱س)</h3>
-        <div id="model-usage-summary" class="mini-grid"></div>
+        <div class="card-head"><div><h3 class="card-title">عملکرد Providerها در یک ساعت اخیر</h3><p class="hint">درخواست، موفق/ناموفق، تأخیر، آخرین فعالیت و توکن اندازه‌گیری‌شده.</p></div></div>
+        <div id="model-usage-summary" class="provider-performance-grid"></div>
       </div>
     </section>
 

@@ -720,9 +720,8 @@ def _build_request_history_window(now=None, minutes=60):
     end_minute = int(now // 60) * 60
     start_minute = end_minute - ((minutes - 1) * 60)
     minute_counts = {start_minute + (i * 60): 0 for i in range(minutes)}
-    model_minute_counts = {start_minute + (i * 60): 0 for i in range(minutes)}
     requests_1h = 0
-    breakdown = {"model": 0, "panel": 0, "health_metadata": 0, "other": 0}
+    breakdown = {"success": 0, "failure": 0}
     audit_log = "logs/audit.log"
 
     if os.path.exists(audit_log):
@@ -735,17 +734,20 @@ def _build_request_history_window(now=None, minutes=60):
                     ts = float(entry.get("timestamp", 0) or 0)
                     minute = int(ts // 60) * 60
                     if start_minute <= minute <= end_minute:
-                        bucket = _request_bucket(entry.get("endpoint"))
+                        endpoint = str(entry.get("endpoint") or "")
+                        provider = str(entry.get("provider") or "unknown")
+                        if _request_bucket(endpoint) != "model" or provider in ("", "unknown", "default"):
+                            continue
                         requests_1h += 1
-                        breakdown[bucket] = breakdown.get(bucket, 0) + 1
+                        status_code = int(entry.get("status_code", 0) or 0)
+                        outcome = "success" if 200 <= status_code < 400 else "failure"
+                        breakdown[outcome] += 1
                         minute_counts[minute] = minute_counts.get(minute, 0) + 1
-                        if bucket == "model":
-                            model_minute_counts[minute] = model_minute_counts.get(minute, 0) + 1
                 except Exception:
                     pass
 
     history = [
-        {"timestamp": minute, "count": minute_counts.get(minute, 0), "model_count": model_minute_counts.get(minute, 0)}
+        {"timestamp": minute, "count": minute_counts.get(minute, 0)}
         for minute in sorted(minute_counts)
     ]
     return {"requests_1h": requests_1h, "requests_history": history, "breakdown": breakdown}

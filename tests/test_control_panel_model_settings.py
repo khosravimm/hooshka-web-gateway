@@ -238,15 +238,16 @@ def test_model_accounting_uses_compact_number_formatting():
     assert "compact(r.requests)" in js
 
 
-def test_control_panel_separates_gateway_requests_from_model_traffic():
+def test_control_panel_dashboard_uses_provider_bound_traffic_only():
     js = js_text()
-    assert "renderBreakdown" in js
     assert "api('/stats')" in js
+    assert "renderOutboundKpis" in js
     index = index_text()
-    assert "request-breakdown-summary" in index
+    assert "ارسال واقعی به Web Chat" in index
+    assert "outbound-kpis" in index
     text = source()
     assert "def _request_bucket" in text
-    assert '"model_count"' in text
+    assert 'provider in ("", "unknown", "default")' in text
     assert "Do not fabricate zero-request rows as statistics" in text
 
 

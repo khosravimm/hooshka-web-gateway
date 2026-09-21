@@ -188,9 +188,9 @@ function initNav() {
     try {
       const s = await api('/stats');
       $('#stat-requests').textContent = s.requests_1h || 0;
-      renderBreakdown($('#request-breakdown-summary'), s.breakdown);
       initChart('requests-chart', s.requests_history || []);
       const u = await api('/model_usage');
+      renderOutboundKpis($('#outbound-kpis'), s, u);
       renderModelUsage($('#model-usage-summary'), u);
     } catch (e) { /* ignore */ }
   }
@@ -215,6 +215,24 @@ function initNav() {
       ['سلامت/فراداده', b.health_metadata || 0],
       ['سایر', b.other || 0],
     ].map(([label, value]) => `<div class="hwg-chip hwg-neutral">${label}: <b>${compact(value)}</b></div>`).join(' ');
+  }
+
+  function renderOutboundKpis(box, stats, usage) {
+    if (!box) return;
+    const rows = (usage && usage.models) || [];
+    const success = rows.reduce((a, r) => a + Number(r.success_count || 0), 0);
+    const failure = rows.reduce((a, r) => a + Number(r.failure_count || 0), 0);
+    const tokens = rows.reduce((a, r) => a + Number(r.total_tokens || 0), 0);
+    const measured = rows.reduce((a, r) => a + Number(r.requests || 0), 0);
+    const weightedLatency = rows.reduce((a, r) => a + Number(r.avg_latency_ms || 0) * Number(r.requests || 0), 0);
+    const latency = measured ? Math.round(weightedLatency / measured) : null;
+    box.innerHTML = [
+      ['ارسال به Provider', compact((stats && stats.requests_1h) || 0), 'primary'],
+      ['موفق', compact(success), 'ok'],
+      ['ناموفق', compact(failure), failure ? 'bad' : 'neutral'],
+      ['میانگین تأخیر', latency == null ? '—' : compact(latency) + ' ms', 'neutral'],
+      ['توکن اندازه‌گیری‌شده', compact(tokens), 'info'],
+    ].map(([label, value, kind]) => `<div class="metric-tile ${kind}"><span>${label}</span><b>${value}</b></div>`).join('');
   }
 
   function renderModelUsage(box, data) {
@@ -279,7 +297,7 @@ function initNav() {
     ctx.fillRect(0, 0, width, height);
     ctx.fillStyle = '#64748b';
     ctx.font = '12px Segoe UI, Arial, sans-serif';
-    ctx.fillText('درخواست‌های گیت‌وی در هر دقیقه', pad.left, 18);
+    ctx.fillText('ارسال واقعی به Web Chat در هر دقیقه', pad.left, 18);
     ctx.strokeStyle = '#e5e7eb';
     const labels = ['#64748b', '#cbd5e1', '#2563eb', '#334155'];
     ctx.strokeStyle = labels[2];
