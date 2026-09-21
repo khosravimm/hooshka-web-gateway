@@ -1,6 +1,7 @@
 """Verify-only key hashing + session/logout endpoint contracts."""
 import sys
 from pathlib import Path
+from flask import Flask
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -57,3 +58,14 @@ def test_panel_key_creation_stores_hash_only():
     text = (ROOT / "control_panel.py").read_text(encoding="utf-8")
     assert "hash_token(token)" in text
     assert '"key_ref": ref' in text or "'key_ref': ref" in text or '"key_ref"' in text
+
+
+def test_extract_key_accepts_bearer_header_only():
+    app = Flask(__name__)
+    auth = AuthManager()
+
+    with app.test_request_context('/v1/models', headers={'Authorization': 'Bearer secret-token'}):
+        assert auth.extract_key() == 'secret-token'
+
+    with app.test_request_context('/v1/models?api_key=secret-token'):
+        assert auth.extract_key() is None

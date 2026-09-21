@@ -90,7 +90,8 @@ class AuthManager:
         auth_header = request.headers.get("Authorization", "")
         if auth_header.startswith("Bearer "):
             return auth_header[7:]
-        return request.args.get("api_key")
+        # Credentials in URLs can leak through browser/proxy/server logs.
+        return None
 
 
 class AuditLogger:
