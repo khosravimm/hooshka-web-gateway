@@ -233,6 +233,9 @@ function initNav() {
         <div class="kv">
           <span class="ltr">${r.provider}/${r.model}</span>
           <span class="hwg-chip hwg-neutral">${compact(r.requests)} درخواست</span>
+          <span>موفق / ناموفق</span><b>${compact(r.success_count || 0)} / ${compact(r.failure_count || 0)}</b>
+          <span>میانگین تأخیر</span><b>${r.avg_latency_ms == null ? 'ثبت نشده' : compact(r.avg_latency_ms) + ' ms'}</b>
+          <span>آخرین فعالیت</span><b>${r.last_activity ? new Date(r.last_activity * 1000).toLocaleString('fa-IR') : 'ثبت نشده'}</b>
           <span>توکن ورودی</span><b>${tv(r.prompt_tokens, avail(r.prompt_tokens_available))}</b>
           <span>توکن خروجی</span><b>${tv(r.completion_tokens, avail(r.completion_tokens_available))}</b>
           <span>کل توکن</span><b>${tv(r.total_tokens, avail(r.total_tokens_available) || avail(r.tokens_available))}</b>

@@ -776,6 +776,12 @@ def _model_usage_window(now=None, seconds=3600):
             "provider": provider,
             "model": model,
             "requests": 0,
+            "success_count": 0,
+            "failure_count": 0,
+            "latency_total_ms": 0,
+            "latency_samples": 0,
+            "avg_latency_ms": None,
+            "last_activity": None,
             "prompt_tokens": 0,
             "completion_tokens": 0,
             "total_tokens": 0,
@@ -810,6 +816,16 @@ def _model_usage_window(now=None, seconds=3600):
                         continue
                     row = ensure_row(provider, model)
                     row["requests"] += 1
+                    status_code = int(entry.get("status_code", 0) or 0)
+                    if 200 <= status_code < 400:
+                        row["success_count"] += 1
+                    else:
+                        row["failure_count"] += 1
+                    latency_ms = int(entry.get("latency_ms", 0) or 0)
+                    if latency_ms >= 0:
+                        row["latency_total_ms"] += latency_ms
+                        row["latency_samples"] += 1
+                    row["last_activity"] = max(float(row["last_activity"] or 0), ts)
                     for field in ("prompt_tokens", "completion_tokens", "total_tokens"):
                         value = int(entry.get(field, 0) or 0)
                         row[field] += value
@@ -820,6 +836,11 @@ def _model_usage_window(now=None, seconds=3600):
                         row["tokens_estimated"] = True
                 except Exception:
                     pass
+    for row in by_key.values():
+        if row["latency_samples"]:
+            row["avg_latency_ms"] = round(row["latency_total_ms"] / row["latency_samples"])
+        row.pop("latency_total_ms", None)
+        row.pop("latency_samples", None)
     rows = sorted(by_key.values(), key=lambda r: (r["total_tokens"], r["requests"], r["provider"]), reverse=True)
     return {
         "window_seconds": seconds,

@@ -16,14 +16,14 @@ Hooshka / Kilo / local SDK / local agent
         exact fail-closed router
           /        |        \
          /         |         \
-chatgpt-web     qwen-web     zai-web
-    |              |            |
+chatgpt-web     qwen-web     zai-web     deepseek-web
+    |              |            |             |
  provider-local transport + runtime/session ownership
                   |
             normalized response
 ```
 
-DeepSeek remains a registered research/workstream concept but is not an enabled live provider while the current account state is blocked.
+DeepSeek is a registered and enabled provider in the current configuration. Its runtime health and authenticated session state remain runtime facts and must be validated separately; configuration enablement is not an E2/E3 operational claim.
 
 ## Layers
 
@@ -68,6 +68,7 @@ Canonical model ids are exact routing keys:
 - `chatgpt-web`
 - `qwen-web`
 - `zai-web`
+- `deepseek-web`
 
 No substring matching, guessed aliases, or cross-provider fallback is permitted.
 
@@ -124,6 +125,7 @@ Timeouts should distinguish connection/header timeout, first meaningful event ti
 - ChatGPT Web: dedicated project-owned Chrome CDP runtime/profile under `.runtime\chatgpt-profile`, port 9224. Ordinary user tabs and legacy/shared CDP ports are not assumed bridge-owned.
 - Qwen Web: dedicated project-owned Chrome CDP runtime/profile under `.runtime\qwen-profile`, port 9225; completion is blocked unless this profile is authenticated.
 - Z.ai Web: dedicated CDP runtime/profile under `.runtime\zai-profile`, port 9223.
+- DeepSeek Web: current configuration uses the managed browser UI transport on CDP `127.0.0.1:9330` with profile `.runtime-dev\shared-profile`; runtime health/authentication must be validated separately.
 - Owned runtime labels use `HWG-`.
 
 Cleanup must use explicit owned profile paths, never URL-only matching.

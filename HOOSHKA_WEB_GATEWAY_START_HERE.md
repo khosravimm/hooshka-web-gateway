@@ -9,8 +9,8 @@
 - **Product:** Hooshka Web Gateway
 - **Technical id:** `hooshka-web-gateway`
 - **Hooshka module id:** `web_gateway`
-- **Current baseline:** `0.7.0`
-- **Current local checkout:** `D:\Code\mcp-web-bridge` (legacy directory name retained for runtime compatibility)
+- **Current baseline:** `1.0.0-dev.3`
+- **Current local checkout:** `D:\Code\hooshka-web-gateway`
 - **Canonical project/repository id:** `hooshka-web-gateway`
 - **Windows service:** `HooshkaWebGateway`
 - **Local API:** `http://127.0.0.1:5000`
