@@ -37,7 +37,7 @@ This work advances `HWG-WORK-002` and `HWG-WORK-006`. It does not claim final ac
 ## Evidence
 
 - Targeted Provider provisioning / Browser Runtime grouping / Profile management tests: PASS.
-- Full deterministic suite: **321 passed**.
+- Full deterministic suite: **327 passed**.
 - `compileall`, JavaScript syntax and `git diff --check` are release-blocking final checks for this local commit.
 - No E2 deployment claim is made for the stale 5080 process until dev.6 is deployed from a clean/controlled runtime checkout.
 
@@ -48,3 +48,9 @@ The development checkout was safely fast-forwarded to `feb23f4` after preserving
 Live validation confirmed version `1.0.0-dev.6`, commit `feb23f4`, two Browser Runtime groups, Desktop Runtime Agent reachability on 5181, and the new runtime-key-based Provider provisioning contract. See `docs/evidence/HWG_DEV6_CONTROL_PLANE_E2_20260922.md`.
 
 This is scoped E2 for development Control Plane deployment/serving. It is not an E3 reliability claim and does not close account-isolation or full UX acceptance.
+
+## Account-centric session lifecycle
+
+HWG-WORK-005 is closed with scoped E1+E2 evidence. Session validation now runs structural access classification before provider-specific checkers, account state persists to explicit Account Instances, and login/open, re-auth/open and logout are available through account-centric endpoints.
+
+Shared-browser logout was corrected from global context cookie clearing to origin-scoped `Storage.clearDataForOrigin`. A temporary two-origin Chrome E2 test verified that the target origin was cleared while the neighboring origin retained its cookie and LocalStorage state. Persisted Account Instance session records were audited and contained no secret-like keys. See `docs/evidence/HWG_ACCOUNT_SESSION_LIFECYCLE_E2_20260922.md`.

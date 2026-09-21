@@ -6,12 +6,16 @@
 - Fixed Provider creation to persist canonical top-level `runtime` and derive Adapter config from the selected existing Browser Runtime.
 - Removed hidden default attachment to `shared-profile`; Provider creation now requires an explicit existing Browser Runtime selection.
 - New Providers are forced disabled until Login, Discovery and Certification complete.
-- Work Register advanced to v1.8.0 with relationship-redesign evidence for HWG-WORK-002 and HWG-WORK-006.
+- Added account-centric session/login-open/re-auth/logout routes backed by explicit Account Instances.
+- Session validation is structural-first, preventing Qwen region restriction from degrading into a provider-checker timeout.
+- Shared-browser logout now uses origin-scoped `Storage.clearDataForOrigin`; global context cookie clearing is prohibited.
+- Persisted session metadata is allow-listed so token/cookie/secret-like fields cannot enter Account Instance JSON.
+- Work Register advanced to v1.10.0; HWG-WORK-005 account-centric session lifecycle is now closed with E1+E2 evidence.
 
 ### Evidence
 - Targeted Provider provisioning / Browser Runtime grouping / Profile management tests passed.
 - Full-suite result is recorded in MANIFEST and this change record after final validation.
-- The running 5080 instance is still an older checkout and is not claimed as dev.6 E2 deployment yet.
+- Development 5080 is running dev.6 and has scoped E2 evidence for Control Plane deployment and account-session lifecycle.
 
 ## 1.0.0-dev.5 - 2026-09-21 - WIP (assisted discovery and governed interaction)
 - Added persistent non-secret Provider Profile / Account Instance store with versioned artifacts, source hashes, change logs, guarded migration, and hash-safe rollback; legacy config projection is fallback-only after migration.

@@ -47,15 +47,21 @@
     "e1_dev6": {
       "status": "PASS",
       "date": "2026-09-22",
-      "tests": 321,
+      "tests": 327,
       "evidence": "docs/governance/HWG_1.0.0-dev.6_CHANGE_RECORD_20260922.md",
-      "scope": "relationship-driven runtime grouping, governed provider provisioning, version/history and deterministic validation"
+      "scope": "relationship-driven control plane, account-session lifecycle, governed provisioning, version/history deterministic validation"
     },
     "e2_dev6_control_plane": {
       "status": "PASS",
       "date": "2026-09-22",
       "evidence": "docs/evidence/HWG_DEV6_CONTROL_PLANE_E2_20260922.md",
       "scope": "live development 5080 control-plane deployment/runtime grouping/provider provisioning serving"
+    },
+    "e2_dev6_account_session": {
+      "status": "PASS",
+      "date": "2026-09-22",
+      "evidence": "docs/evidence/HWG_ACCOUNT_SESSION_LIFECYCLE_E2_20260922.md",
+      "scope": "account-centric session/login-open/reauth/logout, structural-first access gating and origin-scoped logout isolation"
     }
   },
   "docs": {
@@ -78,7 +84,8 @@
     "dev5_continuation_record": "docs/governance/HWG_1.0.0-dev.5_CONTINUATION_RECORD_20260922.md",
     "discovery_e2_evidence": "docs/evidence/HWG_DISCOVERY_ENGINE_E2_20260922.md",
     "profile_account_persistence_evidence": "docs/evidence/HWG_PROFILE_ACCOUNT_PERSISTENCE_20260922.md",
-    "dev6_change_record": "docs/governance/HWG_1.0.0-dev.6_CHANGE_RECORD_20260922.md"
+    "dev6_change_record": "docs/governance/HWG_1.0.0-dev.6_CHANGE_RECORD_20260922.md",
+    "account_session_lifecycle_evidence": "docs/evidence/HWG_ACCOUNT_SESSION_LIFECYCLE_E2_20260922.md"
   },
   "contracts": {
     "provider_profile_schema": "urn:hwg:schema:provider-profile:1.0.0",
@@ -87,9 +94,9 @@
     "discovery_ai_policy": "discovery/policies/ai-assistance-v1.json",
     "discovery_routing_policy": "discovery/policies/routing-v1.json",
     "provider_self_use_schema": "urn:hwg:schema:provider-self-use-qualification:1.0.0",
-    "work_register": "HWG-WORK-REGISTER-001@1.9.0"
+    "work_register": "HWG-WORK-REGISTER-001@1.10.0"
   },
   "evidence": {
-    "full_suite": "321 passed"
+    "full_suite": "327 passed"
   }
 }

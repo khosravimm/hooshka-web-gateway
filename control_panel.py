@@ -20,7 +20,7 @@ from core.config import load_config, deep_merge, get_default_config
 from core.feature_settings import persist_provider_feature_defaults, provider_feature_state
 from core.runtime_inventory import inventory_by_id, load_orchestration_settings
 from core.profile_contract import project_ng_inventory
-from core.profile_store import load_ng_inventory, migrate_legacy_inventory, rollback_legacy_migration
+from core.profile_store import load_ng_inventory, migrate_legacy_inventory, rollback_legacy_migration, update_account_session
 from core.work_register import load_register, summarize_register, validate_register
 from core.discovery_orchestrator import (
     attach_baseline as discovery_attach_baseline,
@@ -42,6 +42,7 @@ from core.self_use_roundtrip_probe import controlled_roundtrip as controlled_sel
 from core.browser_behavior_probe import BehaviorAction, ProbePolicy
 from core.discovery_ai_service import execute_ai_assistance
 from core.blind_discovery import probe_auth_cdp as discovery_probe_auth_cdp
+from core.account_session import normalize_session
 
 control_panel_bp = Blueprint('control_panel', __name__, url_prefix='/panel')
 
@@ -1749,6 +1750,25 @@ def api_delete_session(conversation_id):
     return jsonify({"success": True})
 
 
+def _account_for_provider(provider_id):
+    inv = load_ng_inventory(CONFIG_PATH)
+    profile_ids = {p.get("profile_id") for p in inv.get("provider_profiles", []) if p.get("provider_id") == provider_id}
+    for account in inv.get("account_instances", []):
+        if account.get("provider_profile_id") in profile_ids:
+            return account, inv.get("authority")
+    return None, inv.get("authority")
+
+
+def _provider_for_account(account_id):
+    inv = load_ng_inventory(CONFIG_PATH)
+    account = next((a for a in inv.get("account_instances", []) if a.get("account_id") == account_id), None)
+    if not account:
+        return None, None, inv.get("authority")
+    profile_id = account.get("provider_profile_id")
+    profile = next((p for p in inv.get("provider_profiles", []) if p.get("profile_id") == profile_id), None)
+    return (profile or {}).get("provider_id"), account, inv.get("authority")
+
+
 def _provider_session_checker(provider):
     """Return the provider's session checker, preferring read-only validation."""
     for name in ("validate_session", "session_status", "_session_status"):
@@ -1760,35 +1780,69 @@ def _provider_session_checker(provider):
 
 @control_panel_bp.route('/api/providers/<provider_id>/session')
 def api_provider_session(provider_id):
-    """Read-only provider login/session validation (NG-ACC-002)."""
+    """Read-only provider/account login-session validation (NG-ACC-002)."""
     from core.governance import audit_logger
     provider = provider_registry.get(provider_id)
     if not provider:
         return jsonify({"error": "Provider not found"}), 404
-    check = _provider_session_checker(provider)
-    if check is None:
-        return jsonify({"error": "Session status not supported by provider"}), 501
     loop = current_app.config.get("HWG_ASYNC_LOOP")
     if loop is None or not loop.is_running():
         return jsonify({"error": "Gateway async runtime unavailable"}), 503
     import asyncio
     import concurrent.futures
     started = time.time()
-    try:
-        future = asyncio.run_coroutine_threadsafe(check(), loop)
-        status = future.result(timeout=60)
-    except concurrent.futures.TimeoutError:
-        return jsonify({"error": "Session check timed out", "provider": provider_id}), 504
-    except Exception as exc:
-        logger.warning("Provider session check error for %s", provider_id, exc_info=True)
-        return jsonify({"error": f"Session check failed: {type(exc).__name__}",
-                        "provider": provider_id}), 502
-    body = dict(status or {})
+    runtime = inventory_by_id(CONFIG_PATH).get(provider_id) or {}
+    access = {"state": "UNKNOWN", "reason": "structural_probe_unavailable"}
+    if runtime.get("cdp_url") and runtime.get("home_url"):
+        try:
+            af = asyncio.run_coroutine_threadsafe(
+                discovery_probe_auth_cdp(runtime["cdp_url"], runtime["home_url"]), loop)
+            access = dict(af.result(timeout=30) or access)
+        except concurrent.futures.TimeoutError:
+            access = {"state": "UNKNOWN", "reason": "structural_probe_timeout"}
+        except Exception:
+            logger.warning("Account access probe failed for %s", provider_id, exc_info=True)
+
+    terminal = {"BLOCKED", "LOGIN_REQUIRED", "USER_INTERACTION_REQUIRED"}
+    body = {}
+    if str(access.get("state") or "UNKNOWN").upper() not in terminal:
+        check = _provider_session_checker(provider)
+        if check is not None:
+            try:
+                future = asyncio.run_coroutine_threadsafe(check(), loop)
+                status = future.result(timeout=60)
+                body = dict(status or {})
+            except concurrent.futures.TimeoutError:
+                body = {"authenticated": False, "session_probe": "timeout"}
+            except Exception as exc:
+                logger.warning("Provider session check error for %s", provider_id, exc_info=True)
+                body = {"authenticated": False, "session_probe": f"error:{type(exc).__name__}"}
+        else:
+            body = {"authenticated": None, "session_probe": "unsupported"}
+    account, authority = _account_for_provider(provider_id)
+    previous = ((account or {}).get("session") or {}).get("access_state")
+    lifecycle = normalize_session(body, access.get("state"), previous)
+    persisted = False
+    persist_error = None
+    if account and authority == "persistent_ng_store":
+        try:
+            update_account_session(account["account_id"], lifecycle)
+            persisted = True
+        except Exception as exc:
+            persist_error = type(exc).__name__
+            logger.warning("Account session persistence failed for %s", provider_id, exc_info=True)
+
     body.update({"provider": provider_id,
+                 "account_id": (account or {}).get("account_id"),
                  "checked_at": datetime.now().isoformat(),
-                 "duration_ms": int((time.time() - started) * 1000)})
+                 "duration_ms": int((time.time() - started) * 1000),
+                 "access": access,
+                 "lifecycle": lifecycle,
+                 "persistence": {"authority": authority, "persisted": persisted, "error": persist_error}})
     audit_logger.log({"event": "provider_session_checked", "provider": provider_id,
-                      "authenticated": bool(body.get("authenticated"))})
+                      "account_id": body.get("account_id"),
+                      "access_state": lifecycle.get("access_state"),
+                      "authenticated": lifecycle.get("authenticated")})
     return jsonify(body)
 
 
@@ -1824,15 +1878,26 @@ def api_provider_logout(provider_id):
     except Exception as exc:
         return jsonify({"success": False, "provider": provider_id,
                         "message": f"Logout failed: {type(exc).__name__}"}), 503
+    account, authority = _account_for_provider(provider_id)
+    persisted = False
+    lifecycle = normalize_session({"authenticated": False, "reason": "explicit_logout"}, "LOGIN_REQUIRED")
+    if account and authority == "persistent_ng_store":
+        try:
+            update_account_session(account["account_id"], lifecycle)
+            persisted = True
+        except Exception:
+            logger.warning("Account session persistence failed after logout for %s", provider_id, exc_info=True)
     audit_logger.log({"event": "provider_logout", "provider": provider_id,
-                      "origin": origin, "cleared": cleared})
+                      "account_id": account.get("account_id") if account else None,
+                      "origin": origin, "cleared": cleared, "access_state": "LOGIN_REQUIRED"})
     return jsonify({"success": True, "provider": provider_id,
-                    "origin": origin, "cleared": cleared,
-                    "message": "Session cleared. Re-login via Open Browser."})
+                    "origin": origin, "cleared": cleared, "session": lifecycle,
+                    "persistence": {"authority": authority, "persisted": persisted},
+                    "message": "Session cleared for this origin. Re-login via Open Browser."})
 
 
 async def _logout_origin(cdp_url: str, origin: str) -> dict:
-    """Clear cookies + storages for origin in the shared browser (Playwright)."""
+    """Clear only the target origin in a shared browser context."""
     from playwright.async_api import async_playwright
     pw = await async_playwright().start()
     try:
@@ -1840,8 +1905,9 @@ async def _logout_origin(cdp_url: str, origin: str) -> dict:
         ctx = browser.contexts[0] if browser.contexts else None
         if ctx is None:
             raise RuntimeError("No browser context")
-        await ctx.clear_cookies()
         page = await ctx.new_page()
+        cdp = await ctx.new_cdp_session(page)
+        await cdp.send("Storage.clearDataForOrigin", {"origin": origin, "storageTypes": "all"})
         async def _dismiss_dialog(dialog):
             try:
                 await dialog.dismiss()
@@ -1870,6 +1936,39 @@ async def _logout_origin(cdp_url: str, origin: str) -> dict:
         return {"cookies_chars_left": left["cookies"], "localstorage_keys_left": left["ls"]}
     finally:
         await pw.stop()
+
+
+@control_panel_bp.route('/api/accounts/<path:account_id>/session')
+def api_account_session(account_id):
+    provider_id, account, _authority = _provider_for_account(account_id)
+    if not account or not provider_id:
+        return jsonify({"error": "Account instance not found"}), 404
+    return api_provider_session(provider_id)
+
+
+@control_panel_bp.route('/api/accounts/<path:account_id>/login/open', methods=['POST'])
+def api_account_login_open(account_id):
+    provider_id, account, _authority = _provider_for_account(account_id)
+    if not account or not provider_id:
+        return jsonify({"error": "Account instance not found"}), 404
+    return api_open_provider_browser(provider_id)
+
+
+@control_panel_bp.route('/api/accounts/<path:account_id>/reauth', methods=['POST'])
+def api_account_reauth(account_id):
+    provider_id, account, _authority = _provider_for_account(account_id)
+    if not account or not provider_id:
+        return jsonify({"error": "Account instance not found"}), 404
+    opened = api_open_provider_browser(provider_id)
+    return opened
+
+
+@control_panel_bp.route('/api/accounts/<path:account_id>/logout', methods=['POST'])
+def api_account_logout(account_id):
+    provider_id, account, _authority = _provider_for_account(account_id)
+    if not account or not provider_id:
+        return jsonify({"error": "Account instance not found"}), 404
+    return api_provider_logout(provider_id)
 
 
 @control_panel_bp.route('/api/auth/keys')

@@ -1,6 +1,6 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "updated_at": "2026-09-21",
   "status_vocabulary": [
     "OPEN",
@@ -152,7 +152,7 @@
       "id": "HWG-WORK-005",
       "title": "Account-centric login/session lifecycle",
       "area": "accounts",
-      "status": "OPEN",
+      "status": "DONE",
       "priority": "P0",
       "source": [
         "NG-ACC-001/002"
@@ -169,7 +169,21 @@
         "Login/logout/re-auth/session validation are account-centric",
         "Session bound to explicit account instance",
         "No plaintext provider secret persisted or logged"
-      ]
+      ],
+      "completed_at": "2026-09-22",
+      "latest_evidence": {
+        "date": "2026-09-22",
+        "type": "E1+E2_account_session_lifecycle",
+        "result": "Account-centric session/login-open/reauth/logout paths validated; structural-first Qwen blocking avoids checker timeout; origin-scoped logout preserves neighboring origin storage; session metadata persists to explicit Account Instances without secret-like fields."
+      },
+      "evidence": {
+        "type": [
+          "E1",
+          "E2"
+        ],
+        "result": "Persistent account lifecycle validated live for ChatGPT, DeepSeek, Z.ai and Qwen; account open/reauth and Qwen account logout exercised.",
+        "record": "docs/evidence/HWG_ACCOUNT_SESSION_LIFECYCLE_E2_20260922.md"
+      }
     },
     {
       "id": "HWG-WORK-006",

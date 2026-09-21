@@ -182,3 +182,24 @@ def rollback_legacy_migration(root: str | Path | None = None) -> dict[str, Any]:
     if root.exists() and not any(root.iterdir()):
         root.rmdir()
     return {"rolled_back": True, "migration_id": manifest.get("migration_id"), "removed": removed}
+
+
+def update_account_session(account_id: str, session: dict[str, Any], root: str | Path | None = None) -> dict[str, Any]:
+    """Persist only allow-listed non-secret session lifecycle metadata."""
+    root = Path(root) if root else DEFAULT_ROOT
+    _profiles_dir, accounts_dir = _dirs(root)
+    path = accounts_dir / (_safe_id(account_id) + ".json")
+    if not path.exists():
+        raise FileNotFoundError(f"account instance not found: {account_id}")
+    payload = json.loads(path.read_text(encoding="utf-8-sig"))
+    allowed = {"contract_version", "access_state", "state", "authenticated", "reason", "validated_at"}
+    safe = {k: session.get(k) for k in allowed if k in session}
+    evidence = dict(session.get("evidence") or {})
+    safe["evidence"] = {k: evidence.get(k) for k in ("provider_authenticated", "composer_ready", "source_access_state") if k in evidence}
+    payload["session"] = safe
+    payload["updated_at"] = _now()
+    log = list(payload.get("change_log") or [])
+    log.append({"at": payload["updated_at"], "change": "session_lifecycle_validated", "evidence_level": "E1"})
+    payload["change_log"] = log
+    _atomic_json(path, payload)
+    return payload
