@@ -27,6 +27,10 @@ class DiscoveryState(str, Enum):
     RESEARCH_REQUIRED = "RESEARCH_REQUIRED"
     BASELINE_REQUIRED = "BASELINE_REQUIRED"
     EXPLORATION_READY = "EXPLORATION_READY"
+    WAITING_FOR_LOGIN = "WAITING_FOR_LOGIN"
+    WAITING_FOR_USER_INTERACTION = "WAITING_FOR_USER_INTERACTION"
+    DIAGNOSTIC_REQUIRED = "DIAGNOSTIC_REQUIRED"
+    BLOCKED = "BLOCKED"
     EXPLORING = "EXPLORING"
     SYNTHESIZING = "SYNTHESIZING"
     UPDATE_CANDIDATE = "UPDATE_CANDIDATE"
@@ -40,7 +44,11 @@ class DiscoveryState(str, Enum):
 
 ALLOWED_TRANSITIONS = {
     DiscoveryState.RESEARCH_REQUIRED: {DiscoveryState.BASELINE_REQUIRED, DiscoveryState.HOLD, DiscoveryState.FAILED},
-    DiscoveryState.BASELINE_REQUIRED: {DiscoveryState.EXPLORATION_READY, DiscoveryState.HOLD, DiscoveryState.FAILED},
+    DiscoveryState.BASELINE_REQUIRED: {DiscoveryState.EXPLORATION_READY, DiscoveryState.WAITING_FOR_LOGIN, DiscoveryState.WAITING_FOR_USER_INTERACTION, DiscoveryState.DIAGNOSTIC_REQUIRED, DiscoveryState.BLOCKED, DiscoveryState.HOLD, DiscoveryState.FAILED},
+    DiscoveryState.WAITING_FOR_LOGIN: {DiscoveryState.BASELINE_REQUIRED, DiscoveryState.HOLD, DiscoveryState.FAILED},
+    DiscoveryState.WAITING_FOR_USER_INTERACTION: {DiscoveryState.BASELINE_REQUIRED, DiscoveryState.HOLD, DiscoveryState.FAILED},
+    DiscoveryState.DIAGNOSTIC_REQUIRED: {DiscoveryState.BASELINE_REQUIRED, DiscoveryState.HOLD, DiscoveryState.FAILED},
+    DiscoveryState.BLOCKED: {DiscoveryState.BASELINE_REQUIRED, DiscoveryState.HOLD, DiscoveryState.FAILED},
     DiscoveryState.EXPLORATION_READY: {DiscoveryState.EXPLORING, DiscoveryState.HOLD, DiscoveryState.FAILED},
     DiscoveryState.EXPLORING: {DiscoveryState.SYNTHESIZING, DiscoveryState.HOLD, DiscoveryState.FAILED},
     DiscoveryState.SYNTHESIZING: {DiscoveryState.UPDATE_CANDIDATE, DiscoveryState.CERTIFICATION_REQUIRED, DiscoveryState.HOLD, DiscoveryState.FAILED},
@@ -132,7 +140,23 @@ def attach_baseline(run: DiscoveryRun, baseline: dict[str, Any]) -> None:
     if missing:
         raise ValueError(f"baseline missing fields: {', '.join(missing)}")
     run.findings["baseline"] = baseline
-    run.transition(DiscoveryState.EXPLORATION_READY, "baseline captured without mutation", "E1")
+    access = str((baseline.get("session") or {}).get("access_state") or "").upper()
+    mapping = {
+        "LOGIN_REQUIRED": (DiscoveryState.WAITING_FOR_LOGIN, "login required before exploration"),
+        "USER_INTERACTION_REQUIRED": (DiscoveryState.WAITING_FOR_USER_INTERACTION, "user interaction required before exploration"),
+        "BLOCKED": (DiscoveryState.BLOCKED, "provider/account access is blocked"),
+        "UNKNOWN": (DiscoveryState.DIAGNOSTIC_REQUIRED, "session/access state unresolved"),
+    }
+    target, reason = mapping.get(access, (DiscoveryState.EXPLORATION_READY, "baseline captured without mutation"))
+    run.transition(target, reason, "E1")
+
+
+def request_rebaseline(run: DiscoveryRun, reason: str = "access condition changed; re-baseline required") -> None:
+    state = DiscoveryState(run.state)
+    allowed = {DiscoveryState.WAITING_FOR_LOGIN, DiscoveryState.WAITING_FOR_USER_INTERACTION, DiscoveryState.DIAGNOSTIC_REQUIRED, DiscoveryState.BLOCKED}
+    if state not in allowed:
+        raise ValueError("re-baseline is only valid from an access-gated discovery state")
+    run.transition(DiscoveryState.BASELINE_REQUIRED, reason, run.evidence_level)
 
 
 def begin_exploration(run: DiscoveryRun) -> None:

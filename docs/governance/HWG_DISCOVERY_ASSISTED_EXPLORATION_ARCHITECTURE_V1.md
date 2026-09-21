@@ -44,11 +44,11 @@ Every AI-assisted or interactive behavior action must be attributable to a Disco
 
 ## Open implementation gates
 
-- Bind active-provider inventory to AI Router candidates.
-- Add two-stage AI request/approval/execute API and UI.
 - Add behavior-delta summarization and selector-candidate generation.
-- Add WebSocket frame metadata observation with bounded capture where Playwright/provider permits it.
+- Add bounded WebSocket frame-metadata observation where Playwright/provider permits it.
 - Validate the Behavior Lab against at least two provider UIs before marking `HWG-WORK-020` DONE.
+- Integrate the reusable policy router with the broader Gateway routing plane without weakening strict exact-provider semantics.
+- Complete general Discovery certification beyond the scoped DeepSeek self-use transport qualification.
 
 ## Target-provider self-use transport gate
 
@@ -60,4 +60,4 @@ User approval is necessary but is not sufficient for using the provider under in
 - one controlled deterministic round-trip passed with evidence;
 - the qualification matches the current transport fingerprint.
 
-The router fails closed when the qualification is missing, incomplete, stale or AI-derived. A transport/profile/config change invalidates the previous qualification. The controlled qualification round-trip requires explicit human authorization and uses an exact nonce comparison; no semantic AI judgment determines pass/fail.
+The router fails closed when the qualification is missing, incomplete, stale or AI-derived. A transport/profile/config change invalidates the previous qualification. The controlled qualification round-trip is an engineering validation that may run automatically under explicit `automated_validation` authority and uses exact nonce comparison; no semantic AI judgment determines pass/fail. Human control is reserved for separate UX/acceptance/certification objectives, not as a substitute for automated engineering validation.

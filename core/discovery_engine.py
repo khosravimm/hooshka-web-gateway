@@ -62,6 +62,7 @@ class DiscoveryReport:
 
 
 ENDPOINT_RE = re.compile(r"api|v\d|graphql|trpc|stream|sse|socket|completion|conversation|message|chat|invoke|query", re.I)
+STATIC_ASSET_RE = re.compile(r"\.(?:js|mjs|css|svg|png|jpe?g|gif|webp|ico|woff2?|ttf|map)(?:$|\?)", re.I)
 WS_RE = re.compile(r"wss?://[^\s\"']+|/socket\.?io|/ws\b|/websocket|eventsource|text/event-stream", re.I)
 SECRET_KEY_RE = re.compile(r"token|secret|password|cookie|auth|session|credential|api.?key", re.I)
 
@@ -83,6 +84,8 @@ def analyze_backend(signals: dict, home_host: str) -> dict:
             continue
         parsed = urlparse(url)
         haystack = (parsed.path or "/") + ("?" + parsed.query if parsed.query else "")
+        if STATIC_ASSET_RE.search(haystack):
+            continue
         if ENDPOINT_RE.search(haystack):
             path = parsed.path or "/"
             entry = endpoints.setdefault(path, {"path": path, "hits": 0, "methods": []})

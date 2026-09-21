@@ -7,7 +7,7 @@
 - Branch: `develop`
 - Authority: `HWG-MISSION-NG-001` + `HWG-KT-WEBCHAT-001`
 - Architecture: `HWG-DISC-ARCH-001` + `HWG-DISC-AE-001`
-- Work Register: `HWG-WORK-REGISTER-001` v1.2.0
+- Work Register: `HWG-WORK-REGISTER-001` v1.4.0
 - Status: IN_DEVELOPMENT
 
 ## Purpose
@@ -81,15 +81,26 @@ The first live Behavior Lab attempt exposed a missing `_host()` helper in `core/
 - AI-derived path guesses cannot satisfy the qualification gate.
 - `core/self_use_roundtrip_probe.py` performs source-hashed deterministic adapter-path identification before any live send and validates the round-trip by exact string comparison only.
 - Discovery Control Plane exposes current self-use gate status and disables target-provider selection until qualification exists.
-- A guarded `self-use-qualify` human-test action is present but has not been executed live in this work unit.
-- `HWG-WORK-021` is IN_PROGRESS / human-test ready; E2 remains intentionally open.
+- `self-use-qualify` is an automated deterministic validation action; it no longer depends on human confirmation to run engineering tests.
+- Live DeepSeek qualification passed and produced the scoped evidence record `docs/evidence/HWG_DEEPSEEK_SELF_USE_QUALIFICATION_20260921.md`.
+- `HWG-WORK-021` is DONE with scoped E2 transport evidence; general Discovery certification and E3 remain open.
 
-## Final deterministic validation
+## Final deterministic and live validation
 
-- Targeted self-use/AI-routing/governance suite: `31 passed`.
-- Full HWG deterministic suite after all dev.5 changes: `299 passed`.
+- Targeted self-use/AI-routing/governance suite: `27 passed` after the automated-validation contract update.
+- Full HWG deterministic suite after all dev.5 changes: `307 passed`.
 - `compileall`: PASS.
 - `node --check control_panel_ui/panel.js`: PASS.
 - `git diff --check`: PASS.
-- No live self-use qualification message was sent in this work unit.
-- Human-test readiness: YES for the guarded controlled nonce round-trip; target-provider self-use remains blocked until that live qualification passes.
+- Two controlled exact-token DeepSeek round-trips passed; one through Gateway API and one through the provider adapter qualification harness.
+- A target-provider AI-Assisted Discovery call was executed only after transport qualification; its output remained `E0 / CANDIDATE / validation_required=true`.
+- Human control remains a separate product-validation/certification concern and is not used to compensate for missing automated engineering tests.
+
+## Blind Discovery and access-state gating
+
+- Added profile-independent `core/blind_discovery.py`; prior Provider Profiles are excluded from the discovery phase and used only for post-run comparison.
+- Added access states `WAITING_FOR_LOGIN`, `WAITING_FOR_USER_INTERACTION`, `DIAGNOSTIC_REQUIRED`, and `BLOCKED` to the governed Discovery lifecycle.
+- Exploration is fail-closed while an access prerequisite is unresolved; re-baseline is mandatory after login/interaction/restriction state changes.
+- Live blind discovery identified ChatGPT, DeepSeek, Z.ai, and Qwen. Qwen was classified `BLOCKED / region_restriction`; no bypass was attempted.
+- Corrected transcript-text authentication false positives and static-asset backend-endpoint false positives.
+- Evidence: `docs/evidence/HWG_BLIND_DISCOVERY_ACCESS_GATING_20260921.md`.

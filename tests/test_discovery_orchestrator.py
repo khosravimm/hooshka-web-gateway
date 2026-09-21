@@ -85,3 +85,28 @@ def test_e2_pass_requires_explicit_user_confirmation():
     complete_certification(run, True, "evidence/record", True)
     assert run.state == DiscoveryState.CERTIFIED.value
     assert run.evidence_level == "E2"
+
+
+def test_baseline_gates_login_and_requires_rebaseline():
+    from core.discovery_orchestrator import request_rebaseline
+    run = new_run("chatgpt-web", "webchat-standard-v1")
+    attach_research(run, [{"kind":"official","ref":"docs"}])
+    attach_baseline(run, {"runtime":{},"session":{"access_state":"LOGIN_REQUIRED"},"page":{},"account":{}})
+    assert run.state == DiscoveryState.WAITING_FOR_LOGIN.value
+    with pytest.raises(ValueError):
+        begin_exploration(run)
+    request_rebaseline(run)
+    assert run.state == DiscoveryState.BASELINE_REQUIRED.value
+
+
+def test_baseline_routes_interaction_blocked_and_unknown_states():
+    cases = {
+        "USER_INTERACTION_REQUIRED": DiscoveryState.WAITING_FOR_USER_INTERACTION,
+        "BLOCKED": DiscoveryState.BLOCKED,
+        "UNKNOWN": DiscoveryState.DIAGNOSTIC_REQUIRED,
+    }
+    for access, expected in cases.items():
+        run = new_run("probe-web", "webchat-standard-v1")
+        attach_research(run, [{"kind":"official","ref":"docs"}])
+        attach_baseline(run, {"runtime":{},"session":{"access_state":access},"page":{},"account":{}})
+        assert run.state == expected.value

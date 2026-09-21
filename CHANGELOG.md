@@ -1,16 +1,20 @@
 ## 1.0.0-dev.5 - 2026-09-21 - WIP (assisted discovery and governed interaction)
+- Added profile-independent Blind Discovery plus explicit login/user-interaction/block/unknown access gating and mandatory re-baseline before Exploration resumes.
 - Added governed Browser Behavior Lab for bounded hover/focus and explicitly approved non-destructive click observations.
 - Behavior evidence captures target before/after state plus bounded network/WebSocket/SSE metadata; send/submit/destructive/auth-exit/payment-like clicks fail closed.
 - Added approval-gated AI-assisted Discovery. Deterministic probes remain first; AI output is recorded only as E0/CANDIDATE and cannot directly mutate Profile/Account or certify capability.
 - Added policy-based Discovery AI Router with ordered/least-loaded/weighted-load selection, health/capability/cooldown filtering, strict exact routing and no bypass of provider limits/challenges.
 - Work Register upgraded to v1.3.0 with HWG-WORK-018..021 for AI assistance, routing, Browser Behavior Lab and target-provider self-use transport qualification.
 - Added fail-closed target-provider self-use gate: explicit user approval is necessary but insufficient; deterministic send/receive/completion paths plus a successful controlled nonce round-trip must be qualified against the current transport fingerprint.
-- Added versioned Provider Self-Use Transport Qualification schema and guarded human-test action in the Discovery Control Plane.
+- Added versioned Provider Self-Use Transport Qualification schema and automated controlled nonce qualification action in the Discovery Control Plane.
 
 ### Evidence
-- Targeted self-use/assisted-discovery/routing/governance tests: 31 passed before final release validation.
+- Targeted self-use/assisted-discovery/routing/governance tests: 27 passed after the automated-validation contract update.
+- Full deterministic suite: 307 passed; compileall, JavaScript syntax and git diff checks passed.
 - Live read-only DeepSeek hover probe observed DeepThink before/after with unchanged pressed state and 4 network requests; no click or prompt was sent.
-- E2/E3 certification remains open; dev.5 is an in-development baseline, not an RC.
+- DeepSeek target-provider self-use qualification passed two exact-token live round-trips; AI self-analysis was then allowed and remained E0/CANDIDATE.
+- Scoped transport qualification evidence: `docs/evidence/HWG_DEEPSEEK_SELF_USE_QUALIFICATION_20260921.md`.
+- General Discovery E2 certification and E3 reliability remain open; dev.5 is an in-development baseline, not an RC.
 
 ## 1.0.0-dev.4 - 2026-09-21 - WIP (governed operational model)
 - Registered HWG-MISSION-NG-001 and HWG-KT-WEBCHAT-001 as normative governance sources in the canonical repository.

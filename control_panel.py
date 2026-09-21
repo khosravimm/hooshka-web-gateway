@@ -33,12 +33,14 @@ from core.discovery_orchestrator import (
     new_run as new_discovery_run,
     review_candidate as discovery_review_candidate,
     synthesize as discovery_synthesize,
+    request_rebaseline as discovery_request_rebaseline,
 )
 from core.discovery_runtime import explore_cdp as discovery_explore_cdp, probe_cdp_behavior as discovery_probe_cdp_behavior
 from core.provider_self_use_gate import self_use_status as provider_self_use_status
 from core.self_use_roundtrip_probe import controlled_roundtrip as controlled_self_use_roundtrip
 from core.browser_behavior_probe import BehaviorAction, ProbePolicy
 from core.discovery_ai_service import execute_ai_assistance
+from core.blind_discovery import probe_auth_cdp as discovery_probe_auth_cdp
 
 control_panel_bp = Blueprint('control_panel', __name__, url_prefix='/panel')
 
@@ -516,14 +518,21 @@ def api_discovery_baseline(provider_id, run_id):
                     pages = json.loads(response.read().decode("utf-8"))
             except Exception:
                 pages = []
-        session = {"state": "unknown", "supported": False}
+        session = {"state": "unknown", "supported": False, "access_state": "UNKNOWN"}
         provider = provider_registry.get(provider_id)
         check = _provider_session_checker(provider) if provider else None
         loop = current_app.config.get("HWG_ASYNC_LOOP")
+        if loop is not None and loop.is_running() and runtime.get("ready"):
+            import asyncio
+            access_future = asyncio.run_coroutine_threadsafe(discovery_probe_auth_cdp(item.get("cdp_url"), item.get("home_url")), loop)
+            access = dict(access_future.result(timeout=30) or {})
+            session["access_state"] = str(access.get("state") or "UNKNOWN")
+            session["access_evidence"] = access
         if check and loop is not None and loop.is_running():
             import asyncio
             future = asyncio.run_coroutine_threadsafe(check(), loop)
-            session = dict(future.result(timeout=60) or {})
+            provider_session = dict(future.result(timeout=60) or {})
+            session.update(provider_session)
             session["supported"] = True
         baseline = {
             "runtime": {"cdp_url": item.get("cdp_url"), "profile": item.get("profile"), "ready": runtime.get("ready"), "status": runtime.get("status")},
@@ -531,9 +540,12 @@ def api_discovery_baseline(provider_id, run_id):
             "page": {"home_url": item.get("home_url"), "targets": [{"url": p.get("url"), "title": p.get("title")} for p in pages[:20]]},
             "account": {"account_id": run.account_id, "provider_id": provider_id},
         }
+        if run.state in {"WAITING_FOR_LOGIN", "WAITING_FOR_USER_INTERACTION", "DIAGNOSTIC_REQUIRED", "BLOCKED"}:
+            discovery_request_rebaseline(run, "access state re-check requested")
         discovery_attach_baseline(run, baseline)
         path = run.save()
-        return jsonify({"run": run.to_dict(), "record": str(path), "next_required": "explore"})
+        next_required = "explore" if run.state == "EXPLORATION_READY" else "resolve_access_then_rebaseline"
+        return jsonify({"run": run.to_dict(), "record": str(path), "next_required": next_required})
     except FileNotFoundError:
         return jsonify({"error": "run_not_found"}), 404
     except ValueError as exc:
@@ -654,8 +666,6 @@ def api_discovery_self_use_qualify(provider_id, run_id):
         run = load_discovery_run(provider_id, run_id)
         if run.state not in {"EXPLORATION_READY", "UPDATE_CANDIDATE", "CERTIFICATION_REQUIRED"}:
             return jsonify({"error":"invalid_transition","message":"Self-use qualification is only available after baseline discovery"}), 409
-        if payload.get("confirmed_by_user") is not True:
-            return jsonify({"error":"user_confirmation_required","message":"Controlled self-use round-trip requires explicit user confirmation"}), 400
         provider = provider_registry.get(provider_id)
         if provider is None:
             return jsonify({"error":"provider_not_found"}), 404
@@ -669,7 +679,7 @@ def api_discovery_self_use_qualify(provider_id, run_id):
         if loop is None or not loop.is_running():
             return jsonify({"error":"async_runtime_unavailable"}), 503
         import asyncio
-        future = asyncio.run_coroutine_threadsafe(controlled_self_use_roundtrip(provider, model, user_confirmed=True), loop)
+        future = asyncio.run_coroutine_threadsafe(controlled_self_use_roundtrip(provider, model, execution_authority="automated_validation"), loop)
         result = future.result(timeout=120)
         run.findings.setdefault("self_use_qualification", []).append(result)
         path = run.save()

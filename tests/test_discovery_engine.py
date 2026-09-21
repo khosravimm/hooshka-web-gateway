@@ -12,6 +12,7 @@ def test_analyze_backend_filters_foreign_hosts():
     signals = {"resource_urls": [
         "https://chat.z.ai/backend-api/conversation",
         "https://chat.z.ai/static/app.js",
+        "https://chat.z.ai/cdn/assets/_conversation-index.js",
         "https://evil.example.com/api/steal",
         "https://chat.z.ai/sockjs-node",
     ], "stream_hints": ["wss://chat.z.ai/ws"],
@@ -22,6 +23,7 @@ def test_analyze_backend_filters_foreign_hosts():
     assert "/backend-api/conversation" in paths
     assert not any("evil" in p for p in paths)
     assert "/static/app.js" not in paths
+    assert "/cdn/assets/_conversation-index.js" not in paths
     assert be["stream_transports"] == ["wss://chat.z.ai/ws"]
     assert "theme" in be["storage_namespaces"]
     assert not any("token" in k for k in be["storage_namespaces"])

@@ -1,6 +1,6 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "updated_at": "2026-09-21",
   "status_vocabulary": [
     "OPEN",
@@ -440,7 +440,8 @@
         "User architecture direction 2026-09-21"
       ],
       "depends_on": [
-        "HWG-WORK-001"
+        "HWG-WORK-001",
+        "HWG-WORK-021"
       ],
       "target_version": "1.0.0-dev.6",
       "evidence_required": [
@@ -455,8 +456,8 @@
       ],
       "latest_evidence": {
         "date": "2026-09-21",
-        "type": "E1",
-        "result": "Approval-gated AI assistance service/API/UI exists; outputs remain E0/CANDIDATE; live model execution not yet certified."
+        "provider": "deepseek-web",
+        "result": "target-provider self-use blocked until deterministic transport qualification; qualified DeepSeek then produced AI-assisted E0/CANDIDATE analysis"
       }
     },
     {
@@ -525,31 +526,78 @@
       "id": "HWG-WORK-021",
       "title": "Target-provider self-use deterministic transport qualification",
       "area": "discovery",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "priority": "P0",
       "source": [
-        "Owner decision 2026-09-21",
-        "NG-DISC-002/004",
+        "User-controlled Discovery self-use gate",
+        "NG-DISC-004",
         "Playbook commitment/evidence discipline"
       ],
-      "depends_on": [],
+      "depends_on": [
+        "HWG-WORK-017"
+      ],
       "target_version": "1.0.0-dev.5",
       "evidence_required": [
         "E1",
-        "E2"
+        "live_roundtrip"
       ],
       "exit_criteria": [
-        "Self-use requires identified deterministic send path",
-        "Self-use requires identified deterministic receive path",
-        "Self-use requires deterministic completion detection",
-        "Controlled round-trip is tested and evidence-recorded",
-        "Qualification invalidates on transport fingerprint change",
-        "AI router fails closed without current qualification"
+        "Self-use requires deterministic send/receive/completion evidence",
+        "Controlled exact-token roundtrip must pass",
+        "Qualification bound to transport fingerprint",
+        "Permission alone cannot authorize self-use"
+      ],
+      "completed_at": "2026-09-21",
+      "evidence": {
+        "type": [
+          "E1",
+          "live_roundtrip"
+        ],
+        "provider": "deepseek-web",
+        "result": "299-suite baseline before final registration; two exact-token live roundtrips passed; self-use AI call executed only after qualification; output remained E0/CANDIDATE",
+        "evidence_ref": "docs/evidence/HWG_DEEPSEEK_SELF_USE_QUALIFICATION_20260921.md"
+      }
+    },
+    {
+      "id": "HWG-WORK-022",
+      "title": "Profile-independent Blind Discovery and access-state gating",
+      "area": "discovery",
+      "status": "DONE",
+      "priority": "P0",
+      "source": [
+        "HWG-KT-WEBCHAT-001 sections 15,20,21",
+        "User architecture direction 2026-09-21"
+      ],
+      "depends_on": [
+        "HWG-WORK-017"
+      ],
+      "target_version": "1.0.0-dev.5",
+      "evidence_required": [
+        "E1",
+        "live_read_only"
+      ],
+      "exit_criteria": [
+        "Blind discovery identifies provider without reading prior Provider Profiles",
+        "Access classifier distinguishes AUTHENTICATED, LOGIN_REQUIRED, USER_INTERACTION_REQUIRED, BLOCKED and UNKNOWN without transcript-text inference",
+        "Discovery state machine blocks Exploration until access prerequisites are resolved and re-baselined",
+        "Blind results are compared after discovery against prior evidence with MATCH/MISSED/NEW semantics"
       ],
       "latest_evidence": {
         "date": "2026-09-21",
-        "type": "E1",
-        "result": "Self-use gate, transport fingerprint invalidation, deterministic path identification, controlled nonce round-trip harness, AI router fail-closed integration and guarded human-test UI implemented; 31 targeted tests passed. Live round-trip intentionally pending human confirmation."
+        "type": [
+          "E1",
+          "live_read_only"
+        ],
+        "result": "Blind discovery identified ChatGPT, DeepSeek, Z.ai and Qwen from live pages; Qwen region restriction classified BLOCKED; Z.ai prior-profile comparison recovered model selector and 9 current endpoints; login/challenge transcript false-positive and static-asset backend false-positive were corrected."
+      },
+      "completed_at": "2026-09-21",
+      "evidence": {
+        "type": [
+          "E1",
+          "live_read_only"
+        ],
+        "result": "307-test baseline after access-state integration; blind live run identified all four provider pages, classified Qwen BLOCKED/region_restriction, and compared Z.ai blind findings against prior discovery with MATCH/MISSED/NEW semantics.",
+        "record": "docs/evidence/HWG_BLIND_DISCOVERY_ACCESS_GATING_20260921.md"
       }
     }
   ]
