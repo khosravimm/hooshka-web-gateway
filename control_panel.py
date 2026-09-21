@@ -714,11 +714,49 @@ def api_discovery_certification_start(provider_id, run_id):
         run = load_discovery_run(provider_id, run_id)
         discovery_begin_certification(run)
         path = run.save()
-        return jsonify({"run": run.to_dict(), "record": str(path), "next_required": "interactive_user_verification"})
+        return jsonify({"run": run.to_dict(), "record": str(path), "next_required": "automated_or_interactive_certification"})
     except FileNotFoundError:
         return jsonify({"error": "run_not_found"}), 404
     except ValueError as exc:
         return jsonify({"error": "invalid_transition", "message": str(exc)}), 409
+
+
+@control_panel_bp.route('/api/discovery/runs/<provider_id>/<run_id>/certification/auto', methods=['POST'])
+def api_discovery_certification_auto(provider_id, run_id):
+    payload = request.get_json(silent=True) or {}
+    try:
+        run = load_discovery_run(provider_id, run_id)
+        if run.state == "CERTIFICATION_REQUIRED":
+            discovery_begin_certification(run)
+        elif run.state != "CERTIFYING":
+            return jsonify({"error":"invalid_transition","message":"Automated certification requires CERTIFICATION_REQUIRED or CERTIFYING"}), 409
+        provider = provider_registry.get(provider_id)
+        if provider is None:
+            return jsonify({"error":"provider_not_found"}), 404
+        model = str(payload.get("model") or (provider.config.config or {}).get("default_model") or "").strip()
+        if not model:
+            models = list(getattr(provider.capabilities, "supported_models", []) or [])
+            model = str(models[0]) if models else ""
+        if not model:
+            return jsonify({"error":"model_required"}), 400
+        loop = current_app.config.get("HWG_ASYNC_LOOP")
+        if loop is None or not loop.is_running():
+            return jsonify({"error":"async_runtime_unavailable"}), 503
+        import asyncio
+        future = asyncio.run_coroutine_threadsafe(controlled_self_use_roundtrip(provider, model, execution_authority="automated_validation"), loop)
+        result = future.result(timeout=120)
+        evidence_record = str(result.get("record_path") or "")
+        discovery_complete_certification(run, bool(result.get("passed") and result.get("allowed")), evidence_record, False, "automated_validation")
+        run.findings.setdefault("automated_certification_probe", []).append(result)
+        path = run.save()
+        return jsonify({"run":run.to_dict(),"record":str(path),"probe":result}), (200 if run.state == "CERTIFIED" else 409)
+    except FileNotFoundError:
+        return jsonify({"error":"run_not_found"}), 404
+    except (PermissionError, ValueError) as exc:
+        return jsonify({"error":"automated_certification_blocked","message":str(exc)}), 409
+    except Exception as exc:
+        logger.warning("Automated Discovery certification failed for %s", provider_id, exc_info=True)
+        return jsonify({"error":"automated_certification_failed","message":type(exc).__name__}), 502
 
 
 @control_panel_bp.route('/api/discovery/runs/<provider_id>/<run_id>/certification/complete', methods=['POST'])
@@ -731,7 +769,7 @@ def api_discovery_certification_complete(provider_id, run_id):
         confirmed = payload.get("confirmed_by_user") is True
         if passed and not evidence_record:
             return jsonify({"error": "evidence_required", "message": "Passing E2 certification requires an evidence record"}), 400
-        discovery_complete_certification(run, passed, evidence_record, confirmed)
+        discovery_complete_certification(run, passed, evidence_record, confirmed, "interactive_validation")
         path = run.save()
         return jsonify({"run": run.to_dict(), "record": str(path)})
     except FileNotFoundError:

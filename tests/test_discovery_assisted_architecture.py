@@ -45,7 +45,7 @@ def test_work_register_tracks_assisted_discovery_and_routing():
     doc=_json('docs/governance/HWG_REMAINING_WORK_REGISTER.json')
     ids={x['id'] for x in doc['items']}
     assert {'HWG-WORK-018','HWG-WORK-019','HWG-WORK-020','HWG-WORK-021','HWG-WORK-022'}.issubset(ids)
-    assert doc['version']=='1.4.0'
+    assert doc['version']=='1.5.0'
 
 
 def test_target_provider_self_use_policy_requires_deterministic_transport_qualification():
@@ -83,3 +83,13 @@ def test_control_plane_surfaces_access_gated_discovery_states():
         assert state in js
     assert 'بررسی مجدد وضعیت دسترسی' in js
     assert 'resolve_access_then_rebaseline' in Path('control_panel.py').read_text(encoding='utf-8-sig')
+
+
+def test_control_plane_exposes_automated_e2_certification_path():
+    src=Path('control_panel.py').read_text(encoding='utf-8-sig')
+    js=Path('control_panel_ui/panel.js').read_text(encoding='utf-8-sig')
+    assert '/certification/auto' in src
+    assert 'controlled_self_use_roundtrip' in src
+    assert 'execution_authority="automated_validation"' in src
+    assert 'اجرای Certification خودکار / E2' in js
+    assert "endpoint = 'certification/auto'" in js

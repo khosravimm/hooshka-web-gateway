@@ -1,6 +1,6 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "updated_at": "2026-09-21",
   "status_vocabulary": [
     "OPEN",
@@ -21,7 +21,7 @@
       "id": "HWG-WORK-001",
       "title": "Discovery Engine Control Plane and live probe integration",
       "area": "discovery",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "priority": "P0",
       "source": [
         "NG-DISC-001..005"
@@ -46,6 +46,17 @@
         "provider": "deepseek-web",
         "type": "live_read_only",
         "result": "composer + thinking/search controls detected; 7 backend endpoints observed; governed run workflow includes Research/Baseline/Exploration/Review/Certification gates"
+      },
+      "completed_at": "2026-09-22",
+      "evidence": {
+        "type": [
+          "E1",
+          "E2"
+        ],
+        "provider": "deepseek-web",
+        "run_id": "33f08b91-9fca-4d04-84d9-61d7a78b65f0",
+        "result": "Governed Research->Baseline->Exploration->Candidate Review->Automated Certification completed CERTIFIED/E2 with exact-token round-trip.",
+        "record": "docs/evidence/HWG_DISCOVERY_ENGINE_E2_20260922.md"
       }
     },
     {
@@ -494,7 +505,7 @@
       "id": "HWG-WORK-020",
       "title": "Interactive Browser Behavior Lab for Discovery",
       "area": "discovery",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "priority": "P0",
       "source": [
         "NG-DISC-002/003",
@@ -520,6 +531,15 @@
         ],
         "provider": "deepseek-web",
         "result": "Behavior Lab hover on .ds-toggle-button observed DeepThink before/after with unchanged pressed=false state; 4 network requests captured; 0 websocket/SSE; no click or prompt sent."
+      },
+      "completed_at": "2026-09-22",
+      "evidence": {
+        "type": [
+          "E1",
+          "live_read_only"
+        ],
+        "result": "Behavior Lab validated on DeepSeek and Z.ai. Z.ai historical GLM-5.3 selector drifted; fresh discovery found GLM-5.2 selector and hover captured before/after state without side effects.",
+        "record": "docs/evidence/HWG_DISCOVERY_ENGINE_E2_20260922.md"
       }
     },
     {
@@ -598,6 +618,31 @@
         ],
         "result": "307-test baseline after access-state integration; blind live run identified all four provider pages, classified Qwen BLOCKED/region_restriction, and compared Z.ai blind findings against prior discovery with MATCH/MISSED/NEW semantics.",
         "record": "docs/evidence/HWG_BLIND_DISCOVERY_ACCESS_GATING_20260921.md"
+      }
+    },
+    {
+      "id": "HWG-WORK-023",
+      "title": "Eliminate Windows asyncio/Proactor cleanup warnings after live browser/provider runs",
+      "area": "runtime",
+      "status": "OPEN",
+      "priority": "P2",
+      "source": [
+        "Live Discovery E2 run 2026-09-22"
+      ],
+      "depends_on": [],
+      "target_version": "1.0.0-dev.6",
+      "evidence_required": [
+        "E1",
+        "live_runtime"
+      ],
+      "exit_criteria": [
+        "Repeated governed provider/browser runs exit without ignored transport destructor warnings",
+        "No runtime/browser resource is leaked when event loop closes"
+      ],
+      "latest_evidence": {
+        "date": "2026-09-22",
+        "type": "live_runtime",
+        "result": "CERTIFIED/E2 run succeeded but emitted ignored Proactor/asyncio transport destructor warnings during interpreter shutdown."
       }
     }
   ]

@@ -72,19 +72,27 @@ def test_candidate_review_accepts_only_explicit_decisions():
     assert run.candidate["status"] == "ACCEPT"
 
 
-def test_e2_pass_requires_explicit_user_confirmation():
+def test_interactive_e2_requires_user_confirmation():
     run = new_run("chatgpt-web", "webchat-standard-v1")
     attach_research(run, [{"kind": "official", "ref": "docs"}])
     attach_baseline(run, {"runtime": {}, "session": {}, "page": {}, "account": {}})
-    begin_exploration(run)
-    attach_exploration(run, {"frontend": {}, "backend": {}}, [])
-    synthesize(run)
-    begin_certification(run)
+    begin_exploration(run); attach_exploration(run, {"frontend": {}, "backend": {}}, []); synthesize(run); begin_certification(run)
     with pytest.raises(ValueError):
-        complete_certification(run, True, "evidence/record", False)
-    complete_certification(run, True, "evidence/record", True)
+        complete_certification(run, True, "evidence/record", False, "interactive_validation")
+    complete_certification(run, True, "evidence/record", True, "interactive_validation")
+    assert run.state == DiscoveryState.CERTIFIED.value and run.evidence_level == "E2"
+
+
+def test_automated_e2_requires_evidence_but_not_human_confirmation():
+    run = new_run("deepseek-web", "webchat-standard-v1")
+    attach_research(run, [{"kind": "official", "ref": "docs"}])
+    attach_baseline(run, {"runtime": {}, "session": {}, "page": {}, "account": {}})
+    begin_exploration(run); attach_exploration(run, {"frontend": {}, "backend": {}}, []); synthesize(run); begin_certification(run)
+    with pytest.raises(ValueError):
+        complete_certification(run, True, "", False, "automated_validation")
+    complete_certification(run, True, "evidence/auto", False, "automated_validation")
     assert run.state == DiscoveryState.CERTIFIED.value
-    assert run.evidence_level == "E2"
+    assert run.findings["certification"]["execution_authority"] == "automated_validation"
 
 
 def test_baseline_gates_login_and_requires_rebaseline():

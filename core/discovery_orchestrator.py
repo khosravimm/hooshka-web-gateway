@@ -202,14 +202,19 @@ def begin_certification(run: DiscoveryRun) -> None:
     run.transition(DiscoveryState.CERTIFYING, "interactive certification started", run.evidence_level)
 
 
-def complete_certification(run: DiscoveryRun, passed: bool, evidence_record: str, confirmed_by_user: bool) -> None:
+def complete_certification(run: DiscoveryRun, passed: bool, evidence_record: str, confirmed_by_user: bool = False, execution_authority: str = "interactive_validation") -> None:
     if DiscoveryState(run.state) is not DiscoveryState.CERTIFYING:
         raise ValueError("certification completion requires CERTIFYING state")
-    if passed and not confirmed_by_user:
-        raise ValueError("E2 certification pass requires explicit user confirmation")
+    if execution_authority not in {"automated_validation", "interactive_validation"}:
+        raise ValueError("certification execution authority is invalid")
+    if passed and execution_authority == "interactive_validation" and not confirmed_by_user:
+        raise ValueError("interactive E2 certification pass requires explicit user confirmation")
+    if passed and not evidence_record:
+        raise ValueError("E2 certification pass requires an evidence record")
     run.findings["certification"] = {
         "passed": bool(passed),
         "evidence_record": evidence_record,
+        "execution_authority": execution_authority,
         "confirmed_by_user": bool(confirmed_by_user),
     }
     if passed:
