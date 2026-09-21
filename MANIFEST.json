@@ -1,9 +1,9 @@
 {
   "name": "hwg-next",
-  "version": "1.0.0-dev.5",
+  "version": "1.0.0-dev.6",
   "canonical_id": "hooshka-web-gateway-next",
   "release_channel": "dev",
-  "build_date": "2026-09-21",
+  "build_date": "2026-09-22",
   "status": "IN_DEVELOPMENT",
   "port": 5080,
   "parents": [
@@ -43,6 +43,13 @@
       "tests": 316,
       "evidence": "docs/governance/HWG_1.0.0-dev.5_CHANGE_RECORD_20260921.md",
       "scope": "assisted discovery, behavior lab, AI routing, self-use transport gate, version/history deterministic validation"
+    },
+    "e1_dev6": {
+      "status": "PASS",
+      "date": "2026-09-22",
+      "tests": 321,
+      "evidence": "docs/governance/HWG_1.0.0-dev.6_CHANGE_RECORD_20260922.md",
+      "scope": "relationship-driven runtime grouping, governed provider provisioning, version/history and deterministic validation"
     }
   },
   "docs": {
@@ -64,7 +71,8 @@
     "blind_discovery_evidence": "docs/evidence/HWG_BLIND_DISCOVERY_ACCESS_GATING_20260921.md",
     "dev5_continuation_record": "docs/governance/HWG_1.0.0-dev.5_CONTINUATION_RECORD_20260922.md",
     "discovery_e2_evidence": "docs/evidence/HWG_DISCOVERY_ENGINE_E2_20260922.md",
-    "profile_account_persistence_evidence": "docs/evidence/HWG_PROFILE_ACCOUNT_PERSISTENCE_20260922.md"
+    "profile_account_persistence_evidence": "docs/evidence/HWG_PROFILE_ACCOUNT_PERSISTENCE_20260922.md",
+    "dev6_change_record": "docs/governance/HWG_1.0.0-dev.6_CHANGE_RECORD_20260922.md"
   },
   "contracts": {
     "provider_profile_schema": "urn:hwg:schema:provider-profile:1.0.0",
@@ -73,9 +81,9 @@
     "discovery_ai_policy": "discovery/policies/ai-assistance-v1.json",
     "discovery_routing_policy": "discovery/policies/routing-v1.json",
     "provider_self_use_schema": "urn:hwg:schema:provider-self-use-qualification:1.0.0",
-    "work_register": "HWG-WORK-REGISTER-001@1.6.0"
+    "work_register": "HWG-WORK-REGISTER-001@1.8.0"
   },
   "evidence": {
-    "full_suite": "318 passed"
+    "full_suite": "321 passed"
   }
 }

@@ -813,6 +813,7 @@ def _browser_runtime_groups():
         key = f"{cdp}|{profile}"
         group = groups.setdefault(key, {
             "runtime_id": f"browser-{len(groups)+1}",
+            "runtime_key": key,
             "cdp_url": cdp, "port": item.get("port"), "profile": profile,
             "providers": [],
         })
@@ -1029,41 +1030,74 @@ def api_meta():
     return jsonify(_get_panel_meta())
 
 
+SUPPORTED_BROWSER_PROVIDER_TYPES = {
+    "chatgpt_web": {"home_url": "https://chatgpt.com/", "label": "ChatGPT Web"},
+    "qwen_web": {"home_url": "https://chat.qwen.ai/", "label": "Qwen Web"},
+    "zai_web": {"home_url": "https://chat.z.ai/", "label": "Z.ai Web"},
+    "deepseek_web": {"home_url": "https://chat.deepseek.com/", "label": "DeepSeek Web"},
+}
+
+def _browser_runtime_by_key(runtime_key):
+    for group in _browser_runtime_groups():
+        if group.get("runtime_key") == runtime_key:
+            return group
+    return None
+
+def _provider_adapter_config(provider_type, runtime, home_url):
+    cdp = str(runtime.get("cdp_url") or "").strip()
+    profile = str(runtime.get("profile") or "").strip()
+    base = {"cdp_url": cdp, "require_authenticated": True}
+    if provider_type == "chatgpt_web":
+        base.update({"chatgpt_url": home_url.rstrip('/'), "adapter": "dom"})
+    elif provider_type == "qwen_web":
+        base.update({"profile_dir": profile, "transport_mode": "browser_controller"})
+    elif provider_type == "zai_web":
+        base.update({"profile_dir": profile, "base_url": home_url.rstrip('/'), "transport_mode": "browser_ui_capture"})
+    elif provider_type == "deepseek_web":
+        base.update({"base_url": home_url, "transport_mode": "browser_ui"})
+    return base
+
 @control_panel_bp.route('/api/providers', methods=['GET', 'POST'])
 def api_providers():
     if request.method == 'GET':
         providers = provider_registry.list_providers(enabled_only=False)
         return jsonify({"providers": [_provider_payload(p) for p in providers]})
 
-    # POST: add new provider
+    # POST: create a governed provider definition bound to an existing Browser Runtime.
     data = request.get_json(force=True) or {}
-    provider_id = str(data.get("id", "")).strip()
-    provider_type = data.get("type", "")
-    if not provider_id or not provider_type:
-        return jsonify({"error": "id and type are required"}), 400
-    config = data.get("config", {})
-    config = dict(config) if config else {}
-    # Validate required runtime fields for browser providers
-    runtime = config.get("runtime", {})
-    home_url = config.get("home_url", "https://chatgpt.com/")
-    if provider_type in ("chatgpt_web", "zai_web", "deepseek_web", "qwen_web"):
-        if not runtime.get("cdp_url"):
-            runtime["cdp_url"] = "http://127.0.0.1:9330"
-        if not runtime.get("profile_dir"):
-            runtime["profile_dir"] = ".runtime-dev/shared-profile"
-        if not runtime.get("home_url"):
-            runtime["home_url"] = home_url
-        config["runtime"] = runtime
+    provider_id = str(data.get("id") or "").strip()
+    provider_type = str(data.get("type") or "").strip()
+    runtime_key = str(data.get("runtime_key") or "").strip()
+    if not provider_id or provider_type not in SUPPORTED_BROWSER_PROVIDER_TYPES:
+        return jsonify({"error": "valid id and supported provider type are required"}), 400
+    if not re.fullmatch(r"[a-z0-9][a-z0-9._-]{1,63}", provider_id):
+        return jsonify({"error": "provider id must use lowercase letters, digits, dot, dash or underscore"}), 400
+    runtime = _browser_runtime_by_key(runtime_key) if runtime_key else None
+    if runtime is None:
+        return jsonify({"error": "existing browser runtime selection is required"}), 400
+    priority = int(data.get("priority", 50))
+    if priority < 1 or priority > 100:
+        return jsonify({"error": "priority must be between 1 and 100"}), 400
+    spec = SUPPORTED_BROWSER_PROVIDER_TYPES[provider_type]
+    home_url = str(data.get("home_url") or spec["home_url"]).strip()
+    runtime_doc = {
+        "kind": "chrome_cdp",
+        "cdp_url": runtime.get("cdp_url"),
+        "profile_dir": runtime.get("profile"),
+        "home_url": home_url,
+        "label": f"HWG-NG-{spec['label'].replace(' ', '-')}",
+    }
+    adapter_config = _provider_adapter_config(provider_type, runtime, home_url)
     new_provider = {
         "id": provider_id,
         "type": provider_type,
-        "enabled": bool(data.get("enabled", True)),
-        "priority": int(data.get("priority", 50)),
-        "config": config,
-        "feature_defaults": data.get("feature_defaults", {"thinking": False, "search": False}),
-        "feature_controls": data.get("feature_controls", {"thinking": False, "search": False}),
+        "enabled": False,
+        "priority": priority,
+        "runtime": runtime_doc,
+        "config": adapter_config,
+        "feature_defaults": {"thinking": False, "search": False},
+        "feature_controls": {"thinking": False, "search": False},
     }
-    # Append to config.yaml
     cfg = _load_config_file()
     providers_list = cfg.setdefault("providers", [])
     if any(p.get("id") == provider_id for p in providers_list):
@@ -1073,9 +1107,12 @@ def api_providers():
     _sync_auth_keys()
     try:
         restart = _schedule_restart_all(f"provider-added:{provider_id}")
-    except Exception as e:
-        restart = {"scheduled": False, "error": str(e), "warning": "Config saved but restart not scheduled"}
-    return jsonify({"success": True, "provider": new_provider, "restart": restart}), 201
+    except Exception as exc:
+        restart = {"scheduled": False, "error": str(exc), "warning": "Config saved but restart not scheduled"}
+    return jsonify({
+        "success": True, "provider": new_provider, "restart": restart,
+        "next_required": "login_discovery_certification_before_enable"
+    }), 201
 
 
 @control_panel_bp.route('/api/providers/<provider_id>', methods=['DELETE'])

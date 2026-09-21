@@ -1,6 +1,6 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "updated_at": "2026-09-21",
   "status_vocabulary": [
     "OPEN",
@@ -90,8 +90,8 @@
       ],
       "latest_evidence": {
         "date": "2026-09-22",
-        "type": "architecture_history_review",
-        "result": "Historical review confirmed shared_browser/shared-profile was introduced deliberately to satisfy owner requirement for one browser window with provider tabs; simple return to one Chrome per provider would violate that UX requirement. ADR-003 notes different-origin tabs can share one Chrome profile, while same-provider multi-account isolation cannot be guaranteed in stock Chrome."
+        "type": "E1_control_plane_relationship",
+        "result": "Browser Runtime UI is grouped by CDP+Profile with Provider tabs as children; Add Provider is now a governed 3-step workflow (definition -> existing Browser Runtime -> review/save), raw CDP/Profile inputs were removed, canonical top-level runtime is persisted, adapter config is derived, and new Providers are forced disabled pending Login/Discovery/Certification."
       }
     },
     {
@@ -193,7 +193,12 @@
         "Accounts/Profiles/Runtimes/Discovery workspaces are distinct",
         "Parent-child relationships and sequence are visible",
         "Admin actions show progress/state/verification"
-      ]
+      ],
+      "latest_evidence": {
+        "date": "2026-09-22",
+        "type": "E1_control_plane_relationship",
+        "result": "Browser Runtime UI is grouped by CDP+Profile with Provider tabs as children; Add Provider is now a governed 3-step workflow (definition -> existing Browser Runtime -> review/save), raw CDP/Profile inputs were removed, canonical top-level runtime is persisted, adapter config is derived, and new Providers are forced disabled pending Login/Discovery/Certification."
+      }
     },
     {
       "id": "HWG-WORK-007",

@@ -1,3 +1,18 @@
+## 1.0.0-dev.6 - 2026-09-22 - WIP (relationship-driven Control Plane)
+- Grouped Browser Runtime cards by CDP + Browser Profile and rendered Providers as child tabs instead of duplicate runtime cards.
+- Preserved the single-window/multi-tab architecture intent while separating Browser/CDP readiness from Runtime Agent and Login readiness.
+- Replaced the raw Add Provider config form with a three-stage Provider Definition → Browser Runtime → Review/Save workflow.
+- Removed free-text Provider type, raw CDP URL and raw Profile Directory inputs from Provider creation.
+- Fixed Provider creation to persist canonical top-level `runtime` and derive Adapter config from the selected existing Browser Runtime.
+- Removed hidden default attachment to `shared-profile`; Provider creation now requires an explicit existing Browser Runtime selection.
+- New Providers are forced disabled until Login, Discovery and Certification complete.
+- Work Register advanced to v1.8.0 with relationship-redesign evidence for HWG-WORK-002 and HWG-WORK-006.
+
+### Evidence
+- Targeted Provider provisioning / Browser Runtime grouping / Profile management tests passed.
+- Full-suite result is recorded in MANIFEST and this change record after final validation.
+- The running 5080 instance is still an older checkout and is not claimed as dev.6 E2 deployment yet.
+
 ## 1.0.0-dev.5 - 2026-09-21 - WIP (assisted discovery and governed interaction)
 - Added persistent non-secret Provider Profile / Account Instance store with versioned artifacts, source hashes, change logs, guarded migration, and hash-safe rollback; legacy config projection is fallback-only after migration.
 - Added automated governed Discovery certification: a real deterministic provider round-trip can promote a run to scoped E2 without waiting for human acceptance; human observation remains a separate path.

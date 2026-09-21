@@ -162,25 +162,27 @@
 
     <section class="panel" id="panel-provider-form">
       <div class="card-head">
-        <div><h3 class="card-title">افزودن/ویرایش پراوایدر</h3></div>
+        <div><h3 class="card-title">افزودن Provider</h3><p class="hint">Provider را تعریف کنید، سپس آن را به یک Browser Runtime موجود متصل کنید. فعال‌سازی عملیاتی بعد از Login/Discovery/Certification انجام می‌شود.</p></div>
         <button id="btn-close-provider-form" class="btn ghost btn-sm" type="button">بستن</button>
       </div>
       <div id="provider-form-status" class="status-line"></div>
-      <div class="grid-2">
-        <div class="card">
-          <label class="field">شناسه<input id="pf-id" class="ctrl" type="text" placeholder="کد شناسایی یکتا"></label>
-          <label class="field">نوع پراوایدر<input id="pf-type" class="ctrl" type="text" placeholder="chatgpt_web / zai_web / deepseek_web / qwen_web"></label>
+      <div class="provider-provision-flow">
+        <div class="card provision-step"><span class="step-no">۱</span><h3 class="card-title">تعریف Provider</h3>
+          <label class="field">نوع Provider<select id="pf-type" class="ctrl"><option value="">انتخاب کنید…</option><option value="chatgpt_web">ChatGPT Web</option><option value="deepseek_web">DeepSeek Web</option><option value="zai_web">Z.ai Web</option><option value="qwen_web">Qwen Web</option></select></label>
+          <label class="field">شناسه<input id="pf-id" class="ctrl ltr" type="text" placeholder="مثال: deepseek-office"></label>
           <label class="field">اولویت<input id="pf-priority" class="ctrl" type="number" min="1" max="100" value="50"></label>
-          <label class="check"><input type="checkbox" id="pf-enabled" checked><span>فعال</span></label>
+          <div class="dependency-note">Provider جدید همیشه غیرفعال ثبت می‌شود. فعال‌سازی فقط پس از Login، Discovery و Certification انجام می‌شود.</div>
         </div>
-        <div class="card">
-          <label class="field">CDP URL<input id="pf-cdp" class="ctrl ltr" type="text" value="http://127.0.0.1:9330"></label>
-          <label class="field">پروفایل دایرکتوری<input id="pf-profile" class="ctrl" type="text" value=".runtime-dev/shared-profile"></label>
-          <label class="field">URL اصلی<input id="pf-homeurl" class="ctrl" type="text" placeholder="https://chatgpt.com/"></label>
-          <div class="btn-row">
-            <button id="pf-save" class="btn primary btn-sm" type="button">ذخیره</button>
-            <button id="pf-cancel" class="btn ghost btn-sm" type="button">انصراف</button>
-          </div>
+        <div class="card provision-step"><span class="step-no">۲</span><h3 class="card-title">اتصال به Browser Runtime</h3>
+          <label class="field">Browser Runtime<select id="pf-runtime" class="ctrl ltr"><option value="">در حال بارگذاری…</option></select></label>
+          <div id="pf-runtime-summary" class="relationship-preview"></div>
+          <label class="field">Home URL<input id="pf-homeurl" class="ctrl ltr" type="url" placeholder="پس از انتخاب نوع Provider تکمیل می‌شود"></label>
+          <p class="hint">CDP و Profile به‌صورت دستی وارد نمی‌شوند؛ از Runtime انتخاب‌شده خوانده می‌شوند تا رابطه Browser/Profile ناسازگار ایجاد نشود.</p>
+        </div>
+        <div class="card provision-step"><span class="step-no">۳</span><h3 class="card-title">مرور و ثبت</h3>
+          <div id="pf-relationship-preview" class="relationship-preview"><span class="hint">نوع Provider و Browser Runtime را انتخاب کنید.</span></div>
+          <div class="dependency-note">مسیر بعد از ثبت: Provider غیرفعال → Login/Session → Discovery → Certification → Enable & Test.</div>
+          <div class="btn-row mt"><button id="pf-save" class="btn primary" type="button">ثبت Provider</button><button id="pf-cancel" class="btn ghost" type="button">انصراف</button></div>
         </div>
       </div>
     </section>

@@ -5,6 +5,7 @@
     overview: 'وضعیت کلی',
     runtimes: 'مرورگر و اتصال',
     providers: 'فراهم‌کننده‌ها',
+    'provider-form': 'افزودن Provider',
     models: 'مدل‌ها و قابلیت‌ها',
     discovery: 'کاوش و گواهی',
     chat: 'چت تعاملی',
@@ -632,6 +633,44 @@ function initNav() {
     }
   };
 
+  const PROVIDER_FORM_DEFAULTS = {
+    chatgpt_web: { id: 'chatgpt-web', home: 'https://chatgpt.com/' },
+    deepseek_web: { id: 'deepseek-web', home: 'https://chat.deepseek.com/' },
+    zai_web: { id: 'zai-web', home: 'https://chat.z.ai/' },
+    qwen_web: { id: 'qwen-web', home: 'https://chat.qwen.ai/' },
+  };
+
+  async function loadProviderForm() {
+    setStatus($('#provider-form-status'), '', '');
+    try {
+      const data = await api('/browser-runtimes');
+      window.__hwgProviderFormRuntimes = data.browser_runtimes || [];
+      const sel = $('#pf-runtime');
+      sel.innerHTML = '<option value="">Browser Runtime را انتخاب کنید…</option>' + window.__hwgProviderFormRuntimes.map(r => {
+        const profile = (r.profile || '').split(/[\\/]/).filter(Boolean).pop() || '-';
+        return `<option value="${r.runtime_key}">${r.port || '-'} · ${profile} · ${r.provider_count || 0} Tab</option>`;
+      }).join('');
+      updateProviderProvisionPreview();
+    } catch (e) {
+      setStatus($('#provider-form-status'), 'بارگذاری Browser Runtimeها شکست خورد: ' + e.message, 'err');
+    }
+  }
+
+  function updateProviderProvisionPreview() {
+    const type = $('#pf-type')?.value || '';
+    const spec = PROVIDER_FORM_DEFAULTS[type];
+    if (spec && !($('#pf-homeurl').value || '').trim()) $('#pf-homeurl').value = spec.home;
+    const runtimeKey = $('#pf-runtime')?.value || '';
+    const runtime = (window.__hwgProviderFormRuntimes || []).find(r => r.runtime_key === runtimeKey);
+    const summary = $('#pf-runtime-summary');
+    if (summary) summary.innerHTML = runtime ? `<div class="kv"><span>CDP</span><b class="ltr">${runtime.cdp_url}</b><span>Profile</span><b class="ltr">${runtime.profile || '-'}</b><span>Provider/Tab فعلی</span><b>${runtime.provider_count || 0}</b></div>` : '<span class="hint">هنوز Browser Runtime انتخاب نشده است.</span>';
+    const preview = $('#pf-relationship-preview');
+    if (preview) {
+      const id = ($('#pf-id')?.value || '').trim() || 'Provider';
+      preview.innerHTML = type && runtime ? `<div class="relationship-chain"><b class="ltr">${id}</b><span>→</span><b>${runtime.shared ? 'Browser Runtime مشترک' : 'Browser Runtime'}</b><span>→</span><b class="ltr">${(runtime.profile || '').split(/[\\/]/).filter(Boolean).pop() || '-'}</b><span>→</span><b class="ltr">${($('#pf-homeurl').value || spec?.home || '-')}</b></div>` : '<span class="hint">نوع Provider و Browser Runtime را انتخاب کنید.</span>';
+    }
+  }
+
   /* ---------------- Models & Capabilities ---------------- */
   async function loadModelsTab() {
     try {
@@ -1147,43 +1186,42 @@ function initNav() {
     $('#svc-restart').addEventListener('click', () => serviceAction('restart'));
 
     // Provider form handlers
-    $('#btn-add-provider').addEventListener('click', () => showPanel('provider-form'));
+    $('#btn-add-provider').addEventListener('click', async () => { showPanel('provider-form'); await loadProviderForm(); });
     $('#btn-close-provider-form').addEventListener('click', () => showPanel('providers'));
     $('#pf-cancel').addEventListener('click', () => showPanel('providers'));
 
+    $('#pf-type').addEventListener('change', () => {
+      const spec = PROVIDER_FORM_DEFAULTS[$('#pf-type').value];
+      if (spec) {
+        if (!$('#pf-id').value.trim()) $('#pf-id').value = spec.id;
+        $('#pf-homeurl').value = spec.home;
+      }
+      updateProviderProvisionPreview();
+    });
+    $('#pf-runtime').addEventListener('change', updateProviderProvisionPreview);
+    $('#pf-id').addEventListener('input', updateProviderProvisionPreview);
+    $('#pf-homeurl').addEventListener('input', updateProviderProvisionPreview);
+
     $('#pf-save').addEventListener('click', async () => {
       const status = $('#provider-form-status');
-      setStatus(status, 'در حال ذخیره...', 'working');
       const data = {
         id: $('#pf-id').value.trim(),
         type: $('#pf-type').value.trim(),
+        runtime_key: $('#pf-runtime').value,
+        home_url: $('#pf-homeurl').value.trim(),
         priority: parseInt($('#pf-priority').value, 10) || 50,
-        enabled: $('#pf-enabled').checked,
-        config: {
-          runtime: {
-            cdp_url: $('#pf-cdp').value.trim(),
-            profile_dir: $('#pf-profile').value.trim(),
-            home_url: $('#pf-homeurl').value.trim(),
-          }
-        }
       };
-      if (!data.id || !data.type) {
-        setStatus(status, 'شناسه و نوع پراوایدر الزامی است', 'err');
+      if (!data.id || !data.type || !data.runtime_key) {
+        setStatus(status, 'نوع Provider، شناسه و Browser Runtime الزامی هستند.', 'err');
         return;
       }
+      setStatus(status, 'در حال ثبت Provider و رابطه Runtime...', 'working');
       try {
-        const r = await api('/providers', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        });
-        if (r.success) {
-          toast('پراوایدر اضافه شد (نیاز به ری‌استارت)', 'ok');
-          showPanel('providers');
-          loadProviders();
-        } else {
-          setStatus(status, r.error || 'خطا در ذخیره', 'err');
-        }
+        const r = await api('/providers', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+        if (!r.success) throw new Error(r.error || 'ذخیره ناموفق');
+        toast('Provider ثبت شد؛ مرحله بعد Login/Discovery/Certification است.', 'ok');
+        showPanel('providers');
+        await loadProviders();
       } catch (e) {
         setStatus(status, 'خطا: ' + e.message, 'err');
       }

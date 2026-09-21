@@ -320,3 +320,10 @@ input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent);
 @media (max-width: 900px) {
   .runtime-child-row { grid-template-columns:1fr; }
 }
+
+.provider-provision-flow { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; align-items:start; }
+.provision-step { position:relative; min-height:100%; }
+.step-no { display:inline-flex; width:28px; height:28px; border-radius:50%; align-items:center; justify-content:center; font-weight:700; background:var(--panel-2); border:1px solid var(--border); margin-left:8px; }
+.relationship-preview { margin-top:10px; padding:12px; border:1px dashed var(--border); border-radius:10px; background:var(--panel-2); min-height:52px; }
+.relationship-chain { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+@media (max-width: 1100px) { .provider-provision-flow { grid-template-columns:1fr; } }
