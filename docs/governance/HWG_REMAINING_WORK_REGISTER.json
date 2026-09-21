@@ -1,6 +1,6 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "updated_at": "2026-09-21",
   "status_vocabulary": [
     "OPEN",
@@ -63,7 +63,7 @@
       "id": "HWG-WORK-002",
       "title": "Resolve single-window UX and account isolation architecture",
       "area": "runtime",
-      "status": "OPEN",
+      "status": "IN_PROGRESS",
       "priority": "P0",
       "source": [
         "NG-BRW-001",
@@ -90,8 +90,8 @@
       ],
       "latest_evidence": {
         "date": "2026-09-22",
-        "type": "E1_control_plane_relationship",
-        "result": "Browser Runtime UI is grouped by CDP+Profile with Provider tabs as children; Add Provider is now a governed 3-step workflow (definition -> existing Browser Runtime -> review/save), raw CDP/Profile inputs were removed, canonical top-level runtime is persisted, adapter config is derived, and new Providers are forced disabled pending Login/Discovery/Certification."
+        "type": "E2_dev_runtime_control_plane",
+        "result": "Development 5080 cut over to dev.6/feb23f4; live API reports two Browser Runtime groups (shared 9330 with 3 Provider tabs, qwen 9325 with 1 tab), Desktop Runtime Agent reachable on 5181, and served Provider provisioning UI uses runtime selection with no raw CDP/Profile fields."
       }
     },
     {
@@ -196,8 +196,8 @@
       ],
       "latest_evidence": {
         "date": "2026-09-22",
-        "type": "E1_control_plane_relationship",
-        "result": "Browser Runtime UI is grouped by CDP+Profile with Provider tabs as children; Add Provider is now a governed 3-step workflow (definition -> existing Browser Runtime -> review/save), raw CDP/Profile inputs were removed, canonical top-level runtime is persisted, adapter config is derived, and new Providers are forced disabled pending Login/Discovery/Certification."
+        "type": "E2_dev_runtime_control_plane",
+        "result": "Development 5080 cut over to dev.6/feb23f4; live API reports two Browser Runtime groups (shared 9330 with 3 Provider tabs, qwen 9325 with 1 tab), Desktop Runtime Agent reachable on 5181, and served Provider provisioning UI uses runtime selection with no raw CDP/Profile fields."
       }
     },
     {
@@ -669,6 +669,33 @@
         "date": "2026-09-22",
         "type": "live_runtime",
         "result": "CERTIFIED/E2 run succeeded but emitted ignored Proactor/asyncio transport destructor warnings during interpreter shutdown."
+      }
+    },
+    {
+      "id": "HWG-WORK-024",
+      "title": "Desktop Runtime Agent scheduled-task resilience",
+      "area": "runtime",
+      "status": "OPEN",
+      "priority": "P1",
+      "source": [
+        "Runtime operations",
+        "Operational readiness"
+      ],
+      "depends_on": [],
+      "target_version": "1.0.0-dev.7",
+      "evidence_required": [
+        "E1",
+        "E2"
+      ],
+      "exit_criteria": [
+        "Agent Scheduled Task recovers automatically after unexpected exit",
+        "Control Plane distinguishes task-installed, agent-reachable and browser-CDP-ready states",
+        "Recovery is validated without disturbing provider browser profiles or port 5000"
+      ],
+      "latest_evidence": {
+        "date": "2026-09-22",
+        "type": "live_runtime_observation",
+        "result": "Task existed but agent was not listening on 5181 after previous abnormal exit; manual task start restored 5181 health. Auto-recovery remains unproven."
       }
     }
   ]

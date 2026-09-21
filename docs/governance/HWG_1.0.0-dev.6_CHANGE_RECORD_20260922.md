@@ -40,3 +40,11 @@ This work advances `HWG-WORK-002` and `HWG-WORK-006`. It does not claim final ac
 - Full deterministic suite: **321 passed**.
 - `compileall`, JavaScript syntax and `git diff --check` are release-blocking final checks for this local commit.
 - No E2 deployment claim is made for the stale 5080 process until dev.6 is deployed from a clean/controlled runtime checkout.
+
+## Live development cutover evidence
+
+The development checkout was safely fast-forwarded to `feb23f4` after preserving the prior local state in both a named Git stash and an external backup. The 5080 gateway was then restarted from the dev.6 checkout.
+
+Live validation confirmed version `1.0.0-dev.6`, commit `feb23f4`, two Browser Runtime groups, Desktop Runtime Agent reachability on 5181, and the new runtime-key-based Provider provisioning contract. See `docs/evidence/HWG_DEV6_CONTROL_PLANE_E2_20260922.md`.
+
+This is scoped E2 for development Control Plane deployment/serving. It is not an E3 reliability claim and does not close account-isolation or full UX acceptance.

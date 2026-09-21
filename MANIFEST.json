@@ -50,6 +50,12 @@
       "tests": 321,
       "evidence": "docs/governance/HWG_1.0.0-dev.6_CHANGE_RECORD_20260922.md",
       "scope": "relationship-driven runtime grouping, governed provider provisioning, version/history and deterministic validation"
+    },
+    "e2_dev6_control_plane": {
+      "status": "PASS",
+      "date": "2026-09-22",
+      "evidence": "docs/evidence/HWG_DEV6_CONTROL_PLANE_E2_20260922.md",
+      "scope": "live development 5080 control-plane deployment/runtime grouping/provider provisioning serving"
     }
   },
   "docs": {
@@ -81,7 +87,7 @@
     "discovery_ai_policy": "discovery/policies/ai-assistance-v1.json",
     "discovery_routing_policy": "discovery/policies/routing-v1.json",
     "provider_self_use_schema": "urn:hwg:schema:provider-self-use-qualification:1.0.0",
-    "work_register": "HWG-WORK-REGISTER-001@1.8.0"
+    "work_register": "HWG-WORK-REGISTER-001@1.9.0"
   },
   "evidence": {
     "full_suite": "321 passed"
