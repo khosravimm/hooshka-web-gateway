@@ -25,6 +25,7 @@ Mission/Architecture define **what must be true**. Code/config/tests define **wh
 | Versioned Provider Profile schema | PARTIAL | `schemas/hwg-provider-profile-v1.schema.json` establishes schema v1; provider migration/passport population and certification remain open. |
 | Multi-account per Provider | OPEN | Current runtime/config remains primarily one logical account/profile path per provider. |
 | Research/Reuse before custom development | PARTIAL | Playbooks/research exist; must become enforced ADR/gate for every subsystem change. |
+| Discovery Engine / research-baseline-exploration-drift-certification pipeline | PARTIAL | Governed orchestrator, versioned Recipe/Result schemas and update-candidate lifecycle now exist at E1; live probe integration, Control Plane workflow and interactive E2 certification remain open. |
 | Functional Readiness | PARTIAL | CDP/runtime checks exist; full Page/Auth/Model/Feature/functional-probe state machine is not complete. |
 | Version/change history for major artifacts | PARTIAL | dev.4 synchronizes VERSION/MANIFEST/UI and adds a consistency gate; Profile/Account schemas are now versioned, while Discovery/Evidence and per-profile histories remain open. |
 | Evidence/traceability | PARTIAL | E0-E3 model and many records exist; requirement-level traceability starts with this document. |

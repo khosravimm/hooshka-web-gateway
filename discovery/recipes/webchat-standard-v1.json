@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0.0",
+  "recipe_id": "hwg:webchat-standard",
+  "recipe_version": "1.0.0",
+  "provider_id": "*",
+  "phases": [
+    "research",
+    "baseline",
+    "frontend_accessibility",
+    "network_transport",
+    "session_transitions",
+    "model_feature_state",
+    "synthesis",
+    "update_candidate",
+    "interactive_certification"
+  ],
+  "risk_policy": {
+    "live_concurrency": 1,
+    "submit_prompts_during_exploration": false,
+    "captcha_bypass": false,
+    "account_rotation": false,
+    "stop_on_challenge_or_restriction": true
+  },
+  "required_evidence": {
+    "exploration": "E1",
+    "operational_capability": "E2",
+    "reliability_claim": "E3"
+  }
+}

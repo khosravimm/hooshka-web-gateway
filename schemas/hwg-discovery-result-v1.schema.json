@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:hwg:schema:discovery-result:1.0.0",
+  "title": "HWG Discovery Result",
+  "type": "object",
+  "required": ["schema_version", "run_id", "provider_id", "state", "engine_version", "recipe_version", "evidence_level", "started_at"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "run_id": {"type": "string", "minLength": 1},
+    "provider_id": {"type": "string", "minLength": 1},
+    "account_id": {"type": ["string", "null"]},
+    "state": {"type": "string"},
+    "engine_version": {"type": "string"},
+    "recipe_version": {"type": "string"},
+    "evidence_level": {"enum": ["E0", "E1", "E2", "E3"]},
+    "started_at": {"type": "string"},
+    "completed_at": {"type": ["string", "null"]},
+    "findings": {"type": "object"},
+    "drift": {"type": "array"},
+    "candidate": {"type": ["object", "null"]},
+    "decision": {"enum": ["PENDING", "ACCEPT", "HOLD", "REJECT"]}
+  },
+  "additionalProperties": true
+}

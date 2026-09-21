@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:hwg:schema:discovery-recipe:1.0.0",
+  "title": "HWG Discovery Recipe",
+  "type": "object",
+  "required": ["schema_version", "recipe_id", "recipe_version", "provider_id", "phases", "risk_policy"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "recipe_id": {"type": "string", "minLength": 1},
+    "recipe_version": {"type": "string", "minLength": 1},
+    "provider_id": {"type": "string", "minLength": 1},
+    "phases": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "risk_policy": {"type": "object"},
+    "required_evidence": {"type": "object"}
+  },
+  "additionalProperties": true
+}

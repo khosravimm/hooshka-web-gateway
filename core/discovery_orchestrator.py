@@ -1,0 +1,137 @@
+"""HWG Next Generation Discovery Engine orchestration.
+
+The existing discovery scanner is one probe inside this governed pipeline.
+This module owns lifecycle, evidence promotion, drift/update-candidate state,
+and versioned run records. It does not bypass provider/session risk controls.
+"""
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
+from enum import Enum
+from pathlib import Path
+from typing import Any
+import json
+import uuid
+
+ENGINE_VERSION = "2.0.0-dev.1"
+SCHEMA_VERSION = "1.0.0"
+RUNTIME_ROOT = Path(__file__).resolve().parents[1] / ".runtime-dev" / "discovery"
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+class DiscoveryState(str, Enum):
+    RESEARCH_REQUIRED = "RESEARCH_REQUIRED"
+    BASELINE_REQUIRED = "BASELINE_REQUIRED"
+    EXPLORATION_READY = "EXPLORATION_READY"
+    EXPLORING = "EXPLORING"
+    SYNTHESIZING = "SYNTHESIZING"
+    UPDATE_CANDIDATE = "UPDATE_CANDIDATE"
+    CERTIFICATION_REQUIRED = "CERTIFICATION_REQUIRED"
+    CERTIFYING = "CERTIFYING"
+    CERTIFIED = "CERTIFIED"
+    HOLD = "HOLD"
+    REJECTED = "REJECTED"
+    FAILED = "FAILED"
+
+
+ALLOWED_TRANSITIONS = {
+    DiscoveryState.RESEARCH_REQUIRED: {DiscoveryState.BASELINE_REQUIRED, DiscoveryState.HOLD, DiscoveryState.FAILED},
+    DiscoveryState.BASELINE_REQUIRED: {DiscoveryState.EXPLORATION_READY, DiscoveryState.HOLD, DiscoveryState.FAILED},
+    DiscoveryState.EXPLORATION_READY: {DiscoveryState.EXPLORING, DiscoveryState.HOLD, DiscoveryState.FAILED},
+    DiscoveryState.EXPLORING: {DiscoveryState.SYNTHESIZING, DiscoveryState.HOLD, DiscoveryState.FAILED},
+    DiscoveryState.SYNTHESIZING: {DiscoveryState.UPDATE_CANDIDATE, DiscoveryState.CERTIFICATION_REQUIRED, DiscoveryState.HOLD, DiscoveryState.FAILED},
+    DiscoveryState.UPDATE_CANDIDATE: {DiscoveryState.CERTIFICATION_REQUIRED, DiscoveryState.HOLD, DiscoveryState.REJECTED},
+    DiscoveryState.CERTIFICATION_REQUIRED: {DiscoveryState.CERTIFYING, DiscoveryState.HOLD, DiscoveryState.REJECTED},
+    DiscoveryState.CERTIFYING: {DiscoveryState.CERTIFIED, DiscoveryState.HOLD, DiscoveryState.FAILED},
+    DiscoveryState.CERTIFIED: set(), DiscoveryState.HOLD: set(), DiscoveryState.REJECTED: set(), DiscoveryState.FAILED: set(),
+}
+
+
+@dataclass
+class DiscoveryRun:
+    provider_id: str
+    recipe_version: str
+    account_id: str | None = None
+    run_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    schema_version: str = SCHEMA_VERSION
+    engine_version: str = ENGINE_VERSION
+    state: str = DiscoveryState.RESEARCH_REQUIRED.value
+    evidence_level: str = "E0"
+    started_at: str = field(default_factory=_now)
+    completed_at: str | None = None
+    findings: dict[str, Any] = field(default_factory=dict)
+    drift: list[dict[str, Any]] = field(default_factory=list)
+    candidate: dict[str, Any] | None = None
+    decision: str = "PENDING"
+    history: list[dict[str, Any]] = field(default_factory=list)
+
+    def transition(self, target: DiscoveryState, reason: str, evidence_level: str | None = None) -> None:
+        current = DiscoveryState(self.state)
+        if target not in ALLOWED_TRANSITIONS[current]:
+            raise ValueError(f"invalid discovery transition: {current.value} -> {target.value}")
+        self.state = target.value
+        if evidence_level:
+            self.evidence_level = evidence_level
+        self.history.append({"at": _now(), "from": current.value, "to": target.value, "reason": reason, "evidence_level": self.evidence_level})
+        if target in {DiscoveryState.CERTIFIED, DiscoveryState.HOLD, DiscoveryState.REJECTED, DiscoveryState.FAILED}:
+            self.completed_at = _now()
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    def save(self, root: Path | None = None) -> Path:
+        base = (root or RUNTIME_ROOT) / self.provider_id / self.run_id
+        base.mkdir(parents=True, exist_ok=True)
+        path = base / "result.json"
+        path.write_text(json.dumps(self.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+        return path
+
+
+def new_run(provider_id: str, recipe_version: str, account_id: str | None = None) -> DiscoveryRun:
+    return DiscoveryRun(provider_id=provider_id, recipe_version=recipe_version, account_id=account_id)
+
+
+def attach_research(run: DiscoveryRun, sources: list[dict[str, Any]]) -> None:
+    if DiscoveryState(run.state) is not DiscoveryState.RESEARCH_REQUIRED:
+        raise ValueError("research can only be attached at RESEARCH_REQUIRED")
+    if not sources:
+        raise ValueError("research-first gate requires at least one source record")
+    run.findings["research"] = sources
+    run.transition(DiscoveryState.BASELINE_REQUIRED, "research evidence attached", "E0")
+
+
+def attach_baseline(run: DiscoveryRun, baseline: dict[str, Any]) -> None:
+    if DiscoveryState(run.state) is not DiscoveryState.BASELINE_REQUIRED:
+        raise ValueError("baseline can only be attached at BASELINE_REQUIRED")
+    required = {"runtime", "session", "page", "account"}
+    missing = sorted(required - set(baseline))
+    if missing:
+        raise ValueError(f"baseline missing fields: {', '.join(missing)}")
+    run.findings["baseline"] = baseline
+    run.transition(DiscoveryState.EXPLORATION_READY, "baseline captured without mutation", "E1")
+
+
+def begin_exploration(run: DiscoveryRun) -> None:
+    run.transition(DiscoveryState.EXPLORING, "controlled exploration started", run.evidence_level)
+
+
+def attach_exploration(run: DiscoveryRun, findings: dict[str, Any], drift: list[dict[str, Any]]) -> None:
+    if DiscoveryState(run.state) is not DiscoveryState.EXPLORING:
+        raise ValueError("exploration findings require EXPLORING state")
+    run.findings["exploration"] = findings
+    run.drift = list(drift)
+    run.transition(DiscoveryState.SYNTHESIZING, "exploration evidence captured", "E1")
+
+
+def synthesize(run: DiscoveryRun) -> None:
+    if DiscoveryState(run.state) is not DiscoveryState.SYNTHESIZING:
+        raise ValueError("synthesis requires SYNTHESIZING state")
+    if run.drift:
+        run.candidate = {"kind": "provider_profile_update", "drift": run.drift, "status": "PENDING_REVIEW"}
+        run.transition(DiscoveryState.UPDATE_CANDIDATE, "drift requires reviewed update candidate", "E1")
+    else:
+        run.transition(DiscoveryState.CERTIFICATION_REQUIRED, "no profile drift; live certification still required", "E1")
