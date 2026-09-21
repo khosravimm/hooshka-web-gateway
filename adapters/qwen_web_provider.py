@@ -345,6 +345,17 @@ class QwenWebProvider(Provider):
         except ProviderError:
             return False
 
+    async def validate_session(self) -> dict:
+        """Return read-only session/authentication state for the active Qwen transport."""
+        if self._transport_mode == "browser_controller":
+            return await self._browser.session_status()
+        return {
+            "authenticated": False,
+            "supported": False,
+            "session_mode": "unsupported_transport",
+            "transport_mode": self._transport_mode,
+        }
+
     async def list_models(self) -> list[ModelInfo]:
         models = [ModelInfo(id="qwen-web", owned_by="qwen-web", provider=self.provider_id)]
         if self._transport_mode == "browser_sidecar":

@@ -27,6 +27,21 @@ async def _fake_guest_session():
     return {"authenticated": False, "session_mode": "guest", "status": 200}
 
 
+def test_qwen_validate_session_delegates_to_browser_controller(monkeypatch):
+    provider = create_qwen_web_provider(
+        provider_id="qwen-web",
+        transport_mode="browser_controller",
+        profile_dir=".runtime/test-qwen-profile",
+    )
+    monkeypatch.setattr(provider._browser, "session_status", _fake_authenticated_session)
+
+    status = asyncio_run(provider.validate_session())
+
+    assert status["authenticated"] is True
+    assert status["session_mode"] == "authenticated"
+    asyncio_run(provider.close())
+
+
 def test_qwen_browser_provider_preserves_false_thinking_option(monkeypatch):
     provider = create_qwen_web_provider(
         provider_id="qwen-web",
