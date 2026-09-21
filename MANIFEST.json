@@ -1,9 +1,9 @@
 {
   "name": "hwg-next",
-  "version": "1.0.0-dev.2",
+  "version": "1.0.0-dev.4",
   "canonical_id": "hooshka-web-gateway-next",
   "release_channel": "dev",
-  "build_date": "2026-09-20",
+  "build_date": "2026-09-21",
   "status": "IN_DEVELOPMENT",
   "port": 5080,
   "parents": [
@@ -29,6 +29,13 @@
       "evidence": "docs/evidence/HWG_WU_AP_002_003_CONTRACT_20260920.md",
       "tests": 116,
       "note": "WU-AP-002 contract validation + WU-AP-003 providers/capabilities endpoints"
+    },
+    "e1_dev4": {
+      "status": "PASS",
+      "date": "2026-09-21",
+      "tests": 252,
+      "evidence": "docs/governance/HWG_1.0.0-dev.4_CHANGE_RECORD_20260921.md",
+      "scope": "version/history/governance/schema deterministic validation"
     }
   },
   "docs": {
@@ -36,6 +43,12 @@
     "agent_api_spec": "docs/HWG_1.0_AGENT_API_SPEC_v1.0.0-dev.1.md",
     "development_baseline": "docs/HWG_1.0_DEVELOPMENT_BASELINE_20260920.md",
     "control_checklist": "docs/HWG_CTRL_REQ_001_CheckList_v1.0.0.md",
-    "control_compliance": "docs/evidence/HWG_CTRL_COMPLIANCE_20260920.md"
+    "control_compliance": "docs/evidence/HWG_CTRL_COMPLIANCE_20260920.md",
+    "ng_mission": "docs/governance/HWG_NEXT_GENERATION_PRODUCTION_MISSION_V1.md",
+    "ng_playbook": "docs/governance/WEBCHAT_PROVIDER_INTEGRATION_KNOWLEDGE_TRANSFER_V1.md",
+    "ng_traceability": "docs/governance/HWG_NG_REQUIREMENTS_TRACEABILITY.md",
+    "provider_profile_schema": "schemas/hwg-provider-profile-v1.schema.json",
+    "account_instance_schema": "schemas/hwg-account-instance-v1.schema.json",
+    "dev4_change_record": "docs/governance/HWG_1.0.0-dev.4_CHANGE_RECORD_20260921.md"
   }
 }

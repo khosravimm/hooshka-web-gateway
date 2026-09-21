@@ -1,4 +1,4 @@
-﻿# HWG Next Generation Requirements Traceability
+# HWG Next Generation Requirements Traceability
 
 - Baseline date: 2026-09-21
 - Normative mission: `HWG-MISSION-NG-001` v1.0.0
@@ -22,11 +22,11 @@ Mission/Architecture define **what must be true**. Code/config/tests define **wh
 | Requirement | Baseline status | Current evidence / gap |
 |---|---|---|
 | Standard HWG contract for consumers | PARTIAL | OpenAI-adjacent API exists; full versioned contract/conformance remains open. |
-| Versioned Provider Profile schema | OPEN | Provider config exists but no complete NG Profile JSON Schema/passport contract yet. |
+| Versioned Provider Profile schema | PARTIAL | `schemas/hwg-provider-profile-v1.schema.json` establishes schema v1; provider migration/passport population and certification remain open. |
 | Multi-account per Provider | OPEN | Current runtime/config remains primarily one logical account/profile path per provider. |
 | Research/Reuse before custom development | PARTIAL | Playbooks/research exist; must become enforced ADR/gate for every subsystem change. |
 | Functional Readiness | PARTIAL | CDP/runtime checks exist; full Page/Auth/Model/Feature/functional-probe state machine is not complete. |
-| Version/change history for major artifacts | PARTIAL | Application/docs are versioned unevenly; Profile/Account/Discovery/Evidence schemas need explicit versions. |
+| Version/change history for major artifacts | PARTIAL | dev.4 synchronizes VERSION/MANIFEST/UI and adds a consistency gate; Profile/Account schemas are now versioned, while Discovery/Evidence and per-profile histories remain open. |
 | Evidence/traceability | PARTIAL | E0-E3 model and many records exist; requirement-level traceability starts with this document. |
 | Professional Management UI + embedded chat | PARTIAL | Control plane and chat exist; IA/readiness/account/profile workflows are under active redesign. |
 | SDK + machine-readable contract | PARTIAL | Existing SDK/API artifacts exist; NG Python+TS contract/conformance coverage remains incomplete. |
@@ -38,7 +38,7 @@ Mission/Architecture define **what must be true**. Code/config/tests define **wh
 | Unified visible browser UX without isolation loss | PARTIAL | Visible runtime exists; one-window/multi-account isolation design study is not complete. |
 | No focus stealing in background operations | PARTIAL | Focus-guard concepts exist; full automated/no-focus certification gate remains open. |
 | Per-account session/storage isolation | CONFLICT | Current `shared-profile` is assigned to ChatGPT, Z.ai and DeepSeek. Mission/Playbook require account/profile isolation; migrate away or approve a versioned architecture change. |
-| Provider Profile separate from Account Instance | OPEN | Current config conflates provider/runtime/account assumptions. |
+| Provider Profile separate from Account Instance | PARTIAL | Separate Provider Profile v1 and Account Instance v1 schemas now exist; current runtime config has not yet migrated to instances. |
 | Profile as runtime security boundary | PARTIAL | Explicit profile paths/ownership exist, but shared profile violates the target boundary. |
 | Login/Logout/Re-auth/Session Validation UI | PARTIAL | Some provider session endpoints exist; complete account-centric workflow is open. |
 
@@ -72,7 +72,7 @@ As of this baseline, existing E1/E2 evidence may satisfy portions of individual 
 
 1. Replace `shared-profile` usage with an account/profile model consistent with isolation requirements.
 2. Replace binary CDP readiness in the UI with the full readiness state machine and functional probe.
-3. Introduce versioned Provider Profile and Account Instance schemas, then migrate provider config into them.
+3. Migrate provider config into the new Provider Profile v1 and Account Instance v1 contracts; preserve explicit version/history for each instance.
 4. Make Profile -> Account -> Runtime -> Provider relationships explicit in the control plane.
 5. Add requirement IDs/evidence links to new tests and operational changes.
 6. Keep this matrix updated in the same change set whenever a Mission requirement, architecture contract or evidence status changes.

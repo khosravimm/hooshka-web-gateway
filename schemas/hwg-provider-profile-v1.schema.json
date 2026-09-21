@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:hwg:schema:provider-profile:1.0.0",
+  "title": "HWG Provider Profile",
+  "type": "object",
+  "required": ["schema_version", "profile_id", "provider_id", "profile_version", "transport", "readiness", "evidence"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "profile_id": {"type": "string", "minLength": 1},
+    "provider_id": {"type": "string", "minLength": 1},
+    "profile_version": {"type": "string", "minLength": 1},
+    "updated_at": {"type": "string"},
+    "transport": {"type": "object", "required": ["kind", "provenance"], "properties": {
+      "kind": {"type": "string"}, "provenance": {"type": "string"}
+    }},
+    "readiness": {"type": "object", "required": ["policy"], "properties": {
+      "policy": {"const": "functional"}, "probe_required": {"type": "boolean"}
+    }},
+    "evidence": {"type": "object", "required": ["level"], "properties": {
+      "level": {"enum": ["E0", "E1", "E2", "E3"]}, "record": {"type": ["string", "null"]}
+    }}
+  },
+  "additionalProperties": true
+}

@@ -1,7 +1,7 @@
 {
   "name": "hwg-control-plane-ui",
-  "version": "1.0.0-dev.3",
-  "released": "2026-09-20",
+  "version": "1.0.0-dev.4",
+  "released": "2026-09-21",
   "direction": "rtl",
   "language": "fa",
   "themes": ["light", "dark"],
@@ -16,19 +16,25 @@
       "version": "1.0.0-dev",
       "date": "2026-09-20",
       "class": "MINOR",
-      "notes": "بازطراحی پوسته کنترل‌پنل: فارسی/RTL، تم روشن+تاریک، IA runtime-backed (11 ناحیه)، Embedded Chat. قرارداد /panel/api/* بدون تغییر."
+      "notes": "بازطراحی پوسته کنترل‌پنل: فارسی/RTL، تم روشن+تاریک، IA runtime-backed و Embedded Chat."
     },
     {
       "version": "1.0.0-dev.2",
       "date": "2026-09-20",
       "class": "PATCH",
-      "notes": "افزایش خردوز-indexed بروزرسانی‌ها:Session/logout/key_hash/UI sparseness fixes. کلیدهای API فقط hash."
+      "notes": "Session/logout/key hashing و اصلاحات تراکم UI؛ کلیدهای API فقط hash."
     },
     {
       "version": "1.0.0-dev.3",
       "date": "2026-09-20",
       "class": "MINOR",
-      "notes": "اصلاح اصلی: پنل مدیریت Provider (افزودن/حذف/ویرایش)، ذخیره تنظیمات	config، improved layout & fewer clutters. تم‌های جدید + دکمه‌های پاسخگوی‌کار."
+      "notes": "مدیریت Provider، ذخیره تنظیمات و بهبود چیدمان و کنترل‌ها."
+    },
+    {
+      "version": "1.0.0-dev.4",
+      "date": "2026-09-21",
+      "class": "MINOR",
+      "notes": "بازطراحی فرایندمحور Runtime/Profile/Provider، ثبت Mission/Playbook به‌عنوان مرجع حاکمیتی و آغاز قرارداد نسخه‌دار Provider Profile/Account Instance."
     }
   ]
 }

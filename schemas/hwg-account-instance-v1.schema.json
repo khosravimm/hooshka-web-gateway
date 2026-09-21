@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:hwg:schema:account-instance:1.0.0",
+  "title": "HWG Account Instance",
+  "type": "object",
+  "required": ["schema_version", "account_id", "provider_profile_id", "browser_profile", "session", "capability_snapshot"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "account_id": {"type": "string", "minLength": 1},
+    "provider_profile_id": {"type": "string", "minLength": 1},
+    "browser_profile": {"type": "object", "required": ["path", "ownership"], "properties": {
+      "path": {"type": "string"}, "ownership": {"const": "exclusive"}
+    }},
+    "session": {"type": "object", "required": ["state"], "properties": {
+      "state": {"enum": ["unknown", "auth_required", "authenticated", "blocked", "expired"]},
+      "validated_at": {"type": ["string", "null"]}
+    }},
+    "capability_snapshot": {"type": "object", "required": ["version", "evidence_level"], "properties": {
+      "version": {"type": "string"},
+      "evidence_level": {"enum": ["E0", "E1", "E2", "E3"]}
+    }}
+  },
+  "additionalProperties": true
+}

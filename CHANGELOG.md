@@ -1,4 +1,18 @@
-﻿## 1.0.0-dev.2 - 2026-09-20 - WIP (shared browser + SDK + spec)
+## 1.0.0-dev.4 - 2026-09-21 - WIP (governed operational model)
+- Registered HWG-MISSION-NG-001 and HWG-KT-WEBCHAT-001 as normative governance sources in the canonical repository.
+- Added requirement traceability with explicit IMPLEMENTED/PARTIAL/OPEN/CONFLICT semantics and E0-E3 separation.
+- Reworked Control Plane navigation and runtime/provider/profile responsibilities around operational dependency order instead of duplicated technical controls.
+- Fixed Desktop Runtime Agent contract drift: config-owned port, health endpoint and interactive Scheduled Task installation path.
+- Added versioned machine-readable Provider Profile v1 and Account Instance v1 JSON Schemas as the first NG contract baseline.
+- Synchronized application, manifest and Control Plane UI version to 1.0.0-dev.4 and added a regression gate for future version/history drift.
+
+### Evidence
+- Deterministic suite before dev.4 contract additions: 250 passed.
+- Live development runtime: Desktop Runtime Agent reachable on configured port 5181; DeepSeek runtime start completed successfully.
+- Production/legacy port 5000 was not modified by this development change set.
+- No E3 reliability claim is made.
+
+## 1.0.0-dev.2 - 2026-09-20 - WIP (shared browser + SDK + spec)
 - Added `core/browser_pool.py` (SharedBrowserPool: one Chrome, isolated tab
   per provider/account, focus-guard enforced, opt-in via
   `runtime_orchestration.shared_browser`) + ADR-002 + `tests/test_browser_pool.py`.
