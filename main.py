@@ -22,7 +22,7 @@ from core.providers import (
 )
 from core.provider_registry import provider_registry, provider_router
 from core.mcp import mcp_translator, mcp_normalizer, mcp_session_manager
-from core.governance import init_governance, auth_manager, rate_limiter
+from core.governance import init_governance, auth_manager, rate_limiter, enforce_provider_rate_limit
 from core.config import load_config
 from core.tool_compat import drop_optional_tools_for_text_only_provider, request_requires_tools
 from core.agent_boundary import boundary_is_active_for_request, enforce_response_boundary, register_action_candidate_for_boundary
@@ -968,6 +968,9 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             }}), 404
 
         g.selected_provider_id = provider.provider_id
+        rate_response = enforce_provider_rate_limit(provider.provider_id)
+        if rate_response is not None:
+            return rate_response
         apply_feature_defaults(req, provider)
         drop_optional_tools_for_text_only_provider(req, provider)
 
@@ -1068,6 +1071,9 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                 "code": "model_not_found",
             }}), 404
         g.selected_provider_id = provider.provider_id
+        rate_response = enforce_provider_rate_limit(provider.provider_id)
+        if rate_response is not None:
+            return rate_response
         apply_feature_defaults(req, provider)
         drop_optional_tools_for_text_only_provider(req, provider)
         if not _try_acquire_provider_slot("responses", provider.provider_id):
@@ -1272,6 +1278,9 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             }}), 400
 
         g.selected_provider_id = provider.provider_id
+        rate_response = enforce_provider_rate_limit(provider.provider_id)
+        if rate_response is not None:
+            return rate_response
         apply_feature_defaults(req, provider)
         drop_optional_tools_for_text_only_provider(req, provider)
 
@@ -1372,6 +1381,9 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             }}), 400
 
         g.selected_provider_id = provider.provider_id
+        rate_response = enforce_provider_rate_limit(provider.provider_id)
+        if rate_response is not None:
+            return rate_response
         apply_feature_defaults(req, provider)
         drop_optional_tools_for_text_only_provider(req, provider)
 

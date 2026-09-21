@@ -17,6 +17,7 @@ class RateLimiter:
         self._default_rate = 60
         self._default_burst = 10
         self._provider_rates: dict[str, tuple[int, int]] = {}
+        self._enabled = True
     
     def set_rate(self, key: str, requests_per_minute: int, burst: int = None):
         self._provider_rates[key] = (requests_per_minute, burst or requests_per_minute // 6 + 1)
@@ -25,7 +26,7 @@ class RateLimiter:
         rate, burst = self._provider_rates.get(provider_id, (self._default_rate, self._default_burst))
         
         with self._lock:
-            bucket = self._buckets[identity]
+            bucket = self._buckets[(identity, provider_id)]
             now = time.time()
             
             elapsed = now - bucket["last_refill"]
@@ -158,6 +159,8 @@ def auth_middleware():
 
 
 def rate_limit_middleware():
+    if not rate_limiter._enabled:
+        return
     if request.path in ("/health", "/ready", "/health/deep") or (request.path.startswith("/panel") and _is_loopback_request()):
         return
     identity_info = g.get("identity") or {}
@@ -178,6 +181,27 @@ def rate_limit_middleware():
         response.status_code = 429
         response.headers["Retry-After"] = str(headers["reset"] - int(time.time()))
         return response
+
+
+def enforce_provider_rate_limit(provider_id: str):
+    """Apply the provider-scoped limit after routing has selected a provider."""
+    if not rate_limiter._enabled:
+        return None
+    identity_info = g.get("identity") or {}
+    identity = identity_info.get("identity", "anonymous")
+    allowed, headers = rate_limiter.check_rate_limit(identity, provider_id)
+    g.rate_limit_headers = headers
+    if allowed:
+        return None
+    audit_logger.log({
+        "event": "rate_limit_exceeded",
+        "identity": identity,
+        "provider": provider_id,
+    })
+    response = jsonify({"error": {"message": "Rate limit exceeded", "type": "rate_limit_error"}})
+    response.status_code = 429
+    response.headers["Retry-After"] = str(max(0, headers["reset"] - int(time.time())))
+    return response
 
 
 def audit_middleware(response):
@@ -223,6 +247,7 @@ def init_governance(app, config: dict = None):
         auth_manager.load_keys(config["auth"]["api_keys"])
     
     rate_config = config.get("rate_limiting", {})
+    rate_limiter._enabled = bool(rate_config.get("enabled", True))
     rate_limiter._default_rate = rate_config.get("default_requests_per_minute", 60)
     for provider, limits in rate_config.get("per_provider", {}).items():
         rate_limiter.set_rate(provider, limits.get("requests_per_minute", 60))
