@@ -250,13 +250,14 @@ class DeepSeekWebProvider(Provider):
 def create_deepseek_web_provider(
     provider_id: str = "deepseek-web",
     priority: int = 70,
+    enabled: bool = True,
     **config,
 ) -> DeepSeekWebProvider:
     return DeepSeekWebProvider(
         ProviderConfig(
             provider_id=provider_id,
             provider_type=ProviderType.DEEPSEEK_WEB,
-            enabled=True,
+            enabled=enabled,
             priority=priority,
             config=config,
             capabilities=ProviderCapabilities(

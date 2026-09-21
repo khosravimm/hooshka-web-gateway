@@ -425,12 +425,13 @@ class ZaiWebProvider(Provider):
 def create_zai_web_provider(
     provider_id: str = "zai-web",
     priority: int = 95,
+    enabled: bool = True,
     **config_values,
 ) -> ZaiWebProvider:
     config = ProviderConfig(
         provider_id=provider_id,
         provider_type=ProviderType.ZAI_WEB,
-        enabled=True,
+        enabled=enabled,
         priority=priority,
         config=config_values,
         capabilities=ProviderCapabilities(

@@ -1750,6 +1750,7 @@ def create_chatgpt_web_provider(
     cdp_url: str = "http://127.0.0.1:9224",
     chatgpt_url: str = "https://chatgpt.com",
     priority: int = 100,
+    enabled: bool = True,
     **config_overrides,
 ) -> ChatGPTWebProvider:
     provider_config = {
@@ -1765,7 +1766,7 @@ def create_chatgpt_web_provider(
     config = ProviderConfig(
         provider_id=provider_id,
         provider_type=ProviderType.CHATGPT_WEB,
-        enabled=True,
+        enabled=enabled,
         priority=priority,
         config=provider_config,
         capabilities=ProviderCapabilities(

@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 import json
 import logging
 import os
@@ -975,6 +975,7 @@ class QwenWebProvider(Provider):
 def create_qwen_web_provider(
     provider_id: str = "qwen-web",
     priority: int = 90,
+    enabled: bool = True,
     **config_values,
 ) -> QwenWebProvider:
     browser_mode = config_values.get("transport_mode", "browser_controller") == "browser_controller"
@@ -982,7 +983,7 @@ def create_qwen_web_provider(
     config = ProviderConfig(
         provider_id=provider_id,
         provider_type=ProviderType.QWEN_WEB,
-        enabled=True,
+        enabled=enabled,
         priority=priority,
         config=config_values,
         capabilities=ProviderCapabilities(

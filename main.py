@@ -437,24 +437,28 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                 provider_id=pconfig.provider_id,
                 adapter=pconfig.config.get("adapter", "dom"),
                 priority=pconfig.priority,
+                enabled=pconfig.enabled,
                 **chat_overrides,
             )
         elif pconfig.provider_type == ProviderType.QWEN_WEB:
             provisioned = create_qwen_web_provider(
                 provider_id=pconfig.provider_id,
                 priority=pconfig.priority,
+                enabled=pconfig.enabled,
                 **pconfig.config,
             )
         elif pconfig.provider_type == ProviderType.ZAI_WEB:
             provisioned = create_zai_web_provider(
                 provider_id=pconfig.provider_id,
                 priority=pconfig.priority,
+                enabled=pconfig.enabled,
                 **pconfig.config,
             )
         elif pconfig.provider_type == ProviderType.DEEPSEEK_WEB:
             provisioned = create_deepseek_web_provider(
                 provider_id=pconfig.provider_id,
                 priority=pconfig.priority,
+                enabled=pconfig.enabled,
                 **pconfig.config,
             )
 
