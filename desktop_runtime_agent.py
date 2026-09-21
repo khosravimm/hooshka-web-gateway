@@ -9,10 +9,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import psutil
 
-from core.runtime_inventory import inventory_by_id, load_runtime_inventory
+from core.runtime_inventory import inventory_by_id, load_runtime_inventory, load_orchestration_settings
 
-HOST = "127.0.0.1"
-PORT = 5091
+_agent_url = load_orchestration_settings()["desktop_agent_url"]
+from urllib.parse import urlparse
+_agent_parsed = urlparse(str(_agent_url))
+HOST = _agent_parsed.hostname or "127.0.0.1"
+PORT = int(_agent_parsed.port or 5181)
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -192,6 +195,8 @@ class H(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
+        if self.path == "/health":
+            return self.out(200, {"ok": True, "service": "hwg-desktop-runtime-agent", "port": PORT})
         if self.path == "/status":
             return self.out(200, {"ok": True, "providers": status(), "session": os.environ.get("SESSIONNAME", "")})
         return self.out(404, {"error": "not_found"})
