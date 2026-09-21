@@ -48,3 +48,7 @@ Closing these work units does not mean HWG is release-ready. Persistent Provider
 The migration is reversible through a hash-bound manifest. A live local sequence proved migrate → rollback → fallback projection → re-migrate using the real development config. The current shared-profile conflict remains explicit and is not hidden by persistence.
 
 Evidence: `docs/evidence/HWG_PROFILE_ACCOUNT_PERSISTENCE_20260922.md`.
+
+## Single-window runtime control-plane correction
+
+Historical review confirmed shared-browser/shared-profile was introduced deliberately for the owner requirement of one browser window with provider tabs. Control Plane now groups runtime cards by Browser Runtime identity (CDP + browser profile), so ChatGPT/Z.ai/DeepSeek on 9330/shared-profile render as one parent runtime with child provider tabs. Qwen remains a separate runtime on 9325. Live review also found the Desktop Runtime Agent Scheduled Task installed but not running; manual foreground launch proved the agent code healthy and restarting the Scheduled Task restored 5181 health. Follow-up resilience is tracked as HWG-WORK-024. Full suite after this correction: 318 passed.

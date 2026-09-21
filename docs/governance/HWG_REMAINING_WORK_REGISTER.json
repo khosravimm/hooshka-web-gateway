@@ -1,6 +1,6 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "updated_at": "2026-09-21",
   "status_vocabulary": [
     "OPEN",
@@ -61,12 +61,17 @@
     },
     {
       "id": "HWG-WORK-002",
-      "title": "Eliminate shared browser profile conflict",
+      "title": "Resolve single-window UX and account isolation architecture",
       "area": "runtime",
       "status": "OPEN",
       "priority": "P0",
       "source": [
-        "NG-BRW-003"
+        "NG-BRW-001",
+        "NG-BRW-002",
+        "NG-BRW-003",
+        "ADR-002",
+        "ADR-003",
+        "Owner single-window requirement"
       ],
       "depends_on": [
         "HWG-WORK-004"
@@ -77,10 +82,17 @@
         "E2"
       ],
       "exit_criteria": [
-        "Each account has isolated persistent storage",
-        "No browser profile shared across account instances",
-        "Regression gate rejects shared profile"
-      ]
+        "One visible browser-window experience is preserved for provider operation unless an explicitly approved exception is required",
+        "Provider/account session-storage isolation is real and evidence-backed; no silent cookie/storage sharing",
+        "Same-provider multi-account isolation is handled explicitly and not faked",
+        "Architecture is validated by prototype/E2 before cutover",
+        "Rollback preserves the current working shared-browser path until replacement is proven"
+      ],
+      "latest_evidence": {
+        "date": "2026-09-22",
+        "type": "architecture_history_review",
+        "result": "Historical review confirmed shared_browser/shared-profile was introduced deliberately to satisfy owner requirement for one browser window with provider tabs; simple return to one Chrome per provider would violate that UX requirement. ADR-003 notes different-origin tabs can share one Chrome profile, while same-provider multi-account isolation cannot be guaranteed in stock Chrome."
+      }
     },
     {
       "id": "HWG-WORK-003",

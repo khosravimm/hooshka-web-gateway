@@ -343,8 +343,8 @@ function initNav() {
     const status = $('#runtime-action-global');
     setStatus(status, '', '');
     try {
-      const [data, profileData, orchestration, providerData] = await Promise.all([
-        api('/runtimes'), api('/runtime/profiles'), api('/runtime/orchestration'), api('/providers')
+      const [data, profileData, orchestration] = await Promise.all([
+        api('/browser-runtimes'), api('/runtime/profiles'), api('/runtime/orchestration')
       ]);
       const agent = orchestration.desktop_agent || {};
       const banner = $('#runtime-agent-state');
@@ -353,24 +353,27 @@ function initNav() {
         banner.className = 'dependency-banner ' + (ok ? 'ok' : 'bad');
         banner.innerHTML = ok
           ? '<b>Desktop Runtime Agent آماده است.</b><span class="ltr">' + (agent.url || '') + '</span>'
-          : '<b>پیش‌نیاز Runtime در دسترس نیست.</b><span>Agent روی ' + (agent.url || '-') + ' پاسخ نمی‌دهد' + (agent.task_exists ? '.' : ' و Scheduled Task آن نصب نیست.') + '</span>';
+          : '<b>عامل کنترل Runtime در دسترس نیست.</b><span>CDPهای موجود ممکن است زنده باشند، اما Start/Restart/Open تا بازگشت Agent غیرفعال است. ' + (agent.url || '-') + '</span>';
       }
       const profiles = profileData.profiles || [];
-      const providers = providerData.providers || [];
       const cards = $('#runtime-cards');
-      cards.innerHTML = (data.runtimes || []).map(r => {
-        const provider = providers.find(p => p.id === r.id) || {};
-        const current = provider.profile_dir || '';
-        const options = profiles.map(pr => `<option value="${pr.profile_dir}" ${pr.profile_dir === current ? 'selected' : ''}>${pr.name}</option>`).join('');
+      cards.innerHTML = (data.browser_runtimes || []).map(r => {
         const canOperate = agent.reachable === true;
-        const state = r.ready ? 'آماده' : 'متوقف/در دسترس نیست';
+        const browserState = r.ready ? 'Browser/CDP آماده' : 'Browser/CDP متوقف';
+        const profileName = (r.profile || '').split(/[\/]/).filter(Boolean).pop() || '-';
+        const children = (r.providers || []).map(p => `
+          <div class="runtime-child-row">
+            <div><b class="ltr">${p.id}</b><span class="hint">${p.label || ''}</span></div>
+            <a class="ltr" href="${p.home_url || '#'}" target="_blank" rel="noopener">${p.home_url || '-'}</a>
+            <button class="btn ghost btn-xs" data-id="${p.id}" data-open="1" ${canOperate ? '' : 'disabled'}>باز کردن Tab / ورود</button>
+          </div>`).join('');
         return `<div class="runtime-operation-card ${r.ready ? 'ready' : 'down'}">
-          <div class="runtime-op-head"><div><b class="ltr">${r.id}</b><div class="hint">${r.label || ''}</div></div><span class="badge ${r.ready ? 'ok' : 'bad'}">${state}</span></div>
-          <div class="runtime-dependency"><span>Profile</span><select id="runtime-profile-${r.id}" class="ctrl ltr">${options}</select><button class="btn ghost btn-xs" onclick="window.HwgRuntimeProfile && HwgRuntimeProfile('${r.id}')">اتصال Profile</button></div>
-          <div class="runtime-meta"><span>CDP</span><b class="ltr">${r.cdp_url || '-'}</b><span>Port</span><b>${r.port || '-'}</b><span>صفحه ورود</span><a class="ltr" href="${r.home_url}" target="_blank" rel="noopener">${r.home_url}</a></div>
-          <div class="runtime-steps"><span class="step ${current ? 'done' : ''}">Profile</span><span class="step ${r.ready ? 'done' : ''}">Browser</span><span class="step">Login</span><span class="step ${provider.enabled ? 'done' : ''}">Provider</span></div>
-          <div class="btn-row mt"><button class="btn primary btn-sm" data-id="${r.id}" data-act="${r.ready ? 'restart' : 'start'}" ${canOperate ? '' : 'disabled'}>${r.ready ? 'ری‌استارت مرورگر' : 'شروع مرورگر'}</button><button class="btn ghost btn-sm" data-id="${r.id}" data-open="1" ${canOperate ? '' : 'disabled'}>باز کردن صفحه ورود</button></div>
-          ${canOperate ? '' : '<div class="hint bad">ابتدا Desktop Runtime Agent باید نصب/اجرا شود.</div>'}
+          <div class="runtime-op-head"><div><b>${r.shared ? 'Browser Runtime مشترک' : 'Browser Runtime'}</b><div class="hint">${r.provider_count} Provider / Tab</div></div><span class="badge ${r.ready ? 'ok' : 'bad'}">${browserState}</span></div>
+          <div class="runtime-meta"><span>Profile</span><b class="ltr">${profileName}</b><span>CDP</span><b class="ltr">${r.cdp_url || '-'}</b><span>Port</span><b>${r.port || '-'}</b></div>
+          <div class="runtime-steps"><span class="step ${r.profile ? 'done' : ''}">Profile</span><span class="step ${r.ready ? 'done' : ''}">Browser</span><span class="step">Session/Auth در سطح Provider</span></div>
+          <div class="runtime-children">${children}</div>
+          <div class="btn-row mt"><button class="btn primary btn-sm" data-id="${r.representative_provider}" data-act="${r.ready ? 'restart' : 'start'}" ${canOperate ? '' : 'disabled'}>${r.ready ? 'ری‌استارت Browser Runtime' : 'شروع Browser Runtime'}</button></div>
+          ${canOperate ? '' : '<div class="hint bad">Agent فقط برای عملیات کنترلی لازم است؛ سبز بودن Browser/CDP به معنی آماده‌بودن Agent یا Login نیست.</div>'}
         </div>`;
       }).join('');
       cards.querySelectorAll('button[data-act]').forEach(b => b.addEventListener('click', () => runtimeAction(b.dataset.id, b.dataset.act, b)));

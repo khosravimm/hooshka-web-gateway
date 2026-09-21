@@ -804,23 +804,52 @@ def api_discovery_certification_complete(provider_id, run_id):
         return jsonify({"error": "invalid_transition", "message": str(exc)}), 409
 
 
+def _browser_runtime_groups():
+    inventory = inventory_by_id(CONFIG_PATH)
+    groups = {}
+    for item in inventory.values():
+        cdp = str(item.get("cdp_url") or "").strip()
+        profile = str(item.get("profile") or "").strip()
+        key = f"{cdp}|{profile}"
+        group = groups.setdefault(key, {
+            "runtime_id": f"browser-{len(groups)+1}",
+            "cdp_url": cdp, "port": item.get("port"), "profile": profile,
+            "providers": [],
+        })
+        group["providers"].append({
+            "id": item.get("id"), "label": item.get("label"),
+            "home_url": item.get("home_url"), "enabled": item.get("enabled"),
+        })
+    rows = []
+    for group in groups.values():
+        live = _check_cdp(group.get("cdp_url"))
+        providers = group["providers"]
+        group.update({
+            "ready": live.get("ready"), "status": live.get("status"),
+            "shared": len(providers) > 1, "provider_count": len(providers),
+            "representative_provider": providers[0]["id"] if providers else None,
+        })
+        rows.append(group)
+    return rows
+
+
 @control_panel_bp.route('/api/runtimes')
 def api_runtimes():
+    # Backward-compatible provider-centric view.
     inventory = inventory_by_id(CONFIG_PATH)
     rows = []
     for item in inventory.values():
         live = _check_cdp(item.get("cdp_url"))
-        rows.append({
-            "id": item.get("id"),
-            "label": item.get("label"),
-            "port": item.get("port"),
-            "profile": item.get("profile"),
-            "home_url": item.get("home_url"),
-            "cdp_url": item.get("cdp_url"),
-            "ready": live.get("ready"),
-            "status": live.get("status"),
-        })
+        rows.append({"id": item.get("id"), "label": item.get("label"),
+                     "port": item.get("port"), "profile": item.get("profile"),
+                     "home_url": item.get("home_url"), "cdp_url": item.get("cdp_url"),
+                     "ready": live.get("ready"), "status": live.get("status")})
     return jsonify({"runtimes": rows})
+
+
+@control_panel_bp.route('/api/browser-runtimes')
+def api_browser_runtimes():
+    return jsonify({"browser_runtimes": _browser_runtime_groups()})
 
 
 from flask import make_response

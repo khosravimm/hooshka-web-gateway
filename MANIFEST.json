@@ -74,5 +74,8 @@
     "discovery_routing_policy": "discovery/policies/routing-v1.json",
     "provider_self_use_schema": "urn:hwg:schema:provider-self-use-qualification:1.0.0",
     "work_register": "HWG-WORK-REGISTER-001@1.6.0"
+  },
+  "evidence": {
+    "full_suite": "318 passed"
   }
 }
