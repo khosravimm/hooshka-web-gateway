@@ -26,6 +26,7 @@ from core.governance import init_governance, auth_manager, rate_limiter, enforce
 from core.config import load_config
 from core.tool_compat import drop_optional_tools_for_text_only_provider, request_requires_tools
 from core.agent_boundary import boundary_is_active_for_request, enforce_response_boundary, register_action_candidate_for_boundary
+from core.functional_readiness import load_readiness
 from core.feature_settings import (
     apply_feature_defaults,
     persist_provider_feature_defaults,
@@ -706,32 +707,35 @@ def create_app(config_path: str = "config.yaml") -> Flask:
 
     @app.route("/ready", methods=["GET"])
     def ready():
-        """Fast readiness check.
+        """Fast readiness from the latest bounded functional-readiness evidence.
 
-        This endpoint intentionally does not touch browser/provider backends.
-        Deep provider probes belong to /health/deep so /ready cannot be starved
-        by stuck Playwright/Web-chat sessions.
+        This endpoint never probes Web-chat providers directly. A Provider is
+        READY only while a non-expired functional readiness record exists.
         """
         providers = provider_registry.list_providers()
         state = _provider_state()
-        ready_any = bool(providers) and _async_loop.is_running()
-        details = [
-            {
-                "provider": p.provider_id,
-                "registered": True,
-                "capabilities": {
-                    "chat_completion": p.capabilities.chat_completion,
-                    "streaming": p.capabilities.streaming,
-                    "transport_mode": p.capabilities.transport_mode,
+        details=[]
+        ready_any=False
+        for p in providers:
+            record=load_readiness(p.provider_id)
+            current_ready=bool(record and record.get("current") and record.get("ready") and record.get("state")=="READY")
+            ready_any = ready_any or current_ready
+            details.append({
+                "provider":p.provider_id,
+                "registered":True,
+                "ready":current_ready,
+                "readiness":record or {"state":"UNKNOWN","ready":False,"current":False},
+                "capabilities":{
+                    "chat_completion":p.capabilities.chat_completion,
+                    "streaming":p.capabilities.streaming,
+                    "transport_mode":p.capabilities.transport_mode,
                 },
-            }
-            for p in providers
-        ]
+            })
         return jsonify({
-            "status": "ready" if ready_any else "not_ready",
-            "mode": "fast",
-            "provider_runtime": state,
-            "providers": details,
+            "status":"ready" if ready_any else "not_ready",
+            "mode":"functional_cache",
+            "provider_runtime":state,
+            "providers":details,
         }), (200 if ready_any else 503)
 
     @app.route("/health/deep", methods=["GET"])

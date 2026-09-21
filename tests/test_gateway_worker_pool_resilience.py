@@ -35,9 +35,11 @@ def test_health_is_fast_and_does_not_touch_browser_or_provider_calls():
 def test_ready_is_fast_static_and_deep_health_is_separate():
     text = source()
     ready_body = body_between(text, '@app.route("/ready", methods=["GET"])', '@app.route("/health/deep", methods=["GET"])')
-    assert '"mode": "fast"' in ready_body
+    assert '"mode":"functional_cache"' in ready_body or '"mode": "functional_cache"' in ready_body
     assert "provider.health_check" not in ready_body
     assert "provider.list_models" not in ready_body
+    assert "provider.chat_completion" not in ready_body
+    assert "load_readiness" in ready_body
     assert "_run_async" not in ready_body
 
     deep_body = body_between(text, '@app.route("/health/deep", methods=["GET"])', '@app.route("/modes", methods=["GET"])')

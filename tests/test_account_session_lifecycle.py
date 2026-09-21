@@ -43,8 +43,8 @@ def test_account_centric_routes_and_structural_first_gate_exist():
     assert "/api/accounts/<path:account_id>/login/open" in text
     assert "/api/accounts/<path:account_id>/reauth" in text
     assert "/api/accounts/<path:account_id>/logout" in text
-    start = text.index("def api_provider_session")
-    end = text.index("def api_provider_logout", start)
+    start = text.index("def _evaluate_provider_session")
+    end = text.index("def api_provider_session", start)
     block = text[start:end]
     assert block.index("discovery_probe_auth_cdp") < block.index("_provider_session_checker")
 

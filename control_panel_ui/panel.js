@@ -460,7 +460,7 @@ function initNav() {
     const providers = data.providers || [];
     $('#stat-providers').textContent = providers.length;
     const enabled = providers.filter(p => p.enabled === true);
-    const ready = enabled.filter(p => p.runtime && p.runtime.ready === true).length;
+    const ready = enabled.filter(p => p.readiness?.ready === true && p.readiness?.current === true).length;
     $('#stat-ready').textContent = ready + '/' + enabled.length;
     $('#stat-sessions').textContent = '؟';
     $('#health-api').textContent = 'پاسخگو';
@@ -468,12 +468,13 @@ function initNav() {
     const summary = $('#provider-runtime-summary');
     if (summary) {
       summary.innerHTML = providers.map(p => {
-        const stateClass = p.runtime?.ready ? 'ready' : (p.runtime?.ready === null ? 'unknown' : 'down');
-        const stateLabel = p.runtime?.ready ? 'آماده' : (p.runtime?.ready === null ? 'نامشخص' : 'در دسترس نیست');
+        const functionalReady = p.readiness?.ready === true && p.readiness?.current === true;
+        const stateClass = functionalReady ? 'ready' : (p.runtime?.ready ? 'unknown' : 'down');
+        const stateLabel = functionalReady ? 'READY عملکردی' : (p.readiness?.state || (p.runtime?.ready ? 'نیازمند Probe' : 'Browser در دسترس نیست'));
         return `<div class="provider-status-card ${stateClass}">
           <div class="provider-status-head"><span class="status-dot"></span><b class="ltr">${p.id}</b></div>
           <div class="provider-status-state">${stateLabel}</div>
-          <div class="provider-status-meta">${p.enabled ? 'فعال' : 'غیرفعال'} · ${p.runtime?.status || 'unknown'}</div>
+          <div class="provider-status-meta">${p.enabled ? 'فعال' : 'غیرفعال'} · Browser: ${p.runtime?.status || 'unknown'} · Readiness: ${p.readiness?.state || 'UNKNOWN'}</div>
         </div>`;
       }).join('');
     }
@@ -488,6 +489,7 @@ function initNav() {
         <td><label class="provider-switch"><input type="checkbox" ${p.enabled ? 'checked' : ''} onchange="window.HwgProviderEnabled && HwgProviderEnabled('${p.id}',this.checked)"><span>${p.enabled ? 'فعال' : 'غیرفعال'}</span></label></td>
         <td>
           <span class="hwg-chip ${p.runtime?.ready ? 'hwg-ok' : 'hwg-bad'}">${p.runtime?.ready ? 'Browser آماده' : 'Browser آماده نیست'}</span>
+          <span class="hwg-chip ${p.readiness?.ready && p.readiness?.current ? 'hwg-ok' : 'hwg-neutral'}">${p.readiness?.ready && p.readiness?.current ? 'READY عملکردی' : (p.readiness?.state || 'Readiness نامشخص')}</span>
           <div class="hint">Profile: <span class="ltr">${p.profile_dir || 'تعریف نشده'}</span></div>
           <button class="btn ghost btn-xs" onclick="window.HwgGoRuntime && HwgGoRuntime()">مدیریت Browser/Profile</button>
         </td>
@@ -513,10 +515,12 @@ function initNav() {
         </td>
         <td>
           <div class="btn-row">
-            <button class="btn primary btn-xs" id="test-${p.id}" onclick="window.HwgTestProvider && HwgTestProvider('${p.id}')" ${p.runtime?.ready ? '' : 'disabled'}>تست Provider</button>
+            <button class="btn primary btn-xs" id="ready-${p.id}" onclick="window.HwgReadinessProbe && HwgReadinessProbe('${p.id}')" ${p.runtime?.ready ? '' : 'disabled'}>آمادگی عملکردی</button>
+            <button class="btn ghost btn-xs" id="test-${p.id}" onclick="window.HwgTestProvider && HwgTestProvider('${p.id}')" ${p.runtime?.ready ? '' : 'disabled'}>تست Provider</button>
             <button class="btn btn-danger btn-xs" onclick="window.HwgDeleteProvider && HwgDeleteProvider('${p.id}')">حذف Provider</button>
           </div>
           ${p.runtime?.ready ? '' : '<div class="hint">ابتدا Browser Runtime را آماده کنید.</div>'}
+          <div id="ready-status-${p.id}" class="status-line"></div>
           <div id="test-status-${p.id}" class="status-line"></div>
         </td>
       </tr>`).join('');
@@ -600,6 +604,26 @@ function initNav() {
     } finally {
       if (btn) btn.disabled = false;
       await Promise.all([loadProviders(), loadRuntimes()]);
+    }
+  };
+
+  window.HwgReadinessProbe = async function (providerId) {
+    const status = document.getElementById('ready-status-' + providerId);
+    const btn = document.getElementById('ready-' + providerId);
+    setStatus(status, 'در حال اجرای زنجیره آمادگی...', 'working');
+    if (btn) btn.disabled = true;
+    try {
+      const r = await api('/providers/' + encodeURIComponent(providerId) + '/readiness/probe', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({execution_authority:'automated_validation', ttl_seconds:300})
+      });
+      const stage = (r.stages || []).find(x => x.ok === false)?.stage;
+      setStatus(status, r.ready ? 'READY - Probe واقعی پاس شد' : ('آماده نیست: ' + (r.state || stage || 'unknown')), r.ready ? 'ok' : 'warn');
+      await loadProviders({quiet:false});
+    } catch (e) {
+      setStatus(status, 'خطا: ' + e.message, 'err');
+    } finally {
+      if (btn) btn.disabled = false;
     }
   };
 

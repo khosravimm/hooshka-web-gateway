@@ -43,6 +43,7 @@ from core.browser_behavior_probe import BehaviorAction, ProbePolicy
 from core.discovery_ai_service import execute_ai_assistance
 from core.blind_discovery import probe_auth_cdp as discovery_probe_auth_cdp
 from core.account_session import normalize_session
+from core.functional_readiness import run_functional_probe, save_readiness, load_readiness, invalidate_readiness
 
 control_panel_bp = Blueprint('control_panel', __name__, url_prefix='/panel')
 
@@ -257,6 +258,7 @@ def _provider_payload(provider):
         },
         "features": provider_feature_state(provider),
         "runtime": _check_cdp(provider.config.config.get("cdp_url")),
+        "readiness": load_readiness(provider.provider_id) or {"state":"UNKNOWN","ready":False,"current":False},
         "model": _provider_model_state(provider),
     }
 
@@ -457,6 +459,64 @@ def api_runtime_orchestration():
 @control_panel_bp.route('/api/ng/inventory')
 def api_ng_inventory():
     return jsonify(load_ng_inventory(CONFIG_PATH))
+
+
+@control_panel_bp.route('/api/readiness')
+def api_readiness_inventory():
+    rows=[]
+    for provider in provider_registry.list_providers(enabled_only=False):
+        record=load_readiness(provider.provider_id)
+        rows.append(record or {"provider_id":provider.provider_id,"state":"UNKNOWN","ready":False,"current":False})
+    return jsonify({"providers":rows})
+
+
+@control_panel_bp.route('/api/providers/<provider_id>/readiness')
+def api_provider_readiness(provider_id):
+    provider = provider_registry.get(provider_id)
+    if not provider:
+        return jsonify({"error":"Provider not found"}), 404
+    return jsonify(load_readiness(provider_id) or {"provider_id":provider_id,"state":"UNKNOWN","ready":False,"current":False})
+
+
+@control_panel_bp.route('/api/providers/<provider_id>/readiness/probe', methods=['POST'])
+def api_provider_readiness_probe(provider_id):
+    from core.governance import audit_logger
+    import asyncio
+    import concurrent.futures
+    provider = provider_registry.get(provider_id)
+    if not provider:
+        return jsonify({"error":"Provider not found"}), 404
+    data = request.get_json(silent=True) or {}
+    authority = str(data.get("execution_authority") or "")
+    if authority not in {"automated_validation","interactive_validation"}:
+        return jsonify({"error":"execution_authority_required"}), 400
+    runtime_cfg = inventory_by_id(CONFIG_PATH).get(provider_id) or {}
+    runtime_state = _check_cdp(runtime_cfg.get("cdp_url"))
+    session_body, _session_status = _evaluate_provider_session(provider_id)
+    access = ((session_body.get("lifecycle") or {}).get("access_state") or "UNKNOWN")
+    account_id = session_body.get("account_id")
+    loop = current_app.config.get("HWG_ASYNC_LOOP")
+    if loop is None or not loop.is_running():
+        return jsonify({"error":"Gateway async runtime unavailable"}), 503
+    ttl = max(30, min(3600, int(data.get("ttl_seconds") or 300)))
+    try:
+        future = asyncio.run_coroutine_threadsafe(
+            run_functional_probe(provider, account_id=account_id,
+                                 runtime_ready=bool(runtime_state.get("ready")),
+                                 access_state=access, ttl_seconds=ttl), loop)
+        record = dict(future.result(timeout=110))
+    except concurrent.futures.TimeoutError:
+        return jsonify({"error":"readiness_probe_timeout","provider":provider_id}), 504
+    except Exception as exc:
+        logger.warning("Functional readiness probe failed for %s", provider_id, exc_info=True)
+        return jsonify({"error":f"readiness_probe_failed:{type(exc).__name__}","provider":provider_id}), 502
+    record["execution_authority"] = authority
+    record["runtime"] = runtime_state
+    record["access_state"] = access
+    save_readiness(record)
+    audit_logger.log({"event":"functional_readiness_probe","provider":provider_id,
+                      "account_id":account_id,"state":record.get("state"),"ready":record.get("ready")})
+    return jsonify(record)
 
 
 @control_panel_bp.route('/api/ng/migrate', methods=['POST'])
@@ -1778,16 +1838,14 @@ def _provider_session_checker(provider):
     return None
 
 
-@control_panel_bp.route('/api/providers/<provider_id>/session')
-def api_provider_session(provider_id):
-    """Read-only provider/account login-session validation (NG-ACC-002)."""
+def _evaluate_provider_session(provider_id):
     from core.governance import audit_logger
     provider = provider_registry.get(provider_id)
     if not provider:
-        return jsonify({"error": "Provider not found"}), 404
+        return {"error": "Provider not found"}, 404
     loop = current_app.config.get("HWG_ASYNC_LOOP")
     if loop is None or not loop.is_running():
-        return jsonify({"error": "Gateway async runtime unavailable"}), 503
+        return {"error": "Gateway async runtime unavailable"}, 503
     import asyncio
     import concurrent.futures
     started = time.time()
@@ -1810,8 +1868,7 @@ def api_provider_session(provider_id):
         if check is not None:
             try:
                 future = asyncio.run_coroutine_threadsafe(check(), loop)
-                status = future.result(timeout=60)
-                body = dict(status or {})
+                body = dict(future.result(timeout=60) or {})
             except concurrent.futures.TimeoutError:
                 body = {"authenticated": False, "session_probe": "timeout"}
             except Exception as exc:
@@ -1831,7 +1888,8 @@ def api_provider_session(provider_id):
         except Exception as exc:
             persist_error = type(exc).__name__
             logger.warning("Account session persistence failed for %s", provider_id, exc_info=True)
-
+    if lifecycle.get("access_state") != "AUTHENTICATED":
+        invalidate_readiness(provider_id, f"session:{lifecycle.get('access_state')}")
     body.update({"provider": provider_id,
                  "account_id": (account or {}).get("account_id"),
                  "checked_at": datetime.now().isoformat(),
@@ -1843,7 +1901,14 @@ def api_provider_session(provider_id):
                       "account_id": body.get("account_id"),
                       "access_state": lifecycle.get("access_state"),
                       "authenticated": lifecycle.get("authenticated")})
-    return jsonify(body)
+    return body, 200
+
+
+@control_panel_bp.route('/api/providers/<provider_id>/session')
+def api_provider_session(provider_id):
+    """Read-only provider/account login-session validation (NG-ACC-002)."""
+    body, status = _evaluate_provider_session(provider_id)
+    return jsonify(body), status
 
 
 @control_panel_bp.route('/api/providers/<provider_id>/logout', methods=['POST'])
@@ -1890,6 +1955,7 @@ def api_provider_logout(provider_id):
     audit_logger.log({"event": "provider_logout", "provider": provider_id,
                       "account_id": account.get("account_id") if account else None,
                       "origin": origin, "cleared": cleared, "access_state": "LOGIN_REQUIRED"})
+    invalidate_readiness(provider_id, "explicit_logout")
     return jsonify({"success": True, "provider": provider_id,
                     "origin": origin, "cleared": cleared, "session": lifecycle,
                     "persistence": {"authority": authority, "persisted": persisted},
