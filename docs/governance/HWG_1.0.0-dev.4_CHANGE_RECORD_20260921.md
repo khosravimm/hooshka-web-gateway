@@ -41,3 +41,21 @@ This record freezes the governance and operational-model transition introduced a
 - Current conflict: `.runtime-dev\\shared-profile` is shared by `chatgpt-web`, `zai-web`, and `deepseek-web` and is reported as `CONFLICT` against NG-BRW-003/profile-boundary requirements.
 - Projection is explicitly `legacy_config_projection`; it does not claim migration completion or certification.
 - Deterministic validation after this work unit: `254 passed`.
+
+## Discovery Engine governed-pipeline work unit
+
+- Reframed `core/discovery_engine.py` / `core/control_discovery.py` as Exploration probes rather than the entire Discovery subsystem.
+- Added `core/discovery_orchestrator.py` with explicit Research -> Baseline -> Exploration -> Synthesis -> Update Candidate -> Certification lifecycle.
+- Added versioned Discovery Recipe and Discovery Result schemas plus `webchat-standard-v1` recipe.
+- Added reconstruction architecture and rebuild records under `docs/governance/`.
+- Evidence promotion remains fail-closed: E1 discovery does not become operational capability without scoped E2 certification.
+
+## Remaining-work anti-forgetting work unit
+
+- Added `HWG-WORK-REGISTER-001` with 16 tracked work items spanning Discovery, isolation, readiness, Profile/Account persistence, UI, multimodal, SDK, security, reliability, evidence, cutover, repository governance and documentation.
+- Each item records source requirement, status, priority, dependencies, target version, required evidence and exit criteria.
+- Added validation that rejects malformed status, missing source/evidence/exit criteria, duplicate IDs and unknown dependencies.
+- Added `/panel/api/governance/work-register` and a dedicated Control Plane `کارهای باقی‌مانده` workspace.
+- Current register baseline: 16 non-DONE items, including 9 open P0 items.
+- Deterministic validation after integration: `260 passed`.
+- No item may be removed or marked DONE solely to reduce backlog; exit criteria and evidence are mandatory.

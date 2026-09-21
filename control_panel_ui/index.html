@@ -44,7 +44,8 @@
       <button class="nav-item" data-panel="config"><span class="nav-chip">G</span><span>تنظیمات</span></button>
       <button class="nav-item" data-panel="service"><span class="nav-chip">V</span><span>سرویس و ری‌استارت</span></button>
 
-      <div class="nav-group-title">شواهد</div>
+      <div class="nav-group-title">حاکمیت و شواهد</div>
+      <button class="nav-item" data-panel="work"><span class="nav-chip">W</span><span>کارهای باقی‌مانده</span></button>
       <button class="nav-item" data-panel="logs"><span class="nav-chip">L</span><span>گزارش‌ها و شواهد</span></button>
     </nav>
 
@@ -344,6 +345,27 @@
           </div>
           <details class="mt"><summary class="hint">خروجی خام</summary><pre id="service-raw" class="code-view"></pre></details>
         </div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-work">
+      <div class="card-head">
+        <div><h3 class="card-title">کارهای باقی‌مانده و ضدفراموشی</h3><p class="hint">منبع اجرایی واحد برای Gapها، وابستگی‌ها، نسخه هدف، Evidence و شرط خروج.</p></div>
+        <span id="work-register-valid" class="badge">بررسی...</span>
+      </div>
+      <div class="stat-grid">
+        <div class="card stat-card"><div class="stat-label">کل آیتم‌ها</div><div class="stat-value" id="work-total">-</div></div>
+        <div class="card stat-card"><div class="stat-label">باز</div><div class="stat-value" id="work-open">-</div></div>
+        <div class="card stat-card accent-card"><div class="stat-label">P0 باز</div><div class="stat-value" id="work-p0">-</div></div>
+        <div class="card stat-card"><div class="stat-label">نسخه Register</div><div class="stat-value small" id="work-version">-</div></div>
+      </div>
+      <div class="card mt">
+        <div class="card-head"><div><h3 class="card-title">اقدام‌های بعدی</h3><p class="hint">فقط آیتم‌هایی که وابستگی باز ندارند.</p></div></div>
+        <div id="work-next-actions" class="work-list"></div>
+      </div>
+      <div class="card mt">
+        <div class="card-head"><div><h3 class="card-title">Register کامل</h3><p class="hint">هیچ آیتمی بدون Evidence و Exit Criteria نباید بسته شود.</p></div></div>
+        <div id="work-register-list" class="work-list"></div>
       </div>
     </section>
 

@@ -20,6 +20,7 @@ from core.config import load_config, deep_merge, get_default_config
 from core.feature_settings import persist_provider_feature_defaults, provider_feature_state
 from core.runtime_inventory import inventory_by_id, load_orchestration_settings
 from core.profile_contract import project_ng_inventory
+from core.work_register import load_register, summarize_register, validate_register
 
 control_panel_bp = Blueprint('control_panel', __name__, url_prefix='/panel')
 
@@ -434,6 +435,18 @@ def api_runtime_orchestration():
 @control_panel_bp.route('/api/ng/inventory')
 def api_ng_inventory():
     return jsonify(project_ng_inventory(CONFIG_PATH))
+
+
+@control_panel_bp.route('/api/governance/work-register')
+def api_governance_work_register():
+    doc = load_register()
+    errors = validate_register(doc)
+    return jsonify({
+        "valid": not errors,
+        "errors": errors,
+        "summary": summarize_register(doc),
+        "items": doc.get("items", []),
+    })
 
 
 @control_panel_bp.route('/api/runtimes')

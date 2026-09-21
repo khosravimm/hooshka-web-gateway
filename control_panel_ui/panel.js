@@ -12,6 +12,7 @@
     apikeys: 'کلیدها و دسترسی',
     config: 'تنظیمات',
     service: 'سرویس و ری‌استارت',
+    work: 'کارهای باقی‌مانده',
     logs: 'گزارش‌ها و شواهد',
   };
 
@@ -83,6 +84,7 @@
     if (name === 'apikeys') loadApiKeys();
     if (name === 'config') loadConfig();
     if (name === 'service') loadServiceStatus();
+    if (name === 'work') loadWorkRegister();
     if (name === 'logs') loadLogs();
   }
 
@@ -982,6 +984,32 @@ function initNav() {
     } finally {
       await loadServiceStatus();
       if (btn) btn.disabled = false;
+    }
+  }
+
+  /* ---------------- Remaining work / governance ---------------- */
+  async function loadWorkRegister() {
+    try {
+      const data = await api('/governance/work-register');
+      const s = data.summary || {};
+      $('#work-total').textContent = s.total ?? '-';
+      $('#work-open').textContent = s.open ?? '-';
+      $('#work-p0').textContent = s.p0_open ?? '-';
+      $('#work-version').textContent = s.version || '-';
+      const badge = $('#work-register-valid');
+      badge.textContent = data.valid ? 'معتبر' : 'خطای Register';
+      badge.className = 'badge ' + (data.valid ? 'hwg-ok' : 'hwg-bad');
+      $('#work-next-actions').innerHTML = (s.next_actions || []).map(x =>
+        `<div class="work-item"><b class="ltr">${x.id}</b><span>${x.title}</span><span class="badge">${x.priority}</span><span class="hint ltr">${x.target_version}</span></div>`
+      ).join('') || '<div class="hint">اقدام آماده‌ای وجود ندارد.</div>';
+      $('#work-register-list').innerHTML = (data.items || []).map(x =>
+        `<div class="work-item"><div><b class="ltr">${x.id}</b><span class="badge">${x.status}</span><span class="badge">${x.priority}</span></div><div>${x.title}</div><div class="hint">هدف: <span class="ltr">${x.target_version}</span> · وابستگی: ${(x.depends_on || []).join('، ') || 'ندارد'}</div></div>`
+      ).join('');
+    } catch (e) {
+      const badge = $('#work-register-valid');
+      if (badge) { badge.textContent = 'خطا'; badge.className = 'badge hwg-bad'; }
+      const list = $('#work-register-list');
+      if (list) list.innerHTML = `<div class="hint">${e.message}</div>`;
     }
   }
 

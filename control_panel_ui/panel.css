@@ -311,3 +311,5 @@ input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent);
 .dependency-note.warn { background:var(--warn-bg); color:var(--warn-ink); }
 @media (max-width: 1100px) { .flow-rail { grid-template-columns:repeat(2,minmax(180px,1fr)); } }
 @media (max-width: 720px) { .flow-rail { grid-template-columns:1fr; } .runtime-dependency { grid-template-columns:1fr; } }
+
+.work-list{display:grid;gap:10px}.work-item{display:grid;gap:6px;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}.work-item>div:first-child{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.stat-value.small{font-size:1.05rem}

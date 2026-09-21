@@ -77,3 +77,7 @@ As of this baseline, existing E1/E2 evidence may satisfy portions of individual 
 4. Make Profile -> Account -> Runtime -> Provider relationships explicit in the control plane.
 5. Add requirement IDs/evidence links to new tests and operational changes.
 6. Keep this matrix updated in the same change set whenever a Mission requirement, architecture contract or evidence status changes.
+
+## Anti-forgetting execution register
+
+The machine-readable execution register is `docs/governance/HWG_REMAINING_WORK_REGISTER.json` (`HWG-WORK-REGISTER-001`). Traceability records requirement compliance; the Work Register records the executable remediation plan, dependencies, target version, required evidence and exit criteria. Silent removal of unfinished work is prohibited. The Control Plane exposes the register through `/panel/api/governance/work-register` and a dedicated `کارهای باقی‌مانده` workspace.
