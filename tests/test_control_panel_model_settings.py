@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTROL_PANEL = ROOT / "control_panel.py"
@@ -267,3 +267,17 @@ def test_control_panel_renders_only_active_workspace():
     assert 'data-panel="overview"' in index
     js = js_text()
     assert "p.classList.toggle('active', p.id === 'panel-' + name)" in js
+
+
+def test_provider_management_ui_exposes_enable_and_profile_controls():
+    js = js_text()
+    index = index_text()
+    assert "HwgProviderEnabled" in js
+    assert "HwgProviderProfile" in js
+    assert "api('/runtime/profiles')" in js
+    assert 'id="profiles-grid"' in index
+    assert 'id="profile-create"' in index
+    text = source()
+    assert "def api_provider_settings" in text
+    assert "def api_runtime_profiles" in text
+    assert "def api_runtime_profile_delete" in text

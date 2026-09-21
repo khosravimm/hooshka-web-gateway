@@ -273,3 +273,12 @@ input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent);
 .provider-status-state { margin-top:10px; font-size:16px; font-weight:800; }
 .provider-status-meta { margin-top:4px; color:var(--text-3); font-size:11px; }
 @media (max-width:760px) { .health-tile-grid,.provider-status-grid { grid-template-columns:1fr 1fr; } }
+
+.profiles-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:10px; }
+.profile-card { border:1px solid var(--border); background:var(--panel-2); border-radius:10px; padding:12px; display:grid; grid-template-columns:1fr auto; gap:8px 12px; align-items:center; }
+.profile-assignment { color:var(--text-2); font-size:12px; }
+.profile-create { display:flex; gap:8px; align-items:end; }
+.profile-create .ctrl { min-width:220px; margin:0; }
+.provider-switch { display:inline-flex; align-items:center; gap:7px; padding:5px 8px; border:1px solid var(--border); border-radius:999px; background:var(--panel-2); font-weight:600; }
+.provider-profile-row { display:flex; gap:6px; align-items:center; margin-top:6px; min-width:250px; }
+.provider-profile-row .ctrl { margin:0; min-width:145px; }

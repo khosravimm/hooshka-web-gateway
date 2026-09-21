@@ -4,6 +4,8 @@ import time
 import logging
 import subprocess
 import secrets
+import shutil
+import re
 import yaml
 import psutil
 import urllib.request
@@ -211,11 +213,15 @@ def _provider_model_state(provider):
 
 
 def _provider_payload(provider):
+    _cfg, persisted = _provider_config_entry(provider.provider_id) if '_provider_config_entry' in globals() else ({}, None)
+    persisted = persisted or {}
+    runtime_cfg = persisted.get("runtime", {}) or {}
     return {
         "id": provider.provider_id,
         "type": provider.provider_type.value,
-        "enabled": provider.config.enabled,
-        "priority": provider.config.priority,
+        "enabled": bool(persisted.get("enabled", provider.config.enabled)),
+        "priority": int(persisted.get("priority", provider.config.priority)),
+        "profile_dir": runtime_cfg.get("profile_dir") or provider.config.config.get("profile_dir") or "",
         "capabilities": {
             "chat_completion": provider.capabilities.chat_completion,
             "streaming": provider.capabilities.streaming,
@@ -660,6 +666,140 @@ def api_provider_delete(provider_id):
     except Exception as e:
         restart = {"scheduled": False, "error": str(e), "warning": "Config saved but restart not scheduled"}
     return jsonify({"success": True, "provider_id": provider_id, "restart": restart})
+
+
+def _provider_config_entry(provider_id):
+    cfg = _load_config_file()
+    for item in cfg.get("providers", []) or []:
+        if item.get("id") == provider_id:
+            return cfg, item
+    return cfg, None
+
+
+def _profile_root():
+    return (Path(__file__).parent / ".runtime-dev").resolve()
+
+
+def _safe_profile_path(value):
+    value = str(value or "").strip().replace("/", "\\")
+    if not value:
+        raise ValueError("profile_dir is required")
+    candidate = Path(value)
+    absolute = (candidate if candidate.is_absolute() else Path(__file__).parent / candidate).resolve()
+    root = _profile_root()
+    if absolute != root and root not in absolute.parents:
+        raise ValueError("Profile must stay inside .runtime-dev")
+    return absolute
+
+
+def _profile_relative(path):
+    return str(path.relative_to(Path(__file__).parent.resolve())).replace("/", "\\")
+
+
+@control_panel_bp.route('/api/providers/<provider_id>/settings', methods=['PUT'])
+def api_provider_settings(provider_id):
+    data = request.get_json(force=True) or {}
+    cfg, item = _provider_config_entry(provider_id)
+    if item is None:
+        return jsonify({"error": "Provider not found"}), 404
+    if "enabled" in data:
+        item["enabled"] = bool(data["enabled"])
+    if "priority" in data:
+        priority = int(data["priority"])
+        if priority < 1 or priority > 100:
+            return jsonify({"error": "priority must be between 1 and 100"}), 400
+        item["priority"] = priority
+    if "profile_dir" in data:
+        try:
+            profile = _safe_profile_path(data["profile_dir"])
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        profile.mkdir(parents=True, exist_ok=True)
+        rel = _profile_relative(profile)
+        item.setdefault("runtime", {})["profile_dir"] = rel
+        item.setdefault("config", {})["profile_dir"] = rel
+    _save_config_file(cfg)
+    live = provider_registry.get(provider_id)
+    if live is not None:
+        if "enabled" in data:
+            live.config.enabled = bool(data["enabled"])
+        if "priority" in data:
+            live.config.priority = int(data["priority"])
+        if "profile_dir" in data:
+            live.config.config["profile_dir"] = item.get("config", {}).get("profile_dir", "")
+    try:
+        restart = _schedule_restart_all(f"provider-settings:{provider_id}")
+    except Exception as exc:
+        restart = {"scheduled": False, "warning": str(exc)}
+    return jsonify({"success": True, "provider": provider_id, "restart": restart})
+
+
+@control_panel_bp.route('/api/runtime/profiles', methods=['GET', 'POST'])
+def api_runtime_profiles():
+    root = _profile_root()
+    root.mkdir(parents=True, exist_ok=True)
+    cfg = _load_config_file()
+    assigned = {}
+    for item in cfg.get("providers", []) or []:
+        value = str((item.get("runtime") or {}).get("profile_dir") or "").strip()
+        if value:
+            try:
+                assigned.setdefault(str(_safe_profile_path(value)), []).append(item.get("id"))
+            except ValueError:
+                pass
+    if request.method == 'POST':
+        data = request.get_json(force=True) or {}
+        name = str(data.get("name") or "").strip()
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", name):
+            return jsonify({"error": "Profile name may contain letters, numbers, dot, underscore and hyphen"}), 400
+        path = (root / "profiles" / name).resolve()
+        if path.exists():
+            return jsonify({"error": "Profile already exists"}), 409
+        path.mkdir(parents=True)
+        return jsonify({"success": True, "name": name, "profile_dir": _profile_relative(path)}), 201
+    paths = set(assigned)
+    if root.exists():
+        for path in root.iterdir():
+            if path.is_dir() and path.name != "profiles":
+                paths.add(str(path.resolve()))
+        managed = root / "profiles"
+        if managed.exists():
+            for path in managed.iterdir():
+                if path.is_dir():
+                    paths.add(str(path.resolve()))
+    profiles = []
+    for raw in sorted(paths):
+        path = Path(raw)
+        profiles.append({"name": path.name, "profile_dir": _profile_relative(path), "assigned_to": assigned.get(str(path), [])})
+    return jsonify({"profiles": profiles})
+
+
+@control_panel_bp.route('/api/runtime/profiles/<profile_name>', methods=['DELETE'])
+def api_runtime_profile_delete(profile_name):
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", profile_name):
+        return jsonify({"error": "Invalid profile name"}), 400
+    path = (_profile_root() / "profiles" / profile_name).resolve()
+    try:
+        _safe_profile_path(path)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    cfg = _load_config_file()
+    users = []
+    for item in cfg.get("providers", []) or []:
+        value = str((item.get("runtime") or {}).get("profile_dir") or "").strip()
+        if value:
+            try:
+                if _safe_profile_path(value) == path:
+                    users.append(item.get("id"))
+            except ValueError:
+                pass
+    if users:
+        return jsonify({"error": "Profile is assigned and cannot be deleted", "assigned_to": users}), 409
+    if not path.exists():
+        return jsonify({"error": "Profile not found"}), 404
+    shutil.rmtree(path)
+    return jsonify({"success": True, "name": profile_name})
+
 
 @control_panel_bp.route('/api/providers/<provider_id>/features', methods=['GET', 'PUT'])
 def api_provider_features(provider_id):

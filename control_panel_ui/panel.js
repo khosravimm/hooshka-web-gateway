@@ -340,7 +340,7 @@ function initNav() {
     const status = $('#runtime-action-global');
     setStatus(status, '', '');
     try {
-      const data = await api('/runtimes');
+      const [data, profileData] = await Promise.all([api('/runtimes'), api('/runtime/profiles')]);
       tbody.innerHTML = (data.runtimes || []).map(r => `
         <tr>
           <td class="ltr">${r.id}</td>
@@ -357,10 +357,49 @@ function initNav() {
           </td>
         </tr>`).join('');
       tbody.querySelectorAll('button[data-act]').forEach(b => b.addEventListener('click', () => runtimeAction(b.dataset.id, b.dataset.act, b)));
+      renderProfiles(profileData.profiles || []);
     } catch (e) {
       tbody.innerHTML = `<tr><td colspan="7" class="text-muted">خطا: ${e.message}</td></tr>`;
     }
     $('#runtime-repair-all').onclick = () => runtimeAction('all', 'repair', null);
+  }
+
+  function renderProfiles(profiles) {
+    const box = $('#profiles-grid');
+    if (!box) return;
+    box.innerHTML = profiles.map(p => {
+      const assigned = (p.assigned_to || []).join('، ');
+      const managed = String(p.profile_dir || '').toLowerCase().includes('.runtime-dev\\profiles\\');
+      return `<div class="profile-card"><div><b class="ltr">${p.name}</b><div class="hint ltr">${p.profile_dir}</div></div>
+        <div class="profile-assignment">${assigned ? 'متصل به: ' + assigned : 'بدون انتساب'}</div>
+        <button class="btn danger btn-xs" data-profile-delete="${p.name}" ${(!managed || assigned) ? 'disabled' : ''}>حذف</button></div>`;
+    }).join('') || '<div class="hint">پروفایلی ثبت نشده است.</div>';
+    box.querySelectorAll('[data-profile-delete]').forEach(btn => btn.addEventListener('click', () => deleteProfile(btn.dataset.profileDelete)));
+    const create = $('#profile-create');
+    if (create) create.onclick = createProfile;
+  }
+
+  async function createProfile() {
+    const input = $('#profile-new-name');
+    const name = (input.value || '').trim();
+    if (!name) { toast('نام پروفایل الزامی است', 'err'); return; }
+    try {
+      await api('/runtime/profiles', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({name}) });
+      input.value = '';
+      toast('پروفایل ساخته شد', 'ok');
+      await loadRuntimes();
+      await loadProviders();
+    } catch (e) { toast('ساخت پروفایل: ' + e.message, 'err'); }
+  }
+
+  async function deleteProfile(name) {
+    if (!confirm('پروفایل ' + name + ' حذف شود؟')) return;
+    try {
+      await api('/runtime/profiles/' + encodeURIComponent(name), { method: 'DELETE' });
+      toast('پروفایل حذف شد', 'ok');
+      await loadRuntimes();
+      await loadProviders();
+    } catch (e) { toast('حذف پروفایل: ' + e.message, 'err'); }
   }
 
   async function runtimeAction(providerId, action, btn) {
@@ -384,10 +423,11 @@ function initNav() {
 
   /* ---------------- Providers ---------------- */
   async function loadProviders(opts) {
-    let data;
-    try { data = await api('/providers'); }
+    let data, profileData;
+    try { [data, profileData] = await Promise.all([api('/providers'), api('/runtime/profiles')]); }
     catch (e) { return; }
     const providers = data.providers || [];
+    const profiles = (profileData && profileData.profiles) || [];
     $('#stat-providers').textContent = providers.length;
     const enabled = providers.filter(p => p.enabled === true);
     const ready = enabled.filter(p => p.runtime && p.runtime.ready === true).length;
@@ -415,10 +455,13 @@ function initNav() {
       <tr>
         <td class="ltr">${p.id}</td>
         <td><span class="hwg-chip hwg-neutral">${p.type}</span></td>
-        <td><span class="hwg-chip ${p.enabled ? 'hwg-ok' : 'hwg-bad'}">${p.enabled ? 'فعال' : 'غیرفعال'}</span></td>
+        <td><label class="provider-switch"><input type="checkbox" ${p.enabled ? 'checked' : ''} onchange="window.HwgProviderEnabled && HwgProviderEnabled('${p.id}',this.checked)"><span>${p.enabled ? 'فعال' : 'غیرفعال'}</span></label></td>
         <td>
           <span class="hwg-chip ${p.runtime?.ready ? 'hwg-ok' : (p.runtime?.ready === null ? 'hwg-neutral' : 'hwg-bad')}">${p.runtime?.status || 'unknown'}</span>
           <div class="hint ltr">${p.runtime?.cdp_url || '-'}</div>
+          <div class="provider-profile-row"><select id="profile-${p.id}" class="ctrl ltr">
+            ${profiles.map(pr => `<option value="${pr.profile_dir}" ${pr.profile_dir === p.profile_dir ? 'selected' : ''}>${pr.name}</option>`).join('')}
+          </select><button class="btn ghost btn-xs" onclick="window.HwgProviderProfile && HwgProviderProfile('${p.id}')">اعمال Profile</button></div>
         </td>
         <td>${p.priority}</td>
         <td><div class="capability-badges">${Object.entries(p.capabilities || {}).filter(([k, v]) => v === true).map(([k]) => `<span class="cap-badge">${k}</span>`).join('')}</div></td>
@@ -452,6 +495,28 @@ function initNav() {
       </tr>`).join('');
     $('#repair-all-runtimes').onclick = () => runtimeAction('all', 'repair', null);
   }
+
+  window.HwgProviderEnabled = async function (providerId, enabled) {
+    try {
+      const r = await api('/providers/' + encodeURIComponent(providerId) + '/settings', {
+        method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({enabled})
+      });
+      toast(providerId + (enabled ? ' فعال شد' : ' غیرفعال شد') + (r.restart?.scheduled ? '؛ ری‌استارت زمان‌بندی شد' : ''), 'ok');
+      await loadProviders();
+    } catch (e) { toast('تغییر وضعیت Provider: ' + e.message, 'err'); await loadProviders(); }
+  };
+
+  window.HwgProviderProfile = async function (providerId) {
+    const select = document.getElementById('profile-' + providerId);
+    if (!select || !select.value) { toast('Profile انتخاب نشده است', 'err'); return; }
+    try {
+      const r = await api('/providers/' + encodeURIComponent(providerId) + '/settings', {
+        method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({profile_dir: select.value})
+      });
+      toast('Profile ' + providerId + ' ذخیره شد' + (r.restart?.scheduled ? '؛ ری‌استارت زمان‌بندی شد' : ''), 'ok');
+      await Promise.all([loadProviders(), loadRuntimes()]);
+    } catch (e) { toast('تغییر Profile: ' + e.message, 'err'); }
+  };
 
   window.HwgProvidersToggle = async function (providerId, feature, value) {
     try {
