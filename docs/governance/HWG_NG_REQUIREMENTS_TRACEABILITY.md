@@ -38,7 +38,7 @@ Mission/Architecture define **what must be true**. Code/config/tests define **wh
 | Unified visible browser UX without isolation loss | PARTIAL | Visible runtime exists; one-window/multi-account isolation design study is not complete. |
 | No focus stealing in background operations | PARTIAL | Focus-guard concepts exist; full automated/no-focus certification gate remains open. |
 | Per-account session/storage isolation | CONFLICT | Current `shared-profile` is assigned to ChatGPT, Z.ai and DeepSeek. Mission/Playbook require account/profile isolation; migrate away or approve a versioned architecture change. |
-| Provider Profile separate from Account Instance | PARTIAL | Separate Provider Profile v1 and Account Instance v1 schemas now exist; current runtime config has not yet migrated to instances. |
+| Provider Profile separate from Account Instance | PARTIAL | Separate Provider Profile v1 and Account Instance v1 schemas plus a read-only legacy projection now exist; persistent runtime migration to real instances remains open. |
 | Profile as runtime security boundary | PARTIAL | Explicit profile paths/ownership exist, but shared profile violates the target boundary. |
 | Login/Logout/Re-auth/Session Validation UI | PARTIAL | Some provider session endpoints exist; complete account-centric workflow is open. |
 

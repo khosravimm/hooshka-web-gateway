@@ -33,7 +33,7 @@
     "e1_dev4": {
       "status": "PASS",
       "date": "2026-09-21",
-      "tests": 252,
+      "tests": 254,
       "evidence": "docs/governance/HWG_1.0.0-dev.4_CHANGE_RECORD_20260921.md",
       "scope": "version/history/governance/schema deterministic validation"
     }
@@ -50,5 +50,10 @@
     "provider_profile_schema": "schemas/hwg-provider-profile-v1.schema.json",
     "account_instance_schema": "schemas/hwg-account-instance-v1.schema.json",
     "dev4_change_record": "docs/governance/HWG_1.0.0-dev.4_CHANGE_RECORD_20260921.md"
+  },
+  "contracts": {
+    "provider_profile_schema": "urn:hwg:schema:provider-profile:1.0.0",
+    "account_instance_schema": "urn:hwg:schema:account-instance:1.0.0",
+    "ng_inventory_api": "/panel/api/ng/inventory"
   }
 }

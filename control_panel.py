@@ -19,6 +19,7 @@ from core.governance import auth_manager, rate_limiter
 from core.config import load_config, deep_merge, get_default_config
 from core.feature_settings import persist_provider_feature_defaults, provider_feature_state
 from core.runtime_inventory import inventory_by_id, load_orchestration_settings
+from core.profile_contract import project_ng_inventory
 
 control_panel_bp = Blueprint('control_panel', __name__, url_prefix='/panel')
 
@@ -428,6 +429,11 @@ def _desktop_agent_status():
 @control_panel_bp.route('/api/runtime/orchestration')
 def api_runtime_orchestration():
     return jsonify({"desktop_agent": _desktop_agent_status()})
+
+
+@control_panel_bp.route('/api/ng/inventory')
+def api_ng_inventory():
+    return jsonify(project_ng_inventory(CONFIG_PATH))
 
 
 @control_panel_bp.route('/api/runtimes')

@@ -33,3 +33,11 @@ This record freezes the governance and operational-model transition introduced a
 - `shared-profile` remains an explicit isolation migration conflict.
 - Binary CDP availability is not accepted as final Provider READY.
 - Every future architecture/behavior change must update version/history, traceability and evidence in the same change set.
+## NG contract projection work unit
+
+- Added `core/profile_contract.py` as a read-only compatibility projection from legacy `config.yaml` to Provider Profile v1 + Account Instance v1.
+- Added `/panel/api/ng/inventory` as a machine-readable migration/relationship inventory.
+- Current projection: 4 Provider Profiles, 4 Account Instances.
+- Current conflict: `.runtime-dev\\shared-profile` is shared by `chatgpt-web`, `zai-web`, and `deepseek-web` and is reported as `CONFLICT` against NG-BRW-003/profile-boundary requirements.
+- Projection is explicitly `legacy_config_projection`; it does not claim migration completion or certification.
+- Deterministic validation after this work unit: `254 passed`.

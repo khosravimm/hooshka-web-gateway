@@ -9,7 +9,7 @@
     "account_id": {"type": "string", "minLength": 1},
     "provider_profile_id": {"type": "string", "minLength": 1},
     "browser_profile": {"type": "object", "required": ["path", "ownership"], "properties": {
-      "path": {"type": "string"}, "ownership": {"const": "exclusive"}
+      "path": {"type": "string"}, "ownership": {"enum": ["exclusive", "shared_conflict"]}
     }},
     "session": {"type": "object", "required": ["state"], "properties": {
       "state": {"enum": ["unknown", "auth_required", "authenticated", "blocked", "expired"]},

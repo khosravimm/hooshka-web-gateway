@@ -4,10 +4,11 @@
 - Reworked Control Plane navigation and runtime/provider/profile responsibilities around operational dependency order instead of duplicated technical controls.
 - Fixed Desktop Runtime Agent contract drift: config-owned port, health endpoint and interactive Scheduled Task installation path.
 - Added versioned machine-readable Provider Profile v1 and Account Instance v1 JSON Schemas as the first NG contract baseline.
+- Added read-only legacy-config projection and `/panel/api/ng/inventory`; current config projects to 4 profiles + 4 accounts and reports shared-profile isolation as a machine-readable conflict.
 - Synchronized application, manifest and Control Plane UI version to 1.0.0-dev.4 and added a regression gate for future version/history drift.
 
 ### Evidence
-- Deterministic suite before dev.4 contract additions: 250 passed.
+- Deterministic suite after NG contract projection: 254 passed.
 - Live development runtime: Desktop Runtime Agent reachable on configured port 5181; DeepSeek runtime start completed successfully.
 - Production/legacy port 5000 was not modified by this development change set.
 - No E3 reliability claim is made.
