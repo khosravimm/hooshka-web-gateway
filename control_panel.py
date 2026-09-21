@@ -493,17 +493,39 @@ def api_provider_readiness_probe(provider_id):
     runtime_cfg = inventory_by_id(CONFIG_PATH).get(provider_id) or {}
     runtime_state = _check_cdp(runtime_cfg.get("cdp_url"))
     session_body, _session_status = _evaluate_provider_session(provider_id)
+    access_info = dict(session_body.get("access") or {})
     access = ((session_body.get("lifecycle") or {}).get("access_state") or "UNKNOWN")
     account_id = session_body.get("account_id")
+    page_interactive = bool(access_info.get("page_url")) and not any(
+        token in set(access_info.get("evidence") or [])
+        for token in ("no_browser_context", "no_provider_page")
+    )
     loop = current_app.config.get("HWG_ASYNC_LOOP")
     if loop is None or not loop.is_running():
         return jsonify({"error":"Gateway async runtime unavailable"}), 503
     ttl = max(30, min(3600, int(data.get("ttl_seconds") or 300)))
+    feature_observation = {"observed_control_kinds": []}
+    if runtime_state.get("ready") and page_interactive and access == "AUTHENTICATED":
+        try:
+            ff = asyncio.run_coroutine_threadsafe(
+                discovery_explore_cdp(provider_id, runtime_cfg.get("cdp_url"), runtime_cfg.get("home_url")), loop)
+            findings, _drift = ff.result(timeout=35)
+            controls = ((findings.get("frontend") or {}).get("controls") or [])
+            feature_observation = {
+                "observed_control_kinds": sorted({str(c.get("kind")) for c in controls if c.get("kind")}),
+                "page_url": findings.get("page_url"),
+            }
+        except Exception as exc:
+            logger.warning("Readiness feature observation failed for %s", provider_id, exc_info=True)
+            feature_observation = {"observed_control_kinds": [], "error": type(exc).__name__}
     try:
         future = asyncio.run_coroutine_threadsafe(
             run_functional_probe(provider, account_id=account_id,
                                  runtime_ready=bool(runtime_state.get("ready")),
-                                 access_state=access, ttl_seconds=ttl), loop)
+                                 page_interactive=page_interactive,
+                                 access_state=access,
+                                 feature_observation=feature_observation,
+                                 ttl_seconds=ttl), loop)
         record = dict(future.result(timeout=110))
     except concurrent.futures.TimeoutError:
         return jsonify({"error":"readiness_probe_timeout","provider":provider_id}), 504
@@ -513,6 +535,8 @@ def api_provider_readiness_probe(provider_id):
     record["execution_authority"] = authority
     record["runtime"] = runtime_state
     record["access_state"] = access
+    record["page_interactive"] = page_interactive
+    record["feature_observation"] = feature_observation
     save_readiness(record)
     audit_logger.log({"event":"functional_readiness_probe","provider":provider_id,
                       "account_id":account_id,"state":record.get("state"),"ready":record.get("ready")})

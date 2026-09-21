@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
-from core.control_discovery import classify
+from core.control_discovery import classify, ENUMERATE_JS
 
 ENGINE_VERSION = "1.0.0"
 PROFILE_ROOT = Path(__file__).resolve().parents[1] / "docs" / "profiles"
@@ -183,24 +183,7 @@ BACKEND_JS = r"""() => {
 
 FRONTEND_JS = r"""() => {
   const comp = document.querySelector('textarea, [contenteditable=true][role=textbox], [contenteditable=true]');
-  const all = [...document.querySelectorAll('button, [role=button], [tabindex="0"], [role=switch], [role=checkbox], [role=combobox], [role=listbox], input[type=checkbox], [aria-pressed], [data-testid]')];
-  const seen = new Set(); const els = [];
-  for (const e of all) {
-    const r = e.getBoundingClientRect();
-    if (r.width === 0 && r.height === 0) continue;
-    const key = (e.outerHTML || '').slice(0, 120);
-    if (seen.has(key)) continue; seen.add(key);
-    const cls = e.className && e.className.baseVal !== undefined ? '' : String(e.className || '');
-    els.push({tag: e.tagName, eid: e.id || '', testid: e.getAttribute('data-testid') || '',
-      text: (e.innerText || '').trim().replace(/\s+/g, ' ').slice(0, 80),
-      aria: (e.getAttribute('aria-label') || '').slice(0, 80),
-      title: (e.getAttribute('title') || '').slice(0, 80), cls: cls.slice(0, 80),
-      pressed: e.getAttribute('aria-pressed'), checked: e.getAttribute('aria-checked'),
-      expanded: e.getAttribute('aria-expanded'),
-      disabled: e.disabled === true ? true : null, state: e.getAttribute('data-state')});
-    if (els.length >= 400) break;
-  }
-  return {composer: comp ? (comp.tagName + '#' + (comp.id || '')) : null, elements: els};
+  return {composer: comp ? (comp.tagName + '#' + (comp.id || '')) : null};
 }"""
 
 
@@ -208,8 +191,9 @@ async def discover_page(page, provider_id: str) -> DiscoveryReport:
     """Full read-only discovery run on a live Playwright page."""
     url = page.url
     front_raw = await page.evaluate(FRONTEND_JS)
+    elements = await page.evaluate(ENUMERATE_JS)
     backend_raw = await page.evaluate(BACKEND_JS)
-    controls = classify(front_raw.get("elements", []))
+    controls = classify(elements)
     frontend = {"composer": front_raw.get("composer"),
                 "controls": [c.__dict__ for c in controls]}
     backend = analyze_backend(backend_raw, _host(url))

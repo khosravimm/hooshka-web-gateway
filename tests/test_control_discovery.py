@@ -78,3 +78,9 @@ def test_enumerator_includes_generic_keyboard_and_button_surfaces():
     source = Path("core/control_discovery.py").read_text(encoding="utf-8")
     assert '[role=button]' in source
     assert '[tabindex="0"]' in source
+
+
+def test_enumerator_does_not_collapse_same_structure_sibling_controls():
+    source = Path("core/control_discovery.py").read_text(encoding="utf-8")
+    assert "outerHTML" not in source
+    assert "const seen = new Set()" not in source

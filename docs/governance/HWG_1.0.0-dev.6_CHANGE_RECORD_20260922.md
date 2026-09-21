@@ -37,7 +37,7 @@ This work advances `HWG-WORK-002` and `HWG-WORK-006`. It does not claim final ac
 ## Evidence
 
 - Targeted Provider provisioning / Browser Runtime grouping / Profile management tests: PASS.
-- Full deterministic suite: **333 passed**.
+- Full deterministic suite: **338 passed**.
 - `compileall`, JavaScript syntax and `git diff --check` are release-blocking final checks for this local commit.
 - No E2 deployment claim is made for the stale 5080 process until dev.6 is deployed from a clean/controlled runtime checkout.
 
@@ -57,6 +57,6 @@ Shared-browser logout was corrected from global context cookie clearing to origi
 
 ## Functional readiness state machine
 
-HWG-WORK-003 is closed with E1+E2 evidence. `/ready` no longer treats registration or CDP reachability as operational readiness. A TTL-bound readiness record is produced only after ordered runtime/CDP, account access, model, feature-baseline and exact-token functional-probe stages.
+HWG-WORK-003 is closed with E1+E2 evidence. `/ready` no longer treats registration or CDP reachability as operational readiness. A TTL-bound readiness record is produced only after ordered runtime/CDP, page-interactive, account access, model, live feature-state and exact-token functional-probe stages.
 
-DeepSeek passed all five stages and caused `/ready` to transition from HTTP 503 to HTTP 200 only after evidence was saved. Qwen had a healthy CDP but stopped fail-closed at `BLOCKED / region_restriction`; model and functional-message stages were not executed. See `docs/evidence/HWG_FUNCTIONAL_READINESS_E2_20260922.md`.
+DeepSeek passed all six stages and caused `/ready` to transition from HTTP 503 to HTTP 200 only after evidence was saved. Qwen had a healthy CDP but stopped fail-closed at `BLOCKED / region_restriction`; model and functional-message stages were not executed. See `docs/evidence/HWG_FUNCTIONAL_READINESS_E2_20260922.md`.

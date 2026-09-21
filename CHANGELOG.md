@@ -17,7 +17,7 @@
 
 ### Evidence
 - Targeted Provider provisioning / Browser Runtime grouping / Profile management tests passed.
-- Full deterministic suite: 333 passed; compileall, JavaScript syntax and git diff checks passed.
+- Full deterministic suite: 338 passed; compileall, JavaScript syntax and git diff checks passed.
 - Development 5080 is running dev.6 and has scoped E2 evidence for Control Plane deployment and account-session lifecycle.
 
 ## 1.0.0-dev.5 - 2026-09-21 - WIP (assisted discovery and governed interaction)

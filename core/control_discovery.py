@@ -135,12 +135,10 @@ def classify(elements: list[dict]) -> list[Control]:
 
 ENUMERATE_JS = r"""() => {
   const all = [...document.querySelectorAll('button, [role=button], [tabindex="0"], [role=switch], [role=checkbox], [role=combobox], [role=listbox], input[type=checkbox], [aria-pressed], [data-testid]')];
-  const seen = new Set(); const out = [];
+  const out = [];
   for (const e of all) {
     const r = e.getBoundingClientRect();
     if (r.width === 0 && r.height === 0) continue;
-    const key = (e.outerHTML || '').slice(0, 120);
-    if (seen.has(key)) continue; seen.add(key);
     const cls = e.className && e.className.baseVal !== undefined ? '' : String(e.className || '');
     out.push({
       tag: e.tagName,

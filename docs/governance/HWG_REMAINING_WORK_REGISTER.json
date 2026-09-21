@@ -1,6 +1,6 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.11.0",
+  "version": "1.11.1",
   "updated_at": "2026-09-21",
   "status_vocabulary": [
     "OPEN",
@@ -120,8 +120,8 @@
       "completed_at": "2026-09-22",
       "latest_evidence": {
         "date": "2026-09-22",
-        "type": "E1+E2_functional_readiness",
-        "result": "Functional readiness now requires runtime/CDP, authenticated account access, model validation, feature baseline, and a bounded exact-token functional probe. DeepSeek reached READY; Qwen stopped fail-closed at BLOCKED access."
+        "type": "E1+E2_functional_readiness_v1.1",
+        "result": "DeepSeek passed six ordered stages: runtime/CDP, page interactive, account auth, model, live feature-state, exact-token functional probe. Qwen stopped fail-closed at BLOCKED before model/feature/message stages. Discovery/Readiness now share one control enumerator."
       },
       "evidence": {
         "type": [
@@ -129,7 +129,7 @@
           "E2"
         ],
         "provider": "deepseek-web",
-        "result": "DeepSeek exact-token readiness probe passed all five stages; /ready transitioned 503->200 only after current functional evidence. Qwen was blocked before message submission.",
+        "result": "DeepSeek readiness contract v1.1 passed all six stages with live Thinking/Search verification and exact-token round-trip; /ready used TTL-bound functional evidence. Qwen stopped at BLOCKED / region_restriction without message submission.",
         "record": "docs/evidence/HWG_FUNCTIONAL_READINESS_E2_20260922.md"
       }
     },
