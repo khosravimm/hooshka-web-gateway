@@ -88,7 +88,7 @@ The first live Behavior Lab attempt exposed a missing `_host()` helper in `core/
 ## Final deterministic and live validation
 
 - Targeted self-use/AI-routing/governance suite: `27 passed` after the automated-validation contract update.
-- Full HWG deterministic suite after all dev.5 changes: `309 passed`.
+- Full HWG deterministic suite after all dev.5 changes: `316 passed`.
 - `compileall`: PASS.
 - `node --check control_panel_ui/panel.js`: PASS.
 - `git diff --check`: PASS.

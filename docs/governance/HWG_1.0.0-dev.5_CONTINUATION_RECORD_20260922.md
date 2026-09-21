@@ -38,5 +38,13 @@ Closing these work units does not mean HWG is release-ready. Persistent Provider
 
 ## Deterministic validation
 
-- Full HWG suite: `309 passed`.
+- Full HWG suite: `316 passed`.
 - `compileall`, JavaScript syntax, and `git diff --check` are required before commit.
+
+## Provider Profile / Account Instance persistence
+
+`HWG-WORK-004` is closed with E1 plus live local migration evidence. `core/profile_store.py` now persists Provider Profiles and Account Instances as separate non-secret artifacts with artifact version, timestamp, source config hash and change log. The NG inventory reads the persistent store once initialized; legacy config projection becomes fallback-only for the relationship model.
+
+The migration is reversible through a hash-bound manifest. A live local sequence proved migrate → rollback → fallback projection → re-migrate using the real development config. The current shared-profile conflict remains explicit and is not hidden by persistence.
+
+Evidence: `docs/evidence/HWG_PROFILE_ACCOUNT_PERSISTENCE_20260922.md`.

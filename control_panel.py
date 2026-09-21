@@ -20,6 +20,7 @@ from core.config import load_config, deep_merge, get_default_config
 from core.feature_settings import persist_provider_feature_defaults, provider_feature_state
 from core.runtime_inventory import inventory_by_id, load_orchestration_settings
 from core.profile_contract import project_ng_inventory
+from core.profile_store import load_ng_inventory, migrate_legacy_inventory, rollback_legacy_migration
 from core.work_register import load_register, summarize_register, validate_register
 from core.discovery_orchestrator import (
     attach_baseline as discovery_attach_baseline,
@@ -454,7 +455,32 @@ def api_runtime_orchestration():
 
 @control_panel_bp.route('/api/ng/inventory')
 def api_ng_inventory():
-    return jsonify(project_ng_inventory(CONFIG_PATH))
+    return jsonify(load_ng_inventory(CONFIG_PATH))
+
+
+@control_panel_bp.route('/api/ng/migrate', methods=['POST'])
+def api_ng_migrate():
+    payload = request.get_json(silent=True) or {}
+    if payload.get("confirm") is not True:
+        return jsonify({"error":"confirmation_required","message":"Persistent NG migration requires confirm=true"}), 400
+    try:
+        return jsonify(migrate_legacy_inventory(CONFIG_PATH)), 201
+    except FileExistsError as exc:
+        return jsonify({"error":"already_migrated","message":str(exc)}), 409
+
+
+@control_panel_bp.route('/api/ng/rollback', methods=['POST'])
+def api_ng_rollback():
+    payload = request.get_json(silent=True) or {}
+    if payload.get("confirm") is not True:
+        return jsonify({"error":"confirmation_required","message":"NG migration rollback requires confirm=true"}), 400
+    try:
+        result = rollback_legacy_migration()
+        return jsonify({"rollback":result,"inventory":load_ng_inventory(CONFIG_PATH)})
+    except FileNotFoundError as exc:
+        return jsonify({"error":"migration_not_found","message":str(exc)}), 404
+    except RuntimeError as exc:
+        return jsonify({"error":"rollback_refused","message":str(exc)}), 409
 
 
 @control_panel_bp.route('/api/governance/work-register')
@@ -480,7 +506,7 @@ def api_discovery_runs():
     provider_id = str(payload.get("provider_id") or "").strip()
     account_id = str(payload.get("account_id") or "").strip() or None
     recipe_version = str(payload.get("recipe_version") or "webchat-standard-v1").strip()
-    known = {x.get("provider_id") for x in project_ng_inventory(CONFIG_PATH).get("provider_profiles", [])}
+    known = {x.get("provider_id") for x in load_ng_inventory(CONFIG_PATH).get("provider_profiles", [])}
     if provider_id not in known:
         return jsonify({"error": "unknown_provider", "message": "Provider is not registered in the NG inventory"}), 404
     run = new_discovery_run(provider_id, recipe_version, account_id)

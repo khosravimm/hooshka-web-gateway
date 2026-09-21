@@ -1,6 +1,6 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "updated_at": "2026-09-21",
   "status_vocabulary": [
     "OPEN",
@@ -110,7 +110,7 @@
       "id": "HWG-WORK-004",
       "title": "Persist Provider Profile and Account Instance model",
       "area": "profiles",
-      "status": "OPEN",
+      "status": "DONE",
       "priority": "P0",
       "source": [
         "NG-PROF-001/003/004",
@@ -125,7 +125,16 @@
         "Profiles persisted separately from account instances",
         "Legacy projection no longer authoritative",
         "Migration is reversible"
-      ]
+      ],
+      "completed_at": "2026-09-22",
+      "evidence": {
+        "type": [
+          "E1",
+          "live_local_migration"
+        ],
+        "result": "Persistent NG store created 4 Provider Profiles + 4 Account Instances; rollback removed 8 migration artifacts; re-migration restored persistent authority; shared-profile conflict preserved.",
+        "record": "docs/evidence/HWG_PROFILE_ACCOUNT_PERSISTENCE_20260922.md"
+      }
     },
     {
       "id": "HWG-WORK-005",

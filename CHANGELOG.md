@@ -1,4 +1,5 @@
 ## 1.0.0-dev.5 - 2026-09-21 - WIP (assisted discovery and governed interaction)
+- Added persistent non-secret Provider Profile / Account Instance store with versioned artifacts, source hashes, change logs, guarded migration, and hash-safe rollback; legacy config projection is fallback-only after migration.
 - Added automated governed Discovery certification: a real deterministic provider round-trip can promote a run to scoped E2 without waiting for human acceptance; human observation remains a separate path.
 - Closed cross-provider Browser Behavior Lab validation using DeepSeek and Z.ai; stale Z.ai GLM-5.3 selector drift was rediscovered as the current GLM-5.2 selector before probing.
 - Added profile-independent Blind Discovery plus explicit login/user-interaction/block/unknown access gating and mandatory re-baseline before Exploration resumes.
@@ -12,7 +13,7 @@
 
 ### Evidence
 - Targeted self-use/assisted-discovery/routing/governance tests: 27 passed after the automated-validation contract update.
-- Full deterministic suite: 309 passed; compileall, JavaScript syntax and git diff checks passed.
+- Full deterministic suite: 316 passed; compileall, JavaScript syntax and git diff checks passed.
 - Live read-only DeepSeek hover probe observed DeepThink before/after with unchanged pressed state and 4 network requests; no click or prompt was sent.
 - DeepSeek target-provider self-use qualification passed two exact-token live round-trips; AI self-analysis was then allowed and remained E0/CANDIDATE.
 - Scoped transport qualification evidence: `docs/evidence/HWG_DEEPSEEK_SELF_USE_QUALIFICATION_20260921.md`.
