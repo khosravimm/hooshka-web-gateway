@@ -30,6 +30,11 @@ def load_runtime_inventory(config_path: str | Path = DEFAULT_CONFIG) -> list[dic
     path, config = _load_config(config_path)
     root = path.resolve().parent
 
+    shared = ((config.get("runtime_orchestration") or {}).get("shared_browser") or {})
+    shared_mode = bool(shared.get("enabled"))
+    shared_cdp = str(shared.get("cdp_url") or "").rstrip("/")
+    shared_profile = str(shared.get("profile_dir") or "").strip()
+
     result: list[dict] = []
     seen_ids: set[str] = set()
     seen_ports: set[int] = set()
@@ -54,7 +59,9 @@ def load_runtime_inventory(config_path: str | Path = DEFAULT_CONFIG) -> list[dic
         if parsed.hostname not in {"127.0.0.1", "localhost", "::1"} or not parsed.port:
             raise ValueError(f"Provider {provider_id} runtime cdp_url must be loopback with explicit port")
         if parsed.port in seen_ports:
-            raise ValueError(f"Duplicate CDP port in runtime inventory: {parsed.port}")
+            if not (shared_mode and cdp_url.rstrip("/") == shared_cdp
+                    and profile_dir == shared_profile):
+                raise ValueError(f"Duplicate CDP port in runtime inventory: {parsed.port}")
         seen_ports.add(parsed.port)
         result.append({
             "id": provider_id,

@@ -2,10 +2,26 @@
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTROL_PANEL = ROOT / "control_panel.py"
+UI_DIR = ROOT / "control_panel_ui"
+INDEX = UI_DIR / "index.html"
+CSS = UI_DIR / "panel.css"
+JS = UI_DIR / "panel.js"
 
 
 def source() -> str:
     return CONTROL_PANEL.read_text(encoding="utf-8-sig")
+
+
+def index_text() -> str:
+    return INDEX.read_text(encoding="utf-8-sig")
+
+
+def css_text() -> str:
+    return CSS.read_text(encoding="utf-8-sig")
+
+
+def js_text() -> str:
+    return JS.read_text(encoding="utf-8-sig")
 
 
 def test_control_panel_exposes_provider_model_state():
@@ -18,12 +34,12 @@ def test_control_panel_exposes_provider_model_state():
 
 def test_control_panel_has_editable_default_model_ui_and_api():
     text = source()
-    assert "Default Model" in text
-    assert "setProviderModel" in text
-    assert "/panel/api/providers/" in text
-    assert "/model" in text
     assert "@control_panel_bp.route('/api/providers/<provider_id>/model', methods=['PUT'])" in text
     assert "def api_provider_model" in text
+    js = js_text()
+    assert "HwgModelSave" in js
+    assert "model-${p.id}" in js
+    assert "/model" in js
 
 
 def test_control_panel_model_update_is_validated_and_persisted():
@@ -44,9 +60,10 @@ def test_control_panel_provider_test_is_fast_runtime_probe():
     assert "provider.health_check" not in block
     assert '"check": "cdp_runtime"' in block
     assert "duration_ms" in block
-    assert "AbortController" in text
-    assert "finally" in text
-    assert "test-status-" in text
+    js = js_text()
+    assert "HwgTestProvider" in js
+    assert "test-status-" in js
+    assert "finally" in js
 
 
 def test_config_declares_selectable_upstream_models_for_model_picker():
@@ -59,15 +76,12 @@ def test_config_declares_selectable_upstream_models_for_model_picker():
 
 
 def test_control_panel_request_chart_has_operational_axes():
+    js = js_text()
+    assert "function niceCeil" in js
+    assert "labelStep" in js
+    assert "data\u200cای موجود نیست" in js or "\u062f\u0627\u062f\u0647\u200c\u0627\u06cc \u0645\u0648\u062c\u0648\u062f \u0646\u06cc\u0633\u062a" in js
     text = source()
-    assert "function niceCeil" in text
-    assert "function formatChartTime" in text
-    assert "Gateway requests per minute" in text
-    assert "const yTicks = 5" in text
-    assert "labelStep" in text
-    assert "No recent request data" in text
-    assert "max " in text
-    assert "points.length > 45" in text
+    assert "def _build_request_history_window" in text
 
 
 def test_control_panel_stats_builds_continuous_sixty_minute_window():
@@ -80,159 +94,165 @@ def test_control_panel_stats_builds_continuous_sixty_minute_window():
 
 
 def test_control_panel_uses_select_for_default_model_picker():
+    js = js_text()
+    assert '<select class="ctrl" id="model-${p.id}"' in js
+    assert "<option value=" in js
+    assert 'input id="model-${p.id}"' not in js
+    assert 'datalist' not in js
     text = source()
-    assert '<select id="model-${p.id}"' in text
-    assert '<option value="${m}"' in text
-    assert 'input id="model-${p.id}"' not in text
-    assert 'datalist id="model-options-${p.id}"' not in text
-    assert 'current: <span class="font-mono">${p.model?.default || p.id}</span>' in text
+    assert "selectable_upstream_models" in text
 
 
 def test_control_panel_wraps_capability_badges_to_reduce_horizontal_scroll():
-    text = source()
-    assert 'capability-badges' in text
-    assert '#providers-table .capability-badges{display:flex;flex-wrap:wrap' in text
-    assert '#providers-table .capability-badges span{white-space:normal' in text
+    js = js_text()
+    assert "capability-badges" in js
+    css = css_text()
+    assert ".capability-badges { display: flex; flex-wrap: wrap;" in css
+    assert ".capability-badges span" in css or ".cap-badge" in css
 
 
 def test_control_panel_providers_table_prevents_horizontal_overflow():
-    text = source()
-    assert '#providers-table{overflow-x:hidden}' in text
-    assert '#providers-table table{table-layout:fixed;width:100%;min-width:0}' in text
-    assert '<colgroup>' in text
-    assert 'provider-capabilities-col' in text
-    assert 'capability-badges' in text
-    assert 'runtime-url' in text
+    css = css_text()
+    assert ".table-scroll { overflow-x: auto; }" in css
+    assert ".data-table" in css
+    index = index_text()
+    assert "panel-providers" in index
+    assert "table-scroll" in index
+    js = js_text()
+    assert "providers-body" in js
 
 
 def test_control_panel_service_tab_uses_structured_windows_service_status():
     text = source()
-    assert 'def _service_names()' in text
-    assert 'load_orchestration_settings(CONFIG_PATH)' in text
+    assert "def _service_names()" in text
+    assert "load_orchestration_settings(CONFIG_PATH)" in text
     assert 'settings["gateway_service"]' in text
     assert 'settings.get("legacy_gateway_service")' in text
-    assert 'def _query_windows_service' in text
-    assert 'Get-Service -Name' in text
-    assert 'ConvertTo-Json -Compress' in text
-    assert 'def _service_status_payload' in text
-    assert 'Canonical service:' in text
-    assert 'svc-start' in text and 'svc-stop' in text and 'svc-restart' in text
-    assert "if (tabName === 'service') loadServiceStatus();" in text
+    assert "def _query_windows_service" in text
+    assert "Get-Service -Name" in text
+    assert "ConvertTo-Json -Compress" in text
+    assert "def _service_status_payload" in text
+    index = index_text()
+    assert "svc-start" in index and "svc-stop" in index and "svc-restart" in index
+    js = js_text()
+    assert "loadServiceStatus" in js
 
 
 def test_control_panel_service_tab_maps_payload_to_ui_elements():
-    text = source()
-    assert 'service-summary' in text
-    assert 'svc-status-text' in text
-    assert 'svc-start-type' in text
-    assert 'svc-can-stop' in text
-    assert 'svc-legacy' in text
-    assert 'Raw service-manager output' in text
-    assert 'service-info' not in text
-    assert "JSON.stringify(data, null, 2)" not in text
+    index = index_text()
+    assert "svc-status-text" in index
+    assert "svc-start-type" in index
+    assert "svc-can-stop" in index
+    assert "svc-legacy" in index
+    assert "svc-service-type" in index
+    js = js_text()
+    assert "svc-status-text" in js
+    assert "svc-start-type" in js
+    assert "svc-can-stop" in js
+    assert "svc-legacy" in js
+    assert "service-info" not in js
+    assert "JSON.stringify(data, null, 2)" not in js
+    assert "if (name === 'service') loadServiceStatus();" in js
 
 
 def test_control_panel_overview_has_model_usage_summary():
+    index = index_text()
+    assert "model-usage-summary" in index
+    js = js_text()
+    assert "renderModelUsage" in js
+    assert "api('/model_usage')" in js
     text = source()
-    assert 'Model Traffic & Token Accounting (1h)' in text
-    assert 'model-usage-summary' in text
-    assert "api('/model_usage')" in text
-    assert 'updateModelUsage' in text
-    assert 'not captured' in text
-    assert 'def api_model_usage' in text
-    assert 'prompt_tokens' in text and 'completion_tokens' in text and 'total_tokens' in text
+    assert "def api_model_usage" in text
+    assert "prompt_tokens" in text and "completion_tokens" in text and "total_tokens" in text
 
 
 def test_control_panel_config_has_human_settings_and_advanced_yaml():
+    index = index_text()
+    assert "cfg-server-host" in index
+    assert "cfg-cdp-url" in index
+    assert "cfg-auth-enabled" in index
+    assert "config-providers" in index
+    js = js_text()
+    assert "saveHumanConfig" in js
+    assert "saveRawConfig" in js
+    assert "/config/summary" in js
+    assert "/config/" in js
     text = source()
-    assert 'Human Settings' in text
-    assert 'cfg-server-host' in text
-    assert 'cfg-cdp-url' in text
-    assert 'cfg-auth-enabled' in text
-    assert 'config-providers' in text
-    assert 'Advanced Raw YAML' in text
-    assert 'saveHumanConfig' in text
-    assert 'saveRawConfig' in text
-    assert "/api/config/summary" in text
-    assert 'Configuration (config.yaml)' not in text
+    assert "Configuration (config.yaml)" not in text
 
 
 def test_control_panel_config_summary_backend_exists():
     text = source()
-    assert 'def _config_summary_from_dict' in text
-    assert 'def _apply_config_summary' in text
-    assert 'def api_config_summary' in text
+    assert "def _config_summary_from_dict" in text
+    assert "def _apply_config_summary" in text
+    assert "def api_config_summary" in text
 
 
 def legacy_removed_model_usage_includes_zero_rows_for_configured_providers():
     text = source()
-    assert 'Always include configured providers' in text
-    assert 'provider_registry.list_providers(enabled_only=False)' in text
-    assert 'ensure_row(provider.provider_id' in text
-    assert 'Zero-request rows' in Path('CHANGELOG.md').read_text(encoding='utf-8')
+    assert "no_measured_traffic" in text
+    assert "ensure_row(provider.provider_id" not in text
+    assert "Zero-request rows" in Path("CHANGELOG.md").read_text(encoding="utf-8") or "fabricate" in Path("CHANGELOG.md").read_text(encoding="utf-8")
 
 
 def test_model_usage_does_not_fabricate_zero_rows():
     text = source()
-    assert 'Do not fabricate zero-request rows as statistics' in text
-    assert 'no_measured_traffic' in text
-    assert 'monitored' in text
-    assert 'No completed model requests in the last hour.' in text
-    assert 'ensure_row(provider.provider_id' not in text
+    assert "Do not fabricate zero-request rows as statistics" in text
+    assert "no_measured_traffic" in text
+    assert '"status": "measured" if rows else "no_measured_traffic"' in text
+    assert "monitored" in text
+    assert "ensure_row(provider.provider_id" not in text
+    js = js_text()
+    assert "ترافیک مدل تکمیل" in js or "۱ ساعت گذشته" in js
 
 
 def test_model_usage_uses_field_level_token_availability():
     text = source()
-    assert 'prompt_tokens_available' in text
-    assert 'completion_tokens_available' in text
-    assert 'total_tokens_available' in text
-    assert "tokenValue(r.prompt_tokens, promptAvailable)" in text
-    assert "not captured" in text
+    assert "prompt_tokens_available" in text
+    assert "completion_tokens_available" in text
+    assert "total_tokens_available" in text
+    js = js_text()
+    assert "prompt_tokens_available" in js
+    assert "tokens_estimated" in js
+    assert "در دسترس نیست" in js
 
 
 def test_model_usage_uses_human_labels_and_compact_grid():
-    text = source()
-    assert 'Model Traffic & Token Accounting (1h)' in text
-    assert 'grid grid-cols-1 md:grid-cols-2 gap-3 text-sm' in text
-    assert 'Requests: ${formatCompactNumber(r.requests)}' in text
-    assert 'Input tokens' in text
-    assert 'Output tokens' in text
-    assert 'Total tokens' in text
-    assert 'not captured' in text
-    assert '${r.requests} req' not in text
-    assert '>Prompt<' not in text
-    assert '>Completion<' not in text
+    js = js_text()
+    assert "درخواست" in js
+    assert "توکن ورودی" in js
+    assert "توکن خروجی" in js
+    assert "کل توکن" in js
+    assert "در دسترس نیست" in js
+    assert "${r.requests} req" not in js
+    index = index_text()
+    assert "model-usage-summary" in index
 
 
 def test_model_accounting_uses_compact_number_formatting():
-    text = source()
-    assert 'function formatCompactNumber' in text
-    assert " + 'B'" in text
-    assert " + 'M'" in text
-    assert " + 'k'" in text
-    assert 'Requests: ${formatCompactNumber(r.requests)}' in text
-    assert 'formatCompactNumber(value)' in text
-    assert 'fullValue(r.total_tokens, totalAvailable)' in text
+    js = js_text()
+    assert "function compact" in js
+    assert "+ 'B'" in js
+    assert "+ 'M'" in js
+    assert "+ 'k'" in js
+    assert "compact(r.requests)" in js
 
 
 def test_control_panel_separates_gateway_requests_from_model_traffic():
+    js = js_text()
+    assert "renderBreakdown" in js
+    assert "api('/stats')" in js
+    index = index_text()
+    assert "request-breakdown-summary" in index
     text = source()
-    assert 'Gateway Requests (1h)' in text
-    assert 'Gateway requests per minute' in text
-    assert 'Request Breakdown (1h)' in text
-    assert 'request-breakdown-summary' in text
-    assert 'function updateRequestBreakdown' in text
-    assert 'def _request_bucket' in text
+    assert "def _request_bucket" in text
     assert '"model_count"' in text
-    assert 'Excluded from model accounting' in text
-    assert 'Only completed /v1/chat and /v1/responses traffic is counted as model traffic.' in text
+    assert "Do not fabricate zero-request rows as statistics" in text
 
 
 def test_model_accounting_reports_unavailable_when_no_tokens_captured():
+    js = js_text()
+    assert "tokens_estimated" in js
+    assert "در دسترس نیست" in js
     text = source()
-    assert 'token capture unavailable' in text
-    assert 'const accountingLabel = r.tokens_available' in text
-
-
-
-
+    assert "tokens_available" in text

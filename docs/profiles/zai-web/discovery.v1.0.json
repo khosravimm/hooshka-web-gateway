@@ -1,0 +1,235 @@
+{
+  "profile_version": "1.0",
+  "provider_id": "zai-web",
+  "page_url": "https://chat.z.ai/c/8d5bb28a-828d-49a9-9406-ca41d44ddd4d",
+  "engine_version": "1.0.0",
+  "discovered_at": "2026-09-20T07:01:20.883731Z",
+  "frontend": {
+    "composer": "TEXTAREA#chat-input",
+    "controls": [
+      {
+        "control_id": "model_selector-1",
+        "kind": "model_selector",
+        "selector": "#model-selector-glm-5_3-button",
+        "text": "GLM-5.3",
+        "state": {
+          "expanded": "false",
+          "disabled": true,
+          "state": "closed"
+        },
+        "confidence": "high",
+        "evidence": "matched model_selector (score=6)"
+      }
+    ]
+  },
+  "backend": {
+    "candidate_endpoints": [
+      {
+        "path": "/api/models",
+        "hits": 3,
+        "methods": []
+      },
+      {
+        "path": "/api/v1/chats/",
+        "hits": 3,
+        "methods": []
+      },
+      {
+        "path": "/api/v1/users/user/settings",
+        "hits": 2,
+        "methods": []
+      },
+      {
+        "path": "/api/v1/scene-cfg/",
+        "hits": 2,
+        "methods": []
+      },
+      {
+        "path": "/api/v1/auths/",
+        "hits": 1,
+        "methods": []
+      },
+      {
+        "path": "/api/config",
+        "hits": 1,
+        "methods": []
+      },
+      {
+        "path": "/api/v1/chats/all/tags",
+        "hits": 1,
+        "methods": []
+      },
+      {
+        "path": "/api/v1/chats/pinned",
+        "hits": 1,
+        "methods": []
+      },
+      {
+        "path": "/api/v1/folders/",
+        "hits": 1,
+        "methods": []
+      },
+      {
+        "path": "/api/v1/chats/new",
+        "hits": 1,
+        "methods": []
+      }
+    ],
+    "stream_transports": [],
+    "storage_namespaces": [
+      "selectedModels",
+      "settings",
+      "theme",
+      "_uetvid_exp",
+      "z-sidebar-ppt",
+      "last_selected_agent_model",
+      "_gcl_ls",
+      "sidebar",
+      "_uetsid",
+      "__00b204e9800998__",
+      "_uetsid_exp",
+      "_arms_uid",
+      "_uetvid",
+      "_l_KPLiPs",
+      "locale",
+      "advanced_search_open",
+      "show_coding_plan_guide",
+      "shouldSuggestModel",
+      "last_mode"
+    ],
+    "secret_like_key_count": 2,
+    "config_flags": []
+  },
+  "capabilities": [
+    {
+      "name": "chat",
+      "supported": true,
+      "evidence": {
+        "type": "E1",
+        "confidence": "high",
+        "source": "composer+send observed",
+        "detail": ""
+      },
+      "meta": {
+        "composer": "TEXTAREA#chat-input"
+      }
+    },
+    {
+      "name": "model_selection",
+      "supported": true,
+      "evidence": {
+        "type": "E1",
+        "confidence": "high",
+        "source": "model selector control",
+        "detail": ""
+      },
+      "meta": {}
+    },
+    {
+      "name": "thinking_control",
+      "supported": false,
+      "evidence": {
+        "type": "E0",
+        "confidence": "low",
+        "source": "thinking toggle control",
+        "detail": ""
+      },
+      "meta": {}
+    },
+    {
+      "name": "web_search",
+      "supported": false,
+      "evidence": {
+        "type": "E0",
+        "confidence": "low",
+        "source": "search toggle control",
+        "detail": ""
+      },
+      "meta": {}
+    },
+    {
+      "name": "file_upload",
+      "supported": false,
+      "evidence": {
+        "type": "E0",
+        "confidence": "medium",
+        "source": "upload control",
+        "detail": ""
+      },
+      "meta": {}
+    },
+    {
+      "name": "streaming",
+      "supported": false,
+      "evidence": {
+        "type": "E0",
+        "confidence": "low",
+        "source": "transport hints",
+        "detail": {
+          "hints": []
+        }
+      },
+      "meta": {}
+    },
+    {
+      "name": "backend_api",
+      "supported": true,
+      "evidence": {
+        "type": "E1",
+        "confidence": "medium",
+        "source": "observed endpoints",
+        "detail": {
+          "count": 10
+        }
+      },
+      "meta": {}
+    }
+  ],
+  "drift": [
+    {
+      "type": "control_added",
+      "kind": "model_selector",
+      "selector": "#model-selector-glm-5_3-button"
+    },
+    {
+      "type": "endpoint_added",
+      "path": "/api/config"
+    },
+    {
+      "type": "endpoint_added",
+      "path": "/api/models"
+    },
+    {
+      "type": "endpoint_added",
+      "path": "/api/v1/auths/"
+    },
+    {
+      "type": "endpoint_added",
+      "path": "/api/v1/chats/"
+    },
+    {
+      "type": "endpoint_added",
+      "path": "/api/v1/chats/all/tags"
+    },
+    {
+      "type": "endpoint_added",
+      "path": "/api/v1/chats/new"
+    },
+    {
+      "type": "endpoint_added",
+      "path": "/api/v1/chats/pinned"
+    },
+    {
+      "type": "endpoint_added",
+      "path": "/api/v1/folders/"
+    },
+    {
+      "type": "endpoint_added",
+      "path": "/api/v1/scene-cfg/"
+    },
+    {
+      "type": "endpoint_added",
+      "path": "/api/v1/users/user/settings"
+    }
+  ]
+}

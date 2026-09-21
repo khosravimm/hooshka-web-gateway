@@ -3,6 +3,8 @@ import re
 import uuid
 from typing import Optional
 
+from core.unicode_norm import normalize_unicode
+
 
 def build_tool_instruction(tools: list[dict], tool_choice=None) -> str:
     definitions = []
@@ -294,6 +296,7 @@ def _parse_xmlish_tool_calls(text: str):
 def parse_tool_calls(text: str):
     if not text:
         return text, None
+    text = normalize_unicode(text)
 
     if "DSML" in text and "invoke" in text:
         dsml = text.replace("｜", "|")

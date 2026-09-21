@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>هوشکا وب گیت‌وی - کنترل پنل</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/panel/assets/panel.css">
+</head>
+<body>
+<div class="app-shell">
+
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">HWG</div>
+      <div class="brand-title">هوشکا وب گیت‌وی</div>
+      <div class="brand-sub">کنترل پنل</div>
+    </div>
+
+    <div class="meta-line">
+      <div class="meta-item"><span class="meta-label">نسخه</span><b id="meta-version">-</b></div>
+      <div class="meta-item"><span class="meta-label">هسته</span><b id="meta-ui">-</b></div>
+      <div class="meta-item"><span class="meta-label">کامیت</span><b class="ltr" id="meta-commit">-</b></div>
+      <div class="meta-item"><span class="meta-label">شاخه</span><b class="ltr" id="meta-branch">-</b></div>
+      <div class="meta-item"><span class="meta-label">شواهد</span><b id="meta-evidence" class="meta-evidence">-</b></div>
+    </div>
+
+    <nav class="nav" aria-label="ناوبری اصلی">
+      <div class="nav-group-title">نظارت</div>
+      <button class="nav-item active" data-panel="overview"><span class="nav-chip">O</span><span>وضعیت کلی</span></button>
+      <button class="nav-item" data-panel="runtimes"><span class="nav-chip">R</span><span>محیط‌های اجرا (تبرها)</span></button>
+      <button class="nav-item" data-panel="providers"><span class="nav-chip">P</span><span>فراهم‌کننده‌ها</span></button>
+
+      <div class="nav-group-title">قابلیت‌ها</div>
+      <button class="nav-item" data-panel="models"><span class="nav-chip">M</span><span>مدل‌ها و قابلیت‌ها</span></button>
+
+      <div class="nav-group-title">گفتگو و مصرف</div>
+      <button class="nav-item" data-panel="chat"><span class="nav-chip">C</span><span>چت تعاملی</span></button>
+      <button class="nav-item" data-panel="sessions"><span class="nav-chip">S</span><span>گفتگوها</span></button>
+      <button class="nav-item" data-panel="telemetry"><span class="nav-chip">T</span><span>آمار مصرف</span></button>
+
+      <div class="nav-group-title">مدیریت</div>
+      <button class="nav-item" data-panel="apikeys"><span class="nav-chip">K</span><span>کلیدها و دسترسی</span></button>
+      <button class="nav-item" data-panel="config"><span class="nav-chip">G</span><span>تنظیمات</span></button>
+      <button class="nav-item" data-panel="service"><span class="nav-chip">V</span><span>سرویس و ری‌استارت</span></button>
+
+      <div class="nav-group-title">شواهد</div>
+      <button class="nav-item" data-panel="logs"><span class="nav-chip">L</span><span>گزارش‌ها و شواهد</span></button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <span id="service-status-badge" class="badge status-checking">بررسی...</span>
+      <button id="theme-toggle" class="btn ghost btn-block" type="button">تم: روشن</button>
+      <button id="refresh-btn" class="btn ghost btn-block" type="button">تازه‌سازی</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-title" id="panel-title">وضعیت کلی</div>
+      <div class="topbar-tools">
+        <span class="badge" id="top-auth-badge">—</span>
+        <button id="top-open-browser" class="btn primary btn-sm" type="button" hidden>باز کردن مرورگر</button>
+      </div>
+    </header>
+
+    <section class="panel active" id="panel-overview">
+      <div class="stat-grid">
+        <div class="card stat-card">
+          <div class="stat-label">وضعیت سرویس</div>
+          <div class="stat-value" id="stat-service">-</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">فراهم‌کننده‌ها</div>
+          <div class="stat-value" id="stat-providers">-</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">آماده</div>
+          <div class="stat-value" id="stat-ready">-</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">گفتگوهای فعال</div>
+          <div class="stat-value" id="stat-sessions">-</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">درخواست‌ها (۱س)</div>
+          <div class="stat-value" id="stat-requests">-</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3 class="card-title">سلامت سیستم</h3>
+          <div class="kv">
+            <span>API</span><b id="health-api">-</b>
+            <span>CDP سراسری</span><b id="health-cdp">-</b>
+            <span>حافظه</span><b id="health-memory">-</b>
+            <span>CPU</span><b id="health-cpu">-</b>
+            <span>آپتایم</span><b id="health-uptime">-</b>
+            <span>همروندی پشته</span><b id="health-concurrency">-</b>
+          </div>
+          <h3 class="card-title mt">آمادگی Runtime پراوایدرها</h3>
+          <div class="runtime-grid" id="provider-runtime-summary"></div>
+        </div>
+        <div class="card">
+          <h3 class="card-title">درخواست‌های گیت‌وی</h3>
+          <div class="chart-wrap"><canvas id="requests-chart"></canvas></div>
+          <h3 class="card-title mt">تفکیک درخواست (۱س)</h3>
+          <div class="mini-grid" id="request-breakdown-summary"></div>
+        </div>
+      </div>
+
+      <div class="card mt">
+        <h3 class="card-title">ترافیک مدل و شمارش توکن (۱س)</h3>
+        <div id="model-usage-summary" class="mini-grid"></div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-runtimes">
+      <div class="card-head">
+        <div>
+          <h3 class="card-title">محیط‌های اجرای مرورگر</h3>
+          <p class="hint">منبع داده: inventory runtime از config.yaml به‌همراه بررسی زنده CDP.</p>
+        </div>
+        <button id="runtime-repair-all" class="btn warn" type="button">تعمیر همه</button>
+      </div>
+      <div id="runtime-action-global" class="status-line"></div>
+      <div id="runtimes-table-wrap"><table class="data-table"><thead><tr>
+        <th>پراوایدر</th><th>پورت</th><th>وضعیت CDP</th><th>پروفایل</th><th>صفحه اصلی</th><th>برچسب</th><th>عملیات</th>
+      </tr></thead><tbody id="runtimes-body"></tbody></table></div>
+    </section>
+
+    <section class="panel" id="panel-providers">
+      <div class="card-head">
+        <div>
+          <h3 class="card-title">پراوایدرهای ثبت‌شده</h3>
+          <p class="hint">روشن/خاموش، ویژگی‌های پیش‌فرض (تفکر/جستجو)، مدل پیش‌فرض و عملیات runtime. برای افزودن یا حذف، از منوی سمت چپ استفاده کنید.</p>
+        </div>
+        <div class="btn-row">
+          <button id="btn-add-provider" class="btn success btn-sm" type="button">اضافه‌کردن</button>
+          <button id="repair-all-runtimes" class="btn warn" type="button">تعمیر محیط‌ها</button>
+        </div>
+      </div>
+      <div class="table-scroll"><table class="data-table"><thead><tr>
+        <th>شناسه</th><th>نوع</th><th>وضعیت</th><th>Runtime</th><th>اولویت</th><th>قابلیت‌ها</th>
+        <th>تفکر</th><th>جستجو</th><th>مدل پیش‌فرض</th><th>عملیات</th>
+      </tr></thead><tbody id="providers-body"></tbody></table></div>
+    </section>
+
+    <section class="panel" id="panel-provider-form">
+      <div class="card-head">
+        <div><h3 class="card-title">افزودن/ویرایش پراوایدر</h3></div>
+        <button id="btn-close-provider-form" class="btn ghost btn-sm" type="button">بستن</button>
+      </div>
+      <div id="provider-form-status" class="status-line"></div>
+      <div class="grid-2">
+        <div class="card">
+          <label class="field">شناسه<input id="pf-id" class="ctrl" type="text" placeholder="کد شناسایی یکتا"></label>
+          <label class="field">نوع پراوایدر<input id="pf-type" class="ctrl" type="text" placeholder="chatgpt_web / zai_web / deepseek_web / qwen_web"></label>
+          <label class="field">اولویت<input id="pf-priority" class="ctrl" type="number" min="1" max="100" value="50"></label>
+          <label class="check"><input type="checkbox" id="pf-enabled" checked><span>فعال</span></label>
+        </div>
+        <div class="card">
+          <label class="field">CDP URL<input id="pf-cdp" class="ctrl ltr" type="text" value="http://127.0.0.1:9330"></label>
+          <label class="field">پروفایل دایرکتوری<input id="pf-profile" class="ctrl" type="text" value=".runtime-dev/shared-profile"></label>
+          <label class="field">URL اصلی<input id="pf-homeurl" class="ctrl" type="text" placeholder="https://chatgpt.com/"></label>
+          <div class="btn-row">
+            <button id="pf-save" class="btn primary btn-sm" type="button">ذخیره</button>
+            <button id="pf-cancel" class="btn ghost btn-sm" type="button">انصراف</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-models">
+      <div class="card-head">
+        <div>
+          <h3 class="card-title">مدل‌ها و قابلیت‌ها</h3>
+          <p class="hint">ماتریس کامل قابلیت هر پراوایدر از Runtime API + فهرست مدل‌ها از /v1/models.</p>
+        </div>
+        <button id="reload-models" class="btn ghost btn-sm" type="button">تازه‌سازی</button>
+      </div>
+      <div id="models-summary" class="mini-grid"></div>
+      <div class="card mt">
+        <h3 class="card-title">قابلیت‌های Runtime</h3>
+        <div id="capability-matrix" class="table-scroll"></div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-chat">
+      <div class="chat-shell card">
+        <div class="chat-toolbar">
+          <label class="field">پراوایدر
+            <select id="chat-provider" class="ctrl"></select>
+          </label>
+          <label class="field">مدل
+            <select id="chat-model" class="ctrl"></select>
+          </label>
+          <label class="check"><input type="checkbox" id="chat-thinking"><span>تفکر</span></label>
+          <label class="check"><input type="checkbox" id="chat-search"><span>جستجو</span></label>
+          <span class="cap-indicators" id="chat-cap-indicators"></span>
+          <button id="chat-new" class="btn ghost btn-sm" type="button">گفتگوی جدید</button>
+        </div>
+        <div id="chat-transcript" class="chat-transcript"></div>
+        <div class="composer">
+          <div class="composer-toolbar">
+            <button class="btn ghost btn-xs" data-ins="**$1**" data-sel="2,1" title="پررنگ">B</button>
+            <button class="btn ghost btn-xs" data-ins="*$1*" data-sel="2,1" title="ایتالیک">I</button>
+            <button class="btn ghost btn-xs" data-ins="`$1`" data-sel="2,1" title="کد درون خطی">C</button>
+            <button class="btn ghost btn-xs" data-ins="```\n$1\n```" data-sel="0,1" title="بلوک کد">&lt;/&gt;</button>
+            <button class="btn ghost btn-xs" data-ins="| ستون | ستون |\n| --- | --- |\n| ارزش | ارزش |" data-sel="0,0" title="جدول">TBL</button>
+            <button class="btn ghost btn-xs" data-ins="![توضیح]($1)" data-sel="2,1" title="تصویر">IMG</button>
+            <button class="btn ghost btn-xs" data-ins="[$1](https://...)" data-sel="2,1" title="پیوند">LNK</button>
+            <span class="composer-spacer"></span>
+            <button id="chat-attach" class="btn ghost btn-xs" type="button" title="آپلود فایل/عکس">ATTACH</button>
+            <span class="hint-inline" id="chat-attach-hint"></span>
+          </div>
+          <div class="composer-row">
+            <textarea id="chat-input" rows="3" placeholder="پیام خود را بنویسید (Markdown پشتیبانی می‌شود)..."></textarea>
+            <div class="composer-actions">
+              <button id="chat-send" class="btn primary" type="button">ارسال</button>
+              <button id="chat-stop" class="btn danger" type="button" disabled>توقف</button>
+            </div>
+          </div>
+          <div class="status-line" id="chat-status"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-sessions">
+      <div class="card-head">
+        <div><h3 class="card-title">گفتگوهای فعال</h3><p class="hint">ذهن اجرایی MCP برای هر گفتگو با قابلیت حذف.</p></div>
+        <button id="reload-sessions" class="btn ghost btn-sm" type="button">تازه‌سازی</button>
+      </div>
+      <div class="table-scroll"><table class="data-table"><thead><tr>
+        <th>شناسه گفتگو</th><th>پراوایدر</th><th>پیام‌ها</th><th>ایجاد</th><th>به‌روزرسانی</th><th>عملیات</th>
+      </tr></thead><tbody id="sessions-body"></tbody></table></div>
+    </section>
+
+    <section class="panel" id="panel-telemetry">
+      <div class="card-head">
+        <div><h3 class="card-title">آمار مصرف</h3><p class="hint">متریک‌های زنده از لاگ حسابرسی در پنجره یک ساعته.</p></div>
+        <button id="reload-telemetry" class="btn ghost btn-sm" type="button">تازه‌سازی</button>
+      </div>
+      <div class="grid-2">
+        <div class="card"><h3 class="card-title">تفکیک درخواست (۱س)</h3><div id="tl-breakdown" class="mini-grid"></div></div>
+        <div class="card"><h3 class="card-title">موتور مدل (۱س)</h3><div id="tl-model" class="mini-grid"></div></div>
+      </div>
+      <div class="card mt"><h3 class="card-title">ترافیک درخواست در دقیقه</h3><div class="chart-wrap"><canvas id="requests-chart-tl"></canvas></div></div>
+    </section>
+
+    <section class="panel" id="panel-apikeys">
+      <div class="card-head">
+        <div><h3 class="card-title">کلیدها و دسترسی</h3><p class="hint">تولید کلید API، مدیریت و کنترل احراز هویت. دسترسی غیرلوکال فقط با کلید.</p></div>
+        <button id="btn-toggle-auth" class="btn ghost" type="button">فعال‌کردن احراز هویت</button>
+      </div>
+      <div id="auth-status" class="status-line"></div>
+      <div class="card-head mt">
+        <button id="gen-key" class="btn primary" type="button">تولید کلید جدید</button>
+      </div>
+      <div class="table-scroll"><table class="data-table"><thead><tr>
+        <th>کلید</th><th>هویت</th><th>تاریخ ایجاد</th><th>عملیات</th>
+      </tr></thead><tbody id="api-keys-body"></tbody></table></div>
+    </section>
+
+    <section class="panel" id="panel-config">
+      <div class="card-head">
+        <div>
+          <h3 class="card-title">تنظیمات</h3>
+          <p class="hint">تنظیمات رایج به‌صورت فرم؛ YAML خام زیر بخش پیشرفته است. ذخیره باعث ری‌استارت سرویس‌ها می‌شود.</p>
+        </div>
+        <div class="btn-row">
+          <button id="save-human-config" class="btn primary" type="button">ذخیره تنظیمات</button>
+          <button id="reload-config" class="btn ghost" type="button">بازخوانی</button>
+        </div>
+      </div>
+      <div id="config-status" class="status-line"></div>
+      <div class="grid-2">
+        <div class="card">
+          <h3 class="card-title">سرور</h3>
+          <label class="field">میزبان<input id="cfg-server-host" class="ctrl ltr" type="text"></label>
+          <label class="field">پورت<input id="cfg-server-port" class="ctrl" type="number" min="1" max="65535"></label>
+          <label class="field">تعداد رشته‌ها<input id="cfg-server-threads" class="ctrl" type="number" min="1" max="128"></label>
+          <label class="field">همروندی پراوایدر<input id="cfg-provider-concurrency" class="ctrl" type="number" min="1" max="32"></label>
+          <label class="check"><input id="cfg-server-debug" type="checkbox"><span>حالت اشکال‌زدایی</span></label>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Runtime و امنیت</h3>
+          <label class="field">CDP سراسری<input id="cfg-cdp-url" class="ctrl ltr" type="text"></label>
+          <label class="field">مهلت CDP (میلی‌ثانیه)<input id="cfg-cdp-timeout" class="ctrl" type="number" min="1000" max="300000"></label>
+          <label class="check"><input id="cfg-auth-enabled" type="checkbox"><span>نیاز به کلید برای اتصالات خارج از لوکال هاست</span></label>
+        </div>
+      </div>
+      <div class="card mt">
+        <h3 class="card-title">پیش‌فرض پراوایدرها</h3>
+        <div id="config-providers" class="mini-grid"></div>
+      </div>
+      <details class="card mt">
+        <summary class="card-title">پیشرفته: YAML خام</summary>
+        <p class="hint">فقط برای کلیدهایی که فرم تنظیمات رایج پوشش نمی‌دهد.</p>
+        <div class="btn-row">
+          <button id="save-raw-config" class="btn primary btn-sm" type="button">ذخیره</button>
+          <button id="reload-raw-config" class="btn ghost btn-sm" type="button">بارگذاری مجدد</button>
+        </div>
+        <textarea id="config-content" class="code-edit" spellcheck="false"></textarea>
+      </details>
+    </section>
+
+    <section class="panel" id="panel-service">
+      <div class="card-head">
+        <div><h3 class="card-title">مدیریت سرویس</h3><p class="hint">عملیات ویندوز روی سرویس canonical گیت‌وی همراه با Recovery check.</p></div>
+        <span id="service-status-badge2" class="badge">بررسی...</span>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <h3 class="card-title">عملیات</h3>
+          <div class="btn-row">
+            <button id="svc-start" class="btn success" type="button">شروع</button>
+            <button id="svc-stop" class="btn danger" type="button">توقف</button>
+            <button id="svc-restart" class="btn primary" type="button">ری‌استارت</button>
+          </div>
+          <div id="service-message" class="status-line"></div>
+        </div>
+        <div class="card">
+          <h3 class="card-title">خلاصه سرویس</h3>
+          <div class="kv">
+            <span>سرویس اصلی</span><b class="ltr" id="svc-name">-</b>
+            <span>وضعیت ویندوز</span><b id="svc-status-text">-</b>
+            <span>نوع شروع</span><b id="svc-start-type">-</b>
+            <span>قابل توقف</span><b id="svc-can-stop">-</b>
+            <span>نوع سرویس</span><b id="svc-service-type">-</b>
+            <span>سرویس سابق</span><b id="svc-legacy">-</b>
+          </div>
+          <details class="mt"><summary class="hint">خروجی خام</summary><pre id="service-raw" class="code-view"></pre></details>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-logs">
+      <div class="card-head">
+        <div><h3 class="card-title">گزارش‌ها و شواهد</h3><p class="hint">۱۰۰ خط آخر از لاگ‌های انتخابی.</p></div>
+        <select id="log-select" class="ctrl">
+          <option value="bridge">bridge.log (برنامه)</option>
+          <option value="audit">audit.log (حسابرسی JSON)</option>
+          <option value="service_stdout">service_stdout.log</option>
+          <option value="service_stderr">service_stderr.log</option>
+        </select>
+      </div>
+      <pre id="log-content" class="code-view tall"></pre>
+    </section>
+
+  </main>
+</div>
+
+<div id="toast-region" class="toast-region" aria-live="polite"></div>
+
+<script src="/panel/assets/markdown.js"></script>
+<script src="/panel/assets/panel.js"></script>
+<script src="/panel/assets/chat.js"></script>
+</body>
+</html>

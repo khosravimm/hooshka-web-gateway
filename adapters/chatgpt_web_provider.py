@@ -77,6 +77,22 @@ class ChatGPTWebProvider(Provider):
         # The lock is created lazily because asyncio primitives belong to the
         # persistent provider event loop used by the Flask bridge.
         self._request_lock = None
+        # ADR-002 pilot: optional SharedBrowserPool binding. None (default)
+        # preserves the legacy per-provider Chrome behavior.
+        self._shared_pool = None
+
+    def bind_shared_pool(self, pool) -> None:
+        """Opt in to the shared browser: pages come from the pool's tab."""
+        self._shared_pool = pool
+
+    def unbind_shared_pool(self) -> None:
+        self._shared_pool = None
+
+    def _effective_cdp_url(self) -> str:
+        pool = self._shared_pool
+        if pool is not None:
+            return pool.cdp_url
+        return self._cdp_url
 
     async def _inspect_page_status(self, page=None) -> dict:
         """Return non-secret authentication/composer evidence for a candidate tab."""
@@ -159,6 +175,28 @@ class ChatGPTWebProvider(Provider):
             "authenticated": bool(status.get("authenticated")),
             "composer_ready": bool(status.get("composer_ready")),
         }
+
+    async def validate_session(self) -> dict:
+        """Read-only session validation: scan existing tabs, no side effects.
+
+        Never creates tabs, navigates, or brings anything to front (unlike
+        _rebind_chatgpt_page used during completions).
+        """
+        if self._context is None:
+            try:
+                await self._connect()
+            except Exception as exc:
+                return {"authenticated": False, "composer_ready": False,
+                        "reason": f"connect_failed:{type(exc).__name__}"}
+        page, status = await self._select_best_chatgpt_page(require_composer=False)
+        if page is None:
+            return {"authenticated": False, "composer_ready": False,
+                    "reason": status.get("reason", "no_page")}
+        return {"authenticated": bool(status.get("authenticated")),
+                "composer_ready": bool(status.get("composer_ready")),
+                "candidate_count": status.get("candidate_count"),
+                "best_score": status.get("best_score"),
+                "url": status.get("candidate_url") or status.get("url")}
 
     async def _select_best_chatgpt_page(self, require_composer: bool = False):
         if self._context is None:
@@ -262,7 +300,7 @@ class ChatGPTWebProvider(Provider):
         pw = None
         try:
             pw = await async_playwright().start()
-            browser = await pw.chromium.connect_over_cdp(self._cdp_url)
+            browser = await pw.chromium.connect_over_cdp(self._effective_cdp_url())
             context = browser.contexts[0] if browser.contexts else None
             if not context:
                 return False
@@ -278,6 +316,13 @@ class ChatGPTWebProvider(Provider):
         # Always create a fresh connection to avoid stale state issues.
         # Then bind to the authenticated ChatGPT tab with a real composer, not
         # merely the first chatgpt.com tab in the CDP context.
+        # ADR-002 pilot: when a shared pool is bound, ensure our isolated tab
+        # exists first (best-effort; failures fall back to legacy behavior).
+        if self._shared_pool is not None:
+            try:
+                self._shared_pool.tab_for(self.provider_id, "default", url=self._chatgpt_url)
+            except Exception as e:
+                logger.warning(f"Shared pool tab unavailable for {self.provider_id}: {e}")
         await self._cleanup_connection()
         await self._connect()
 
@@ -297,7 +342,7 @@ class ChatGPTWebProvider(Provider):
     async def _connect(self):
         try:
             self._pw = await async_playwright().start()
-            self._browser = await self._pw.chromium.connect_over_cdp(self._cdp_url)
+            self._browser = await self._pw.chromium.connect_over_cdp(self._effective_cdp_url())
             self._context = self._browser.contexts[0] if self._browser.contexts else None
             if not self._context:
                 raise ProviderUnavailableError(self.provider_id, "Browser context not found")
@@ -715,6 +760,117 @@ class ChatGPTWebProvider(Provider):
             },
         )
 
+    MIN_EFFORT_LABELS = ("instant", "auto", "low", "minimal", "no reasoning")
+
+    async def _safe_close_menu(self) -> None:
+        """Press Escape to close any open ChatGPT menu if a page is attached."""
+        if self._page is not None:
+            try:
+                await self._page.keyboard.press("Escape")
+            except Exception:
+                pass
+
+    async def _apply_thinking_effort(self, *, thinking: bool):
+        """Set ChatGPT reasoning effort to a known state without hard failures.
+
+        The live ChatGPT frontend has shipped two effort surfaces:
+          * legacy: a "Power" menu item + ``data-model-reasoning-effort-slider``
+          * current: an Instant/Think/Deeper composer pill
+        ``thinking=False`` is best-effort: if the frontend cannot be verified
+        to the minimum on the live DOM, the request proceeds with the composer
+        default rather than failing (low effort is the safe side). A request
+        that explicitly requires thinking (``thinking=True``) is verified and
+        fails closed if the surface is unavailable.
+        """
+        try:
+            trigger = await self._resolve_effort_trigger()
+        except ProviderError:
+            if thinking:
+                raise
+            return None
+
+        label = ""
+        try:
+            label = (await trigger.inner_text()).strip()
+        except Exception:
+            pass
+
+        if not thinking and label.lower() in self.MIN_EFFORT_LABELS:
+            return None
+
+        try:
+            await self._click_feature_control(trigger, "reasoning_effort_menu")
+
+            power = self._page.locator('[role="menuitem"][aria-label="Power"]').first
+            slider = self._page.locator('[data-model-reasoning-effort-slider] [role="slider"]').first
+            if await power.count() and await power.is_visible() and await slider.count():
+                current = int((await slider.get_attribute("aria-valuenow")) or "0")
+                if thinking:
+                    if current <= 0:
+                        await power.press("ArrowRight")
+                else:
+                    for _ in range(6):
+                        await power.press("ArrowLeft")
+                await self._page.wait_for_timeout(120)
+                observed = int((await slider.get_attribute("aria-valuenow")) or "0")
+                await self._safe_close_menu()
+                if (thinking and observed <= 0) or ((not thinking) and observed != 0):
+                    raise ProviderError(
+                        "ChatGPT thinking effort verification failed",
+                        "feature_control_failed",
+                        self.provider_id,
+                        {"feature": "thinking", "requested": thinking, "observed_effort": observed},
+                    )
+                return observed
+
+            if not thinking and label.lower() in self.MIN_EFFORT_LABELS:
+                await self._safe_close_menu()
+                return None
+
+            desired = "Think" if thinking else "Instant"
+            target = None
+            items = self._page.locator('[role="menuitem"]')
+            for i in range(min(await items.count(), 32)):
+                item = items.nth(i)
+                try:
+                    if not await item.is_visible():
+                        continue
+                    text = (await item.inner_text()).strip()
+                    if not thinking and text.lower() in self.MIN_EFFORT_LABELS:
+                        target = item
+                    elif thinking and text == desired:
+                        target = item
+                        break
+                except Exception:
+                    continue
+            if target is None:
+                await self._safe_close_menu()
+                if thinking:
+                    raise ProviderError(
+                        "ChatGPT thinking effort control could not be set",
+                        "feature_control_failed",
+                        self.provider_id,
+                        {"feature": "thinking", "requested": True, "pill_label": label},
+                    )
+                return None
+            await self._click_feature_control(target, "reasoning_effort_menu")
+            await self._page.wait_for_timeout(120)
+            await self._safe_close_menu()
+            return 0 if not thinking else 1
+        except ProviderError:
+            await self._safe_close_menu()
+            raise
+        except Exception as e:
+            await self._safe_close_menu()
+            if thinking:
+                raise ProviderError(
+                    "ChatGPT thinking effort control failed",
+                    "feature_control_failed",
+                    self.provider_id,
+                    {"feature": "thinking", "requested": True, "pill_label": label},
+                ) from e
+            return None
+
     async def _apply_feature_controls(self, *, thinking: bool, search: bool) -> dict:
         """Apply and verify ChatGPT composer feature state before submission."""
         if self._page is None:
@@ -729,31 +885,22 @@ class ChatGPTWebProvider(Provider):
         # non-zero effort when enabled. ChatGPT may still perform internal
         # reasoning at the minimum effort, so this is an effort control rather
         # than a guarantee of zero hidden reasoning.
-        effort_trigger = await self._resolve_effort_trigger()
-        await self._click_feature_control(effort_trigger, "reasoning_effort_menu")
-        power = self._page.locator('[role="menuitem"][aria-label="Power"]').first
-        await power.wait_for(state="visible", timeout=5000)
-        slider = self._page.locator('[data-model-reasoning-effort-slider] [role="slider"]').first
-        current = int((await slider.get_attribute("aria-valuenow")) or "0")
+        result = {"thinking": thinking, "search": False}
         if thinking:
-            if current <= 0:
-                await power.press("ArrowRight")
+            result["thinking_effort_index"] = await self._apply_thinking_effort(thinking=True)
         else:
-            for _ in range(6):
-                await power.press("ArrowLeft")
-        await self._page.wait_for_timeout(120)
-        observed = int((await slider.get_attribute("aria-valuenow")) or "0")
-        await self._page.keyboard.press("Escape")
-        if (thinking and observed <= 0) or ((not thinking) and observed != 0):
-            raise ProviderError(
-                "ChatGPT thinking effort verification failed",
-                "feature_control_failed",
-                self.provider_id,
-                {"feature": "thinking", "requested": thinking, "observed_effort": observed},
-            )
+            try:
+                result["thinking_effort_index"] = await self._apply_thinking_effort(thinking=False)
+            except ProviderError as e:
+                logger.warning(
+                    f"ChatGPT thinking effort control unavailable; "
+                    f"continuing with composer default: {e}"
+                )
+                result["thinking_effort_index"] = None
 
         active = await self._set_search_control(search)
-        return {"thinking": thinking, "search": active, "thinking_effort_index": observed}
+        result["search"] = active
+        return result
 
     async def _send_message_via_backend_intercept(self, message: str):
         """Submit a large prompt through the authenticated frontend backend request.

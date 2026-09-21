@@ -1,0 +1,22 @@
+{
+  "profile_version": "1.0",
+  "provider_id": "zai-web",
+  "discovered_at": "2026-09-20T06:58:12.761509+00:00",
+  "page_url": "https://chat.z.ai/c/d631a69b-6c9c-4b95-8219-8e3c89b3992f",
+  "engine": "core/control_discovery",
+  "controls": [
+    {
+      "control_id": "model_selector-1",
+      "kind": "model_selector",
+      "selector": "#model-selector-glm-5_3-button",
+      "text": "GLM-5.3",
+      "state": {
+        "expanded": "false",
+        "disabled": true,
+        "state": "closed"
+      },
+      "confidence": "high",
+      "evidence": "matched model_selector (score=6)"
+    }
+  ]
+}

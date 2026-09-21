@@ -1,0 +1,297 @@
+{
+  "profile_version": "1.1",
+  "provider_id": "zai-web",
+  "page_url": "https://chat.z.ai/c/8d5bb28a-828d-49a9-9406-ca41d44ddd4d",
+  "engine_version": "1.0.0",
+  "discovered_at": "2026-09-20T07:02:04.232898Z",
+  "frontend": {
+    "composer": "TEXTAREA#chat-input",
+    "controls": [
+      {
+        "control_id": "unclassified-1",
+        "kind": "unclassified",
+        "selector": "button.cursor-pointer.p-0.5.flex",
+        "text": "",
+        "state": {},
+        "confidence": "low",
+        "evidence": "icon-only clickable without labels; needs hover/menu probing"
+      },
+      {
+        "control_id": "unclassified-2",
+        "kind": "unclassified",
+        "selector": "button.chatItemMenu.invisible.group-hover\\:visible",
+        "text": "",
+        "state": {},
+        "confidence": "low",
+        "evidence": "icon-only clickable without labels; needs hover/menu probing"
+      },
+      {
+        "control_id": "unclassified-3",
+        "kind": "unclassified",
+        "selector": "button.chatItemMenu.right-2.h-full",
+        "text": "",
+        "state": {},
+        "confidence": "low",
+        "evidence": "icon-only clickable without labels; needs hover/menu probing"
+      },
+      {
+        "control_id": "unclassified-4",
+        "kind": "unclassified",
+        "selector": "button.absolute.top-1.right-1",
+        "text": "",
+        "state": {},
+        "confidence": "low",
+        "evidence": "icon-only clickable without labels; needs hover/menu probing"
+      },
+      {
+        "control_id": "model_selector-1",
+        "kind": "model_selector",
+        "selector": "#model-selector-glm-5_3-button",
+        "text": "GLM-5.3",
+        "state": {
+          "expanded": "false",
+          "disabled": true,
+          "state": "closed"
+        },
+        "confidence": "high",
+        "evidence": "matched model_selector (score=6)"
+      },
+      {
+        "control_id": "unclassified-5",
+        "kind": "unclassified",
+        "selector": "button.invisible.p-1.rounded-lg",
+        "text": "",
+        "state": {},
+        "confidence": "low",
+        "evidence": "icon-only clickable without labels; needs hover/menu probing"
+      },
+      {
+        "control_id": "unclassified-6",
+        "kind": "unclassified",
+        "selector": "button.visible.p-1.hover\\:bg-black/5",
+        "text": "",
+        "state": {},
+        "confidence": "low",
+        "evidence": "icon-only clickable without labels; needs hover/menu probing"
+      },
+      {
+        "control_id": "unclassified-7",
+        "kind": "unclassified",
+        "selector": "button.visible.p-1.hover\\:bg-black/5",
+        "text": "",
+        "state": {},
+        "confidence": "low",
+        "evidence": "icon-only clickable without labels; needs hover/menu probing"
+      },
+      {
+        "control_id": "unclassified-8",
+        "kind": "unclassified",
+        "selector": "button.flex.items-center.text-sm",
+        "text": "",
+        "state": {},
+        "confidence": "low",
+        "evidence": "icon-only clickable without labels; needs hover/menu probing"
+      }
+    ]
+  },
+  "backend": {
+    "candidate_endpoints": [
+      {
+        "path": "/api/models",
+        "hits": 3,
+        "methods": []
+      },
+      {
+        "path": "/api/v1/chats/",
+        "hits": 3,
+        "methods": []
+      },
+      {
+        "path": "/api/v1/users/user/settings",
+        "hits": 2,
+        "methods": []
+      },
+      {
+        "path": "/api/v1/scene-cfg/",
+        "hits": 2,
+        "methods": []
+      },
+      {
+        "path": "/api/v1/auths/",
+        "hits": 1,
+        "methods": []
+      },
+      {
+        "path": "/api/config",
+        "hits": 1,
+        "methods": []
+      },
+      {
+        "path": "/api/v1/chats/all/tags",
+        "hits": 1,
+        "methods": []
+      },
+      {
+        "path": "/api/v1/chats/pinned",
+        "hits": 1,
+        "methods": []
+      },
+      {
+        "path": "/api/v1/folders/",
+        "hits": 1,
+        "methods": []
+      },
+      {
+        "path": "/api/v1/chats/new",
+        "hits": 1,
+        "methods": []
+      }
+    ],
+    "stream_transports": [],
+    "storage_namespaces": [
+      "selectedModels",
+      "settings",
+      "theme",
+      "_uetvid_exp",
+      "z-sidebar-ppt",
+      "last_selected_agent_model",
+      "_gcl_ls",
+      "sidebar",
+      "_uetsid",
+      "__00b204e9800998__",
+      "_uetsid_exp",
+      "_arms_uid",
+      "_uetvid",
+      "_l_KPLiPs",
+      "locale",
+      "advanced_search_open",
+      "show_coding_plan_guide",
+      "shouldSuggestModel",
+      "last_mode"
+    ],
+    "secret_like_key_count": 2,
+    "config_flags": []
+  },
+  "capabilities": [
+    {
+      "name": "chat",
+      "supported": true,
+      "evidence": {
+        "type": "E1",
+        "confidence": "high",
+        "source": "composer+send observed",
+        "detail": ""
+      },
+      "meta": {
+        "composer": "TEXTAREA#chat-input"
+      }
+    },
+    {
+      "name": "model_selection",
+      "supported": true,
+      "evidence": {
+        "type": "E1",
+        "confidence": "high",
+        "source": "model selector control",
+        "detail": ""
+      },
+      "meta": {}
+    },
+    {
+      "name": "thinking_control",
+      "supported": false,
+      "evidence": {
+        "type": "E0",
+        "confidence": "low",
+        "source": "thinking toggle control",
+        "detail": ""
+      },
+      "meta": {}
+    },
+    {
+      "name": "web_search",
+      "supported": false,
+      "evidence": {
+        "type": "E0",
+        "confidence": "low",
+        "source": "search toggle control",
+        "detail": ""
+      },
+      "meta": {}
+    },
+    {
+      "name": "file_upload",
+      "supported": false,
+      "evidence": {
+        "type": "E0",
+        "confidence": "medium",
+        "source": "upload control",
+        "detail": ""
+      },
+      "meta": {}
+    },
+    {
+      "name": "streaming",
+      "supported": false,
+      "evidence": {
+        "type": "E0",
+        "confidence": "low",
+        "source": "transport hints",
+        "detail": {
+          "hints": []
+        }
+      },
+      "meta": {}
+    },
+    {
+      "name": "backend_api",
+      "supported": true,
+      "evidence": {
+        "type": "E1",
+        "confidence": "medium",
+        "source": "observed endpoints",
+        "detail": {
+          "count": 10
+        }
+      },
+      "meta": {}
+    }
+  ],
+  "drift": [
+    {
+      "type": "control_added",
+      "kind": "unclassified",
+      "selector": "button.cursor-pointer.p-0.5.flex"
+    },
+    {
+      "type": "control_added",
+      "kind": "unclassified",
+      "selector": "button.chatItemMenu.invisible.group-hover\\:visible"
+    },
+    {
+      "type": "control_added",
+      "kind": "unclassified",
+      "selector": "button.chatItemMenu.right-2.h-full"
+    },
+    {
+      "type": "control_added",
+      "kind": "unclassified",
+      "selector": "button.absolute.top-1.right-1"
+    },
+    {
+      "type": "control_added",
+      "kind": "unclassified",
+      "selector": "button.invisible.p-1.rounded-lg"
+    },
+    {
+      "type": "control_added",
+      "kind": "unclassified",
+      "selector": "button.visible.p-1.hover\\:bg-black/5"
+    },
+    {
+      "type": "control_added",
+      "kind": "unclassified",
+      "selector": "button.flex.items-center.text-sm"
+    }
+  ]
+}

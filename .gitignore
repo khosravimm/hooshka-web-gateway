@@ -8,3 +8,11 @@ venv/
 Thumbs.db
 .runtime/
 .runtime-dev/
+
+.runtime/
+.runtime-*/
+component_crx_cache/
+*.crx
+.pytest_tmp/
+.pytest_cache/
+node_modules/

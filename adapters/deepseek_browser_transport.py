@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import re
 import time
 from typing import AsyncIterator, Optional
@@ -6,6 +7,8 @@ from typing import AsyncIterator, Optional
 from playwright.async_api import Browser, BrowserContext, Page, Playwright, async_playwright
 
 from core.providers import ProviderAuthError, ProviderError, ProviderTimeoutError
+
+logger = logging.getLogger(__name__)
 
 
 class DeepSeekBrowserUITransport:

@@ -12,22 +12,26 @@ runtime_orchestration:
   desktop_agent_url: http://127.0.0.1:5181
   restart_all_task: Hooshka-HWG-NG-Dev-Restart-All
   restart_gateway_task: Hooshka-HWG-NG-Dev-Restart-Gateway
+  shared_browser:
+    enabled: true
+    cdp_url: http://127.0.0.1:9330
+    profile_dir: .runtime-dev\shared-profile
 cdp:
-  url: http://127.0.0.1:9324
+  url: http://127.0.0.1:9330
   timeout: 30000
 providers:
 - id: chatgpt-web
   type: chatgpt_web
-  enabled: true
+  enabled: false
   priority: 100
   runtime:
     kind: chrome_cdp
-    cdp_url: http://127.0.0.1:9324
-    profile_dir: .runtime-dev\chatgpt-profile
+    cdp_url: http://127.0.0.1:9330
+    profile_dir: .runtime-dev\shared-profile
     home_url: https://chatgpt.com/
     label: HWG-NG-ChatGPT-Web-CDP
   config:
-    cdp_url: http://127.0.0.1:9324
+    cdp_url: http://127.0.0.1:9330
     chatgpt_url: https://chatgpt.com
     adapter: dom
     require_authenticated: true
@@ -117,18 +121,18 @@ providers:
     search: false
 - id: zai-web
   type: zai_web
-  enabled: true
+  enabled: false
   priority: 80
   runtime:
     kind: chrome_cdp
-    cdp_url: http://127.0.0.1:9323
-    profile_dir: .runtime-dev\zai-profile
+    cdp_url: http://127.0.0.1:9330
+    profile_dir: .runtime-dev\shared-profile
     home_url: https://chat.z.ai/
     label: HWG-NG-Zai-Web-SSE-Capture
   config:
     base_url: https://chat.z.ai
     frontend_version: prod-fe-1.1.93
-    default_upstream_model: glm-5.3
+    default_upstream_model: glm-5.3-flash
     model_namespace: zai
     selectable_upstream_models:
     - glm-5.3
@@ -137,9 +141,9 @@ providers:
     launch_timeout: 120
     require_authenticated: true
     runtime_label: HWG-NG-Zai-Web-SSE-Capture
-    profile_dir: .runtime-dev\zai-profile
+    profile_dir: .runtime-dev\shared-profile
     transport_mode: browser_ui_capture
-    cdp_url: http://127.0.0.1:9323
+    cdp_url: http://127.0.0.1:9330
     first_event_timeout: 240
     idle_timeout: 300
     total_timeout: 600
@@ -176,8 +180,8 @@ providers:
   priority: 70
   runtime:
     kind: chrome_cdp
-    cdp_url: http://127.0.0.1:9326
-    profile_dir: .runtime-dev\deepseek-profile
+    cdp_url: http://127.0.0.1:9330
+    profile_dir: .runtime-dev\shared-profile
     home_url: https://chat.deepseek.com/
     label: HWG-NG-DeepSeek-Web-UI
   config:
@@ -185,7 +189,7 @@ providers:
     require_authenticated: true
     runtime_label: HWG-NG-DeepSeek-Web-UI
     transport_mode: browser_ui
-    cdp_url: http://127.0.0.1:9326
+    cdp_url: http://127.0.0.1:9330
     launch_timeout: 45
     first_event_timeout: 45
     idle_timeout: 90

@@ -1,0 +1,34 @@
+{
+  "name": "hwg-control-plane-ui",
+  "version": "1.0.0-dev.3",
+  "released": "2026-09-20",
+  "direction": "rtl",
+  "language": "fa",
+  "themes": ["light", "dark"],
+  "external_callouts": false,
+  "assets": {
+    "index": "control_panel_ui/index.html",
+    "css": "control_panel_ui/panel.css",
+    "js": ["control_panel_ui/panel.js", "control_panel_ui/markdown.js", "control_panel_ui/chat.js"]
+  },
+  "change_log": [
+    {
+      "version": "1.0.0-dev",
+      "date": "2026-09-20",
+      "class": "MINOR",
+      "notes": "بازطراحی پوسته کنترل‌پنل: فارسی/RTL، تم روشن+تاریک، IA runtime-backed (11 ناحیه)، Embedded Chat. قرارداد /panel/api/* بدون تغییر."
+    },
+    {
+      "version": "1.0.0-dev.2",
+      "date": "2026-09-20",
+      "class": "PATCH",
+      "notes": "افزایش خردوز-indexed بروزرسانی‌ها:Session/logout/key_hash/UI sparseness fixes. کلیدهای API فقط hash."
+    },
+    {
+      "version": "1.0.0-dev.3",
+      "date": "2026-09-20",
+      "class": "MINOR",
+      "notes": "اصلاح اصلی: پنل مدیریت Provider (افزودن/حذف/ویرایش)، ذخیره تنظیمات	config، improved layout & fewer clutters. تم‌های جدید + دکمه‌های پاسخگوی‌کار."
+    }
+  ]
+}

@@ -143,6 +143,14 @@ class ZaiWebProvider(Provider):
                 parts.append(str(content))
         return "\n\n".join(parts).strip()
 
+    async def validate_session(self) -> dict:
+        """Read-only session validation for the control panel (NG-ACC-002)."""
+        status = await self._browser.session_status()
+        return {"authenticated": bool(status.get("authenticated")),
+                "composer_ready": status.get("authenticated", False),
+                "mode": status.get("mode"),
+                "http_status": status.get("http_status")}
+
     async def _require_authenticated_session(self) -> None:
         if not self._require_authenticated:
             return
@@ -168,14 +176,23 @@ class ZaiWebProvider(Provider):
             status = await self._browser.session_status()
             if not status.get("authenticated"):
                 return models
-        upstream_ids = await self._browser.model_ids()
-        seen = {"zai-web"}
-        for mid in upstream_ids:
-            model_id = f"zai:{mid}"
-            if model_id in seen:
-                continue
-            models.append(ModelInfo(id=model_id, owned_by="z-ai-web", provider=self.provider_id))
-            seen.add(model_id)
+            upstream_ids = await self._browser.model_ids()
+            seen = {"zai-web"}
+            for mid in upstream_ids:
+                model_id = f"zai:{mid}"
+                if model_id in seen:
+                    continue
+                models.append(ModelInfo(id=model_id, owned_by="z-ai-web", provider=self.provider_id))
+                seen.add(model_id)
+        else:
+            upstream_ids = await self._browser.model_ids()
+            seen = {"zai-web"}
+            for mid in upstream_ids:
+                model_id = f"zai:{mid}"
+                if model_id in seen:
+                    continue
+                models.append(ModelInfo(id=model_id, owned_by="z-ai-web", provider=self.provider_id))
+                seen.add(model_id)
         return models
 
     def supports_model(self, model: str) -> bool:

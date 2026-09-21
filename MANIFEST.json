@@ -1,6 +1,6 @@
 {
   "name": "hwg-next",
-  "version": "1.0.0-dev.0",
+  "version": "1.0.0-dev.2",
   "canonical_id": "hooshka-web-gateway-next",
   "release_channel": "dev",
   "build_date": "2026-09-20",
@@ -33,7 +33,9 @@
   },
   "docs": {
     "requirements_register": "docs/requirements/HWG_1.0_REQUIREMENTS_REGISTER_20260920.md",
-    "agent_api_spec": "docs/HWG_1.0_AGENT_API_SPEC_v1.0.0-dev.0.md",
-    "development_baseline": "docs/HWG_1.0_DEVELOPMENT_BASELINE_20260920.md"
+    "agent_api_spec": "docs/HWG_1.0_AGENT_API_SPEC_v1.0.0-dev.1.md",
+    "development_baseline": "docs/HWG_1.0_DEVELOPMENT_BASELINE_20260920.md",
+    "control_checklist": "docs/HWG_CTRL_REQ_001_CheckList_v1.0.0.md",
+    "control_compliance": "docs/evidence/HWG_CTRL_COMPLIANCE_20260920.md"
   }
 }

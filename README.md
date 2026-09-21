@@ -1,7 +1,7 @@
 # Hooshka Web Gateway Next — 1.0.0
 
 **Canonical id:** `hooshka-web-gateway-next`
-**نسخه:** `1.0.0-dev.0` (توسعه)
+**نسخه:** `1.0.0-dev.2` (توسعه)
 **وضعیت:** IN_DEVELOPMENT — روی پرت 5080 (تولیدیِ 5000 دست‌نخورده)
 
 هدف اصلی: **رابط API استاندارد برای وب‌چت‌ها** تا سایر Agentها (مثل افزونه kilo در VS Code) با ابزارهای استاندارد و از طریق یک OpenAI-compatible API، از HWG استفاده کنند.
@@ -27,8 +27,11 @@ python -m venv .venv
 # ۳) پنل و API
 #    http://127.0.0.1:5080/panel/
 #    http://127.0.0.1:5080/v1/models
+#    http://127.0.0.1:5080/v1/responses
 #    http://127.0.0.1:5080/health
 ```
+- SDK پایتون: `sdk/python/hwg_client.py` (مدل‌ها/چت/استریم/responses).
+- تک‌مرورگر (opt-in): `core/browser_pool.py` + `docs/architecture/ADR-002-shared-browser-pool.md`.
 
 ## مستندات کلیدی
 

@@ -1,4 +1,77 @@
-﻿## 1.0.0-dev.0 - 2026-09-20 - WIP (new development line)
+﻿## 1.0.0-dev.2 - 2026-09-20 - WIP (shared browser + SDK + spec)
+- Added `core/browser_pool.py` (SharedBrowserPool: one Chrome, isolated tab
+  per provider/account, focus-guard enforced, opt-in via
+  `runtime_orchestration.shared_browser`) + ADR-002 + `tests/test_browser_pool.py`.
+- Added reference Python SDK `sdk/python/hwg_client.py` (models/chat/stream/
+  responses/providers/capabilities, `requests`-only) + `tests/test_sdk_client.py`.
+- Added reference TypeScript SDK `sdk/typescript/` (zero-dep `fetch` mirror of
+  the Python client; SSE streaming, typed `HwgError`); typecheck clean,
+  live smoke 6/6 vs 5080 (models EOF, providers, capabilities, error envelope,
+  chatgpt-web stream, responses).
+- ADR-002 pilot: `ChatGPTWebProvider.bind_shared_pool()` (opt-in tab binding,
+  legacy fallback) + factory wiring in `main.py` (disabled by default) +
+  `tests/test_shared_pool_pilot.py`.
+- Discovery engine (`core/discovery_engine.py` + `core/control_discovery.py` +
+  `core/feature_controls.py`): read-only frontend/backend capability discovery
+  with evidence ladder (E0/E1/E2) and drift diff; versioned profiles under
+  `docs/profiles/<id>/`; `scripts/discover_provider.py` onboards known or NEW
+  webchats via CDP. Live z.ai run: model selector (E1) + 10 backend endpoints
+  + search icon flagged unclassified for hover probing.
+- Control checklist HWG-CTRL-REQ-001 v1.0.0 adopted (`docs/`); full 273-control
+  compliance matrix (`docs/evidence/HWG_CTRL_COMPLIANCE_20260920.md`):
+  ~91 pass / ~106 partial / ~75 open. Release verdict: NOT READY (open ★ blockers).
+- Single-window migration live (ADR-003): ONE Chrome CDP 9330 + shared profile;
+  3 providers verified through it (S1 exact each); per-origin isolation measured;
+  backups in `.runtime-dev-backup-20260920/`; rollback documented.
+- Session validation per provider (`GET /panel/api/providers/<id>/session`,
+  read-only, no focus steal) + explicit logout (`POST .../logout` with confirm,
+  CDP site-data clear + audit); `validate_session()` on all 3 adapters.
+  Live: chatgpt/zai/deepseek all authenticated+composer_ready.
+- API keys are verify-only hashes: `core/key_hash.py`, AuthManager hashes on
+  add/load/verify (existing tests green); panel stores hash only, audit logs
+  key_ref+suffix (plaintext secret never persisted/logged). Live lifecycle
+  verified: create → hash-only config → list → delete.
+- Live logout verified end-to-end on deepseek-web (`docs/evidence/
+  HWG_LOGOUT_LIVE_20260920.md`): CDP `Storage.clearDataForOrigin` wiped origin
+  cookies (16→0) + localStorage (21→0), audit `provider_logout` recorded
+  (key_ref only, no secrets), read-only session check flipped to
+  `authenticated=false / login signal` with zero side effects. The shared
+  single-window session is now logged out on deepseek (owner re-login needed,
+  opened via the panel "Open Browser" button).
+- Z.ai Web disabled in `config.yaml` (`enabled:false`) per owner decision;
+  canonical runtime now serves chatgpt-web + deepseek-web only. Both live S1
+  probes pass (15s / 12s exact), session endpoints report authenticated +
+  composer_ready, and the shared single-window browser remains on CDP 9330.
+- Verification: 231 pytest tests pass, panel E2E 5/5 pass, TypeScript SDK
+  smoke 6/6 pass (models/providers/capabilities/error/stream/responses).
+- New Agent API spec `docs/HWG_1.0_AGENT_API_SPEC_v1.0.0-dev.1.md`
+  (supersedes dev.0: documents `POST /v1/responses`).
+
+### Verified
+- **231 tests pass** (225 + 6 session/key-security).
+- Live panel E2E 5/5 on port 5080 (shell fa/RTL + models/providers/capabilities).
+
+## 1.0.0-dev.1 - 2026-09-20 - WIP (consolidation from hwg-next-0.9.3)
+- Base decision: `hwg-next-1.0.0` is the canonical line (Flask, config-driven
+  4 providers, Persian control panel, service orchestration, agent API spec).
+- Ported pure-logic modules from `hwg-next-0.9.3` (no new dependencies):
+  `core/unicode_norm.py` (fullwidth→ASCII before tool parsing, wired into
+  `parse_tool_calls`), `core/tool_allowlist.py` (empty allowlist never a
+  wildcard; unknown names rejected), `core/tool_adapter.py` (standard→native
+  mapping with structured `unsupported_tool` error), `core/commitment.py`
+  (NOT_SENT→MAYBE_SENT→COMMITTED→TERMINAL, retry only before send),
+  `core/focus_guard.py` (background never foregrounds; only
+  `user_initiated()` allows).
+- Added `tests/test_consolidated_093.py` (7 tests).
+- Added `POST /v1/responses` (normalized onto chat pipeline; streaming
+  explicitly 404/400 fail-closed) + `tests/test_responses_api.py` (4 tests).
+
+### Verified
+- **203 tests pass** — 192 pre-existing + 7 consolidation + 4 responses.
+  Live: `/v1/responses` streaming→400, panel E2E 5/5 on port 5080.
+- hwg-next-0.9.3 suite still green: 47 passed (donor line, frozen).
+
+## 1.0.0-dev.0 - 2026-09-20 - WIP (new development line)
 - Project bootstrapped at `D:\Code\hwg-next\hwg-next-1.0.0` from the operational
   `hooshka-web-gateway` v0.7.29 seed (adapters/core/runtime/tools/tests/docs copied;
   `.venv/.runtime/logs/.env` excluded).

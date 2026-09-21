@@ -71,6 +71,16 @@ class DeepSeekWebProvider(Provider):
     def supports_model(self, model: str) -> bool:
         return model == "deepseek-web" or model.startswith("deepseek:")
 
+    async def validate_session(self) -> dict:
+        """Read-only session validation for the control panel (NG-ACC-002)."""
+        status = await self._browser.session_status()
+        signals = status.get("signals") or {}
+        textarea = bool(status.get("textarea_count"))
+        return {"authenticated": bool(status.get("authenticated")),
+                "composer_ready": textarea and not any(signals.values()),
+                "mode": status.get("mode"),
+                "signals": signals}
+
     async def _require_authenticated_session(self) -> None:
         if not self._require_authenticated:
             return

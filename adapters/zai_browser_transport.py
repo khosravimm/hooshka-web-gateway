@@ -391,11 +391,16 @@ class ZaiBrowserControllerTransport:
         catalog = await self.model_catalog()
         match = next((x for x in catalog if x.get("id") == upstream_model), None)
         if not match:
+            for x in catalog:
+                if upstream_model and upstream_model.replace("-flash", "") in (x.get("id") or ""):
+                    match = x
+                    break
+        if not match:
             raise ProviderError(
                 "Requested Z.ai model is not available in the current session",
                 "invalid_model",
                 self.provider_id,
-                {"model": upstream_model},
+                {"model": upstream_model, "catalog": [x.get("id") for x in catalog]},
             )
         display_name = str(match.get("name") or upstream_model)
 
@@ -597,6 +602,8 @@ class ZaiBrowserControllerTransport:
                                 {"expected": expected, "observed": observed},
                             )
                         feature_verified = True
+                        logger.info("Z.ai backend request seen model=%s after %.1fs",
+                                    self.last_backend_request_model, now - start)
                     if snap.get("matched"):
                         reasoning = snap.get("reasoning") or ""
                         if reasoning != reasoning_emitted:
@@ -610,6 +617,9 @@ class ZaiBrowserControllerTransport:
                         if not emitted and not reasoning_emitted and now > first_deadline and not snap.get("text"):
                             raise ProviderTimeoutError(self.provider_id, "Z.ai first-event timeout")
                         text = snap.get("text") or ""
+                        if text and not emitted:
+                            logger.info("Z.ai first text after %.1fs (backend_seen=%s)",
+                                        now - start, bool(self.last_backend_request_model))
                         if text != emitted:
                             if not text.startswith(emitted):
                                 raise ProviderError(

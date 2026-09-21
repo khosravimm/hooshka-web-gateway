@@ -373,7 +373,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             models.append(ModelInfo(id=mid, owned_by=provider.provider_id, provider=provider.provider_id))
         return models
 
-    def _providers_summary() -> list[dict]:
+    def _providers_summary(enabled_only: bool = True) -> list[dict]:
         return [
             {
                 "id": p.provider_id,
@@ -396,7 +396,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                 },
                 "features": provider_feature_state(p),
             }
-            for p in provider_registry.list_providers()
+            for p in provider_registry.list_providers(enabled_only=enabled_only)
         ]
 
     init_governance(app, config["governance"])
@@ -410,8 +410,9 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         return int(rate_limiting.get("default_requests_per_minute", 60))
 
     for provider_config in config["providers"]:
-        if not provider_config.get("enabled", True):
-            continue
+        # Register disabled providers as inventory entries. Runtime routing
+        # continues to use enabled_only filtering in provider_registry.
+        # This keeps discovery APIs aligned with the Provider Profile model.
 
         pconfig = ProviderConfig(
             provider_id=provider_config["id"],
@@ -460,6 +461,22 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         if provisioned is not None:
             provider_registry.register(provisioned)
             rate_limiter.set_rate(provisioned.provider_id, _provider_rpm(provisioned.provider_id))
+
+    # ADR-002 pilot wiring (opt-in, default off): when
+    # runtime_orchestration.shared_browser.enabled is true, bind the
+    # chatgpt-web provider to the shared pool. Disabled/absent -> legacy.
+    try:
+        from core.browser_pool import shared_browser_from_config
+        _pool = shared_browser_from_config(config)
+    except Exception as e:
+        logger.warning(f"Shared browser pool unavailable: {e}")
+        _pool = None
+    if _pool is not None:
+        _chatgpt = provider_registry.get("chatgpt-web")
+        if _chatgpt is not None and hasattr(_chatgpt, "bind_shared_pool"):
+            _chatgpt.bind_shared_pool(_pool)
+            logger.info(f"Shared browser pool bound: {_pool.cdp_url}")
+    app.config["HWG_SHARED_POOL"] = _pool
 
     default_provider = provider_registry.get_default()
     default_model_id = default_provider.provider_id if default_provider else ""
@@ -635,6 +652,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         daemon=True,
     )
     _async_thread.start()
+    app.config["HWG_ASYNC_LOOP"] = _async_loop
 
     def _run_async(coro, timeout: float | None = None):
         nonlocal _provider_timeouts
@@ -761,7 +779,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         """
         providers = provider_registry.list_providers()
         return jsonify({
-            "providers": _providers_summary(),
+            "providers": _providers_summary(enabled_only=False),
             "default": provider_registry.get_default().provider_id if provider_registry.get_default() else None,
         })
 
@@ -779,7 +797,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         """
         return jsonify({
             "object": "list",
-            "providers": _providers_summary(),
+            "providers": _providers_summary(enabled_only=False),
             "default": provider_registry.get_default().provider_id if provider_registry.get_default() else None,
         })
 
@@ -802,7 +820,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             "spec_version": "1.0.0-dev.0",
             "compatibility_baseline": "openai-2026-09-20",
             "generated_at": int(time.time()),
-            "providers": _providers_summary(),
+            "providers": _providers_summary(enabled_only=False),
             "access": {
                 "loopback_without_key": True,
                 "loopback_policy": "local_trust_configurable",
@@ -978,6 +996,108 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         finally:
             if not req.stream:
                 _release_provider_slot("chat_completions", provider.provider_id)
+
+    @app.route("/v1/responses", methods=["POST"])
+    def create_response():
+        """
+        Create Response
+        ---
+        tags:
+          - Chat
+        summary: Create a response (OpenAI Responses API, normalized onto chat)
+        responses:
+          200:
+            description: Response object
+          400:
+            description: Invalid request or unsupported streaming
+        """
+        data = request.get_json(force=True) or {}
+        if data.get("stream"):
+            return jsonify({"error": {
+                "message": "Streaming is not supported on /v1/responses; use /v1/chat/completions with stream=true.",
+                "type": "invalid_request_error",
+                "code": "unsupported_streaming",
+            }}), 400
+        raw_input = data.get("input", "")
+        if isinstance(raw_input, str):
+            messages = [{"role": "user", "content": raw_input}]
+        elif isinstance(raw_input, list):
+            text_parts, messages = [], []
+            for item in raw_input:
+                if isinstance(item, dict) and item.get("role") and "content" in item:
+                    messages.append(item)
+                elif isinstance(item, dict) and item.get("type") in ("text", "input_text"):
+                    text_parts.append(str(item.get("text", "")))
+                else:
+                    text_parts.append(item if isinstance(item, str) else str(item))
+            if text_parts and not messages:
+                messages = [{"role": "user", "content": "".join(text_parts)}]
+            if not messages:
+                messages = [{"role": "user", "content": ""}]
+        else:
+            messages = [{"role": "user", "content": str(raw_input)}]
+        chat_body = dict(data)
+        chat_body["messages"] = messages
+        chat_body["stream"] = False
+        req = _build_request(chat_body)
+        valid, error_msg = _validate_request(req)
+        if not valid:
+            return jsonify({"error": {"message": error_msg, "type": "invalid_request_error"}}), 400
+        g.request_model = req.model
+        provider_id = data.get("provider")
+        if provider_id and provider_registry.get(provider_id) is None:
+            return jsonify({"error": {
+                "message": f"Unknown provider: {provider_id}",
+                "type": "invalid_request_error",
+                "code": "unknown_provider",
+            }}), 404
+        provider = provider_router.select_provider(
+            model=req.model,
+            provider_id=provider_id,
+            require_streaming=False,
+            require_tools=request_requires_tools(req),
+        )
+        if not provider:
+            return jsonify({"error": {
+                "message": f"No enabled provider supports model '{req.model}'.",
+                "type": "invalid_request_error",
+                "code": "model_not_found",
+            }}), 404
+        g.selected_provider_id = provider.provider_id
+        apply_feature_defaults(req, provider)
+        drop_optional_tools_for_text_only_provider(req, provider)
+        if not _try_acquire_provider_slot("responses", provider.provider_id):
+            return _provider_busy_response("responses", provider.provider_id)
+        try:
+            translated_req = mcp_translator.translate_request(req, provider)
+            session = _get_session(req)
+            response = _run_async(provider.chat_completion(translated_req, session), timeout=240)
+            normalized = mcp_normalizer.normalize_response(response, provider, translated_req)
+            _finalize_usage_for_audit(req, normalized)
+            text = "".join(c.message.content or "" for c in normalized.choices)
+            return jsonify({
+                "id": normalized.id,
+                "object": "response",
+                "created": normalized.created,
+                "model": normalized.model,
+                "output": [{
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": text}],
+                }],
+                "usage": {
+                    "prompt_tokens": normalized.usage.prompt_tokens,
+                    "completion_tokens": normalized.usage.completion_tokens,
+                    "total_tokens": normalized.usage.total_tokens,
+                },
+                "provider_meta": normalized.provider_meta,
+            })
+        except Exception as e:
+            logger.error(f"Responses error: {e}")
+            error_resp = mcp_normalizer.normalize_error(e, provider)
+            return jsonify(error_resp), _http_status_for_error(e)
+        finally:
+            _release_provider_slot("responses", provider.provider_id)
 
     def _stream_response(provider, req: ChatCompletionRequest, session, slot_kind: str):
         def generate():

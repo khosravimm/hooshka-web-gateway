@@ -49,34 +49,42 @@ class RateLimiter:
 
 
 class AuthManager:
+    """Verify-only API-key manager.
+
+    Only ``sha256:`` hashes are kept in memory. Plaintext tokens are hashed
+    on the way in (add_key/load_keys) and on verify; secrets never persist.
+    """
+
     def __init__(self):
         self._api_keys: dict[str, dict] = {}
         self._enabled = True
-    
+
     def load_keys(self, keys: dict[str, dict]):
+        from core.key_hash import normalize_ref
         normalized = {}
         for key, value in (keys or {}).items():
+            ref = normalize_ref(key)
             if isinstance(value, str):
-                normalized[key] = {"identity": value, "metadata": {}}
+                normalized[ref] = {"identity": value, "metadata": {}}
             elif isinstance(value, dict):
-                normalized[key] = {
+                normalized[ref] = {
                     "identity": value.get("identity", "anonymous"),
                     "metadata": value.get("metadata", {}),
                 }
             else:
                 logger.warning("Ignoring invalid auth identity mapping for one API key")
         self._api_keys = normalized
-    
+
     def add_key(self, key: str, identity: str, metadata: dict = None):
-        self._api_keys[key] = {"identity": identity, "metadata": metadata or {}}
-    
+        from core.key_hash import normalize_ref
+        self._api_keys[normalize_ref(key)] = {"identity": identity, "metadata": metadata or {}}
+
     def verify(self, api_key: str) -> Optional[dict]:
         if not self._enabled:
             return {"identity": "anonymous", "metadata": {}}
-        
-        if api_key in self._api_keys:
-            return self._api_keys[api_key]
-        return None
+
+        from core.key_hash import hash_token
+        return self._api_keys.get(hash_token(api_key or ""))
     
     def extract_key(self) -> Optional[str]:
         auth_header = request.headers.get("Authorization", "")
