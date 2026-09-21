@@ -259,3 +259,17 @@ input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent);
 .metric-tile.info { border-inline-start:4px solid #3b82f6; }
 .provider-performance-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; }
 .accent-card { border-top:3px solid var(--accent); }
+
+.health-tile-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+.health-tile { background:var(--panel-2); border:1px solid var(--border); border-radius:10px; padding:12px; min-height:76px; display:flex; flex-direction:column; justify-content:space-between; }
+.health-tile span { color:var(--text-3); font-size:12px; }
+.health-tile b { font-size:17px; }
+.provider-status-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.provider-status-card { background:var(--panel-2); border:1px solid var(--border); border-radius:10px; padding:12px; }
+.provider-status-head { display:flex; align-items:center; gap:8px; }
+.status-dot { width:10px; height:10px; border-radius:50%; background:#94a3b8; }
+.provider-status-card.ready .status-dot { background:#22c55e; box-shadow:0 0 0 4px rgba(34,197,94,.12); }
+.provider-status-card.down .status-dot { background:#ef4444; box-shadow:0 0 0 4px rgba(239,68,68,.10); }
+.provider-status-state { margin-top:10px; font-size:16px; font-weight:800; }
+.provider-status-meta { margin-top:4px; color:var(--text-3); font-size:11px; }
+@media (max-width:760px) { .health-tile-grid,.provider-status-grid { grid-template-columns:1fr 1fr; } }

@@ -397,8 +397,15 @@ function initNav() {
 
     const summary = $('#provider-runtime-summary');
     if (summary) {
-      summary.innerHTML = providers.map(p => `
-        <div class="hwg-chip ${p.runtime?.ready ? 'hwg-ok' : (p.runtime?.ready === null ? 'hwg-neutral' : 'hwg-bad')}">${p.id}: ${p.runtime?.status || 'unknown'}</div>`).join('');
+      summary.innerHTML = providers.map(p => {
+        const stateClass = p.runtime?.ready ? 'ready' : (p.runtime?.ready === null ? 'unknown' : 'down');
+        const stateLabel = p.runtime?.ready ? 'آماده' : (p.runtime?.ready === null ? 'نامشخص' : 'در دسترس نیست');
+        return `<div class="provider-status-card ${stateClass}">
+          <div class="provider-status-head"><span class="status-dot"></span><b class="ltr">${p.id}</b></div>
+          <div class="provider-status-state">${stateLabel}</div>
+          <div class="provider-status-meta">${p.enabled ? 'فعال' : 'غیرفعال'} · ${p.runtime?.status || 'unknown'}</div>
+        </div>`;
+      }).join('');
     }
 
     if (opts && opts.quiet) return;

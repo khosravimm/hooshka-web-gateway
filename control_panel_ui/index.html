@@ -90,17 +90,17 @@
 
       <div class="grid-2">
         <div class="card">
-          <h3 class="card-title">سلامت سیستم</h3>
-          <div class="kv">
-            <span>API</span><b id="health-api">-</b>
-            <span>CDP سراسری</span><b id="health-cdp">-</b>
-            <span>حافظه</span><b id="health-memory">-</b>
-            <span>CPU</span><b id="health-cpu">-</b>
-            <span>آپتایم</span><b id="health-uptime">-</b>
-            <span>همروندی پشته</span><b id="health-concurrency">-</b>
+          <div class="card-head"><div><h3 class="card-title">سلامت سیستم</h3><p class="hint">نمای مدیریتی از اجزای حیاتی Gateway.</p></div></div>
+          <div class="health-tile-grid">
+            <div class="health-tile"><span>API</span><b id="health-api">-</b></div>
+            <div class="health-tile"><span>CDP</span><b id="health-cdp">-</b></div>
+            <div class="health-tile"><span>حافظه</span><b id="health-memory">-</b></div>
+            <div class="health-tile"><span>CPU</span><b id="health-cpu">-</b></div>
+            <div class="health-tile"><span>آپ‌تایم</span><b id="health-uptime">-</b></div>
+            <div class="health-tile"><span>هم‌روندی</span><b id="health-concurrency">-</b></div>
           </div>
-          <h3 class="card-title mt">آمادگی Runtime پراوایدرها</h3>
-          <div class="runtime-grid" id="provider-runtime-summary"></div>
+          <div class="card-head mt"><div><h3 class="card-title">Providerها</h3><p class="hint">وضعیت Runtime هر مقصد Web Chat.</p></div></div>
+          <div class="provider-status-grid" id="provider-runtime-summary"></div>
         </div>
         <div class="card">
           <div class="card-head"><div><h3 class="card-title">ترافیک واقعی Web Chat</h3><p class="hint">فقط درخواست‌هایی که به یک Provider انتخاب‌شده ارسال شده‌اند؛ Polling پنل و Health شمرده نمی‌شوند.</p></div></div>
