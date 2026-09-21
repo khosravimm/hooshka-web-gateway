@@ -8,6 +8,8 @@ from core.discovery_orchestrator import (
     attach_exploration,
     attach_research,
     begin_exploration,
+    list_runs,
+    load_run,
     new_run,
     synthesize,
 )
@@ -42,3 +44,14 @@ def test_no_drift_still_requires_interactive_certification():
     synthesize(run)
     assert run.state == DiscoveryState.CERTIFICATION_REQUIRED.value
     assert run.evidence_level == "E1"
+
+
+def test_saved_runs_are_listed_and_reloadable(tmp_path: Path):
+    run = new_run("chatgpt-web", "webchat-standard-v1", "chatgpt-web:default-account")
+    run.save(tmp_path)
+    rows = list_runs(tmp_path)
+    assert len(rows) == 1
+    assert rows[0]["run_id"] == run.run_id
+    loaded = load_run("chatgpt-web", run.run_id, tmp_path)
+    assert loaded.provider_id == "chatgpt-web"
+    assert loaded.state == DiscoveryState.RESEARCH_REQUIRED.value

@@ -33,6 +33,7 @@
 
       <div class="nav-group-title">قابلیت‌ها</div>
       <button class="nav-item" data-panel="models"><span class="nav-chip">M</span><span>مدل‌ها و قابلیت‌ها</span></button>
+      <button class="nav-item" data-panel="discovery"><span class="nav-chip">D</span><span>کاوش و گواهی</span></button>
 
       <div class="nav-group-title">گفتگو و مصرف</div>
       <button class="nav-item" data-panel="chat"><span class="nav-chip">C</span><span>چت تعاملی</span></button>
@@ -196,6 +197,26 @@
       <div class="card mt">
         <h3 class="card-title">قابلیت‌های Runtime</h3>
         <div id="capability-matrix" class="table-scroll"></div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-discovery">
+      <div class="card-head">
+        <div><h3 class="card-title">کاوش و گواهی</h3><p class="hint">Research-first → Baseline → Exploration → Synthesis → Update Candidate → Interactive Certification. هیچ Run جدیدی مستقیم به Profile عملیاتی اعمال نمی‌شود.</p></div>
+        <span class="badge">Discovery Engine 2.x</span>
+      </div>
+      <div class="card">
+        <div class="grid-3">
+          <label class="field">Provider<select id="discovery-provider" class="ctrl ltr"></select></label>
+          <label class="field">Account Instance<input id="discovery-account" class="ctrl ltr" placeholder="مثال: deepseek-web:default-account"></label>
+          <label class="field">Recipe<input id="discovery-recipe" class="ctrl ltr" value="webchat-standard-v1"></label>
+        </div>
+        <div class="btn-row mt"><button id="discovery-new-run" class="btn primary" type="button">ایجاد Run کنترل‌شده</button><span id="discovery-create-status" class="status-line"></span></div>
+        <p class="hint">ایجاد Run فقط state اولیه <span class="ltr">RESEARCH_REQUIRED</span> را می‌سازد. Research-first gate قابل دور زدن نیست.</p>
+      </div>
+      <div class="card mt">
+        <div class="card-head"><div><h3 class="card-title">Runهای ثبت‌شده</h3><p class="hint">State، Evidence، Account و تاریخچه هر Run از رکورد نسخه‌دار خوانده می‌شود.</p></div><button id="discovery-refresh" class="btn ghost btn-sm" type="button">تازه‌سازی</button></div>
+        <div id="discovery-runs" class="work-list"></div>
       </div>
     </section>
 

@@ -95,6 +95,26 @@ def new_run(provider_id: str, recipe_version: str, account_id: str | None = None
     return DiscoveryRun(provider_id=provider_id, recipe_version=recipe_version, account_id=account_id)
 
 
+def load_run(provider_id: str, run_id: str, root: Path | None = None) -> DiscoveryRun:
+    path = (root or RUNTIME_ROOT) / provider_id / run_id / "result.json"
+    payload = json.loads(path.read_text(encoding="utf-8-sig"))
+    return DiscoveryRun(**payload)
+
+
+def list_runs(root: Path | None = None) -> list[dict[str, Any]]:
+    base = root or RUNTIME_ROOT
+    rows = []
+    if not base.exists():
+        return rows
+    for path in base.glob("*/*/result.json"):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8-sig"))
+            rows.append({k: payload.get(k) for k in ("run_id", "provider_id", "account_id", "recipe_version", "engine_version", "state", "evidence_level", "started_at", "completed_at", "decision")})
+        except Exception:
+            continue
+    return sorted(rows, key=lambda x: x.get("started_at") or "", reverse=True)
+
+
 def attach_research(run: DiscoveryRun, sources: list[dict[str, Any]]) -> None:
     if DiscoveryState(run.state) is not DiscoveryState.RESEARCH_REQUIRED:
         raise ValueError("research can only be attached at RESEARCH_REQUIRED")

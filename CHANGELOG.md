@@ -7,11 +7,12 @@
 - Added read-only legacy-config projection and `/panel/api/ng/inventory`; current config projects to 4 profiles + 4 accounts and reports shared-profile isolation as a machine-readable conflict.
 - Synchronized application, manifest and Control Plane UI version to 1.0.0-dev.4 and added a regression gate for future version/history drift.
 - Rebuilt Discovery as a governed pipeline with versioned Recipe/Result contracts, explicit lifecycle, Update Candidate review, Evidence promotion boundaries and reconstruction records; the former scanner is retained only as an Exploration probe.
+- Added a dedicated `کاوش و گواهی` Control Plane workspace plus governed Discovery Run creation/listing; every new run starts at `RESEARCH_REQUIRED` and persists under `.runtime-dev/discovery/`.
 - Added `HWG-WORK-REGISTER-001` as the machine-readable remaining-work/anti-forgetting register with dependencies, target versions, evidence requirements and exit criteria.
 - Exposed the Work Register through `/panel/api/governance/work-register` and a dedicated Control Plane workspace so open P0/P1 work is visible from the product itself.
 
 ### Evidence
-- Deterministic suite after governance/discovery/work-register integration: 260 passed.
+- Deterministic suite after Discovery Control Plane run integration: 261 passed.
 - Live development runtime: Desktop Runtime Agent reachable on configured port 5181; DeepSeek runtime start completed successfully.
 - Production/legacy port 5000 was not modified by this development change set.
 - No E3 reliability claim is made.

@@ -21,6 +21,7 @@ from core.feature_settings import persist_provider_feature_defaults, provider_fe
 from core.runtime_inventory import inventory_by_id, load_orchestration_settings
 from core.profile_contract import project_ng_inventory
 from core.work_register import load_register, summarize_register, validate_register
+from core.discovery_orchestrator import list_runs as list_discovery_runs, new_run as new_discovery_run
 
 control_panel_bp = Blueprint('control_panel', __name__, url_prefix='/panel')
 
@@ -447,6 +448,22 @@ def api_governance_work_register():
         "summary": summarize_register(doc),
         "items": doc.get("items", []),
     })
+
+
+@control_panel_bp.route('/api/discovery/runs', methods=['GET', 'POST'])
+def api_discovery_runs():
+    if request.method == 'GET':
+        return jsonify({"runs": list_discovery_runs()})
+    payload = request.get_json(silent=True) or {}
+    provider_id = str(payload.get("provider_id") or "").strip()
+    account_id = str(payload.get("account_id") or "").strip() or None
+    recipe_version = str(payload.get("recipe_version") or "webchat-standard-v1").strip()
+    known = {x.get("provider_id") for x in project_ng_inventory(CONFIG_PATH).get("provider_profiles", [])}
+    if provider_id not in known:
+        return jsonify({"error": "unknown_provider", "message": "Provider is not registered in the NG inventory"}), 404
+    run = new_discovery_run(provider_id, recipe_version, account_id)
+    path = run.save()
+    return jsonify({"run": run.to_dict(), "record": str(path), "next_required": "attach_research"}), 201
 
 
 @control_panel_bp.route('/api/runtimes')

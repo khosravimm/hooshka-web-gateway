@@ -6,6 +6,7 @@
     runtimes: 'مرورگر و اتصال',
     providers: 'فراهم‌کننده‌ها',
     models: 'مدل‌ها و قابلیت‌ها',
+    discovery: 'کاوش و گواهی',
     chat: 'چت تعاملی',
     sessions: 'گفتگوها',
     telemetry: 'آمار مصرف',
@@ -78,6 +79,7 @@
     if (name === 'runtimes') loadRuntimes();
     if (name === 'providers') loadProviders();
     if (name === 'models') loadModelsTab();
+    if (name === 'discovery') loadDiscovery();
     if (name === 'chat') window.HwgChat && HwgChat.init();
     if (name === 'sessions') loadSessions();
     if (name === 'telemetry') loadTelemetry();
@@ -985,6 +987,40 @@ function initNav() {
       await loadServiceStatus();
       if (btn) btn.disabled = false;
     }
+  }
+
+  /* ---------------- Discovery / certification ---------------- */
+  async function loadDiscovery() {
+    const status = $('#discovery-create-status');
+    try {
+      const [inventory, runsData] = await Promise.all([api('/ng/inventory'), api('/discovery/runs')]);
+      const select = $('#discovery-provider');
+      const current = select.value;
+      select.innerHTML = (inventory.provider_profiles || []).map(p => `<option value="${p.provider_id}">${p.provider_id}</option>`).join('');
+      if (current && Array.from(select.options).some(o => o.value === current)) select.value = current;
+      renderDiscoveryRuns(runsData.runs || []);
+      $('#discovery-refresh').onclick = loadDiscovery;
+      $('#discovery-new-run').onclick = async () => {
+        const provider_id = select.value;
+        const account_id = ($('#discovery-account').value || '').trim() || null;
+        const recipe_version = ($('#discovery-recipe').value || '').trim() || 'webchat-standard-v1';
+        if (!provider_id) { setStatus(status, 'Provider انتخاب نشده است', 'err'); return; }
+        setStatus(status, 'در حال ایجاد Run...', 'working');
+        try {
+          const result = await api('/discovery/runs', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({provider_id, account_id, recipe_version})});
+          setStatus(status, 'Run ایجاد شد؛ مرحله بعد Research-first است.', 'ok');
+          toast('Discovery Run: ' + result.run.run_id, 'ok');
+          await loadDiscovery();
+        } catch (e) { setStatus(status, e.message, 'err'); }
+      };
+    } catch (e) {
+      setStatus(status, 'خطا: ' + e.message, 'err');
+    }
+  }
+
+  function renderDiscoveryRuns(runs) {
+    const box = $('#discovery-runs');
+    box.innerHTML = runs.map(r => `<div class="work-item"><div><b class="ltr">${r.provider_id}</b><span class="badge">${r.state}</span><span class="badge">${r.evidence_level}</span></div><div class="hint ltr">run=${r.run_id}</div><div class="hint">Account: <span class="ltr">${r.account_id || '-'}</span> · Recipe: <span class="ltr">${r.recipe_version}</span> · Decision: ${r.decision || 'PENDING'}</div></div>`).join('') || '<div class="hint">هنوز Discovery Run ثبت نشده است.</div>';
   }
 
   /* ---------------- Remaining work / governance ---------------- */

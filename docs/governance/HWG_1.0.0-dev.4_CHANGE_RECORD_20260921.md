@@ -49,6 +49,9 @@ This record freezes the governance and operational-model transition introduced a
 - Added versioned Discovery Recipe and Discovery Result schemas plus `webchat-standard-v1` recipe.
 - Added reconstruction architecture and rebuild records under `docs/governance/`.
 - Evidence promotion remains fail-closed: E1 discovery does not become operational capability without scoped E2 certification.
+- Added Control Plane `کاوش و گواهی` workspace backed by governed Discovery Run records.
+- Added `/panel/api/discovery/runs` GET/POST; new runs are persisted under `.runtime-dev/discovery/<provider>/<run_id>/result.json` and always start at `RESEARCH_REQUIRED`.
+- Added run listing/reload support; live Exploration and Interactive Certification remain open and therefore `HWG-WORK-001` stays `IN_PROGRESS`.
 
 ## Remaining-work anti-forgetting work unit
 
