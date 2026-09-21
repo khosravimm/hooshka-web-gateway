@@ -3,7 +3,7 @@
 
   const PANEL_TITLES = {
     overview: 'وضعیت کلی',
-    runtimes: 'محیط‌های اجرا (تبرها)',
+    runtimes: 'محیط‌های اجرا',
     providers: 'فراهم‌کننده‌ها',
     models: 'مدل‌ها و قابلیت‌ها',
     chat: 'چت تعاملی',

@@ -256,3 +256,13 @@ def test_model_accounting_reports_unavailable_when_no_tokens_captured():
     assert "در دسترس نیست" in js
     text = source()
     assert "tokens_available" in text
+
+def test_control_panel_renders_only_active_workspace():
+    css = css_text()
+    assert ".panel { display: none; min-width: 0; }" in css
+    assert ".panel.active { display: block; }" in css
+    index = index_text()
+    assert index.count('<section class="panel active"') == 1
+    assert 'data-panel="overview"' in index
+    js = js_text()
+    assert "p.classList.toggle('active', p.id === 'panel-' + name)" in js

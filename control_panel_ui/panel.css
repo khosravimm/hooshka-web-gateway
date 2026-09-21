@@ -102,6 +102,10 @@ textarea { resize: vertical; }
 .sidebar-footer { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
 #service-status-badge { align-self: flex-start; }
 
+/* Workspace routing: only the selected control-panel view is visible. */
+.panel { display: none; min-width: 0; }
+.panel.active { display: block; }
+
 /* Main */
 .main { padding: 18px 22px 40px; min-width: 0; }
 .topbar {
