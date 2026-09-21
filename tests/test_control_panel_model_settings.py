@@ -269,15 +269,19 @@ def test_control_panel_renders_only_active_workspace():
     assert "p.classList.toggle('active', p.id === 'panel-' + name)" in js
 
 
-def test_provider_management_ui_exposes_enable_and_profile_controls():
+def test_operational_ui_separates_provider_config_from_browser_runtime():
     js = js_text()
     index = index_text()
     assert "HwgProviderEnabled" in js
-    assert "HwgProviderProfile" in js
-    assert "api('/runtime/profiles')" in js
+    assert "HwgRuntimeProfile" in js
+    assert "HwgGoRuntime" in js
+    assert "HwgProviderProfile" not in js
+    assert "مرورگر و اتصال" in index
+    assert "زنجیره آماده‌سازی Web Chat" in index
     assert 'id="profiles-grid"' in index
     assert 'id="profile-create"' in index
     text = source()
     assert "def api_provider_settings" in text
     assert "def api_runtime_profiles" in text
-    assert "def api_runtime_profile_delete" in text
+    assert "def api_runtime_profile_delete_by_path" in text
+    assert "def api_runtime_orchestration" in text

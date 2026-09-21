@@ -28,7 +28,7 @@
     <nav class="nav" aria-label="ناوبری اصلی">
       <div class="nav-group-title">نظارت</div>
       <button class="nav-item active" data-panel="overview"><span class="nav-chip">O</span><span>وضعیت کلی</span></button>
-      <button class="nav-item" data-panel="runtimes"><span class="nav-chip">R</span><span>محیط‌های اجرا</span></button>
+      <button class="nav-item" data-panel="runtimes"><span class="nav-chip">R</span><span>مرورگر و اتصال</span></button>
       <button class="nav-item" data-panel="providers"><span class="nav-chip">P</span><span>فراهم‌کننده‌ها</span></button>
 
       <div class="nav-group-title">قابلیت‌ها</div>
@@ -116,20 +116,26 @@
     </section>
 
     <section class="panel" id="panel-runtimes">
-      <div class="card-head">
-        <div>
-          <h3 class="card-title">محیط‌های اجرای مرورگر</h3>
-          <p class="hint">منبع داده: inventory runtime از config.yaml به‌همراه بررسی زنده CDP.</p>
+      <div class="card operational-intro">
+        <h3 class="card-title">زنجیره آماده‌سازی Web Chat</h3>
+        <div class="flow-rail">
+          <div><b>۱. Profile</b><span>محل هویت و Session مرورگر</span></div>
+          <div><b>۲. Browser Runtime</b><span>Chrome/CDP با Profile مشخص</span></div>
+          <div><b>۳. Login</b><span>ورود به Web Chat در همان Profile</span></div>
+          <div><b>۴. Provider</b><span>اتصال منطقی HWG به Runtime</span></div>
+          <div><b>۵. Enable & Test</b><span>فعال‌سازی و آزمون نهایی</span></div>
         </div>
-        <button id="runtime-repair-all" class="btn warn" type="button">تعمیر همه</button>
+        <div id="runtime-agent-state" class="dependency-banner"></div>
       </div>
-      <div id="runtime-action-global" class="status-line"></div>
-      <div id="runtimes-table-wrap"><table class="data-table"><thead><tr>
-        <th>پراوایدر</th><th>پورت</th><th>وضعیت CDP</th><th>پروفایل</th><th>صفحه اصلی</th><th>برچسب</th><th>عملیات</th>
-      </tr></thead><tbody id="runtimes-body"></tbody></table></div>
       <div class="card mt">
-        <div class="card-head"><div><h3 class="card-title">پروفایل‌های مرورگر</h3><p class="hint">ساخت و حذف Profile. پروفایل متصل به Provider تا زمان تغییر انتساب قابل حذف نیست.</p></div>
-          <div class="profile-create"><input id="profile-new-name" class="ctrl ltr" placeholder="profile-name"><button id="profile-create" class="btn primary btn-sm" type="button">ساخت پروفایل</button></div>
+        <div class="card-head"><div><h3 class="card-title">Runtimeهای مرورگر</h3><p class="hint">عملیات Start / Open فقط اینجا انجام می‌شود. Provider صفحه مدیریت منطقی است، نه کنترل Browser.</p></div>
+          <button id="runtime-repair-all" class="btn warn" type="button">تعمیر Runtimeها</button></div>
+        <div id="runtime-action-global" class="status-line"></div>
+        <div id="runtime-cards" class="runtime-operation-grid"></div>
+      </div>
+      <div class="card mt">
+        <div class="card-head"><div><h3 class="card-title">پروفایل‌های مرورگر</h3><p class="hint">Profile یک Chrome user-data directory است؛ Cookie، Login Session، Local Storage و تنظیمات مرورگر بعد از اجرای Chrome در آن ذخیره می‌شوند. Profile تازه در ابتدا تقریباً خالی است.</p></div>
+          <div class="profile-create"><input id="profile-new-name" class="ctrl ltr" placeholder="مثال: deepseek-office"><button id="profile-create" class="btn primary btn-sm" type="button">ساخت Profile خالی</button></div>
         </div>
         <div id="profiles-grid" class="profiles-grid"></div>
       </div>
@@ -139,7 +145,7 @@
       <div class="card-head">
         <div>
           <h3 class="card-title">پراوایدرهای ثبت‌شده</h3>
-          <p class="hint">روشن/خاموش، ویژگی‌های پیش‌فرض (تفکر/جستجو)، مدل پیش‌فرض و عملیات runtime. برای افزودن یا حذف، از منوی سمت چپ استفاده کنید.</p>
+          <p class="hint">این صفحه فقط تنظیمات منطقی Provider را مدیریت می‌کند. Browser/Profile در «مرورگر و اتصال» مدیریت می‌شود.</p>
         </div>
         <div class="btn-row">
           <button id="btn-add-provider" class="btn success btn-sm" type="button">اضافه‌کردن</button>

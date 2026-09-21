@@ -3,7 +3,7 @@
 
   const PANEL_TITLES = {
     overview: 'وضعیت کلی',
-    runtimes: 'محیط‌های اجرا',
+    runtimes: 'مرورگر و اتصال',
     providers: 'فراهم‌کننده‌ها',
     models: 'مدل‌ها و قابلیت‌ها',
     chat: 'چت تعاملی',
@@ -336,30 +336,45 @@ function initNav() {
 
   /* ---------------- Runtimes ---------------- */
   async function loadRuntimes() {
-    const tbody = $('#runtimes-body');
     const status = $('#runtime-action-global');
     setStatus(status, '', '');
     try {
-      const [data, profileData] = await Promise.all([api('/runtimes'), api('/runtime/profiles')]);
-      tbody.innerHTML = (data.runtimes || []).map(r => `
-        <tr>
-          <td class="ltr">${r.id}</td>
-          <td class="ltr">${r.port || '-'}</td>
-          <td><span class="hwg-chip ${r.ready ? 'hwg-ok' : (r.ready === null ? 'hwg-neutral' : 'hwg-bad')}">${r.status || 'unknown'}</span></td>
-          <td class="ltr">${r.profile || '-'}</td>
-          <td class="ltr"><a href="${r.home_url}" target="_blank" rel="noopener noreferrer">${r.home_url}</a></td>
-          <td>${r.label || '-'}</td>
-          <td>
-            <div class="btn-row">
-              <button class="btn ghost btn-xs" data-id="${r.id}" data-act="open">باز کردن</button>
-              <button class="btn ${r.ready ? 'ghost' : 'primary'} btn-xs" data-id="${r.id}" data-act="${r.ready ? 'restart' : 'start'}">${r.ready ? 'ری‌استارت' : 'شروع'}</button>
-            </div>
-          </td>
-        </tr>`).join('');
-      tbody.querySelectorAll('button[data-act]').forEach(b => b.addEventListener('click', () => runtimeAction(b.dataset.id, b.dataset.act, b)));
-      renderProfiles(profileData.profiles || []);
+      const [data, profileData, orchestration, providerData] = await Promise.all([
+        api('/runtimes'), api('/runtime/profiles'), api('/runtime/orchestration'), api('/providers')
+      ]);
+      const agent = orchestration.desktop_agent || {};
+      const banner = $('#runtime-agent-state');
+      if (banner) {
+        const ok = agent.reachable === true;
+        banner.className = 'dependency-banner ' + (ok ? 'ok' : 'bad');
+        banner.innerHTML = ok
+          ? '<b>Desktop Runtime Agent آماده است.</b><span class="ltr">' + (agent.url || '') + '</span>'
+          : '<b>پیش‌نیاز Runtime در دسترس نیست.</b><span>Agent روی ' + (agent.url || '-') + ' پاسخ نمی‌دهد' + (agent.task_exists ? '.' : ' و Scheduled Task آن نصب نیست.') + '</span>';
+      }
+      const profiles = profileData.profiles || [];
+      const providers = providerData.providers || [];
+      const cards = $('#runtime-cards');
+      cards.innerHTML = (data.runtimes || []).map(r => {
+        const provider = providers.find(p => p.id === r.id) || {};
+        const current = provider.profile_dir || '';
+        const options = profiles.map(pr => `<option value="${pr.profile_dir}" ${pr.profile_dir === current ? 'selected' : ''}>${pr.name}</option>`).join('');
+        const canOperate = agent.reachable === true;
+        const state = r.ready ? 'آماده' : 'متوقف/در دسترس نیست';
+        return `<div class="runtime-operation-card ${r.ready ? 'ready' : 'down'}">
+          <div class="runtime-op-head"><div><b class="ltr">${r.id}</b><div class="hint">${r.label || ''}</div></div><span class="badge ${r.ready ? 'ok' : 'bad'}">${state}</span></div>
+          <div class="runtime-dependency"><span>Profile</span><select id="runtime-profile-${r.id}" class="ctrl ltr">${options}</select><button class="btn ghost btn-xs" onclick="window.HwgRuntimeProfile && HwgRuntimeProfile('${r.id}')">اتصال Profile</button></div>
+          <div class="runtime-meta"><span>CDP</span><b class="ltr">${r.cdp_url || '-'}</b><span>Port</span><b>${r.port || '-'}</b><span>صفحه ورود</span><a class="ltr" href="${r.home_url}" target="_blank" rel="noopener">${r.home_url}</a></div>
+          <div class="runtime-steps"><span class="step ${current ? 'done' : ''}">Profile</span><span class="step ${r.ready ? 'done' : ''}">Browser</span><span class="step">Login</span><span class="step ${provider.enabled ? 'done' : ''}">Provider</span></div>
+          <div class="btn-row mt"><button class="btn primary btn-sm" data-id="${r.id}" data-act="${r.ready ? 'restart' : 'start'}" ${canOperate ? '' : 'disabled'}>${r.ready ? 'ری‌استارت مرورگر' : 'شروع مرورگر'}</button><button class="btn ghost btn-sm" data-id="${r.id}" data-open="1" ${canOperate ? '' : 'disabled'}>باز کردن صفحه ورود</button></div>
+          ${canOperate ? '' : '<div class="hint bad">ابتدا Desktop Runtime Agent باید نصب/اجرا شود.</div>'}
+        </div>`;
+      }).join('');
+      cards.querySelectorAll('button[data-act]').forEach(b => b.addEventListener('click', () => runtimeAction(b.dataset.id, b.dataset.act, b)));
+      cards.querySelectorAll('button[data-open]').forEach(b => b.addEventListener('click', () => window.HwgOpenProvider(b.dataset.id)));
+      renderProfiles(profiles);
     } catch (e) {
-      tbody.innerHTML = `<tr><td colspan="7" class="text-muted">خطا: ${e.message}</td></tr>`;
+      const cards = $('#runtime-cards');
+      if (cards) cards.innerHTML = `<div class="card hint">خطا: ${e.message}</div>`;
     }
     $('#runtime-repair-all').onclick = () => runtimeAction('all', 'repair', null);
   }
@@ -368,13 +383,21 @@ function initNav() {
     const box = $('#profiles-grid');
     if (!box) return;
     box.innerHTML = profiles.map(p => {
-      const assigned = (p.assigned_to || []).join('، ');
-      const managed = String(p.profile_dir || '').toLowerCase().includes('.runtime-dev\\profiles\\');
-      return `<div class="profile-card"><div><b class="ltr">${p.name}</b><div class="hint ltr">${p.profile_dir}</div></div>
-        <div class="profile-assignment">${assigned ? 'متصل به: ' + assigned : 'بدون انتساب'}</div>
-        <button class="btn danger btn-xs" data-profile-delete="${p.name}" ${(!managed || assigned) ? 'disabled' : ''}>حذف</button></div>`;
+      const assigned = (p.assigned_to || []);
+      const kindLabel = p.kind === 'shared' ? 'Shared' : (p.kind === 'managed' ? 'Managed' : 'Legacy');
+      const contentState = p.initialized ? 'دارای داده مرورگر' : 'تقریباً خالی';
+      const whyLocked = assigned.length ? 'برای حذف ابتدا Providerهای متصل را به Profile دیگری منتقل کنید.' : '';
+      return `<div class="profile-card semantic-profile ${p.kind || ''}">
+        <div class="profile-card-head"><div><b class="ltr">${p.name}</b><span class="badge neutral">${kindLabel}</span></div><span class="badge ${p.initialized ? 'info' : 'neutral'}">${contentState}</span></div>
+        <div class="hint ltr">${p.profile_dir}</div>
+        <div class="profile-purpose">Chrome user-data: Session / Cookie / Local Storage / تنظیمات مرورگر</div>
+        <div class="profile-assignment">${assigned.length ? 'فرزندهای متصل: ' + assigned.join('، ') : 'هیچ Providerی به این Profile متصل نیست'}</div>
+        ${p.kind === 'shared' ? '<div class="dependency-note">این Profile مشترک است و چند Web Chat می‌توانند همان Browser identity را استفاده کنند.</div>' : ''}
+        ${whyLocked ? `<div class="dependency-note warn">${whyLocked}</div>` : ''}
+        <button class="btn danger btn-xs" data-profile-dir="${p.profile_dir}" ${p.deletable ? '' : 'disabled'}>حذف Profile و داده‌های مرورگر</button>
+      </div>`;
     }).join('') || '<div class="hint">پروفایلی ثبت نشده است.</div>';
-    box.querySelectorAll('[data-profile-delete]').forEach(btn => btn.addEventListener('click', () => deleteProfile(btn.dataset.profileDelete)));
+    box.querySelectorAll('[data-profile-dir]').forEach(btn => btn.addEventListener('click', () => deleteProfile(btn.dataset.profileDir)));
     const create = $('#profile-create');
     if (create) create.onclick = createProfile;
   }
@@ -386,20 +409,20 @@ function initNav() {
     try {
       await api('/runtime/profiles', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({name}) });
       input.value = '';
-      toast('پروفایل ساخته شد', 'ok');
+      toast('Profile خالی ساخته شد؛ مرحله بعد اتصال آن به Runtime و سپس Login است.', 'ok');
       await loadRuntimes();
       await loadProviders();
     } catch (e) { toast('ساخت پروفایل: ' + e.message, 'err'); }
   }
 
-  async function deleteProfile(name) {
-    if (!confirm('پروفایل ' + name + ' حذف شود؟')) return;
+  async function deleteProfile(profileDir) {
+    if (!confirm('این کار تمام Session/Cookie/Local Storage این Profile را حذف می‌کند. ادامه می‌دهید؟')) return;
     try {
-      await api('/runtime/profiles/' + encodeURIComponent(name), { method: 'DELETE' });
-      toast('پروفایل حذف شد', 'ok');
+      await api('/runtime/profiles', { method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({profile_dir: profileDir}) });
+      toast('Profile و داده‌های مرورگر حذف شد', 'ok');
       await loadRuntimes();
       await loadProviders();
-    } catch (e) { toast('حذف پروفایل: ' + e.message, 'err'); }
+    } catch (e) { toast('حذف Profile: ' + e.message, 'err'); }
   }
 
   async function runtimeAction(providerId, action, btn) {
@@ -423,11 +446,10 @@ function initNav() {
 
   /* ---------------- Providers ---------------- */
   async function loadProviders(opts) {
-    let data, profileData;
-    try { [data, profileData] = await Promise.all([api('/providers'), api('/runtime/profiles')]); }
+    let data;
+    try { data = await api('/providers'); }
     catch (e) { return; }
     const providers = data.providers || [];
-    const profiles = (profileData && profileData.profiles) || [];
     $('#stat-providers').textContent = providers.length;
     const enabled = providers.filter(p => p.enabled === true);
     const ready = enabled.filter(p => p.runtime && p.runtime.ready === true).length;
@@ -457,11 +479,9 @@ function initNav() {
         <td><span class="hwg-chip hwg-neutral">${p.type}</span></td>
         <td><label class="provider-switch"><input type="checkbox" ${p.enabled ? 'checked' : ''} onchange="window.HwgProviderEnabled && HwgProviderEnabled('${p.id}',this.checked)"><span>${p.enabled ? 'فعال' : 'غیرفعال'}</span></label></td>
         <td>
-          <span class="hwg-chip ${p.runtime?.ready ? 'hwg-ok' : (p.runtime?.ready === null ? 'hwg-neutral' : 'hwg-bad')}">${p.runtime?.status || 'unknown'}</span>
-          <div class="hint ltr">${p.runtime?.cdp_url || '-'}</div>
-          <div class="provider-profile-row"><select id="profile-${p.id}" class="ctrl ltr">
-            ${profiles.map(pr => `<option value="${pr.profile_dir}" ${pr.profile_dir === p.profile_dir ? 'selected' : ''}>${pr.name}</option>`).join('')}
-          </select><button class="btn ghost btn-xs" onclick="window.HwgProviderProfile && HwgProviderProfile('${p.id}')">اعمال Profile</button></div>
+          <span class="hwg-chip ${p.runtime?.ready ? 'hwg-ok' : 'hwg-bad'}">${p.runtime?.ready ? 'Browser آماده' : 'Browser آماده نیست'}</span>
+          <div class="hint">Profile: <span class="ltr">${p.profile_dir || 'تعریف نشده'}</span></div>
+          <button class="btn ghost btn-xs" onclick="window.HwgGoRuntime && HwgGoRuntime()">مدیریت Browser/Profile</button>
         </td>
         <td>${p.priority}</td>
         <td><div class="capability-badges">${Object.entries(p.capabilities || {}).filter(([k, v]) => v === true).map(([k]) => `<span class="cap-badge">${k}</span>`).join('')}</div></td>
@@ -485,11 +505,10 @@ function initNav() {
         </td>
         <td>
           <div class="btn-row">
-            <button class="btn ghost btn-xs" onclick="window.HwgOpenProvider && HwgOpenProvider('${p.id}')">باز کردن</button>
-            <button class="btn ghost btn-xs" id="rt-${p.id}" onclick="window.HwgProviderRuntime && HwgProviderRuntime('${p.id}')">${p.runtime?.ready ? 'ری‌استارت' : 'شروع'}</button>
-            <button class="btn ghost btn-xs" id="test-${p.id}" onclick="window.HwgTestProvider && HwgTestProvider('${p.id}')">تست</button>
-            <button class="btn btn-danger btn-xs" onclick="window.HwgDeleteProvider && HwgDeleteProvider('${p.id}')">حذف</button>
+            <button class="btn primary btn-xs" id="test-${p.id}" onclick="window.HwgTestProvider && HwgTestProvider('${p.id}')" ${p.runtime?.ready ? '' : 'disabled'}>تست Provider</button>
+            <button class="btn btn-danger btn-xs" onclick="window.HwgDeleteProvider && HwgDeleteProvider('${p.id}')">حذف Provider</button>
           </div>
+          ${p.runtime?.ready ? '' : '<div class="hint">ابتدا Browser Runtime را آماده کنید.</div>'}
           <div id="test-status-${p.id}" class="status-line"></div>
         </td>
       </tr>`).join('');
@@ -506,16 +525,16 @@ function initNav() {
     } catch (e) { toast('تغییر وضعیت Provider: ' + e.message, 'err'); await loadProviders(); }
   };
 
-  window.HwgProviderProfile = async function (providerId) {
-    const select = document.getElementById('profile-' + providerId);
+  window.HwgGoRuntime = function () { showPanel('runtimes'); };
+
+  window.HwgRuntimeProfile = async function (providerId) {
+    const select = document.getElementById('runtime-profile-' + providerId);
     if (!select || !select.value) { toast('Profile انتخاب نشده است', 'err'); return; }
     try {
-      const r = await api('/providers/' + encodeURIComponent(providerId) + '/settings', {
-        method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({profile_dir: select.value})
-      });
-      toast('Profile ' + providerId + ' ذخیره شد' + (r.restart?.scheduled ? '؛ ری‌استارت زمان‌بندی شد' : ''), 'ok');
-      await Promise.all([loadProviders(), loadRuntimes()]);
-    } catch (e) { toast('تغییر Profile: ' + e.message, 'err'); }
+      const r = await api('/providers/' + encodeURIComponent(providerId) + '/settings', {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({profile_dir:select.value})});
+      toast('Profile به Runtime متصل شد' + (r.restart?.scheduled ? '؛ بازخوانی زمان‌بندی شد' : ''), 'ok');
+      await Promise.all([loadRuntimes(), loadProviders()]);
+    } catch (e) { toast('اتصال Profile: ' + e.message, 'err'); }
   };
 
   window.HwgProvidersToggle = async function (providerId, feature, value) {

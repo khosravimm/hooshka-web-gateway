@@ -55,3 +55,29 @@ def test_assigned_managed_profile_cannot_be_deleted(tmp_path, monkeypatch):
     assert response.status_code == 409
     assert target.exists()
     assert response.get_json()["assigned_to"] == ["qwen-web"]
+
+
+def test_unassigned_legacy_profile_can_be_deleted_by_path(tmp_path, monkeypatch):
+    root = tmp_path / ".runtime-dev"
+    target = root / "legacy-profile"
+    target.mkdir(parents=True)
+    (target / "Cookies").write_text("x", encoding="utf-8")
+    monkeypatch.setattr(control_panel, "_profile_root", lambda: root.resolve())
+    monkeypatch.setattr(control_panel, "_profile_relative", lambda path: str(path.relative_to(tmp_path)))
+    monkeypatch.setattr(control_panel, "_load_config_file", lambda: {"providers": []})
+    response = _client().delete('/panel/api/runtime/profiles', json={"profile_dir": str(target)})
+    assert response.status_code == 200
+    assert not target.exists()
+
+
+def test_assigned_profile_delete_by_path_is_blocked(tmp_path, monkeypatch):
+    root = tmp_path / ".runtime-dev"
+    target = root / "shared-profile"
+    target.mkdir(parents=True)
+    cfg = {"providers": [{"id": "deepseek-web", "runtime": {"profile_dir": str(target)}}]}
+    monkeypatch.setattr(control_panel, "_profile_root", lambda: root.resolve())
+    monkeypatch.setattr(control_panel, "_load_config_file", lambda: cfg)
+    response = _client().delete('/panel/api/runtime/profiles', json={"profile_dir": str(target)})
+    assert response.status_code == 409
+    assert target.exists()
+    assert response.get_json()["assigned_to"] == ["deepseek-web"]

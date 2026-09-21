@@ -405,6 +405,31 @@ def panel_assets(filename):
     return resp
 
 
+def _desktop_agent_status():
+    settings = load_orchestration_settings(CONFIG_PATH)
+    url = str(settings.get("desktop_agent_url") or "").rstrip("/")
+    task = str(settings.get("desktop_agent_task") or "")
+    reachable = False
+    try:
+        with urllib.request.urlopen(url + "/health", timeout=1.5) as response:
+            reachable = 200 <= response.status < 300
+    except Exception:
+        reachable = False
+    task_exists = False
+    if task:
+        try:
+            result = subprocess.run(["schtasks", "/Query", "/TN", task], capture_output=True, text=True, timeout=4)
+            task_exists = result.returncode == 0
+        except Exception:
+            task_exists = False
+    return {"url": url, "reachable": reachable, "task": task, "task_exists": task_exists}
+
+
+@control_panel_bp.route('/api/runtime/orchestration')
+def api_runtime_orchestration():
+    return jsonify({"desktop_agent": _desktop_agent_status()})
+
+
 @control_panel_bp.route('/api/runtimes')
 def api_runtimes():
     inventory = inventory_by_id(CONFIG_PATH)
@@ -756,7 +781,17 @@ def api_runtime_profiles():
         if path.exists():
             return jsonify({"error": "Profile already exists"}), 409
         path.mkdir(parents=True)
-        return jsonify({"success": True, "name": name, "profile_dir": _profile_relative(path)}), 201
+        marker = path / ".hwg-profile.json"
+        marker.write_text(json.dumps({
+            "name": name,
+            "created_at": datetime.now().isoformat(),
+            "purpose": "chrome_user_data_dir",
+            "state": "empty_until_browser_launch",
+        }, ensure_ascii=False, indent=2), encoding="utf-8")
+        return jsonify({
+            "success": True, "name": name, "profile_dir": _profile_relative(path),
+            "meaning": "Chrome user-data directory; it becomes useful after browser launch/login",
+        }), 201
     paths = set(assigned)
     if root.exists():
         for path in root.iterdir():
@@ -768,10 +803,51 @@ def api_runtime_profiles():
                 if path.is_dir():
                     paths.add(str(path.resolve()))
     profiles = []
+    shared_cfg = (((cfg.get("runtime_orchestration") or {}).get("shared_browser") or {}))
+    shared_path = None
+    try:
+        shared_path = _safe_profile_path(shared_cfg.get("profile_dir")) if shared_cfg.get("profile_dir") else None
+    except ValueError:
+        shared_path = None
     for raw in sorted(paths):
         path = Path(raw)
-        profiles.append({"name": path.name, "profile_dir": _profile_relative(path), "assigned_to": assigned.get(str(path), [])})
+        rel = _profile_relative(path)
+        users = assigned.get(str(path), [])
+        kind = "shared" if shared_path and path == shared_path else ("managed" if "profiles" in path.relative_to(_profile_root()).parts else "legacy")
+        initialized = path.exists() and any(path.iterdir())
+        profiles.append({
+            "name": path.name, "profile_dir": rel, "assigned_to": users,
+            "kind": kind, "initialized": initialized, "exists": path.exists(),
+            "deletable": not users,
+        })
     return jsonify({"profiles": profiles})
+
+
+@control_panel_bp.route('/api/runtime/profiles', methods=['DELETE'])
+def api_runtime_profile_delete_by_path():
+    data = request.get_json(force=True) or {}
+    try:
+        path = _safe_profile_path(data.get("profile_dir"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if path == _profile_root():
+        return jsonify({"error": "Runtime profile root cannot be deleted"}), 400
+    cfg = _load_config_file()
+    users = []
+    for item in cfg.get("providers", []) or []:
+        value = str((item.get("runtime") or {}).get("profile_dir") or "").strip()
+        if value:
+            try:
+                if _safe_profile_path(value) == path:
+                    users.append(item.get("id"))
+            except ValueError:
+                pass
+    if users:
+        return jsonify({"error": "Profile is assigned; detach providers first", "assigned_to": users}), 409
+    if not path.exists():
+        return jsonify({"error": "Profile not found"}), 404
+    shutil.rmtree(path)
+    return jsonify({"success": True, "profile_dir": _profile_relative(path)})
 
 
 @control_panel_bp.route('/api/runtime/profiles/<profile_name>', methods=['DELETE'])
