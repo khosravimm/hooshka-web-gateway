@@ -13,11 +13,12 @@
 - Added TTL-bound Functional Readiness records with explicit Runtime/CDP, Account Access, Model, Feature and bounded exact-token probe stages.
 - `/ready` now reads current functional evidence only; registered provider + async-loop is no longer considered READY.
 - Control Plane exposes Functional Readiness state/evidence separately from Browser readiness and can run governed readiness probes.
-- Work Register advanced to v1.10.0; HWG-WORK-005 account-centric session lifecycle is now closed with E1+E2 evidence.
+- Work Register advanced to v1.12.0; HWG-WORK-002 single-window origin isolation, HWG-WORK-003 functional readiness and HWG-WORK-005 account lifecycle are closed with E1+E2 evidence.
+- Cross-origin Provider tabs on one shared Chrome Profile are explicitly `origin_isolated_shared`; same-origin multi-account sharing is a fail-closed conflict requiring a separate Profile/Runtime.
 
 ### Evidence
 - Targeted Provider provisioning / Browser Runtime grouping / Profile management tests passed.
-- Full deterministic suite: 338 passed; compileall, JavaScript syntax and git diff checks passed.
+- Full deterministic suite: 342 passed; compileall, JavaScript syntax and git diff checks passed.
 - Development 5080 is running dev.6 and has scoped E2 evidence for Control Plane deployment and account-session lifecycle.
 
 ## 1.0.0-dev.5 - 2026-09-21 - WIP (assisted discovery and governed interaction)

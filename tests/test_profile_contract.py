@@ -25,17 +25,30 @@ def test_projection_separates_provider_profile_and_account(tmp_path):
     assert result["conflicts"] == []
 
 
-def test_projection_marks_shared_browser_profile_conflict(tmp_path):
+def test_projection_allows_cross_origin_shared_profile(tmp_path):
     cfg = tmp_path / "config.yaml"
     shared = ".runtime-dev\\shared-profile"
     _write_config(cfg, [
-        {"id": "chatgpt-web", "runtime": {"kind": "chrome_cdp", "profile_dir": shared}, "config": {}},
-        {"id": "deepseek-web", "runtime": {"kind": "chrome_cdp", "profile_dir": shared}, "config": {}},
+        {"id":"chatgpt-web","runtime":{"kind":"chrome_cdp","profile_dir":shared,"home_url":"https://chatgpt.com/"},"config":{}},
+        {"id":"deepseek-web","runtime":{"kind":"chrome_cdp","profile_dir":shared,"home_url":"https://chat.deepseek.com/"},"config":{}},
     ])
-    result = project_ng_inventory(cfg)
-    assert len(result["conflicts"]) == 1
-    conflict = result["conflicts"][0]
-    assert conflict["type"] == "shared_browser_profile"
-    assert set(conflict["providers"]) == {"chatgpt-web", "deepseek-web"}
-    assert all(a["browser_profile"]["ownership"] == "shared_conflict" for a in result["account_instances"])
-    assert result["migration_complete"] is False
+    result=project_ng_inventory(cfg)
+    assert result["conflicts"] == []
+    accounts=result["account_instances"]
+    assert all(a["browser_profile"]["ownership"]=="origin_isolated_shared" for a in accounts)
+    assert all(a["browser_profile"]["sharing_mode"]=="cross_origin_isolated" for a in accounts)
+    assert {a["browser_profile"]["origin"] for a in accounts}=={"https://chatgpt.com","https://chat.deepseek.com"}
+
+
+def test_projection_blocks_same_origin_shared_profile(tmp_path):
+    cfg=tmp_path/'config.yaml'; shared='.runtime-dev\\shared-profile'
+    _write_config(cfg,[
+        {"id":"chatgpt-a","runtime":{"kind":"chrome_cdp","profile_dir":shared,"home_url":"https://chatgpt.com/"},"config":{}},
+        {"id":"chatgpt-b","runtime":{"kind":"chrome_cdp","profile_dir":shared,"home_url":"https://chatgpt.com/"},"config":{}},
+    ])
+    result=project_ng_inventory(cfg)
+    assert len(result["conflicts"])==1
+    conflict=result["conflicts"][0]
+    assert conflict["scope"]=="same_origin"
+    assert conflict["origin"]=="https://chatgpt.com"
+    assert all(a["browser_profile"]["sharing_mode"]=="same_origin_conflict" for a in result["account_instances"])

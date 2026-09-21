@@ -110,19 +110,25 @@ def _load_json_files(folder: Path) -> list[dict[str, Any]]:
 
 
 def _conflicts(accounts: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    users: dict[str, list[str]] = {}
+    users: dict[tuple[str, str], list[str]] = {}
     for item in accounts:
-        path = str((item.get("browser_profile") or {}).get("path") or "").strip()
+        browser = item.get("browser_profile") or {}
+        path = str(browser.get("path") or "").strip()
+        origin = str(browser.get("origin") or "").strip().lower()
         if path:
-            users.setdefault(path, []).append(str(item.get("account_id") or ""))
+            # Missing origin is intentionally conservative: accounts sharing a
+            # profile without proven origin separation remain conflicting.
+            users.setdefault((path, origin), []).append(str(item.get("account_id") or ""))
     out=[]
-    for path, account_ids in users.items():
+    for (path, origin), account_ids in users.items():
         if len(account_ids) > 1:
             out.append({
                 "type": "shared_browser_profile",
+                "scope": "same_origin" if origin else "origin_unknown",
                 "browser_profile": path,
+                "origin": origin or None,
                 "accounts": account_ids,
-                "requirement": "NG-BRW-003 / profile security boundary",
+                "requirement": "NG-BRW-003 / origin session-storage boundary",
                 "status": "CONFLICT",
             })
     return out
@@ -146,6 +152,42 @@ def load_persistent_inventory(root: str | Path | None = None) -> dict[str, Any]:
         "persistence_complete": True,
         "migration_complete": True,
     }
+
+
+def reconcile_isolation_metadata(config_path: str | Path, root: str | Path | None = None) -> dict[str, Any]:
+    """Reconcile browser origin/sharing metadata without replacing account state."""
+    root = Path(root) if root else DEFAULT_ROOT
+    _profiles_dir, accounts_dir = _dirs(root)
+    if not accounts_dir.exists():
+        raise FileNotFoundError("persistent NG inventory is not initialized")
+    projected = project_ng_inventory(config_path)
+    desired = {str(a.get("account_id")): dict(a.get("browser_profile") or {})
+               for a in projected.get("account_instances", [])}
+    changed=[]
+    now=_now()
+    for path in sorted(accounts_dir.glob("*.json")):
+        payload=json.loads(path.read_text(encoding="utf-8-sig"))
+        account_id=str(payload.get("account_id") or "")
+        target=desired.get(account_id)
+        if not target:
+            continue
+        current=dict(payload.get("browser_profile") or {})
+        merged=dict(current)
+        for key in ("path","origin","ownership","sharing_mode"):
+            if key in target:
+                merged[key]=target[key]
+        if merged == current:
+            continue
+        payload["browser_profile"]=merged
+        payload["updated_at"]=now
+        log=list(payload.get("change_log") or [])
+        log.append({"at":now,"change":"isolation_metadata_reconciled","evidence_level":"E1"})
+        payload["change_log"]=log
+        _atomic_json(path,payload)
+        changed.append(account_id)
+    result=load_persistent_inventory(root)
+    result["reconciled_accounts"]=changed
+    return result
 
 
 def load_ng_inventory(config_path: str | Path, root: str | Path | None = None) -> dict[str, Any]:
@@ -203,3 +245,113 @@ def update_account_session(account_id: str, session: dict[str, Any], root: str |
     payload["change_log"] = log
     _atomic_json(path, payload)
     return payload
+
+
+def _allocate_account_port(config_path: str | Path, accounts: list[dict[str, Any]], preferred: int | None = None) -> int:
+    from core.runtime_inventory import load_runtime_inventory
+    used = {int(r["port"]) for r in load_runtime_inventory(config_path)}
+    for account in accounts:
+        runtime = account.get("runtime") or {}
+        if runtime.get("port"):
+            used.add(int(runtime["port"]))
+    if preferred is not None:
+        port = int(preferred)
+        if port < 1024 or port > 65535 or port in used:
+            raise ValueError(f"account runtime port is unavailable: {port}")
+        return port
+    for port in range(9340, 9400):
+        if port not in used:
+            return port
+    raise RuntimeError("no free account CDP port in managed range 9340-9399")
+
+
+def provision_account_instance(
+    provider_id: str,
+    account_id: str,
+    config_path: str | Path,
+    root: str | Path | None = None,
+    preferred_port: int | None = None,
+) -> dict[str, Any]:
+    """Create an isolated same-provider Account Instance without cloning a Provider."""
+    from urllib.parse import urlparse
+    from core.runtime_inventory import inventory_by_id
+    root = Path(root) if root else DEFAULT_ROOT
+    inv = load_persistent_inventory(root)
+    account_id = str(account_id or "").strip()
+    provider_id = str(provider_id or "").strip()
+    if not account_id or not provider_id:
+        raise ValueError("provider_id and account_id are required")
+    if any(a.get("account_id") == account_id for a in inv["account_instances"]):
+        raise FileExistsError(f"account already exists: {account_id}")
+    profile = next((p for p in inv["provider_profiles"] if p.get("provider_id") == provider_id), None)
+    if profile is None:
+        raise KeyError(f"provider profile not found: {provider_id}")
+    base = inventory_by_id(config_path).get(provider_id)
+    if not base:
+        raise KeyError(f"provider runtime not found: {provider_id}")
+    parsed = urlparse(base["home_url"])
+    origin = f"{parsed.scheme.lower()}://{parsed.netloc.lower()}"
+    port = _allocate_account_port(config_path, inv["account_instances"], preferred_port)
+    safe = _safe_id(account_id)
+    profile_rel = str(Path(".runtime-dev") / "accounts" / safe)
+    now = _now()
+    payload = {
+        "schema_version": "1.0.0",
+        "artifact_version": "1.0.0-provisioned.1",
+        "account_id": account_id,
+        "provider_profile_id": profile["profile_id"],
+        "browser_profile": {
+            "path": profile_rel,
+            "origin": origin,
+            "ownership": "exclusive",
+            "sharing_mode": "exclusive_profile",
+        },
+        "runtime": {
+            "kind": "chrome_cdp",
+            "cdp_url": f"http://127.0.0.1:{port}",
+            "port": port,
+            "profile_dir": profile_rel,
+            "home_url": base["home_url"],
+            "label": f"HWG-Account-{safe}",
+        },
+        "session": {"state": "unknown", "access_state": "UNKNOWN", "validated_at": None},
+        "capability_snapshot": {"version": "unvalidated", "evidence_level": "E0"},
+        "enabled": False,
+        "source": {"kind": "account_provisioning", "provider_id": provider_id},
+        "updated_at": now,
+        "change_log": [{"at": now, "change": "isolated_account_provisioned", "evidence_level": "E1"}],
+    }
+    _profiles_dir, accounts_dir = _dirs(root)
+    path = accounts_dir / (_safe_id(account_id) + ".json")
+    _atomic_json(path, payload)
+    return payload
+
+
+def account_runtime(account_id: str, root: str | Path | None = None, project_root: str | Path | None = None) -> dict[str, Any]:
+    root = Path(root) if root else DEFAULT_ROOT
+    project_root = Path(project_root) if project_root else Path(__file__).resolve().parents[1]
+    inv = load_persistent_inventory(root)
+    account = next((a for a in inv["account_instances"] if a.get("account_id") == account_id), None)
+    if account is None:
+        raise KeyError(f"account not found: {account_id}")
+    runtime = dict(account.get("runtime") or {})
+    if not runtime:
+        raise KeyError(f"account has no dedicated runtime: {account_id}")
+    profile = Path(str(runtime.get("profile_dir") or ""))
+    runtime["profile"] = str(profile if profile.is_absolute() else (project_root / profile).resolve())
+    runtime["account_id"] = account_id
+    runtime["provider_profile_id"] = account.get("provider_profile_id")
+    return runtime
+
+
+def deprovision_account_instance(account_id: str, root: str | Path | None = None) -> dict[str, Any]:
+    root = Path(root) if root else DEFAULT_ROOT
+    _profiles_dir, accounts_dir = _dirs(root)
+    path = accounts_dir / (_safe_id(account_id) + ".json")
+    if not path.exists():
+        raise FileNotFoundError(f"account instance not found: {account_id}")
+    payload = json.loads(path.read_text(encoding="utf-8-sig"))
+    if not (payload.get("runtime") or {}):
+        raise RuntimeError("default/migrated account cannot be deprovisioned by account-runtime operation")
+    path.unlink()
+    return {"deleted": True, "account_id": account_id, "browser_profile": payload.get("browser_profile"), "runtime": payload.get("runtime")}

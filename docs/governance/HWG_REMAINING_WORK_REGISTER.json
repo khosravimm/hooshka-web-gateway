@@ -1,6 +1,6 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.11.1",
+  "version": "1.12.0",
   "updated_at": "2026-09-21",
   "status_vocabulary": [
     "OPEN",
@@ -63,7 +63,7 @@
       "id": "HWG-WORK-002",
       "title": "Resolve single-window UX and account isolation architecture",
       "area": "runtime",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "priority": "P0",
       "source": [
         "NG-BRW-001",
@@ -76,7 +76,7 @@
       "depends_on": [
         "HWG-WORK-004"
       ],
-      "target_version": "1.0.0-dev.5",
+      "target_version": "1.0.0-dev.6",
       "evidence_required": [
         "E1",
         "E2"
@@ -90,8 +90,17 @@
       ],
       "latest_evidence": {
         "date": "2026-09-22",
-        "type": "E2_dev_runtime_control_plane",
-        "result": "Development 5080 cut over to dev.6/feb23f4; live API reports two Browser Runtime groups (shared 9330 with 3 Provider tabs, qwen 9325 with 1 tab), Desktop Runtime Agent reachable on 5181, and served Provider provisioning UI uses runtime selection with no raw CDP/Profile fields."
+        "type": "E1+E2_origin_isolation_policy",
+        "result": "Single-window cross-origin Provider tabs validated and reconciled as origin_isolated_shared; same-origin tabs proven to share cookies/localStorage and therefore require separate Profile/Runtime for multi-account."
+      },
+      "completed_at": "2026-09-22",
+      "evidence": {
+        "type": [
+          "E1",
+          "E2"
+        ],
+        "result": "Live NG Store reconciled with zero cross-origin conflicts while preserving account sessions; browser prototype proved different-origin isolation and same-origin sharing boundaries.",
+        "record": "docs/evidence/HWG_SINGLE_WINDOW_ORIGIN_ISOLATION_E2_20260922.md"
       }
     },
     {

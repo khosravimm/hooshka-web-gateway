@@ -20,7 +20,7 @@ from core.config import load_config, deep_merge, get_default_config
 from core.feature_settings import persist_provider_feature_defaults, provider_feature_state
 from core.runtime_inventory import inventory_by_id, load_orchestration_settings
 from core.profile_contract import project_ng_inventory
-from core.profile_store import load_ng_inventory, migrate_legacy_inventory, rollback_legacy_migration, update_account_session
+from core.profile_store import load_ng_inventory, migrate_legacy_inventory, rollback_legacy_migration, update_account_session, reconcile_isolation_metadata
 from core.work_register import load_register, summarize_register, validate_register
 from core.discovery_orchestrator import (
     attach_baseline as discovery_attach_baseline,
@@ -552,6 +552,17 @@ def api_ng_migrate():
         return jsonify(migrate_legacy_inventory(CONFIG_PATH)), 201
     except FileExistsError as exc:
         return jsonify({"error":"already_migrated","message":str(exc)}), 409
+
+
+@control_panel_bp.route('/api/ng/reconcile-isolation', methods=['POST'])
+def api_ng_reconcile_isolation():
+    payload = request.get_json(silent=True) or {}
+    if payload.get("confirm") is not True:
+        return jsonify({"error":"confirmation_required","message":"Isolation metadata reconciliation requires confirm=true"}), 400
+    try:
+        return jsonify(reconcile_isolation_metadata(CONFIG_PATH))
+    except FileNotFoundError as exc:
+        return jsonify({"error":"persistent_store_not_initialized","message":str(exc)}), 404
 
 
 @control_panel_bp.route('/api/ng/rollback', methods=['POST'])

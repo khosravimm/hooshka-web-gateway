@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import yaml
 
@@ -26,14 +27,30 @@ def _profile_path(item: dict[str, Any]) -> str:
     config = item.get("config") or {}
     return str(runtime.get("profile_dir") or config.get("profile_dir") or "").strip()
 
+
+def _origin(item: dict[str, Any]) -> str:
+    runtime = item.get("runtime") or {}
+    config = item.get("config") or {}
+    raw = str(runtime.get("home_url") or config.get("base_url") or config.get("chatgpt_url") or "").strip()
+    if not raw:
+        return ""
+    parsed = urlparse(raw)
+    if not parsed.scheme or not parsed.netloc:
+        return ""
+    return f"{parsed.scheme.lower()}://{parsed.netloc.lower()}"
+
 def project_ng_inventory(config_path: str | Path) -> dict[str, Any]:
     cfg = _load_config(config_path)
     providers = cfg.get("providers") or []
     profile_users: dict[str, list[str]] = defaultdict(list)
+    origin_users: dict[tuple[str, str], list[str]] = defaultdict(list)
     for item in providers:
         path = _profile_path(item)
+        origin = _origin(item)
+        provider_id = str(item.get("id") or "")
         if path:
-            profile_users[path].append(str(item.get("id") or ""))
+            profile_users[path].append(provider_id)
+            origin_users[(path, origin)].append(provider_id)
 
     provider_profiles = []
     accounts = []
@@ -45,7 +62,10 @@ def project_ng_inventory(config_path: str | Path) -> dict[str, Any]:
         runtime = item.get("runtime") or {}
         config = item.get("config") or {}
         browser_profile = _profile_path(item)
-        shared = len(profile_users.get(browser_profile, [])) > 1 if browser_profile else False
+        origin = _origin(item)
+        profile_shared = len(profile_users.get(browser_profile, [])) > 1 if browser_profile else False
+        same_origin_shared = len(origin_users.get((browser_profile, origin), [])) > 1 if browser_profile else False
+        sharing_mode = "same_origin_conflict" if same_origin_shared else ("cross_origin_isolated" if profile_shared else "exclusive_profile")
         profile_id = f"{provider_id}:default"
         account_id = f"{provider_id}:default-account"
         transport_kind = str(config.get("transport_mode") or runtime.get("kind") or "unknown")
@@ -65,7 +85,9 @@ def project_ng_inventory(config_path: str | Path) -> dict[str, Any]:
             "provider_profile_id": profile_id,
             "browser_profile": {
                 "path": browser_profile,
-                "ownership": "shared_conflict" if shared else "exclusive",
+                "origin": origin,
+                "ownership": ("shared_conflict" if same_origin_shared else ("origin_isolated_shared" if profile_shared else "exclusive")),
+                "sharing_mode": sharing_mode,
             },
             "session": {"state": "unknown", "validated_at": None},
             "capability_snapshot": {"version": "legacy-projected", "evidence_level": "E0"},
@@ -73,13 +95,15 @@ def project_ng_inventory(config_path: str | Path) -> dict[str, Any]:
             "enabled": bool(item.get("enabled", True)),
         })
 
-    for path, provider_ids in profile_users.items():
-        if len(provider_ids) > 1:
+    for (path, origin), provider_ids in origin_users.items():
+        if path and len(provider_ids) > 1:
             conflicts.append({
                 "type": "shared_browser_profile",
+                "scope": "same_origin",
                 "browser_profile": path,
+                "origin": origin,
                 "providers": provider_ids,
-                "requirement": "NG-BRW-003 / profile security boundary",
+                "requirement": "NG-BRW-003 / origin session-storage boundary",
                 "status": "CONFLICT",
             })
     return {

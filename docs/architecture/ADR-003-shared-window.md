@@ -43,3 +43,11 @@ required). Therefore:
 - Negative: one-time re-login burden (owner present); orchestration scripts
   that enumerate per-provider runtimes must treat the shared entry as one
   (follow-up); qwen stays disabled/out of scope until enabled.
+
+## 2026-09-22 verification update
+
+The isolation assumption in this ADR is now backed by scoped E2 browser evidence. A temporary Chrome profile showed that different Origins in one Browser Context do not observe each other's LocalStorage/cookies, while two tabs on the same Origin do share them.
+
+Accordingly, NG inventory conflict detection is based on `(Browser Profile + Origin)`, not Browser Profile path alone. Current ChatGPT/DeepSeek/Z.ai tabs on `shared-profile` are classified `cross_origin_isolated`; same-origin multi-account sharing remains `same_origin_conflict` and requires a separate Profile/Runtime exception.
+
+Evidence: `docs/evidence/HWG_SINGLE_WINDOW_ORIGIN_ISOLATION_E2_20260922.md`.

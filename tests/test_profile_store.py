@@ -4,18 +4,18 @@ from pathlib import Path
 import pytest
 import yaml
 
-from core.profile_store import load_ng_inventory, load_persistent_inventory, migrate_legacy_inventory, rollback_legacy_migration
+from core.profile_store import load_ng_inventory, load_persistent_inventory, migrate_legacy_inventory, rollback_legacy_migration, reconcile_isolation_metadata
 
 
 def _config(path: Path, providers):
     path.write_text(yaml.safe_dump({"providers": providers}, sort_keys=False), encoding="utf-8")
 
 
-def _provider(pid, profile):
+def _provider(pid, profile, home_url=None):
     return {
         "id": pid,
         "enabled": True,
-        "runtime": {"kind":"chrome_cdp", "profile_dir":profile},
+        "runtime": {"kind":"chrome_cdp", "profile_dir":profile, **({"home_url":home_url} if home_url else {})},
         "config": {"transport_mode":"browser_ui"},
     }
 
@@ -42,13 +42,28 @@ def test_persistent_store_becomes_ng_authority(tmp_path):
     assert [x['provider_id'] for x in inv['provider_profiles']]==['deepseek-web']
 
 
-def test_shared_profile_conflict_survives_persistence(tmp_path):
+def test_cross_origin_shared_profile_is_not_conflict_after_persistence(tmp_path):
     cfg=tmp_path/'config.yaml'; root=tmp_path/'store'; shared='.runtime-dev/shared-profile'
-    _config(cfg,[_provider('chatgpt-web',shared),_provider('deepseek-web',shared)])
+    _config(cfg,[
+        _provider('chatgpt-web',shared,'https://chatgpt.com/'),
+        _provider('deepseek-web',shared,'https://chat.deepseek.com/'),
+    ])
     inv=migrate_legacy_inventory(cfg,root)
     assert inv['migration_complete'] is True
+    assert inv['conflicts']==[]
+    assert {a['browser_profile']['sharing_mode'] for a in inv['account_instances']}=={'cross_origin_isolated'}
+
+
+def test_same_origin_shared_profile_remains_conflict(tmp_path):
+    cfg=tmp_path/'config.yaml'; root=tmp_path/'store'; shared='.runtime-dev/shared-profile'
+    _config(cfg,[
+        _provider('chatgpt-a',shared,'https://chatgpt.com/'),
+        _provider('chatgpt-b',shared,'https://chatgpt.com/'),
+    ])
+    inv=migrate_legacy_inventory(cfg,root)
     assert len(inv['conflicts'])==1
-    assert set(inv['conflicts'][0]['accounts'])=={'chatgpt-web:default-account','deepseek-web:default-account'}
+    assert inv['conflicts'][0]['scope']=='same_origin'
+    assert inv['conflicts'][0]['origin']=='https://chatgpt.com'
 
 
 def test_migration_is_reversible_when_artifacts_unchanged(tmp_path):
@@ -90,3 +105,29 @@ def test_control_plane_uses_persistent_inventory_and_guarded_migration_routes():
     assert "/api/ng/migrate" in src and "/api/ng/rollback" in src
     assert 'Persistent NG migration requires confirm=true' in src
     assert 'NG migration rollback requires confirm=true' in src
+
+
+def test_reconcile_isolation_metadata_preserves_session(tmp_path):
+    cfg=tmp_path/'config.yaml'; root=tmp_path/'store'; shared='.runtime-dev/shared-profile'
+    _config(cfg,[
+        _provider('chatgpt-web',shared,'https://chatgpt.com/'),
+        _provider('deepseek-web',shared,'https://chat.deepseek.com/'),
+    ])
+    inv=migrate_legacy_inventory(cfg,root)
+    account_path=next((root/'account_instances').glob('chatgpt-web__default-account.json'))
+    data=json.loads(account_path.read_text(encoding='utf-8'))
+    data['browser_profile'].pop('origin',None); data['browser_profile'].pop('sharing_mode',None)
+    data['session']={'state':'authenticated','access_state':'AUTHENTICATED','validated_at':'x'}
+    account_path.write_text(json.dumps(data),encoding='utf-8')
+    out=reconcile_isolation_metadata(cfg,root)
+    account=next(a for a in out['account_instances'] if a['account_id']=='chatgpt-web:default-account')
+    assert account['session']['access_state']=='AUTHENTICATED'
+    assert account['browser_profile']['origin']=='https://chatgpt.com'
+    assert account['browser_profile']['sharing_mode']=='cross_origin_isolated'
+    assert out['conflicts']==[]
+
+
+def test_control_plane_has_guarded_isolation_reconciliation_route():
+    src=Path('control_panel.py').read_text(encoding='utf-8-sig')
+    assert '/api/ng/reconcile-isolation' in src
+    assert 'Isolation metadata reconciliation requires confirm=true' in src

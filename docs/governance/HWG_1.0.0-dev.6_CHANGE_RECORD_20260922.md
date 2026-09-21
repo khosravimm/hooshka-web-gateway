@@ -32,12 +32,12 @@ The previous UI mixed Provider, Browser Runtime and Browser Profile concepts. A 
 
 ## Governance
 
-This work advances `HWG-WORK-002` and `HWG-WORK-006`. It does not claim final account-isolation or full Control Plane completion; those remain governed work until E2 validation of the redesigned UI and account lifecycle is complete.
+`HWG-WORK-002` is now closed with E1+E2 evidence for single-window cross-origin isolation and explicit same-origin multi-account exceptions. `HWG-WORK-006` remains governed work for the broader Control Plane redesign.
 
 ## Evidence
 
 - Targeted Provider provisioning / Browser Runtime grouping / Profile management tests: PASS.
-- Full deterministic suite: **338 passed**.
+- Full deterministic suite: **342 passed**.
 - `compileall`, JavaScript syntax and `git diff --check` are release-blocking final checks for this local commit.
 - No E2 deployment claim is made for the stale 5080 process until dev.6 is deployed from a clean/controlled runtime checkout.
 
@@ -60,3 +60,7 @@ Shared-browser logout was corrected from global context cookie clearing to origi
 HWG-WORK-003 is closed with E1+E2 evidence. `/ready` no longer treats registration or CDP reachability as operational readiness. A TTL-bound readiness record is produced only after ordered runtime/CDP, page-interactive, account access, model, live feature-state and exact-token functional-probe stages.
 
 DeepSeek passed all six stages and caused `/ready` to transition from HTTP 503 to HTTP 200 only after evidence was saved. Qwen had a healthy CDP but stopped fail-closed at `BLOCKED / region_restriction`; model and functional-message stages were not executed. See `docs/evidence/HWG_FUNCTIONAL_READINESS_E2_20260922.md`.
+
+## Single-window origin isolation
+
+HWG-WORK-002 is closed with E1+E2 evidence. Cross-origin Provider tabs may share the visible Chrome profile while retaining native Origin-scoped cookie/storage separation; same-origin multi-account tabs are explicitly classified as a conflict and require a separate Profile/Runtime exception. Persistent Account Instances were reconciled without replacing session state, and the live NG inventory reports no conflicts for ChatGPT/DeepSeek/Z.ai on the shared profile. See `docs/evidence/HWG_SINGLE_WINDOW_ORIGIN_ISOLATION_E2_20260922.md`.
