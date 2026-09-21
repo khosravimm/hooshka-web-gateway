@@ -61,16 +61,30 @@ Do not infer capabilities from provider marketing, frontend labels, old evidence
 
 ## Canonical sources of truth
 
-For current behavior, use these in this order:
+HWG uses separate authority layers so that current implementation cannot silently override the production mission.
 
-1. executable code and tests;
-2. `config.yaml`;
-3. this root Start Here document;
-4. `docs/README.md`;
-5. canonical current documents listed below;
-6. release evidence and historical research.
+**Normative product and control authority (what HWG must become and which gates apply):**
+
+1. `docs/governance/HWG_NEXT_GENERATION_PRODUCTION_MISSION_V1.md` (`HWG-MISSION-NG-001`) — mandatory upper-level production mission and acceptance gates.
+2. The parent architecture referenced by that mission (`HWG-ARCH-001`) when present in the repository; material deviations require ADR + synchronized mission/architecture/tests/docs.
+3. `docs/governance/WEBCHAT_PROVIDER_INTEGRATION_KNOWLEDGE_TRANSFER_V1.md` (`HWG-KT-WEBCHAT-001`) — canonical provider/runtime engineering playbook and reusable operational invariants.
+4. Approved ADRs and versioned schemas/contracts.
+
+**Current implementation truth (what is actually implemented now):**
+
+1. executable code and deterministic tests;
+2. `config.yaml` and versioned runtime/profile configuration;
+3. this root Start Here document and `docs/README.md`;
+4. canonical current documents listed below.
+
+**Evidence truth:** scoped E0/E1/E2/E3 records remain authoritative only for their recorded version/session/account/provider scope. Newer scoped evidence may supersede older evidence, but it does not waive a normative Mission requirement. A conflict between current code/config and the Mission is a tracked gap until resolved or formally changed through ADR/versioned governance.
 
 Canonical current documents:
+
+- `docs/governance/HWG_NEXT_GENERATION_PRODUCTION_MISSION_V1.md`
+- `docs/governance/WEBCHAT_PROVIDER_INTEGRATION_KNOWLEDGE_TRANSFER_V1.md`
+- `docs/governance/HWG_NG_REQUIREMENTS_TRACEABILITY.md`
+
 
 - `docs/ARCHITECTURE_CURRENT.md`
 - `LOGIN_SESSION_GUIDE.md`

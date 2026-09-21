@@ -1,0 +1,78 @@
+﻿# HWG Next Generation Requirements Traceability
+
+- Baseline date: 2026-09-21
+- Normative mission: `HWG-MISSION-NG-001` v1.0.0
+- Technical playbook: `HWG-KT-WEBCHAT-001` v1.0.0
+- Purpose: keep every Mission/Playbook requirement visible until implemented, evidenced, or formally changed.
+
+## Status semantics
+
+- `IMPLEMENTED`: code/config exists, but evidence level is stated separately.
+- `PARTIAL`: some required behavior exists; Mission requirement is not yet fully satisfied.
+- `OPEN`: requirement is not yet implemented as a complete production capability.
+- `CONFLICT`: current implementation contradicts a normative requirement and requires migration or an approved governance change.
+- Evidence remains E0/E1/E2/E3; status alone never implies certification.
+
+## Authority rule
+
+Mission/Architecture define **what must be true**. Code/config/tests define **what is currently true**. Scoped evidence defines **what has been proven**. A current implementation difference is a tracked gap, not an implicit waiver.
+
+## Mission traceability baseline
+
+| Requirement | Baseline status | Current evidence / gap |
+|---|---|---|
+| Standard HWG contract for consumers | PARTIAL | OpenAI-adjacent API exists; full versioned contract/conformance remains open. |
+| Versioned Provider Profile schema | OPEN | Provider config exists but no complete NG Profile JSON Schema/passport contract yet. |
+| Multi-account per Provider | OPEN | Current runtime/config remains primarily one logical account/profile path per provider. |
+| Research/Reuse before custom development | PARTIAL | Playbooks/research exist; must become enforced ADR/gate for every subsystem change. |
+| Functional Readiness | PARTIAL | CDP/runtime checks exist; full Page/Auth/Model/Feature/functional-probe state machine is not complete. |
+| Version/change history for major artifacts | PARTIAL | Application/docs are versioned unevenly; Profile/Account/Discovery/Evidence schemas need explicit versions. |
+| Evidence/traceability | PARTIAL | E0-E3 model and many records exist; requirement-level traceability starts with this document. |
+| Professional Management UI + embedded chat | PARTIAL | Control plane and chat exist; IA/readiness/account/profile workflows are under active redesign. |
+| SDK + machine-readable contract | PARTIAL | Existing SDK/API artifacts exist; NG Python+TS contract/conformance coverage remains incomplete. |
+| Security/Privacy/Audit/Rollback release gates | PARTIAL | Controls/tests exist; full RC gate and rollback proof remain open. |
+## Browser / Profile / Account traceability
+
+| Requirement | Baseline status | Current evidence / gap |
+|---|---|---|
+| Unified visible browser UX without isolation loss | PARTIAL | Visible runtime exists; one-window/multi-account isolation design study is not complete. |
+| No focus stealing in background operations | PARTIAL | Focus-guard concepts exist; full automated/no-focus certification gate remains open. |
+| Per-account session/storage isolation | CONFLICT | Current `shared-profile` is assigned to ChatGPT, Z.ai and DeepSeek. Mission/Playbook require account/profile isolation; migrate away or approve a versioned architecture change. |
+| Provider Profile separate from Account Instance | OPEN | Current config conflates provider/runtime/account assumptions. |
+| Profile as runtime security boundary | PARTIAL | Explicit profile paths/ownership exist, but shared profile violates the target boundary. |
+| Login/Logout/Re-auth/Session Validation UI | PARTIAL | Some provider session endpoints exist; complete account-centric workflow is open. |
+
+## Runtime / readiness lifecycle
+
+Target lifecycle from the Mission and Playbook:
+
+`RUNTIME_ABSENT -> RUNTIME_STARTING -> CDP_REACHABLE -> PAGE_LOADING -> PAGE_INTERACTIVE -> AUTH_REQUIRED|AUTHENTICATED -> MODEL_STATE_VALIDATING -> FEATURE_STATE_VALIDATING -> FUNCTIONAL_PROBE_RUNNING -> READY | DEGRADED | BLOCKED | FAILED`
+
+Current control-plane work must converge on this model. `CDP ready` alone is not `Provider READY`.
+
+## Provider integration invariants inherited from the playbook
+
+- Exact fail-closed provider/model routing; no silent cross-provider fallback.
+- Provider Profile + Account Instance + Transport + Evidence is the durable integration unit.
+- Browser/profile ownership must be explicit and cleanup must target owned profiles only.
+- Retry must respect `not_sent -> maybe_sent -> committed -> terminal` commitment state.
+- Stream provenance must be truthful: native, captured, reconstructed/buffered as applicable.
+- Provider-native controls and semantics remain provider-specific behind normalized meaning/lifecycle.
+- Live Web Chat tests are bounded/rate-aware; CAPTCHA/WAF/suspension bypass is prohibited.
+- Capability claims are evidence-scoped; a historical success does not become a permanent capability claim.
+- Every defect/fix must return knowledge to Profile/Adapter/Evidence/regression docs.
+
+## Release-gate baseline
+
+The following Mission gates remain mandatory for RC: static/config/schema, unit, regression, API conformance, SDK contracts, runtime/profile isolation, no-focus-stealing, multi-account isolation, startup/readiness, UI functional, security/secret leakage, failure/retry/commitment, rollback, targeted provider E2, and interactive user certification.
+
+As of this baseline, existing E1/E2 evidence may satisfy portions of individual gates, but **no statement in this document marks the complete NG Release Candidate as passed**.
+
+## Immediate architecture debts exposed by governance alignment
+
+1. Replace `shared-profile` usage with an account/profile model consistent with isolation requirements.
+2. Replace binary CDP readiness in the UI with the full readiness state machine and functional probe.
+3. Introduce versioned Provider Profile and Account Instance schemas, then migrate provider config into them.
+4. Make Profile -> Account -> Runtime -> Provider relationships explicit in the control plane.
+5. Add requirement IDs/evidence links to new tests and operational changes.
+6. Keep this matrix updated in the same change set whenever a Mission requirement, architecture contract or evidence status changes.

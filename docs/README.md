@@ -40,6 +40,14 @@
 | KiloGate-WM Web Chat Stop Contracts | `KILOGATE_WM_WEBCHAT_STOP_CONTRACTS_2026-09-12.md` |
 | KiloGate-WM Active Stop Discovery | `KILOGATE_WM_ACTIVE_STOP_DISCOVERY_2026-09-12.md` |
 
+## Governance and normative references
+
+- `governance/HWG_NEXT_GENERATION_PRODUCTION_MISSION_V1.md` — mandatory upper-level mission (`HWG-MISSION-NG-001`); defines product goals, release gates, delivery sequence and Definition of Done.
+- `governance/WEBCHAT_PROVIDER_INTEGRATION_KNOWLEDGE_TRANSFER_V1.md` — canonical technical knowledge-transfer playbook (`HWG-KT-WEBCHAT-001`); defines provider/runtime/profile/account invariants and operational lessons.
+- `governance/HWG_NG_REQUIREMENTS_TRACEABILITY.md` — live requirement-to-implementation/evidence gap matrix.
+
+Normative requirements are not waived by current implementation. If code/config differs from the Mission, record a gap or approve a versioned ADR/governance change.
+
 ## Canonical current documents
 
 - `START_HERE.md` — product orientation, current status and safe operating rules.
