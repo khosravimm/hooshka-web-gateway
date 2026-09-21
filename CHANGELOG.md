@@ -1,3 +1,17 @@
+## 1.0.0-dev.5 - 2026-09-21 - WIP (assisted discovery and governed interaction)
+- Added governed Browser Behavior Lab for bounded hover/focus and explicitly approved non-destructive click observations.
+- Behavior evidence captures target before/after state plus bounded network/WebSocket/SSE metadata; send/submit/destructive/auth-exit/payment-like clicks fail closed.
+- Added approval-gated AI-assisted Discovery. Deterministic probes remain first; AI output is recorded only as E0/CANDIDATE and cannot directly mutate Profile/Account or certify capability.
+- Added policy-based Discovery AI Router with ordered/least-loaded/weighted-load selection, health/capability/cooldown filtering, strict exact routing and no bypass of provider limits/challenges.
+- Work Register upgraded to v1.3.0 with HWG-WORK-018..021 for AI assistance, routing, Browser Behavior Lab and target-provider self-use transport qualification.
+- Added fail-closed target-provider self-use gate: explicit user approval is necessary but insufficient; deterministic send/receive/completion paths plus a successful controlled nonce round-trip must be qualified against the current transport fingerprint.
+- Added versioned Provider Self-Use Transport Qualification schema and guarded human-test action in the Discovery Control Plane.
+
+### Evidence
+- Targeted self-use/assisted-discovery/routing/governance tests: 31 passed before final release validation.
+- Live read-only DeepSeek hover probe observed DeepThink before/after with unchanged pressed state and 4 network requests; no click or prompt was sent.
+- E2/E3 certification remains open; dev.5 is an in-development baseline, not an RC.
+
 ## 1.0.0-dev.4 - 2026-09-21 - WIP (governed operational model)
 - Registered HWG-MISSION-NG-001 and HWG-KT-WEBCHAT-001 as normative governance sources in the canonical repository.
 - Added requirement traceability with explicit IMPLEMENTED/PARTIAL/OPEN/CONFLICT semantics and E0-E3 separation.
@@ -8,11 +22,15 @@
 - Synchronized application, manifest and Control Plane UI version to 1.0.0-dev.4 and added a regression gate for future version/history drift.
 - Rebuilt Discovery as a governed pipeline with versioned Recipe/Result contracts, explicit lifecycle, Update Candidate review, Evidence promotion boundaries and reconstruction records; the former scanner is retained only as an Exploration probe.
 - Added a dedicated `کاوش و گواهی` Control Plane workspace plus governed Discovery Run creation/listing; every new run starts at `RESEARCH_REQUIRED` and persists under `.runtime-dev/discovery/`.
-- Added `HWG-WORK-REGISTER-001` as the machine-readable remaining-work/anti-forgetting register with dependencies, target versions, evidence requirements and exit criteria.
+- Connected the Discovery workflow to read-only Baseline/Exploration, explicit Update Candidate review (`ACCEPT/HOLD/REJECT`) and Interactive Certification; E2 PASS requires both an evidence record and explicit user confirmation.
+- Hardened generic frontend discovery to include visible `[role=button]` and keyboard-focusable `[tabindex="0"]` surfaces; live DeepSeek observation now discovers composer, DeepThink and Search without provider-specific selector patches.
+- Added `HWG-WORK-REGISTER-001` as the machine-readable remaining-work/anti-forgetting register with dependencies, target versions, evidence requirements and exit criteria; DONE items are invalid without evidence and completion time.
 - Exposed the Work Register through `/panel/api/governance/work-register` and a dedicated Control Plane workspace so open P0/P1 work is visible from the product itself.
 
 ### Evidence
-- Deterministic suite after Discovery Control Plane run integration: 261 passed.
+- Deterministic suite after governed live-read-only Discovery workflow and anti-forgetting hardening: 267 passed.
+- Live read-only DeepSeek discovery observed the composer, DeepThink and Search controls plus 7 candidate backend endpoints; no prompt was submitted and no control state was changed.
+- `HWG-WORK-017` (frontend/accessibility probe robustness) closed with recorded E1 + live-read-only evidence; `HWG-WORK-001` remains IN_PROGRESS pending scoped interactive E2 certification.
 - Live development runtime: Desktop Runtime Agent reachable on configured port 5181; DeepSeek runtime start completed successfully.
 - Production/legacy port 5000 was not modified by this development change set.
 - No E3 reliability claim is made.

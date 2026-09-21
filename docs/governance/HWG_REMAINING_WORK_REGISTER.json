@@ -1,25 +1,556 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.0.0",
+  "version": "1.3.0",
   "updated_at": "2026-09-21",
-  "status_vocabulary": ["OPEN","IN_PROGRESS","PARTIAL","BLOCKED","HOLD","DONE"],
-  "policy": {"done_requires_exit_criteria": true, "done_requires_evidence": true, "silent_drop_forbidden": true, "update_with_every_architecture_change": true},
+  "status_vocabulary": [
+    "OPEN",
+    "IN_PROGRESS",
+    "PARTIAL",
+    "BLOCKED",
+    "HOLD",
+    "DONE"
+  ],
+  "policy": {
+    "done_requires_exit_criteria": true,
+    "done_requires_evidence": true,
+    "silent_drop_forbidden": true,
+    "update_with_every_architecture_change": true
+  },
   "items": [
-    {"id":"HWG-WORK-001","title":"Discovery Engine Control Plane and live probe integration","area":"discovery","status":"IN_PROGRESS","priority":"P0","source":["NG-DISC-001..005"],"depends_on":[],"target_version":"1.0.0-dev.5","evidence_required":["E1","E2"],"exit_criteria":["Governed runs visible in UI/API","Scanner invoked only as exploration probe","Update Candidate review supports ACCEPT/HOLD/REJECT","Interactive certification can promote scoped result to E2"]},
-    {"id":"HWG-WORK-002","title":"Eliminate shared browser profile conflict","area":"runtime","status":"OPEN","priority":"P0","source":["NG-BRW-003"],"depends_on":["HWG-WORK-004"],"target_version":"1.0.0-dev.5","evidence_required":["E1","E2"],"exit_criteria":["Each account has isolated persistent storage","No browser profile shared across account instances","Regression gate rejects shared profile"]},
-    {"id":"HWG-WORK-003","title":"Functional readiness state machine","area":"readiness","status":"OPEN","priority":"P0","source":["NG-RDY-001..003"],"depends_on":["HWG-WORK-001","HWG-WORK-004"],"target_version":"1.0.0-dev.6","evidence_required":["E1","E2"],"exit_criteria":["Readiness covers runtime/CDP/page/auth/model/feature/probe states","READY requires bounded functional probe","UI/API expose state and evidence"]},
-    {"id":"HWG-WORK-004","title":"Persist Provider Profile and Account Instance model","area":"profiles","status":"OPEN","priority":"P0","source":["NG-PROF-001/003/004","NG-ACC-003"],"depends_on":[],"target_version":"1.0.0-dev.5","evidence_required":["E1"],"exit_criteria":["Profiles persisted separately from account instances","Legacy projection no longer authoritative","Migration is reversible"]},
-    {"id":"HWG-WORK-005","title":"Account-centric login/session lifecycle","area":"accounts","status":"OPEN","priority":"P0","source":["NG-ACC-001/002"],"depends_on":["HWG-WORK-004"],"target_version":"1.0.0-dev.6","evidence_required":["E1","E2"],"exit_criteria":["Login/logout/re-auth/session validation are account-centric","Session bound to explicit account instance","No plaintext provider secret persisted or logged"]},
-    {"id":"HWG-WORK-006","title":"Control Plane relationship redesign","area":"ui","status":"IN_PROGRESS","priority":"P0","source":["Management UI §11"],"depends_on":["HWG-WORK-001","HWG-WORK-004"],"target_version":"1.0.0-dev.6","evidence_required":["E1","E2"],"exit_criteria":["Accounts/Profiles/Runtimes/Discovery workspaces are distinct","Parent-child relationships and sequence are visible","Admin actions show progress/state/verification"]},
-    {"id":"HWG-WORK-007","title":"Multimodal canonical contract","area":"api","status":"OPEN","priority":"P1","source":["Multimodal §8","Embedded Chat §12"],"depends_on":["HWG-WORK-004"],"target_version":"1.0.0-dev.7","evidence_required":["E1","E2"],"exit_criteria":["Capabilities describe media constraints","Unsupported media fails explicitly","Chat enables only certified media capabilities"]},
-    {"id":"HWG-WORK-008","title":"OpenAPI and JSON Schema contract completion","area":"sdk","status":"OPEN","priority":"P1","source":["NG-SDK-002","OpenAI compatibility §14"],"depends_on":["HWG-WORK-004","HWG-WORK-007"],"target_version":"1.0.0-dev.7","evidence_required":["E1"],"exit_criteria":["Versioned OpenAPI covers management and agent APIs","Schemas cover profiles/accounts/capabilities/errors/events","Compatibility manifest classifies support modes"]},
-    {"id":"HWG-WORK-009","title":"Python and TypeScript SDK conformance","area":"sdk","status":"PARTIAL","priority":"P1","source":["NG-SDK-003/004"],"depends_on":["HWG-WORK-008"],"target_version":"1.0.0-dev.8","evidence_required":["E1","E2"],"exit_criteria":["Both SDKs cover required agent capabilities","Both pass conformance server and candidate HWG tests"]},
-    {"id":"HWG-WORK-010","title":"Security and privacy release gate completion","area":"security","status":"PARTIAL","priority":"P0","source":["Security §17","NG-AUTH-001..003"],"depends_on":["HWG-WORK-004","HWG-WORK-005"],"target_version":"1.0.0-rc.1","evidence_required":["E1","E2"],"exit_criteria":["Secret leakage/auth/trust/isolation/input/rate/rollback gates pass","Remote exposure fails closed","Audit is metadata-first and bounded"]},
-    {"id":"HWG-WORK-011","title":"No-focus-stealing certification","area":"runtime","status":"PARTIAL","priority":"P1","source":["NG-BRW-002"],"depends_on":["HWG-WORK-001","HWG-WORK-005"],"target_version":"1.0.0-rc.1","evidence_required":["E1","E2"],"exit_criteria":["Background operations never foreground browser","Only explicit user actions surface interactive windows"]},
-    {"id":"HWG-WORK-012","title":"Failure retry commitment conformance","area":"reliability","status":"PARTIAL","priority":"P0","source":["Playbook §6","Release gate 12"],"depends_on":["HWG-WORK-003"],"target_version":"1.0.0-rc.1","evidence_required":["E1","E2"],"exit_criteria":["All transports expose commitment state","Post-maybe-sent replay is prohibited unless reconciled","Timeout and provider risk states are classified"]},
-    {"id":"HWG-WORK-013","title":"Provider certification and E3 reliability program","area":"evidence","status":"OPEN","priority":"P1","source":["NG-DISC-004","Evidence ladder §19"],"depends_on":["HWG-WORK-001","HWG-WORK-003"],"target_version":"1.0.0-rc.1","evidence_required":["E2","E3"],"exit_criteria":["Changed provider/profile/account has interactive E2 certification","Reliability claims use predefined repeated E3 windows","Capability matrix links scoped evidence"]},
-    {"id":"HWG-WORK-014","title":"Controlled cutover and rollback proof","area":"release","status":"OPEN","priority":"P0","source":["Migration and cutover §20","Definition of Done §22"],"depends_on":["HWG-WORK-010","HWG-WORK-013"],"target_version":"1.0.0-rc.1","evidence_required":["E2","E3"],"exit_criteria":["Immutable RC baseline and rollback point recorded","Cutover smoke covers liveness/readiness/provider/UI","Critical failure performs verified rollback"]},
-    {"id":"HWG-WORK-015","title":"Repository governance enforcement","area":"governance","status":"PARTIAL","priority":"P1","source":["Evidence/traceability goal","Security release gate"],"depends_on":[],"target_version":"1.0.0-rc.1","evidence_required":["E1"],"exit_criteria":["Hygiene workflow required by branch governance","Default/release branch policy enforced","Sensitive artifact regression blocked before merge"]},
-    {"id":"HWG-WORK-016","title":"Documentation and knowledge return closure","area":"docs","status":"IN_PROGRESS","priority":"P1","source":["Documentation §16","Playbook §26"],"depends_on":[],"target_version":"continuous","evidence_required":["E1"],"exit_criteria":["Architectural changes update traceability/change record/tests","Provider discoveries return to profile/evidence/regression/playbook","No release closes with stale canonical docs"]}
+    {
+      "id": "HWG-WORK-001",
+      "title": "Discovery Engine Control Plane and live probe integration",
+      "area": "discovery",
+      "status": "IN_PROGRESS",
+      "priority": "P0",
+      "source": [
+        "NG-DISC-001..005"
+      ],
+      "depends_on": [
+        "HWG-WORK-017",
+        "HWG-WORK-020"
+      ],
+      "target_version": "1.0.0-dev.5",
+      "evidence_required": [
+        "E1",
+        "E2"
+      ],
+      "exit_criteria": [
+        "Governed runs visible in UI/API",
+        "Scanner invoked only as exploration probe",
+        "Update Candidate review supports ACCEPT/HOLD/REJECT",
+        "Interactive certification can promote scoped result to E2"
+      ],
+      "latest_evidence": {
+        "date": "2026-09-21",
+        "provider": "deepseek-web",
+        "type": "live_read_only",
+        "result": "composer + thinking/search controls detected; 7 backend endpoints observed; governed run workflow includes Research/Baseline/Exploration/Review/Certification gates"
+      }
+    },
+    {
+      "id": "HWG-WORK-002",
+      "title": "Eliminate shared browser profile conflict",
+      "area": "runtime",
+      "status": "OPEN",
+      "priority": "P0",
+      "source": [
+        "NG-BRW-003"
+      ],
+      "depends_on": [
+        "HWG-WORK-004"
+      ],
+      "target_version": "1.0.0-dev.5",
+      "evidence_required": [
+        "E1",
+        "E2"
+      ],
+      "exit_criteria": [
+        "Each account has isolated persistent storage",
+        "No browser profile shared across account instances",
+        "Regression gate rejects shared profile"
+      ]
+    },
+    {
+      "id": "HWG-WORK-003",
+      "title": "Functional readiness state machine",
+      "area": "readiness",
+      "status": "OPEN",
+      "priority": "P0",
+      "source": [
+        "NG-RDY-001..003"
+      ],
+      "depends_on": [
+        "HWG-WORK-001",
+        "HWG-WORK-004"
+      ],
+      "target_version": "1.0.0-dev.6",
+      "evidence_required": [
+        "E1",
+        "E2"
+      ],
+      "exit_criteria": [
+        "Readiness covers runtime/CDP/page/auth/model/feature/probe states",
+        "READY requires bounded functional probe",
+        "UI/API expose state and evidence"
+      ]
+    },
+    {
+      "id": "HWG-WORK-004",
+      "title": "Persist Provider Profile and Account Instance model",
+      "area": "profiles",
+      "status": "OPEN",
+      "priority": "P0",
+      "source": [
+        "NG-PROF-001/003/004",
+        "NG-ACC-003"
+      ],
+      "depends_on": [],
+      "target_version": "1.0.0-dev.5",
+      "evidence_required": [
+        "E1"
+      ],
+      "exit_criteria": [
+        "Profiles persisted separately from account instances",
+        "Legacy projection no longer authoritative",
+        "Migration is reversible"
+      ]
+    },
+    {
+      "id": "HWG-WORK-005",
+      "title": "Account-centric login/session lifecycle",
+      "area": "accounts",
+      "status": "OPEN",
+      "priority": "P0",
+      "source": [
+        "NG-ACC-001/002"
+      ],
+      "depends_on": [
+        "HWG-WORK-004"
+      ],
+      "target_version": "1.0.0-dev.6",
+      "evidence_required": [
+        "E1",
+        "E2"
+      ],
+      "exit_criteria": [
+        "Login/logout/re-auth/session validation are account-centric",
+        "Session bound to explicit account instance",
+        "No plaintext provider secret persisted or logged"
+      ]
+    },
+    {
+      "id": "HWG-WORK-006",
+      "title": "Control Plane relationship redesign",
+      "area": "ui",
+      "status": "IN_PROGRESS",
+      "priority": "P0",
+      "source": [
+        "Management UI §11"
+      ],
+      "depends_on": [
+        "HWG-WORK-001",
+        "HWG-WORK-004"
+      ],
+      "target_version": "1.0.0-dev.6",
+      "evidence_required": [
+        "E1",
+        "E2"
+      ],
+      "exit_criteria": [
+        "Accounts/Profiles/Runtimes/Discovery workspaces are distinct",
+        "Parent-child relationships and sequence are visible",
+        "Admin actions show progress/state/verification"
+      ]
+    },
+    {
+      "id": "HWG-WORK-007",
+      "title": "Multimodal canonical contract",
+      "area": "api",
+      "status": "OPEN",
+      "priority": "P1",
+      "source": [
+        "Multimodal §8",
+        "Embedded Chat §12"
+      ],
+      "depends_on": [
+        "HWG-WORK-004"
+      ],
+      "target_version": "1.0.0-dev.7",
+      "evidence_required": [
+        "E1",
+        "E2"
+      ],
+      "exit_criteria": [
+        "Capabilities describe media constraints",
+        "Unsupported media fails explicitly",
+        "Chat enables only certified media capabilities"
+      ]
+    },
+    {
+      "id": "HWG-WORK-008",
+      "title": "OpenAPI and JSON Schema contract completion",
+      "area": "sdk",
+      "status": "OPEN",
+      "priority": "P1",
+      "source": [
+        "NG-SDK-002",
+        "OpenAI compatibility §14"
+      ],
+      "depends_on": [
+        "HWG-WORK-004",
+        "HWG-WORK-007"
+      ],
+      "target_version": "1.0.0-dev.7",
+      "evidence_required": [
+        "E1"
+      ],
+      "exit_criteria": [
+        "Versioned OpenAPI covers management and agent APIs",
+        "Schemas cover profiles/accounts/capabilities/errors/events",
+        "Compatibility manifest classifies support modes"
+      ]
+    },
+    {
+      "id": "HWG-WORK-009",
+      "title": "Python and TypeScript SDK conformance",
+      "area": "sdk",
+      "status": "PARTIAL",
+      "priority": "P1",
+      "source": [
+        "NG-SDK-003/004"
+      ],
+      "depends_on": [
+        "HWG-WORK-008"
+      ],
+      "target_version": "1.0.0-dev.8",
+      "evidence_required": [
+        "E1",
+        "E2"
+      ],
+      "exit_criteria": [
+        "Both SDKs cover required agent capabilities",
+        "Both pass conformance server and candidate HWG tests"
+      ]
+    },
+    {
+      "id": "HWG-WORK-010",
+      "title": "Security and privacy release gate completion",
+      "area": "security",
+      "status": "PARTIAL",
+      "priority": "P0",
+      "source": [
+        "Security §17",
+        "NG-AUTH-001..003"
+      ],
+      "depends_on": [
+        "HWG-WORK-004",
+        "HWG-WORK-005"
+      ],
+      "target_version": "1.0.0-rc.1",
+      "evidence_required": [
+        "E1",
+        "E2"
+      ],
+      "exit_criteria": [
+        "Secret leakage/auth/trust/isolation/input/rate/rollback gates pass",
+        "Remote exposure fails closed",
+        "Audit is metadata-first and bounded"
+      ]
+    },
+    {
+      "id": "HWG-WORK-011",
+      "title": "No-focus-stealing certification",
+      "area": "runtime",
+      "status": "PARTIAL",
+      "priority": "P1",
+      "source": [
+        "NG-BRW-002"
+      ],
+      "depends_on": [
+        "HWG-WORK-001",
+        "HWG-WORK-005"
+      ],
+      "target_version": "1.0.0-rc.1",
+      "evidence_required": [
+        "E1",
+        "E2"
+      ],
+      "exit_criteria": [
+        "Background operations never foreground browser",
+        "Only explicit user actions surface interactive windows"
+      ]
+    },
+    {
+      "id": "HWG-WORK-012",
+      "title": "Failure retry commitment conformance",
+      "area": "reliability",
+      "status": "PARTIAL",
+      "priority": "P0",
+      "source": [
+        "Playbook §6",
+        "Release gate 12"
+      ],
+      "depends_on": [
+        "HWG-WORK-003"
+      ],
+      "target_version": "1.0.0-rc.1",
+      "evidence_required": [
+        "E1",
+        "E2"
+      ],
+      "exit_criteria": [
+        "All transports expose commitment state",
+        "Post-maybe-sent replay is prohibited unless reconciled",
+        "Timeout and provider risk states are classified"
+      ]
+    },
+    {
+      "id": "HWG-WORK-013",
+      "title": "Provider certification and E3 reliability program",
+      "area": "evidence",
+      "status": "OPEN",
+      "priority": "P1",
+      "source": [
+        "NG-DISC-004",
+        "Evidence ladder §19"
+      ],
+      "depends_on": [
+        "HWG-WORK-001",
+        "HWG-WORK-003"
+      ],
+      "target_version": "1.0.0-rc.1",
+      "evidence_required": [
+        "E2",
+        "E3"
+      ],
+      "exit_criteria": [
+        "Changed provider/profile/account has interactive E2 certification",
+        "Reliability claims use predefined repeated E3 windows",
+        "Capability matrix links scoped evidence"
+      ]
+    },
+    {
+      "id": "HWG-WORK-014",
+      "title": "Controlled cutover and rollback proof",
+      "area": "release",
+      "status": "OPEN",
+      "priority": "P0",
+      "source": [
+        "Migration and cutover §20",
+        "Definition of Done §22"
+      ],
+      "depends_on": [
+        "HWG-WORK-010",
+        "HWG-WORK-013"
+      ],
+      "target_version": "1.0.0-rc.1",
+      "evidence_required": [
+        "E2",
+        "E3"
+      ],
+      "exit_criteria": [
+        "Immutable RC baseline and rollback point recorded",
+        "Cutover smoke covers liveness/readiness/provider/UI",
+        "Critical failure performs verified rollback"
+      ]
+    },
+    {
+      "id": "HWG-WORK-015",
+      "title": "Repository governance enforcement",
+      "area": "governance",
+      "status": "PARTIAL",
+      "priority": "P1",
+      "source": [
+        "Evidence/traceability goal",
+        "Security release gate"
+      ],
+      "depends_on": [],
+      "target_version": "1.0.0-rc.1",
+      "evidence_required": [
+        "E1"
+      ],
+      "exit_criteria": [
+        "Hygiene workflow required by branch governance",
+        "Default/release branch policy enforced",
+        "Sensitive artifact regression blocked before merge"
+      ]
+    },
+    {
+      "id": "HWG-WORK-016",
+      "title": "Documentation and knowledge return closure",
+      "area": "docs",
+      "status": "IN_PROGRESS",
+      "priority": "P1",
+      "source": [
+        "Documentation §16",
+        "Playbook §26"
+      ],
+      "depends_on": [],
+      "target_version": "continuous",
+      "evidence_required": [
+        "E1"
+      ],
+      "exit_criteria": [
+        "Architectural changes update traceability/change record/tests",
+        "Provider discoveries return to profile/evidence/regression/playbook",
+        "No release closes with stale canonical docs"
+      ]
+    },
+    {
+      "id": "HWG-WORK-017",
+      "title": "Discovery frontend/accessibility probe robustness",
+      "area": "discovery",
+      "status": "DONE",
+      "priority": "P0",
+      "source": [
+        "NG-DISC-002",
+        "Playbook §20/21"
+      ],
+      "depends_on": [],
+      "target_version": "1.0.0-dev.5",
+      "evidence_required": [
+        "E1",
+        "live_read_only"
+      ],
+      "exit_criteria": [
+        "Current provider pages expose composer/control evidence or an explicit bounded reason for absence",
+        "Accessibility/DOM discovery does not rely on one provider-specific selector patch",
+        "Capability synthesis fails closed when required evidence is absent",
+        "Regression corpus covers DeepSeek-style non-button controls"
+      ],
+      "completed_at": "2026-09-21",
+      "evidence": {
+        "type": [
+          "E1",
+          "live_read_only"
+        ],
+        "provider": "deepseek-web",
+        "result": "composer + DeepThink + Search detected generically; 21 targeted tests passed; no provider-specific selector patch"
+      }
+    },
+    {
+      "id": "HWG-WORK-018",
+      "title": "AI-assisted Discovery with explicit approval and provenance",
+      "area": "discovery",
+      "status": "PARTIAL",
+      "priority": "P1",
+      "source": [
+        "NG-DISC-001..005",
+        "User architecture direction 2026-09-21"
+      ],
+      "depends_on": [
+        "HWG-WORK-001"
+      ],
+      "target_version": "1.0.0-dev.6",
+      "evidence_required": [
+        "E1",
+        "E2"
+      ],
+      "exit_criteria": [
+        "Deterministic probes are attempted before AI assistance",
+        "AI assistance requires explicit policy/approval",
+        "Selected model/provider and prompt purpose are recorded",
+        "AI findings remain candidates until deterministic/evidence validation"
+      ],
+      "latest_evidence": {
+        "date": "2026-09-21",
+        "type": "E1",
+        "result": "Approval-gated AI assistance service/API/UI exists; outputs remain E0/CANDIDATE; live model execution not yet certified."
+      }
+    },
+    {
+      "id": "HWG-WORK-019",
+      "title": "Policy-based multi-model routing for governed workload distribution",
+      "area": "routing",
+      "status": "PARTIAL",
+      "priority": "P1",
+      "source": [
+        "User architecture direction 2026-09-21",
+        "Reliability / provider-risk policy"
+      ],
+      "depends_on": [
+        "HWG-WORK-004"
+      ],
+      "target_version": "1.0.0-dev.7",
+      "evidence_required": [
+        "E1",
+        "E2"
+      ],
+      "exit_criteria": [
+        "Routing policies are configurable and auditable",
+        "Router considers health/capability/load/cooldown/provider limits",
+        "Exact-provider requests never silently cross-route",
+        "Routing never bypasses provider rate limits, challenge, suspension or access controls"
+      ],
+      "latest_evidence": {
+        "date": "2026-09-21",
+        "type": "E1",
+        "result": "Policy router supports ordered/least_loaded/weighted_load, health/capability/cooldown filtering and strict exact-route semantics; main gateway routing integration remains open."
+      }
+    },
+    {
+      "id": "HWG-WORK-020",
+      "title": "Interactive Browser Behavior Lab for Discovery",
+      "area": "discovery",
+      "status": "IN_PROGRESS",
+      "priority": "P0",
+      "source": [
+        "NG-DISC-002/003",
+        "User architecture direction 2026-09-21"
+      ],
+      "depends_on": [],
+      "target_version": "1.0.0-dev.5",
+      "evidence_required": [
+        "E1",
+        "live_read_only"
+      ],
+      "exit_criteria": [
+        "Hover/focus probes capture DOM/accessibility/network deltas",
+        "Click probes are opt-in and guarded against submit/send/destructive actions",
+        "WebSocket/SSE/request observations are bounded and metadata-first",
+        "Probe records include before/after evidence and action provenance"
+      ],
+      "latest_evidence": {
+        "date": "2026-09-21",
+        "type": [
+          "E1",
+          "live_read_only"
+        ],
+        "provider": "deepseek-web",
+        "result": "Behavior Lab hover on .ds-toggle-button observed DeepThink before/after with unchanged pressed=false state; 4 network requests captured; 0 websocket/SSE; no click or prompt sent."
+      }
+    },
+    {
+      "id": "HWG-WORK-021",
+      "title": "Target-provider self-use deterministic transport qualification",
+      "area": "discovery",
+      "status": "IN_PROGRESS",
+      "priority": "P0",
+      "source": [
+        "Owner decision 2026-09-21",
+        "NG-DISC-002/004",
+        "Playbook commitment/evidence discipline"
+      ],
+      "depends_on": [],
+      "target_version": "1.0.0-dev.5",
+      "evidence_required": [
+        "E1",
+        "E2"
+      ],
+      "exit_criteria": [
+        "Self-use requires identified deterministic send path",
+        "Self-use requires identified deterministic receive path",
+        "Self-use requires deterministic completion detection",
+        "Controlled round-trip is tested and evidence-recorded",
+        "Qualification invalidates on transport fingerprint change",
+        "AI router fails closed without current qualification"
+      ],
+      "latest_evidence": {
+        "date": "2026-09-21",
+        "type": "E1",
+        "result": "Self-use gate, transport fingerprint invalidation, deterministic path identification, controlled nonce round-trip harness, AI router fail-closed integration and guarded human-test UI implemented; 31 targeted tests passed. Live round-trip intentionally pending human confirmation."
+      }
+    }
   ]
 }

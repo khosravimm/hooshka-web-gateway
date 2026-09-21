@@ -22,6 +22,9 @@ def validate_register(doc: dict[str, Any]) -> list[str]:
         if not item["source"]: errors.append(f"{item['id']} missing source")
         if not item["exit_criteria"]: errors.append(f"{item['id']} missing exit criteria")
         if not item["evidence_required"]: errors.append(f"{item['id']} missing evidence requirement")
+        if item["status"] == "DONE":
+            if not item.get("evidence"): errors.append(f"{item['id']} DONE without evidence")
+            if not item.get("completed_at"): errors.append(f"{item['id']} DONE without completed_at")
     dup=[x for x,c in Counter(ids).items() if c>1]
     if dup: errors.append("duplicate ids: "+','.join(sorted(dup)))
     known=set(ids)

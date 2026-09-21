@@ -1,0 +1,31 @@
+{
+  "policy_id": "HWG-DISC-AI-POLICY-001",
+  "version": "1.0.0",
+  "default_mode": "explicit",
+  "deterministic_first": true,
+  "max_ai_requests_per_run": 3,
+  "required_context": [
+    "run_id",
+    "provider_id",
+    "unresolved_questions",
+    "deterministic_evidence"
+  ],
+  "output_status": "CANDIDATE",
+  "output_evidence_level": "E0",
+  "direct_profile_mutation": false,
+  "direct_certification": false,
+  "record_provider_model": true,
+  "record_purpose": true,
+  "target_provider_self_use": {
+    "requires_user_approval": true,
+    "requires_deterministic_transport_qualification": true,
+    "required_proofs": [
+      "send_path_identified",
+      "receive_path_identified",
+      "completion_detection_identified",
+      "controlled_roundtrip_passed"
+    ],
+    "qualification_bound_to_transport_fingerprint": true,
+    "fail_closed_on_missing_or_stale_qualification": true
+  }
+}

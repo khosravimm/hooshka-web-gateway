@@ -62,3 +62,15 @@ This record freezes the governance and operational-model transition introduced a
 - Current register baseline: 16 non-DONE items, including 9 open P0 items.
 - Deterministic validation after integration: `260 passed`.
 - No item may be removed or marked DONE solely to reduce backlog; exit criteria and evidence are mandatory.
+
+## Governed live-read-only Discovery integration
+
+- Added read-only Baseline and Exploration endpoints for persisted Discovery Runs; neither path submits prompts nor changes provider controls.
+- Added explicit Update Candidate review (`ACCEPT`, `HOLD`, `REJECT`) and Interactive Certification lifecycle.
+- `CERTIFIED/E2` requires an evidence record plus explicit user confirmation; a successful scan alone remains E1/live-read-only evidence.
+- Hardened generic frontend enumeration to include visible role/button and keyboard-focusable surfaces rather than adding a DeepSeek-specific selector patch.
+- Live DeepSeek observation on the existing development runtime found the composer, `DeepThink`, `Search`, and 7 candidate backend endpoints; no prompt was submitted and no control was changed.
+- `HWG-WORK-017` closed only after its exit criteria were met and evidence/completion metadata were recorded. Work Register version is now `1.1.0` with 17 items.
+- Anti-forgetting validation now rejects any `DONE` work item that lacks recorded evidence or a completion timestamp.
+- Full deterministic validation after this work unit: `267 passed`.
+- `HWG-WORK-001` intentionally remains `IN_PROGRESS` until scoped Interactive Certification/E2 is completed with explicit user confirmation.

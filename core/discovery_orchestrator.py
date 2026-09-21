@@ -14,7 +14,7 @@ from typing import Any
 import json
 import uuid
 
-ENGINE_VERSION = "2.0.0-dev.1"
+ENGINE_VERSION = "2.1.0-dev.1"
 SCHEMA_VERSION = "1.0.0"
 RUNTIME_ROOT = Path(__file__).resolve().parents[1] / ".runtime-dev" / "discovery"
 
@@ -155,3 +155,42 @@ def synthesize(run: DiscoveryRun) -> None:
         run.transition(DiscoveryState.UPDATE_CANDIDATE, "drift requires reviewed update candidate", "E1")
     else:
         run.transition(DiscoveryState.CERTIFICATION_REQUIRED, "no profile drift; live certification still required", "E1")
+
+def review_candidate(run: DiscoveryRun, decision: str, note: str = "") -> None:
+    if DiscoveryState(run.state) is not DiscoveryState.UPDATE_CANDIDATE:
+        raise ValueError("candidate review requires UPDATE_CANDIDATE state")
+    decision = decision.upper().strip()
+    if decision not in {"ACCEPT", "HOLD", "REJECT"}:
+        raise ValueError("candidate decision must be ACCEPT, HOLD or REJECT")
+    run.decision = decision
+    if run.candidate is not None:
+        run.candidate["status"] = decision
+        run.candidate["review_note"] = note
+    if decision == "ACCEPT":
+        run.transition(DiscoveryState.CERTIFICATION_REQUIRED, "update candidate accepted for certification", "E1")
+    elif decision == "HOLD":
+        run.transition(DiscoveryState.HOLD, "update candidate held by reviewer", "E1")
+    else:
+        run.transition(DiscoveryState.REJECTED, "update candidate rejected by reviewer", "E1")
+
+
+def begin_certification(run: DiscoveryRun) -> None:
+    run.transition(DiscoveryState.CERTIFYING, "interactive certification started", run.evidence_level)
+
+
+def complete_certification(run: DiscoveryRun, passed: bool, evidence_record: str, confirmed_by_user: bool) -> None:
+    if DiscoveryState(run.state) is not DiscoveryState.CERTIFYING:
+        raise ValueError("certification completion requires CERTIFYING state")
+    if passed and not confirmed_by_user:
+        raise ValueError("E2 certification pass requires explicit user confirmation")
+    run.findings["certification"] = {
+        "passed": bool(passed),
+        "evidence_record": evidence_record,
+        "confirmed_by_user": bool(confirmed_by_user),
+    }
+    if passed:
+        run.decision = "CERTIFIED"
+        run.transition(DiscoveryState.CERTIFIED, "interactive certification passed", "E2")
+    else:
+        run.decision = "HOLD"
+        run.transition(DiscoveryState.HOLD, "interactive certification did not pass", run.evidence_level)

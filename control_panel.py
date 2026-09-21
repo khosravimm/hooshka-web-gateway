@@ -21,7 +21,24 @@ from core.feature_settings import persist_provider_feature_defaults, provider_fe
 from core.runtime_inventory import inventory_by_id, load_orchestration_settings
 from core.profile_contract import project_ng_inventory
 from core.work_register import load_register, summarize_register, validate_register
-from core.discovery_orchestrator import list_runs as list_discovery_runs, new_run as new_discovery_run
+from core.discovery_orchestrator import (
+    attach_baseline as discovery_attach_baseline,
+    attach_exploration as discovery_attach_exploration,
+    attach_research as discovery_attach_research,
+    begin_certification as discovery_begin_certification,
+    begin_exploration as discovery_begin_exploration,
+    complete_certification as discovery_complete_certification,
+    list_runs as list_discovery_runs,
+    load_run as load_discovery_run,
+    new_run as new_discovery_run,
+    review_candidate as discovery_review_candidate,
+    synthesize as discovery_synthesize,
+)
+from core.discovery_runtime import explore_cdp as discovery_explore_cdp, probe_cdp_behavior as discovery_probe_cdp_behavior
+from core.provider_self_use_gate import self_use_status as provider_self_use_status
+from core.self_use_roundtrip_probe import controlled_roundtrip as controlled_self_use_roundtrip
+from core.browser_behavior_probe import BehaviorAction, ProbePolicy
+from core.discovery_ai_service import execute_ai_assistance
 
 control_panel_bp = Blueprint('control_panel', __name__, url_prefix='/panel')
 
@@ -453,7 +470,10 @@ def api_governance_work_register():
 @control_panel_bp.route('/api/discovery/runs', methods=['GET', 'POST'])
 def api_discovery_runs():
     if request.method == 'GET':
-        return jsonify({"runs": list_discovery_runs()})
+        statuses = {}
+        for provider in provider_registry.list_providers(enabled_only=False):
+            statuses[provider.provider_id] = provider_self_use_status(provider)
+        return jsonify({"runs": list_discovery_runs(), "self_use": statuses})
     payload = request.get_json(silent=True) or {}
     provider_id = str(payload.get("provider_id") or "").strip()
     account_id = str(payload.get("account_id") or "").strip() or None
@@ -464,6 +484,250 @@ def api_discovery_runs():
     run = new_discovery_run(provider_id, recipe_version, account_id)
     path = run.save()
     return jsonify({"run": run.to_dict(), "record": str(path), "next_required": "attach_research"}), 201
+
+
+@control_panel_bp.route('/api/discovery/runs/<provider_id>/<run_id>/research', methods=['POST'])
+def api_discovery_research(provider_id, run_id):
+    payload = request.get_json(silent=True) or {}
+    sources = payload.get("sources") or []
+    try:
+        run = load_discovery_run(provider_id, run_id)
+        discovery_attach_research(run, sources)
+        path = run.save()
+        return jsonify({"run": run.to_dict(), "record": str(path), "next_required": "capture_baseline"})
+    except FileNotFoundError:
+        return jsonify({"error": "run_not_found"}), 404
+    except ValueError as exc:
+        return jsonify({"error": "invalid_transition", "message": str(exc)}), 409
+
+
+@control_panel_bp.route('/api/discovery/runs/<provider_id>/<run_id>/baseline', methods=['POST'])
+def api_discovery_baseline(provider_id, run_id):
+    try:
+        run = load_discovery_run(provider_id, run_id)
+        item = inventory_by_id(CONFIG_PATH).get(provider_id)
+        if not item:
+            return jsonify({"error": "runtime_not_found"}), 404
+        runtime = _check_cdp(item.get("cdp_url"))
+        pages = []
+        if runtime.get("ready"):
+            try:
+                with urllib.request.urlopen(item.get("cdp_url").rstrip("/") + "/json", timeout=2) as response:
+                    pages = json.loads(response.read().decode("utf-8"))
+            except Exception:
+                pages = []
+        session = {"state": "unknown", "supported": False}
+        provider = provider_registry.get(provider_id)
+        check = _provider_session_checker(provider) if provider else None
+        loop = current_app.config.get("HWG_ASYNC_LOOP")
+        if check and loop is not None and loop.is_running():
+            import asyncio
+            future = asyncio.run_coroutine_threadsafe(check(), loop)
+            session = dict(future.result(timeout=60) or {})
+            session["supported"] = True
+        baseline = {
+            "runtime": {"cdp_url": item.get("cdp_url"), "profile": item.get("profile"), "ready": runtime.get("ready"), "status": runtime.get("status")},
+            "session": session,
+            "page": {"home_url": item.get("home_url"), "targets": [{"url": p.get("url"), "title": p.get("title")} for p in pages[:20]]},
+            "account": {"account_id": run.account_id, "provider_id": provider_id},
+        }
+        discovery_attach_baseline(run, baseline)
+        path = run.save()
+        return jsonify({"run": run.to_dict(), "record": str(path), "next_required": "explore"})
+    except FileNotFoundError:
+        return jsonify({"error": "run_not_found"}), 404
+    except ValueError as exc:
+        return jsonify({"error": "invalid_transition", "message": str(exc)}), 409
+    except Exception as exc:
+        logger.warning("Discovery baseline failed for %s", provider_id, exc_info=True)
+        return jsonify({"error": "baseline_failed", "message": type(exc).__name__}), 502
+
+
+@control_panel_bp.route('/api/discovery/runs/<provider_id>/<run_id>/explore', methods=['POST'])
+def api_discovery_explore(provider_id, run_id):
+    try:
+        run = load_discovery_run(provider_id, run_id)
+        item = inventory_by_id(CONFIG_PATH).get(provider_id)
+        if not item:
+            return jsonify({"error": "runtime_not_found"}), 404
+        loop = current_app.config.get("HWG_ASYNC_LOOP")
+        if loop is None or not loop.is_running():
+            return jsonify({"error": "async_runtime_unavailable"}), 503
+        discovery_begin_exploration(run)
+        import asyncio
+        future = asyncio.run_coroutine_threadsafe(discovery_explore_cdp(provider_id, item.get("cdp_url"), item.get("home_url")), loop)
+        findings, drift = future.result(timeout=45)
+        discovery_attach_exploration(run, findings, drift)
+        discovery_synthesize(run)
+        path = run.save()
+        return jsonify({"run": run.to_dict(), "record": str(path), "drift_count": len(drift)})
+    except FileNotFoundError:
+        return jsonify({"error": "run_not_found"}), 404
+    except ValueError as exc:
+        return jsonify({"error": "invalid_transition", "message": str(exc)}), 409
+    except Exception as exc:
+        logger.warning("Discovery exploration failed for %s", provider_id, exc_info=True)
+        return jsonify({"error": "exploration_failed", "message": type(exc).__name__}), 502
+
+
+@control_panel_bp.route('/api/discovery/runs/<provider_id>/<run_id>/behavior', methods=['POST'])
+def api_discovery_behavior(provider_id, run_id):
+    payload = request.get_json(silent=True) or {}
+    try:
+        run = load_discovery_run(provider_id, run_id)
+        if run.state != "EXPLORATION_READY":
+            return jsonify({"error":"invalid_transition","message":"Behavior probes require EXPLORATION_READY"}), 409
+        item = inventory_by_id(CONFIG_PATH).get(provider_id)
+        if not item:
+            return jsonify({"error":"runtime_not_found"}), 404
+        kind = str(payload.get("kind") or "").strip().lower()
+        selector = str(payload.get("selector") or "").strip()
+        purpose = str(payload.get("purpose") or "behavior observation").strip()
+        if kind not in {"hover","focus","click"} or not selector:
+            return jsonify({"error":"invalid_behavior_request"}), 400
+        confirmed = payload.get("confirmed_by_user") is True
+        if kind == "click" and not confirmed:
+            return jsonify({"error":"user_confirmation_required","message":"Click probes require explicit user confirmation"}), 400
+        loop = current_app.config.get("HWG_ASYNC_LOOP")
+        if loop is None or not loop.is_running():
+            return jsonify({"error":"async_runtime_unavailable"}), 503
+        action = BehaviorAction(kind=kind, selector=selector, purpose=purpose, risk_class="interactive" if kind == "click" else "read_only")
+        policy = ProbePolicy(allow_click=confirmed and kind == "click")
+        import asyncio
+        future = asyncio.run_coroutine_threadsafe(discovery_probe_cdp_behavior(provider_id, item.get("cdp_url"), item.get("home_url"), action, policy), loop)
+        obs = future.result(timeout=30).to_dict()
+        run.findings.setdefault("behavior_probes", []).append(obs)
+        path = run.save()
+        return jsonify({"run":run.to_dict(),"record":str(path),"observation":obs})
+    except FileNotFoundError:
+        return jsonify({"error":"run_not_found"}), 404
+    except PermissionError as exc:
+        return jsonify({"error":"behavior_blocked","message":str(exc)}), 403
+    except Exception as exc:
+        logger.warning("Discovery behavior probe failed for %s", provider_id, exc_info=True)
+        return jsonify({"error":"behavior_probe_failed","message":type(exc).__name__}), 502
+
+
+@control_panel_bp.route('/api/discovery/runs/<provider_id>/<run_id>/ai-assist', methods=['POST'])
+def api_discovery_ai_assist(provider_id, run_id):
+    payload = request.get_json(silent=True) or {}
+    try:
+        run = load_discovery_run(provider_id, run_id)
+        if run.state not in {"EXPLORATION_READY", "UPDATE_CANDIDATE"}:
+            return jsonify({"error":"invalid_transition","message":"AI assistance is only available during governed discovery/review"}), 409
+        if payload.get("confirmed_by_user") is not True:
+            return jsonify({"error":"user_confirmation_required","message":"AI assistance requires explicit user approval"}), 400
+        questions = [str(x).strip() for x in (payload.get("unresolved_questions") or []) if str(x).strip()]
+        if not questions:
+            return jsonify({"error":"unresolved_questions_required"}), 400
+        loop = current_app.config.get("HWG_ASYNC_LOOP")
+        if loop is None or not loop.is_running():
+            return jsonify({"error":"async_runtime_unavailable"}), 503
+        import asyncio
+        future = asyncio.run_coroutine_threadsafe(execute_ai_assistance(
+            provider_registry, provider_id, run_id, questions, run.findings,
+            user_approved=True,
+            routing_policy=str(payload.get("routing_policy") or "least_loaded"),
+            exact_provider_id=str(payload.get("provider_id") or "").strip() or None,
+            exact_model=str(payload.get("model") or "").strip() or None,
+            allow_target_provider=payload.get("allow_target_provider") is True,
+        ), loop)
+        finding = future.result(timeout=120)
+        run.findings.setdefault("ai_assistance", []).append(finding)
+        path = run.save()
+        return jsonify({"run":run.to_dict(),"record":str(path),"finding":finding})
+    except FileNotFoundError:
+        return jsonify({"error":"run_not_found"}), 404
+    except PermissionError as exc:
+        return jsonify({"error":"ai_assistance_blocked","message":str(exc)}), 403
+    except LookupError as exc:
+        return jsonify({"error":"no_ai_route","message":str(exc)}), 409
+    except Exception as exc:
+        logger.warning("Discovery AI assistance failed for %s", provider_id, exc_info=True)
+        return jsonify({"error":"ai_assistance_failed","message":type(exc).__name__}), 502
+
+
+@control_panel_bp.route('/api/discovery/runs/<provider_id>/<run_id>/self-use-qualify', methods=['POST'])
+def api_discovery_self_use_qualify(provider_id, run_id):
+    payload = request.get_json(silent=True) or {}
+    try:
+        run = load_discovery_run(provider_id, run_id)
+        if run.state not in {"EXPLORATION_READY", "UPDATE_CANDIDATE", "CERTIFICATION_REQUIRED"}:
+            return jsonify({"error":"invalid_transition","message":"Self-use qualification is only available after baseline discovery"}), 409
+        if payload.get("confirmed_by_user") is not True:
+            return jsonify({"error":"user_confirmation_required","message":"Controlled self-use round-trip requires explicit user confirmation"}), 400
+        provider = provider_registry.get(provider_id)
+        if provider is None:
+            return jsonify({"error":"provider_not_found"}), 404
+        model = str(payload.get("model") or (provider.config.config or {}).get("default_model") or "").strip()
+        if not model:
+            models = list(getattr(provider.capabilities, "supported_models", []) or [])
+            model = str(models[0]) if models else ""
+        if not model:
+            return jsonify({"error":"model_required"}), 400
+        loop = current_app.config.get("HWG_ASYNC_LOOP")
+        if loop is None or not loop.is_running():
+            return jsonify({"error":"async_runtime_unavailable"}), 503
+        import asyncio
+        future = asyncio.run_coroutine_threadsafe(controlled_self_use_roundtrip(provider, model, user_confirmed=True), loop)
+        result = future.result(timeout=120)
+        run.findings.setdefault("self_use_qualification", []).append(result)
+        path = run.save()
+        code = 200 if result.get("allowed") else 409
+        return jsonify({"run":run.to_dict(),"record":str(path),"qualification":result}), code
+    except FileNotFoundError:
+        return jsonify({"error":"run_not_found"}), 404
+    except (PermissionError, ValueError) as exc:
+        return jsonify({"error":"self_use_qualification_blocked","message":str(exc)}), 409
+    except Exception as exc:
+        logger.warning("Discovery self-use qualification failed for %s", provider_id, exc_info=True)
+        return jsonify({"error":"self_use_qualification_failed","message":type(exc).__name__}), 502
+
+
+@control_panel_bp.route('/api/discovery/runs/<provider_id>/<run_id>/review', methods=['POST'])
+def api_discovery_review(provider_id, run_id):
+    payload = request.get_json(silent=True) or {}
+    try:
+        run = load_discovery_run(provider_id, run_id)
+        discovery_review_candidate(run, str(payload.get("decision") or ""), str(payload.get("note") or ""))
+        path = run.save()
+        return jsonify({"run": run.to_dict(), "record": str(path)})
+    except FileNotFoundError:
+        return jsonify({"error": "run_not_found"}), 404
+    except ValueError as exc:
+        return jsonify({"error": "invalid_transition", "message": str(exc)}), 409
+
+
+@control_panel_bp.route('/api/discovery/runs/<provider_id>/<run_id>/certification/start', methods=['POST'])
+def api_discovery_certification_start(provider_id, run_id):
+    try:
+        run = load_discovery_run(provider_id, run_id)
+        discovery_begin_certification(run)
+        path = run.save()
+        return jsonify({"run": run.to_dict(), "record": str(path), "next_required": "interactive_user_verification"})
+    except FileNotFoundError:
+        return jsonify({"error": "run_not_found"}), 404
+    except ValueError as exc:
+        return jsonify({"error": "invalid_transition", "message": str(exc)}), 409
+
+
+@control_panel_bp.route('/api/discovery/runs/<provider_id>/<run_id>/certification/complete', methods=['POST'])
+def api_discovery_certification_complete(provider_id, run_id):
+    payload = request.get_json(silent=True) or {}
+    try:
+        run = load_discovery_run(provider_id, run_id)
+        passed = bool(payload.get("passed"))
+        evidence_record = str(payload.get("evidence_record") or "").strip()
+        confirmed = payload.get("confirmed_by_user") is True
+        if passed and not evidence_record:
+            return jsonify({"error": "evidence_required", "message": "Passing E2 certification requires an evidence record"}), 400
+        discovery_complete_certification(run, passed, evidence_record, confirmed)
+        path = run.save()
+        return jsonify({"run": run.to_dict(), "record": str(path)})
+    except FileNotFoundError:
+        return jsonify({"error": "run_not_found"}), 404
+    except ValueError as exc:
+        return jsonify({"error": "invalid_transition", "message": str(exc)}), 409
 
 
 @control_panel_bp.route('/api/runtimes')

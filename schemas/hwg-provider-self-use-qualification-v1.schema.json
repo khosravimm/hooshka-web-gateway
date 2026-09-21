@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:hwg:schema:provider-self-use-qualification:1.0.0",
+  "title": "HWG Provider Self-Use Transport Qualification",
+  "type": "object",
+  "required": ["provider_id", "transport_fingerprint", "send_path", "receive_path", "completion_path", "roundtrip", "recorded_at", "gate_version"],
+  "properties": {
+    "provider_id": {"type": "string", "minLength": 1},
+    "transport_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "recorded_at": {"type": "string", "minLength": 1},
+    "gate_version": {"const": "1.0.0"},
+    "send_path": {"$ref": "#/$defs/pathEvidence"},
+    "receive_path": {"$ref": "#/$defs/pathEvidence"},
+    "completion_path": {"$ref": "#/$defs/pathEvidence"},
+    "roundtrip": {"$ref": "#/$defs/roundtripEvidence"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "pathEvidence": {
+      "type": "object",
+      "required": ["identified", "method", "evidence_ref"],
+      "properties": {
+        "identified": {"const": true},
+        "method": {"enum": ["dom", "accessibility", "network", "frontend_controller", "browser_probe"]},
+        "evidence_ref": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": true
+    },
+    "roundtripEvidence": {
+      "type": "object",
+      "required": ["tested", "passed", "tool_class", "evidence_ref"],
+      "properties": {
+        "tested": {"const": true},
+        "passed": {"const": true},
+        "tool_class": {"const": "deterministic"},
+        "evidence_ref": {"type": "string", "minLength": 1},
+        "expected": {"type": "string"},
+        "observed": {"type": "string"}
+      },
+      "additionalProperties": true
+    }
+  }
+}

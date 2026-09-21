@@ -64,3 +64,17 @@ def test_save_profile_versioned(tmp_path):
     payload = json.loads(p1.read_text(encoding="utf-8"))
     assert payload["provider_id"] == "zai-web"
     assert payload["controls"][0]["kind"] == "thinking_toggle"
+
+
+def test_non_button_toggle_controls_are_classified_by_visible_text():
+    controls = classify([
+        _el(tag="DIV", text="DeepThink", cls="ds-toggle-button"),
+        _el(tag="DIV", text="Search", cls="ds-toggle-button ds-toggle-button--selected"),
+    ])
+    assert [c.kind for c in controls] == ["thinking_toggle", "search_toggle"]
+
+
+def test_enumerator_includes_generic_keyboard_and_button_surfaces():
+    source = Path("core/control_discovery.py").read_text(encoding="utf-8")
+    assert '[role=button]' in source
+    assert '[tabindex="0"]' in source

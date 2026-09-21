@@ -105,9 +105,13 @@ def build_capabilities(frontend: dict, backend: dict) -> list[Capability]:
     controls = {(c.get("kind"), c.get("confidence")) for c in frontend.get("controls", [])}
     has = lambda k: any(kind == k for kind, _ in controls)
     conf = lambda k: next((c for kk, c in controls if kk == k), "medium")
+    composer = bool(frontend.get("composer"))
     caps = [
-        Capability("chat", True, Evidence("E1", "high", "composer+send observed"),
-                   {"composer": frontend.get("composer")}),
+        Capability("chat", composer,
+                   Evidence("E1" if composer else "E0",
+                            "high" if composer else "low",
+                            "composer observed" if composer else "composer not observed"),
+                   {"composer": frontend.get("composer"), "send_control": has("send")}),
         Capability("model_selection", has("model_selector"),
                    Evidence("E1" if has("model_selector") else "E0",
                             conf("model_selector") if has("model_selector") else "low",
@@ -176,7 +180,7 @@ BACKEND_JS = r"""() => {
 
 FRONTEND_JS = r"""() => {
   const comp = document.querySelector('textarea, [contenteditable=true][role=textbox], [contenteditable=true]');
-  const all = [...document.querySelectorAll('button, a[role=button], [role=switch], [role=checkbox], [role=combobox], [role=listbox], input[type=checkbox], [aria-pressed], [data-testid]')];
+  const all = [...document.querySelectorAll('button, [role=button], [tabindex="0"], [role=switch], [role=checkbox], [role=combobox], [role=listbox], input[type=checkbox], [aria-pressed], [data-testid]')];
   const seen = new Set(); const els = [];
   for (const e of all) {
     const r = e.getBoundingClientRect();

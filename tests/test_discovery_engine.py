@@ -42,6 +42,13 @@ def test_capabilities_carry_evidence():
     assert not caps["streaming"].supported
 
 
+def test_chat_capability_fails_closed_without_composer():
+    caps = {c.name: c for c in build_capabilities({"composer": None, "controls": []}, {"candidate_endpoints": [], "stream_transports": []})}
+    assert caps["chat"].supported is False
+    assert caps["chat"].evidence.type == "E0"
+    assert caps["chat"].evidence.source == "composer not observed"
+
+
 def test_drift_diff_explicit():
     old = {"controls": [{"kind": "search_toggle", "selector": "s-old"}],
            "candidate_endpoints": [{"path": "/gone"}]}

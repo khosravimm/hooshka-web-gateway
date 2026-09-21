@@ -7,10 +7,13 @@ from core.discovery_orchestrator import (
     attach_baseline,
     attach_exploration,
     attach_research,
+    begin_certification,
     begin_exploration,
+    complete_certification,
     list_runs,
     load_run,
     new_run,
+    review_candidate,
     synthesize,
 )
 
@@ -55,3 +58,30 @@ def test_saved_runs_are_listed_and_reloadable(tmp_path: Path):
     loaded = load_run("chatgpt-web", run.run_id, tmp_path)
     assert loaded.provider_id == "chatgpt-web"
     assert loaded.state == DiscoveryState.RESEARCH_REQUIRED.value
+
+
+def test_candidate_review_accepts_only_explicit_decisions():
+    run = new_run("deepseek-web", "webchat-standard-v1")
+    attach_research(run, [{"kind": "official", "ref": "docs"}])
+    attach_baseline(run, {"runtime": {}, "session": {}, "page": {}, "account": {}})
+    begin_exploration(run)
+    attach_exploration(run, {"frontend": {}, "backend": {}}, [{"type": "control_missing"}])
+    synthesize(run)
+    review_candidate(run, "ACCEPT", "reviewed")
+    assert run.state == DiscoveryState.CERTIFICATION_REQUIRED.value
+    assert run.candidate["status"] == "ACCEPT"
+
+
+def test_e2_pass_requires_explicit_user_confirmation():
+    run = new_run("chatgpt-web", "webchat-standard-v1")
+    attach_research(run, [{"kind": "official", "ref": "docs"}])
+    attach_baseline(run, {"runtime": {}, "session": {}, "page": {}, "account": {}})
+    begin_exploration(run)
+    attach_exploration(run, {"frontend": {}, "backend": {}}, [])
+    synthesize(run)
+    begin_certification(run)
+    with pytest.raises(ValueError):
+        complete_certification(run, True, "evidence/record", False)
+    complete_certification(run, True, "evidence/record", True)
+    assert run.state == DiscoveryState.CERTIFIED.value
+    assert run.evidence_level == "E2"

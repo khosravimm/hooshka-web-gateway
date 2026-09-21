@@ -9,7 +9,7 @@
 - **Product:** Hooshka Web Gateway
 - **Technical id:** `hooshka-web-gateway`
 - **Hooshka module id:** `web_gateway`
-- **Current baseline:** `1.0.0-dev.4`
+- **Current baseline:** `1.0.0-dev.5`
 - **Current local checkout:** `D:\Code\hooshka-web-gateway`
 - **Canonical project/repository id:** `hooshka-web-gateway`
 - **Windows service:** `HooshkaWebGateway`

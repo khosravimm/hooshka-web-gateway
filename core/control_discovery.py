@@ -39,7 +39,7 @@ PATTERNS: list[tuple[str, list[tuple[str, str, int]]]] = [
         ("title", r"deep.?think|thinking|reasoning", 3),
         ("testid", r"think|reasoning", 3),
         ("id", r"think|reasoning", 3),
-        ("text", r"^deep.?think$|^thinking$|تفکر", 2),
+        ("text", r"^deep.?think$|^thinking$|تفکر", 3),
         ("cls", r"think|reasoning", 1),
     ]),
     ("thinking_level", [
@@ -50,7 +50,7 @@ PATTERNS: list[tuple[str, list[tuple[str, str, int]]]] = [
         ("aria", r"web.?search|search( the)? web|جستجو", 3),
         ("title", r"web.?search|search( the)? web", 3),
         ("testid", r"\bsearch\b", 3),
-        ("text", r"^web search$|^search$|جستجوی وب", 2),
+        ("text", r"^web search$|^search$|جستجوی وب", 3),
     ]),
     ("model_selector", [
         ("aria", r"select( a)? model|choose model|انتخاب مدل", 3),
@@ -134,7 +134,7 @@ def classify(elements: list[dict]) -> list[Control]:
 
 
 ENUMERATE_JS = r"""() => {
-  const all = [...document.querySelectorAll('button, a[role=button], [role=switch], [role=checkbox], [role=combobox], [role=listbox], input[type=checkbox], [aria-pressed], [data-testid]')];
+  const all = [...document.querySelectorAll('button, [role=button], [tabindex="0"], [role=switch], [role=checkbox], [role=combobox], [role=listbox], input[type=checkbox], [aria-pressed], [data-testid]')];
   const seen = new Set(); const out = [];
   for (const e of all) {
     const r = e.getBoundingClientRect();

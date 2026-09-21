@@ -1,15 +1,22 @@
 {
   "name": "hwg-control-plane-ui",
-  "version": "1.0.0-dev.4",
+  "version": "1.0.0-dev.5",
   "released": "2026-09-21",
   "direction": "rtl",
   "language": "fa",
-  "themes": ["light", "dark"],
+  "themes": [
+    "light",
+    "dark"
+  ],
   "external_callouts": false,
   "assets": {
     "index": "control_panel_ui/index.html",
     "css": "control_panel_ui/panel.css",
-    "js": ["control_panel_ui/panel.js", "control_panel_ui/markdown.js", "control_panel_ui/chat.js"]
+    "js": [
+      "control_panel_ui/panel.js",
+      "control_panel_ui/markdown.js",
+      "control_panel_ui/chat.js"
+    ]
   },
   "change_log": [
     {
@@ -35,6 +42,12 @@
       "date": "2026-09-21",
       "class": "MINOR",
       "notes": "بازطراحی فرایندمحور Runtime/Profile/Provider، ثبت Mission/Playbook به‌عنوان مرجع حاکمیتی و آغاز قرارداد نسخه‌دار Provider Profile/Account Instance."
+    },
+    {
+      "version": "1.0.0-dev.5",
+      "date": "2026-09-21",
+      "class": "MINOR",
+      "notes": "موتور کاوشگر فرایندمحور با Behavior Lab، AI-assisted discovery مبتنی بر مجوز، Routing policy نسخه‌دار و Work Register ضدفراموشی."
     }
   ]
 }

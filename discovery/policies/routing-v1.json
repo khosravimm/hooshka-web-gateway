@@ -1,0 +1,13 @@
+{
+  "policy_id": "HWG-DISC-ROUTING-001",
+  "version": "1.0.0",
+  "default_policy": "least_loaded",
+  "allowed_policies": ["ordered", "least_loaded", "weighted_load"],
+  "eligibility": ["enabled", "healthy", "required_capabilities", "not_in_cooldown"],
+  "exact_route_is_strict": true,
+  "silent_cross_provider_fallback": false,
+  "respect_provider_limits": true,
+  "bypass_challenge_or_suspension": false,
+  "bypass_rate_limit": false,
+  "audit_selection": true
+}

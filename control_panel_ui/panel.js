@@ -998,7 +998,7 @@ function initNav() {
       const current = select.value;
       select.innerHTML = (inventory.provider_profiles || []).map(p => `<option value="${p.provider_id}">${p.provider_id}</option>`).join('');
       if (current && Array.from(select.options).some(o => o.value === current)) select.value = current;
-      renderDiscoveryRuns(runsData.runs || []);
+      renderDiscoveryRuns(runsData.runs || [], runsData.self_use || {});
       $('#discovery-refresh').onclick = loadDiscovery;
       $('#discovery-new-run').onclick = async () => {
         const provider_id = select.value;
@@ -1018,9 +1018,73 @@ function initNav() {
     }
   }
 
-  function renderDiscoveryRuns(runs) {
+  function renderDiscoveryRuns(runs, selfUse) {
     const box = $('#discovery-runs');
-    box.innerHTML = runs.map(r => `<div class="work-item"><div><b class="ltr">${r.provider_id}</b><span class="badge">${r.state}</span><span class="badge">${r.evidence_level}</span></div><div class="hint ltr">run=${r.run_id}</div><div class="hint">Account: <span class="ltr">${r.account_id || '-'}</span> · Recipe: <span class="ltr">${r.recipe_version}</span> · Decision: ${r.decision || 'PENDING'}</div></div>`).join('') || '<div class="hint">هنوز Discovery Run ثبت نشده است.</div>';
+    box.innerHTML = runs.map(r => {
+      let action = '';
+      const selfGate = selfUse[r.provider_id] || {allowed:false,reasons:['qualification_missing']};
+      const selfGateText = selfGate.allowed ? 'QUALIFIED' : (selfGate.reasons || []).join(', ');
+      if (r.state === 'RESEARCH_REQUIRED') action = `<div class="btn-row"><input class="ctrl ltr" id="research-${r.run_id}" placeholder="مرجع رسمی/داخلی/پروژه بالغ"><button class="btn primary btn-sm" data-disc-act="research" data-provider="${r.provider_id}" data-run="${r.run_id}">ثبت Research</button></div>`;
+      if (r.state === 'BASELINE_REQUIRED') action = `<button class="btn primary btn-sm" data-disc-act="baseline" data-provider="${r.provider_id}" data-run="${r.run_id}">ثبت Baseline واقعی</button>`;
+      if (r.state === 'EXPLORATION_READY') action = `<div class="behavior-lab"><div class="grid-3"><input class="ctrl ltr" id="behavior-selector-${r.run_id}" placeholder="CSS selector"><select class="ctrl" id="behavior-kind-${r.run_id}"><option value="hover">Hover</option><option value="focus">Focus</option><option value="click">Click</option></select><input class="ctrl" id="behavior-purpose-${r.run_id}" placeholder="هدف مشاهده رفتار"></div><label class="check mt"><input type="checkbox" id="behavior-confirm-${r.run_id}"><span>برای Click این اقدام را صریحاً تأیید می‌کنم</span></label><div class="btn-row mt"><button class="btn ghost btn-sm" data-disc-act="behavior" data-provider="${r.provider_id}" data-run="${r.run_id}">اجرای Behavior Probe</button><button class="btn primary btn-sm" data-disc-act="explore" data-provider="${r.provider_id}" data-run="${r.run_id}">تکمیل Exploration فقط‌خواندنی</button></div><details class="mt"><summary class="hint">کمک گرفتن از AI برای ابهام‌های باقی‌مانده</summary><div class="grid-3 mt"><input class="ctrl" id="ai-question-${r.run_id}" placeholder="سؤال یا ابهام باقی‌مانده"><select class="ctrl" id="ai-route-${r.run_id}"><option value="least_loaded">کم‌بارترین مدل سالم</option><option value="weighted_load">وزن/بار</option><option value="ordered">ترتیب تنظیم‌شده</option></select><label class="check"><input type="checkbox" id="ai-confirm-${r.run_id}"><span>اجازه استفاده از مدل فعال HWG را می‌دهم</span></label></div><label class="check mt"><input type="checkbox" id="ai-target-${r.run_id}" ${selfGate.allowed ? '' : 'disabled'}><span>استفاده از خود Provider هدف — ${selfGate.allowed ? 'Transport Qualified' : 'مسدود: ' + selfGateText}</span></label>${selfGate.allowed ? '' : `<label class="check mt"><input type="checkbox" id="selfqual-confirm-${r.run_id}"><span>اجازه ارسال یک پیام nonce برای آزمون انسانی Transport را می‌دهم</span></label><button class="btn ghost btn-sm mt" data-disc-act="self-qualify" data-provider="${r.provider_id}" data-run="${r.run_id}">آزمون صلاحیت Self-use</button>`}<button class="btn ghost btn-sm mt" data-disc-act="ai-assist" data-provider="${r.provider_id}" data-run="${r.run_id}">تحلیل کمکی با AI</button></details></div>`;
+      if (r.state === 'UPDATE_CANDIDATE') action = `<div><input class="ctrl" id="review-note-${r.run_id}" placeholder="یادداشت Review"><div class="btn-row mt"><button class="btn success btn-sm" data-disc-act="review-accept" data-provider="${r.provider_id}" data-run="${r.run_id}">ACCEPT</button><button class="btn ghost btn-sm" data-disc-act="review-hold" data-provider="${r.provider_id}" data-run="${r.run_id}">HOLD</button><button class="btn danger btn-sm" data-disc-act="review-reject" data-provider="${r.provider_id}" data-run="${r.run_id}">REJECT</button></div></div>`;
+      if (r.state === 'CERTIFICATION_REQUIRED') action = `<button class="btn primary btn-sm" data-disc-act="cert-start" data-provider="${r.provider_id}" data-run="${r.run_id}">شروع Interactive Certification</button>`;
+      if (r.state === 'CERTIFYING') action = `<div><input class="ctrl ltr" id="cert-evidence-${r.run_id}" placeholder="Evidence record/path"><label class="check mt"><input type="checkbox" id="cert-confirm-${r.run_id}"><span>نتیجه را شخصاً مشاهده و تأیید کردم</span></label><div class="btn-row mt"><button class="btn success btn-sm" data-disc-act="cert-pass" data-provider="${r.provider_id}" data-run="${r.run_id}">ثبت PASS / E2</button><button class="btn ghost btn-sm" data-disc-act="cert-hold" data-provider="${r.provider_id}" data-run="${r.run_id}">HOLD</button></div></div>`;
+      return `<div class="work-item"><div><b class="ltr">${r.provider_id}</b><span class="badge">${r.state}</span><span class="badge">${r.evidence_level}</span></div><div class="hint ltr">run=${r.run_id}</div><div class="hint">Account: <span class="ltr">${r.account_id || '-'}</span> · Recipe: <span class="ltr">${r.recipe_version}</span> · Decision: ${r.decision || 'PENDING'}</div>${action}</div>`;
+    }).join('') || '<div class="hint">هنوز Discovery Run ثبت نشده است.</div>';
+    box.querySelectorAll('[data-disc-act]').forEach(btn => btn.addEventListener('click', () => discoveryRunAction(btn)));
+  }
+
+  async function discoveryRunAction(btn) {
+    const provider = btn.dataset.provider, run = btn.dataset.run, action = btn.dataset.discAct;
+    btn.disabled = true;
+    try {
+      let body = null;
+      let endpoint = action;
+      if (action === 'research') {
+        const ref = (document.getElementById('research-' + run)?.value || '').trim();
+        if (!ref) throw new Error('مرجع Research الزامی است');
+        body = {sources:[{kind:'reviewed_reference', ref}]};
+      } else if (action === 'behavior') {
+        endpoint = 'behavior';
+        const selector = (document.getElementById('behavior-selector-' + run)?.value || '').trim();
+        const kind = document.getElementById('behavior-kind-' + run)?.value || 'hover';
+        const purpose = (document.getElementById('behavior-purpose-' + run)?.value || '').trim() || 'behavior observation';
+        const confirmed_by_user = document.getElementById('behavior-confirm-' + run)?.checked === true;
+        if (!selector) throw new Error('CSS selector برای Behavior Probe الزامی است');
+        if (kind === 'click' && !confirmed_by_user) throw new Error('Click فقط با تأیید صریح کاربر مجاز است');
+        body = {kind, selector, purpose, confirmed_by_user};
+      } else if (action === 'self-qualify') {
+        endpoint = 'self-use-qualify';
+        const confirmed_by_user = document.getElementById('selfqual-confirm-' + run)?.checked === true;
+        if (!confirmed_by_user) throw new Error('آزمون Self-use یک پیام واقعی می‌فرستد و نیازمند تأیید صریح شماست');
+        body = {confirmed_by_user};
+      } else if (action === 'ai-assist') {
+        endpoint = 'ai-assist';
+        const question = (document.getElementById('ai-question-' + run)?.value || '').trim();
+        const confirmed_by_user = document.getElementById('ai-confirm-' + run)?.checked === true;
+        if (!question) throw new Error('سؤال unresolved برای AI الزامی است');
+        if (!confirmed_by_user) throw new Error('استفاده از مدل فقط با مجوز صریح کاربر انجام می‌شود');
+        body = {unresolved_questions:[question], confirmed_by_user, routing_policy:document.getElementById('ai-route-' + run)?.value || 'least_loaded', allow_target_provider:document.getElementById('ai-target-' + run)?.checked === true};
+      } else if (action.startsWith('review-')) {
+        endpoint = 'review';
+        body = {decision: action.split('-')[1].toUpperCase(), note:(document.getElementById('review-note-' + run)?.value || '').trim()};
+      } else if (action === 'cert-start') {
+        endpoint = 'certification/start';
+      } else if (action === 'cert-pass' || action === 'cert-hold') {
+        endpoint = 'certification/complete';
+        const evidence_record = (document.getElementById('cert-evidence-' + run)?.value || '').trim();
+        const confirmed_by_user = document.getElementById('cert-confirm-' + run)?.checked === true;
+        const passed = action === 'cert-pass';
+        if (passed && !evidence_record) throw new Error('Evidence record برای PASS الزامی است');
+        if (passed && !confirmed_by_user) throw new Error('تأیید صریح کاربر برای E2 الزامی است');
+        body = {passed, evidence_record, confirmed_by_user};
+      }
+      const result = await api('/discovery/runs/' + encodeURIComponent(provider) + '/' + encodeURIComponent(run) + '/' + endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body || {})});
+      toast('Discovery: ' + result.run.state, 'ok');
+      await loadDiscovery();
+    } catch (e) { toast('Discovery: ' + e.message, 'err'); }
+    finally { btn.disabled = false; }
   }
 
   /* ---------------- Remaining work / governance ---------------- */
