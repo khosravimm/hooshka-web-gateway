@@ -25,6 +25,15 @@ logger = logging.getLogger(__name__)
 CONFIG_PATH = str(Path(__file__).parent / "config.yaml")
 
 
+def _write_restart_state(state_path, request_id, state, success, reason, errors=None):
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(json.dumps({
+        "request_id": request_id, "state": state, "success": success,
+        "reason": reason, "updated_at": datetime.now().isoformat(),
+        "errors": list(errors or []),
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def _schedule_restart_all(reason="config-save"):
     """Schedule restart-all through an independent SYSTEM Scheduled Task and return a traceable request id.
 
@@ -34,11 +43,7 @@ def _schedule_restart_all(reason="config-save"):
     """
     request_id = secrets.token_hex(8)
     state_path = Path(__file__).parent / ".runtime" / "restart_state.json"
-    state_path.parent.mkdir(parents=True, exist_ok=True)
-    state_path.write_text(json.dumps({
-        "request_id": request_id, "state": "scheduled", "success": False,
-        "reason": reason, "updated_at": datetime.now().isoformat(), "errors": []
-    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    _write_restart_state(state_path, request_id, "scheduled", False, reason)
     task_name = str(load_orchestration_settings(CONFIG_PATH)["restart_all_task"])
     try:
         result = subprocess.run(
@@ -46,11 +51,14 @@ def _schedule_restart_all(reason="config-save"):
             capture_output=True, text=True, timeout=8,
         )
         if result.returncode != 0:
+            detail = (result.stdout + result.stderr).strip()[:200]
+            _write_restart_state(state_path, request_id, "schedule_failed", False, reason, [detail or "schtasks_failed"])
             return {"scheduled": False, "reason": reason, "request_id": request_id,
                     "task": task_name,
                     "warning": "Scheduled task not available; restart will not happen automatically",
-                    "detail": (result.stdout + result.stderr).strip()[:200]}
+                    "detail": detail}
     except FileNotFoundError:
+        _write_restart_state(state_path, request_id, "schedule_failed", False, reason, ["schtasks_not_found"])
         return {"scheduled": False, "reason": reason, "request_id": request_id,
                 "task": task_name,
                 "warning": "schtasks not available; restart will not happen automatically"}
@@ -71,18 +79,20 @@ def _schedule_gateway_restart(reason="panel-service-restart"):
     """Schedule gateway restart outside the service process so it cannot kill its own restart worker."""
     request_id = secrets.token_hex(8)
     state_path = Path(__file__).parent / ".runtime" / "service_restart_state.json"
-    state_path.parent.mkdir(parents=True, exist_ok=True)
-    state_path.write_text(json.dumps({
-        "request_id": request_id, "state": "scheduled", "success": False,
-        "reason": reason, "updated_at": datetime.now().isoformat(), "errors": []
-    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    _write_restart_state(state_path, request_id, "scheduled", False, reason)
     task_name = str(load_orchestration_settings(CONFIG_PATH)["restart_gateway_task"])
-    result = subprocess.run(
-        ["schtasks", "/Run", "/TN", task_name],
-        capture_output=True, text=True, timeout=8,
-    )
+    try:
+        result = subprocess.run(
+            ["schtasks", "/Run", "/TN", task_name],
+            capture_output=True, text=True, timeout=8,
+        )
+    except FileNotFoundError as exc:
+        _write_restart_state(state_path, request_id, "schedule_failed", False, reason, ["schtasks_not_found"])
+        raise RuntimeError("schtasks not available; gateway restart was not scheduled") from exc
     if result.returncode != 0:
-        raise RuntimeError((result.stdout + result.stderr).strip() or "Failed to start gateway restart task")
+        detail = (result.stdout + result.stderr).strip() or "Failed to start gateway restart task"
+        _write_restart_state(state_path, request_id, "schedule_failed", False, reason, [detail[:200]])
+        raise RuntimeError(detail)
     return {"scheduled": True, "reason": reason, "request_id": request_id, "task": task_name}
 
 

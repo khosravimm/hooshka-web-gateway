@@ -99,7 +99,7 @@ def test_mcp_normalizer_blocks_agentic_output_before_openai_payload_content():
         usage=Usage(),
         choices=[Choice(
             index=0,
-            message=Message(role="assistant", content="""CAG = Client Access Gateway
+            message=Message(role="assistant", content=r"""CAG = Client Access Gateway
 
 ```bash
 cd D:\Code\naghsheyar
