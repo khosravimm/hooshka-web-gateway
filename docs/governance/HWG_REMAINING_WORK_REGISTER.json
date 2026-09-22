@@ -1,6 +1,6 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.12.0",
+  "version": "1.14.0",
   "updated_at": "2026-09-21",
   "status_vocabulary": [
     "OPEN",
@@ -234,8 +234,8 @@
       ],
       "latest_evidence": {
         "date": "2026-09-22",
-        "type": "E2_dev_runtime_control_plane",
-        "result": "Development 5080 cut over to dev.6/feb23f4; live API reports two Browser Runtime groups (shared 9330 with 3 Provider tabs, qwen 9325 with 1 tab), Desktop Runtime Agent reachable on 5181, and served Provider provisioning UI uses runtime selection with no raw CDP/Profile fields."
+        "type": "E1+E2 relationship-workspace audit",
+        "result": "Live Control Plane exposes distinct Runtime, Profiles, Accounts and Discovery workspaces; Browser Runtime grouping is 2 groups, semantic Browser Profiles 5, Account Instances 4, and post-action Account verification is wired. Provider workspace now uses relationship-aware cards. Work remains IN_PROGRESS pending clean integration/commit of all Control Plane dependencies and human acceptance."
       }
     },
     {
@@ -734,6 +734,71 @@
         "date": "2026-09-22",
         "type": "live_runtime_observation",
         "result": "Task existed but agent was not listening on 5181 after previous abnormal exit; manual task start restored 5181 health. Auto-recovery remains unproven."
+      }
+    },
+    {
+      "id": "HWG-WORK-025",
+      "title": "Mission-driven Control Plane UI/UX audit and human-test readiness",
+      "area": "ui",
+      "status": "IN_PROGRESS",
+      "priority": "P0",
+      "source": [
+        "Hooshka Web Gateway — Next Generation Production Mission",
+        "Management UI §11",
+        "Owner UI audit directive 2026-09-22"
+      ],
+      "depends_on": [
+        "HWG-WORK-003",
+        "HWG-WORK-005"
+      ],
+      "target_version": "1.0.0-dev.7",
+      "evidence_required": [
+        "E1",
+        "E2",
+        "Human acceptance"
+      ],
+      "exit_criteria": [
+        "Every Control Plane workspace is audited against mission/domain/user-journey semantics",
+        "Each finding is classified Correct/Gap/Redundant/Misplaced/Missing with evidence and remediation",
+        "Entity relationships, prerequisites, state, next action and post-action verification are human-understandable",
+        "P0/P1 UI semantic gaps are fixed and revalidated in live UI before human acceptance"
+      ],
+      "latest_evidence": {
+        "date": "2026-09-22",
+        "type": "E1+E2 mission-driven UI audit pass1",
+        "result": "Live 5080 audit covered 15 navigable workspaces plus Provider provisioning; zero console errors. Audit Register v1.2.0 records 23 findings with 16 verified and no open P0 findings. Config raw CDP/provider-enable controls, Provider runtime repair duplication, synthetic telemetry pollution, stale-readiness mislabeling, Discovery flow visibility and legacy Sessions terminology were corrected and revalidated."
+      }
+    },
+    {
+      "id": "HWG-WORK-026",
+      "title": "Dedicated same-origin Account Runtime provisioning and lifecycle",
+      "area": "runtime",
+      "status": "PARTIAL",
+      "priority": "P1",
+      "source": [
+        "NG-BRW-003",
+        "HWG-WORK-002",
+        "Account Instance lifecycle"
+      ],
+      "depends_on": [
+        "HWG-WORK-002",
+        "HWG-WORK-004"
+      ],
+      "target_version": "1.0.0-dev.7",
+      "evidence_required": [
+        "E1",
+        "E2"
+      ],
+      "exit_criteria": [
+        "Second same-origin Account receives a dedicated Browser Profile and unique CDP port",
+        "Desktop Runtime Agent supports start/restart/stop/repair/open by account_id",
+        "Account deprovision is guarded and cannot delete default/shared Account artifacts",
+        "Live E2 validates an isolated Account Runtime without disturbing shared-window provider sessions"
+      ],
+      "latest_evidence": {
+        "date": "2026-09-22",
+        "type": "E1 implementation",
+        "result": "Provisioning/runtime/deprovision APIs and Desktop Runtime Agent account routes exist; deterministic tests pass. Live second-account E2 remains pending."
       }
     }
   ]

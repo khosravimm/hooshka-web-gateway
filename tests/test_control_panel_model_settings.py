@@ -111,15 +111,15 @@ def test_control_panel_wraps_capability_badges_to_reduce_horizontal_scroll():
     assert ".capability-badges span" in css or ".cap-badge" in css
 
 
-def test_control_panel_providers_table_prevents_horizontal_overflow():
-    css = css_text()
-    assert ".table-scroll { overflow-x: auto; }" in css
-    assert ".data-table" in css
+def test_control_panel_providers_use_relationship_cards_not_dense_table():
     index = index_text()
     assert "panel-providers" in index
-    assert "table-scroll" in index
+    assert "providers-grid" in index
+    assert "providers-body" not in index
     js = js_text()
-    assert "providers-body" in js
+    assert "provider-relationship-card" in js
+    assert "HwgGoAccounts" in js
+    assert "پس از READY قابل فعال‌سازی" in js
 
 
 def test_control_panel_service_tab_uses_structured_windows_service_status():
@@ -169,9 +169,11 @@ def test_control_panel_overview_has_model_usage_summary():
 def test_control_panel_config_has_human_settings_and_advanced_yaml():
     index = index_text()
     assert "cfg-server-host" in index
-    assert "cfg-cdp-url" in index
+    assert "cfg-cdp-url" not in index
     assert "cfg-auth-enabled" in index
     assert "config-providers" in index
+    assert "cfg-provider-cdp-" not in js_text()
+    assert "cfg-provider-enabled-" not in js_text()
     js = js_text()
     assert "saveHumanConfig" in js
     assert "saveRawConfig" in js

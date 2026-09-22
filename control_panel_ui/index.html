@@ -28,7 +28,9 @@
     <nav class="nav" aria-label="ناوبری اصلی">
       <div class="nav-group-title">نظارت</div>
       <button class="nav-item active" data-panel="overview"><span class="nav-chip">O</span><span>وضعیت کلی</span></button>
-      <button class="nav-item" data-panel="runtimes"><span class="nav-chip">R</span><span>مرورگر و اتصال</span></button>
+      <button class="nav-item" data-panel="runtimes"><span class="nav-chip">R</span><span>Runtimeهای مرورگر</span></button>
+      <button class="nav-item" data-panel="profiles"><span class="nav-chip">F</span><span>پروفایل‌های مرورگر</span></button>
+      <button class="nav-item" data-panel="accounts"><span class="nav-chip">A</span><span>حساب‌ها و Session</span></button>
       <button class="nav-item" data-panel="providers"><span class="nav-chip">P</span><span>فراهم‌کننده‌ها</span></button>
 
       <div class="nav-group-title">قابلیت‌ها</div>
@@ -121,11 +123,11 @@
       <div class="card operational-intro">
         <h3 class="card-title">زنجیره آماده‌سازی Web Chat</h3>
         <div class="flow-rail">
-          <div><b>۱. Profile</b><span>محل هویت و Session مرورگر</span></div>
-          <div><b>۲. Browser Runtime</b><span>Chrome/CDP با Profile مشخص</span></div>
-          <div><b>۳. Login</b><span>ورود به Web Chat در همان Profile</span></div>
-          <div><b>۴. Provider</b><span>اتصال منطقی HWG به Runtime</span></div>
-          <div><b>۵. Enable & Test</b><span>فعال‌سازی و آزمون نهایی</span></div>
+          <div><b>۱. Browser Profile</b><span>مرز داده مرورگر و Storage</span></div>
+          <div><b>۲. Browser Runtime</b><span>Chrome/CDP و Tabهای Provider</span></div>
+          <div><b>۳. Account / Login</b><span>Session و هویت Account Instance</span></div>
+          <div><b>۴. Provider Profile</b><span>قرارداد منطقی Provider/Account</span></div>
+          <div><b>۵. Discovery & Readiness</b><span>کاوش، گواهی و READY عملکردی</span></div>
         </div>
         <div id="runtime-agent-state" class="dependency-banner"></div>
       </div>
@@ -135,12 +137,20 @@
         <div id="runtime-action-global" class="status-line"></div>
         <div id="runtime-cards" class="runtime-operation-grid"></div>
       </div>
+    </section>
+
+    <section class="panel" id="panel-profiles">
+      <div class="card operational-intro"><h3 class="card-title">پروفایل‌های مرورگر و مرز ذخیره‌سازی</h3><p class="hint">Profile محل داده مرورگر است؛ وضعیت sharing باید همراه Origin و Account تفسیر شود. Cross-origin sharing می‌تواند ایزوله باشد، اما same-origin multi-account در یک Profile مجاز نیست.</p></div>
       <div class="card mt">
-        <div class="card-head"><div><h3 class="card-title">پروفایل‌های مرورگر</h3><p class="hint">Profile یک Chrome user-data directory است؛ Cookie، Login Session، Local Storage و تنظیمات مرورگر بعد از اجرای Chrome در آن ذخیره می‌شوند. Profile تازه در ابتدا تقریباً خالی است.</p></div>
-          <div class="profile-create"><input id="profile-new-name" class="ctrl ltr" placeholder="مثال: deepseek-office"><button id="profile-create" class="btn primary btn-sm" type="button">ساخت Profile خالی</button></div>
-        </div>
+        <div class="card-head"><div><h3 class="card-title">Browser Profiles</h3><p class="hint">Accountهای متصل و حالت isolation از NG Inventory خوانده می‌شوند.</p></div><div class="profile-create"><input id="profile-new-name" class="ctrl ltr" placeholder="مثال: deepseek-office"><button id="profile-create" class="btn primary btn-sm" type="button">ساخت Profile خالی</button></div></div>
         <div id="profiles-grid" class="profiles-grid"></div>
       </div>
+    </section>
+
+    <section class="panel" id="panel-accounts">
+      <div class="card operational-intro"><h3 class="card-title">Account Instances و Session Lifecycle</h3><p class="hint">واحد Login و Session، Account Instance است. هر کارت رابطه Provider Profile → Account → Browser Profile/Origin → Runtime → Session → Readiness را نشان می‌دهد.</p></div>
+      <div id="accounts-global-status" class="status-line"></div>
+      <div id="accounts-grid" class="profiles-grid mt"></div>
     </section>
 
     <section class="panel" id="panel-providers">
@@ -151,13 +161,11 @@
         </div>
         <div class="btn-row">
           <button id="btn-add-provider" class="btn success btn-sm" type="button">اضافه‌کردن</button>
-          <button id="repair-all-runtimes" class="btn warn" type="button">تعمیر محیط‌ها</button>
+
         </div>
       </div>
-      <div class="table-scroll"><table class="data-table"><thead><tr>
-        <th>شناسه</th><th>نوع</th><th>وضعیت</th><th>Runtime</th><th>اولویت</th><th>قابلیت‌ها</th>
-        <th>تفکر</th><th>جستجو</th><th>مدل پیش‌فرض</th><th>عملیات</th>
-      </tr></thead><tbody id="providers-body"></tbody></table></div>
+      <div class="dependency-note">Provider یک قرارداد منطقی است. Browser Runtime و Account در Workspaceهای خودشان مدیریت می‌شوند؛ اینجا مدل، Feature defaults، وضعیت فعال‌سازی و Readiness دیده می‌شود.</div>
+      <div id="providers-grid" class="provider-performance-grid mt"></div>
     </section>
 
     <section class="panel" id="panel-provider-form">
@@ -204,10 +212,22 @@
 
     <section class="panel" id="panel-discovery">
       <div class="card-head">
-        <div><h3 class="card-title">کاوش و گواهی</h3><p class="hint">Research-first → Baseline → Exploration → Synthesis → Update Candidate → Interactive Certification. هیچ Run جدیدی مستقیم به Profile عملیاتی اعمال نمی‌شود.</p></div>
+        <div><h3 class="card-title">کاوش و گواهی</h3><p class="hint">Research-first → Baseline → Deterministic Exploration → Behavior Lab / AI-assisted analysis when needed → Synthesis → Update Candidate → Automated E2 or Human Acceptance. هیچ Run جدیدی مستقیم به Profile عملیاتی اعمال نمی‌شود.</p></div>
         <span class="badge">Discovery Engine 2.x</span>
       </div>
-      <div class="card">
+      <div class="card discovery-map">
+        <h3 class="card-title">نقشه اجرای Discovery</h3>
+        <div class="flow-rail">
+          <div><b>۱. Research</b><span>منبع رسمی/داخلی/پروژه بالغ؛ قبل از هر کاوش</span></div>
+          <div><b>۲. Baseline</b><span>Runtime، Page، Account و وضعیت دسترسی</span></div>
+          <div><b>۳. Exploration</b><span>DOM/Accessibility/Network با Probeهای deterministic</span></div>
+          <div><b>۴. Assisted Investigation</b><span>Behavior Lab و در صورت نیاز AI با Policy/Provenance</span></div>
+          <div><b>۵. Synthesis & Candidate</b><span>Drift به Update Candidate تبدیل می‌شود؛ patch پنهان ممنوع</span></div>
+          <div><b>۶. Certification</b><span>Automated E2 فنی یا Human Acceptance؛ دو مسیر مستقل</span></div>
+        </div>
+        <div class="dependency-note mt">اگر Login، Verification/CAPTCHA، Block یا وضعیت نامشخص تشخیص داده شود، Exploration متوقف و پس از رفع شرط Baseline دوباره اجرا می‌شود.</div>
+      </div>
+      <div class="card mt">
         <div class="grid-3">
           <label class="field">Provider<select id="discovery-provider" class="ctrl ltr"></select></label>
           <label class="field">Account Instance<input id="discovery-account" class="ctrl ltr" placeholder="مثال: deepseek-web:default-account"></label>
@@ -264,7 +284,7 @@
 
     <section class="panel" id="panel-sessions">
       <div class="card-head">
-        <div><h3 class="card-title">گفتگوهای فعال</h3><p class="hint">ذهن اجرایی MCP برای هر گفتگو با قابلیت حذف.</p></div>
+        <div><h3 class="card-title">گفتگوهای فعال</h3><p class="hint">گفتگوهای HWG و وضعیت اجرایی آن‌ها؛ رابطه Provider/Account و چرخه گفتگو باید از همین مسیر قابل ممیزی باشد.</p></div>
         <button id="reload-sessions" class="btn ghost btn-sm" type="button">تازه‌سازی</button>
       </div>
       <div class="table-scroll"><table class="data-table"><thead><tr>
@@ -321,7 +341,7 @@
         </div>
         <div class="card">
           <h3 class="card-title">Runtime و امنیت</h3>
-          <label class="field">CDP سراسری<input id="cfg-cdp-url" class="ctrl ltr" type="text"></label>
+          <div class="dependency-note">مالک CDP و Browser Profile، Workspace «Runtimeهای مرورگر» است. تغییر مسیر Browser از تنظیمات عمومی انجام نمی‌شود.</div>
           <label class="field">مهلت CDP (میلی‌ثانیه)<input id="cfg-cdp-timeout" class="ctrl" type="number" min="1000" max="300000"></label>
           <label class="check"><input id="cfg-auth-enabled" type="checkbox"><span>نیاز به کلید برای اتصالات خارج از لوکال هاست</span></label>
         </div>

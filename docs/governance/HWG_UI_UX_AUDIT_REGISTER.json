@@ -1,0 +1,543 @@
+{
+  "id": "HWG-UI-AUDIT-REGISTER-001",
+  "version": "1.2.0",
+  "date": "2026-09-22",
+  "framework": "HWG-UI-AUDIT-001",
+  "work_item": "HWG-WORK-025",
+  "source_runtime": "http://127.0.0.1:5080/panel/",
+  "live_console_errors": [],
+  "targets": [
+    {
+      "workspace": "overview",
+      "overall": "CORRECT",
+      "live": {
+        "title": "وضعیت کلی",
+        "buttons": [],
+        "inputs": 0,
+        "tables": 0,
+        "cards": 10
+      },
+      "findings": [
+        {
+          "id": "UI-OV-001",
+          "class": "GAP",
+          "priority": "P0",
+          "observation": "Synthetic/test traffic is mixed with operational telemetry.",
+          "action": "Separate synthetic/test evidence from operational telemetry.",
+          "owner": "HWG-WORK-025",
+          "status": "VERIFIED",
+          "verified_at": "2026-09-22",
+          "verification": "Live 5080 UI audit after correction; expected operational semantics observed with zero console errors."
+        },
+        {
+          "id": "UI-OV-002",
+          "class": "CORRECT",
+          "priority": "P0",
+          "observation": "Provider cards distinguish Browser readiness from Functional Readiness.",
+          "action": "Preserve this distinction.",
+          "owner": "HWG-WORK-025",
+          "status": "VERIFIED"
+        },
+        {
+          "id": "UI-OV-003",
+          "class": "GAP",
+          "priority": "P0",
+          "observation": "Expired readiness record could display READY while current=false, contradicting global ready count.",
+          "action": "Render stale readiness explicitly as STALE / Probe required across Overview, Providers and Accounts.",
+          "owner": "HWG-WORK-025",
+          "status": "VERIFIED",
+          "verified_at": "2026-09-22",
+          "verification": "Live 5080 audit shows STALE · Probe لازم consistently in Overview, Provider and Account views."
+        }
+      ]
+    },
+    {
+      "workspace": "runtimes",
+      "overall": "GAP",
+      "live": {
+        "title": "Runtimeهای مرورگر",
+        "buttons": [
+          "تعمیر Runtimeها",
+          "باز کردن Tab / ورود",
+          "باز کردن Tab / ورود",
+          "باز کردن Tab / ورود",
+          "ری‌استارت Browser Runtime",
+          "باز کردن Tab / ورود",
+          "ری‌استارت Browser Runtime"
+        ],
+        "inputs": 0,
+        "tables": 0,
+        "cards": 2
+      },
+      "findings": [
+        {
+          "id": "UI-RT-001",
+          "class": "CORRECT",
+          "priority": "P0",
+          "observation": "Two Browser Runtime groups correctly model shared 9330 and Qwen 9325.",
+          "action": "Preserve runtime grouping.",
+          "owner": "HWG-WORK-025",
+          "status": "VERIFIED"
+        },
+        {
+          "id": "UI-RT-002",
+          "class": "REDUNDANT",
+          "priority": "P1",
+          "observation": "Provider child exposes both raw external URL and governed Open/Login action.",
+          "action": "Prefer governed managed action.",
+          "owner": "HWG-WORK-025",
+          "status": "OPEN"
+        }
+      ]
+    },
+    {
+      "workspace": "profiles",
+      "overall": "CORRECT",
+      "live": {
+        "title": "پروفایل‌های مرورگر",
+        "buttons": [
+          "ساخت Profile خالی",
+          "حذف Profile و داده‌های مرورگر",
+          "حذف Profile و داده‌های مرورگر",
+          "حذف Profile و داده‌های مرورگر",
+          "حذف Profile و داده‌های مرورگر",
+          "حذف Profile و داده‌های مرورگر"
+        ],
+        "inputs": 1,
+        "tables": 0,
+        "cards": 2
+      },
+      "findings": [
+        {
+          "id": "UI-PF-001",
+          "class": "CORRECT",
+          "priority": "P0",
+          "observation": "Profile workspace explains storage boundary and Account/isolation relationships.",
+          "action": "Preserve semantic profile filtering.",
+          "owner": "HWG-WORK-025",
+          "status": "VERIFIED"
+        }
+      ]
+    },
+    {
+      "workspace": "accounts",
+      "overall": "GAP",
+      "live": {
+        "title": "حساب‌ها و Session",
+        "buttons": [
+          "Validate Session",
+          "Open / Login",
+          "Re-auth",
+          "Logout",
+          "Validate Session",
+          "Open / Login",
+          "Re-auth",
+          "Logout",
+          "Validate Session",
+          "Open / Login",
+          "Re-auth",
+          "Logout",
+          "Validate Session",
+          "Open / Login",
+          "Re-auth",
+          "Logout"
+        ],
+        "inputs": 0,
+        "tables": 0,
+        "cards": 1
+      },
+      "findings": [
+        {
+          "id": "UI-AC-001",
+          "class": "CORRECT",
+          "priority": "P0",
+          "observation": "Account cards show Provider Profile → Account → Profile/Origin → Runtime plus Session and Readiness.",
+          "action": "Preserve relationship chain.",
+          "owner": "HWG-WORK-025",
+          "status": "VERIFIED"
+        },
+        {
+          "id": "UI-AC-002",
+          "class": "GAP",
+          "priority": "P1",
+          "observation": "UNKNOWN readiness is shown without reason or next action.",
+          "action": "Show readiness reason/evidence age and next action.",
+          "owner": "HWG-WORK-025",
+          "status": "OPEN"
+        }
+      ]
+    },
+    {
+      "workspace": "providers",
+      "overall": "CORRECT",
+      "live": {
+        "title": "فراهم‌کننده‌ها",
+        "buttons": [
+          "اضافه‌کردن",
+          "تعمیر محیط‌ها",
+          "مدیریت Browser/Profile",
+          "ذخیره",
+          "آمادگی عملکردی",
+          "تست Provider",
+          "حذف Provider",
+          "مدیریت Browser/Profile",
+          "ذخیره",
+          "آمادگی عملکردی",
+          "تست Provider",
+          "حذف Provider",
+          "مدیریت Browser/Profile",
+          "ذخیره",
+          "آمادگی عملکردی",
+          "تست Provider",
+          "حذف Provider",
+          "مدیریت Browser/Profile",
+          "ذخیره",
+          "آمادگی عملکردی",
+          "تست Provider",
+          "حذف Provider"
+        ],
+        "inputs": 16,
+        "tables": 1,
+        "cards": 0
+      },
+      "findings": [
+        {
+          "id": "UI-PR-001",
+          "class": "MISPLACED",
+          "priority": "P0",
+          "observation": "Provider page still exposes Repair environments although Runtime owns runtime operations.",
+          "action": "Remove Runtime repair from Provider workspace.",
+          "owner": "HWG-WORK-025",
+          "status": "VERIFIED",
+          "verified_at": "2026-09-22",
+          "verification": "Live 5080 UI audit; zero console errors and expected governed representation observed."
+        },
+        {
+          "id": "UI-PR-002",
+          "class": "GAP",
+          "priority": "P0",
+          "observation": "Dense table mixes provider config, browser state, readiness and feature controls.",
+          "action": "Use relationship-aware provider cards/detail flow.",
+          "owner": "HWG-WORK-025",
+          "status": "VERIFIED",
+          "verified_at": "2026-09-22",
+          "verification": "Live 5080 UI audit after correction; expected operational semantics observed with zero console errors."
+        }
+      ]
+    },
+    {
+      "workspace": "models",
+      "overall": "GAP",
+      "live": {
+        "title": "مدل‌ها و قابلیت‌ها",
+        "buttons": [
+          "تازه‌سازی"
+        ],
+        "inputs": 0,
+        "tables": 1,
+        "cards": 4
+      },
+      "findings": [
+        {
+          "id": "UI-MO-001",
+          "class": "GAP",
+          "priority": "P1",
+          "observation": "Capability matrix is provider-level and does not expose certification scope per account/model.",
+          "action": "Show certified capability scope and evidence age.",
+          "owner": "HWG-WORK-025",
+          "status": "OPEN"
+        }
+      ]
+    },
+    {
+      "workspace": "discovery",
+      "overall": "CORRECT",
+      "live": {
+        "title": "کاوش و گواهی",
+        "buttons": [
+          "ایجاد Run کنترل‌شده",
+          "تازه‌سازی"
+        ],
+        "inputs": 3,
+        "tables": 0,
+        "cards": 2
+      },
+      "findings": [
+        {
+          "id": "UI-DI-001",
+          "class": "GAP",
+          "priority": "P0",
+          "observation": "Intro still ends with Interactive Certification and omits current AI-assisted, Behavior Lab and automated E2 paths.",
+          "action": "Render the real discovery state machine and both certification lanes.",
+          "owner": "HWG-WORK-025",
+          "status": "VERIFIED",
+          "verified_at": "2026-09-22",
+          "verification": "Live 5080 UI audit; zero console errors and expected governed representation observed."
+        },
+        {
+          "id": "UI-DI-002",
+          "class": "GAP",
+          "priority": "P0",
+          "observation": "Empty state does not teach prerequisites or next observable steps.",
+          "action": "Add guided empty state and evidence-oriented run timeline.",
+          "owner": "HWG-WORK-025",
+          "status": "VERIFIED",
+          "verified_at": "2026-09-22",
+          "verification": "Live 5080 UI audit; zero console errors and expected governed representation observed."
+        }
+      ]
+    },
+    {
+      "workspace": "chat",
+      "overall": "GAP",
+      "live": {
+        "title": "چت تعاملی",
+        "buttons": [
+          "گفتگوی جدید",
+          "B",
+          "I",
+          "C",
+          "</>",
+          "TBL",
+          "IMG",
+          "LNK",
+          "ATTACH",
+          "ارسال",
+          "توقف"
+        ],
+        "inputs": 5,
+        "tables": 0,
+        "cards": 1
+      },
+      "findings": [
+        {
+          "id": "UI-CH-001",
+          "class": "GAP",
+          "priority": "P1",
+          "observation": "Chat does not visibly explain readiness/certification basis for the selected account.",
+          "action": "Display Account readiness/certification and disable unsupported paths with reason.",
+          "owner": "HWG-WORK-025",
+          "status": "OPEN"
+        }
+      ]
+    },
+    {
+      "workspace": "sessions",
+      "overall": "CORRECT",
+      "live": {
+        "title": "گفتگوها",
+        "buttons": [
+          "تازه‌سازی"
+        ],
+        "inputs": 0,
+        "tables": 1,
+        "cards": 0
+      },
+      "findings": [
+        {
+          "id": "UI-SE-001",
+          "class": "GAP",
+          "priority": "P1",
+          "observation": "Workspace still uses legacy MCP execution-mind terminology.",
+          "action": "Reframe around HWG conversations/session state and Provider/Account relationship.",
+          "owner": "HWG-WORK-025",
+          "status": "VERIFIED",
+          "verified_at": "2026-09-22",
+          "verification": "Live 5080 UI audit; zero console errors and expected governed representation observed."
+        }
+      ]
+    },
+    {
+      "workspace": "telemetry",
+      "overall": "CORRECT",
+      "live": {
+        "title": "آمار مصرف",
+        "buttons": [
+          "تازه‌سازی"
+        ],
+        "inputs": 0,
+        "tables": 0,
+        "cards": 5
+      },
+      "findings": [
+        {
+          "id": "UI-TE-001",
+          "class": "GAP",
+          "priority": "P0",
+          "observation": "Synthetic test failures and operational metrics are mixed.",
+          "action": "Tag traffic source and default to operational dispatch only.",
+          "owner": "HWG-WORK-025",
+          "status": "VERIFIED",
+          "verified_at": "2026-09-22",
+          "verification": "Live 5080 UI audit after correction; expected operational semantics observed with zero console errors."
+        }
+      ]
+    },
+    {
+      "workspace": "apikeys",
+      "overall": "CORRECT",
+      "live": {
+        "title": "کلیدها و دسترسی",
+        "buttons": [
+          "غیرفعال‌کردن احراز هویت",
+          "تولید کلید جدید"
+        ],
+        "inputs": 0,
+        "tables": 1,
+        "cards": 0
+      },
+      "findings": [
+        {
+          "id": "UI-AK-001",
+          "class": "CORRECT",
+          "priority": "P1",
+          "observation": "API key/auth purpose is understandable and scoped to access management.",
+          "action": "Preserve; security audit validates semantics separately.",
+          "owner": "HWG-WORK-025",
+          "status": "VERIFIED"
+        }
+      ]
+    },
+    {
+      "workspace": "config",
+      "overall": "CORRECT",
+      "live": {
+        "title": "تنظیمات",
+        "buttons": [
+          "ذخیره تنظیمات",
+          "بازخوانی"
+        ],
+        "inputs": 28,
+        "tables": 0,
+        "cards": 8
+      },
+      "findings": [
+        {
+          "id": "UI-CF-001",
+          "class": "MISPLACED",
+          "priority": "P0",
+          "observation": "Global/per-provider raw CDP fields remain editable despite Browser Runtime ownership.",
+          "action": "Move raw CDP to advanced diagnostics and manage relationships through Runtime/Profile controls.",
+          "owner": "HWG-WORK-025",
+          "status": "VERIFIED",
+          "verified_at": "2026-09-22",
+          "verification": "Live 5080 UI audit; zero console errors and expected governed representation observed."
+        },
+        {
+          "id": "UI-CF-002",
+          "class": "GAP",
+          "priority": "P0",
+          "observation": "Provider enabled switches can bypass Login/Discovery/Certification/Readiness sequence.",
+          "action": "Gate enablement by certified readiness.",
+          "owner": "HWG-WORK-025",
+          "status": "VERIFIED",
+          "verified_at": "2026-09-22",
+          "verification": "Live 5080 UI audit; zero console errors and expected governed representation observed."
+        }
+      ]
+    },
+    {
+      "workspace": "service",
+      "overall": "GAP",
+      "live": {
+        "title": "سرویس و ری‌استارت",
+        "buttons": [
+          "شروع",
+          "توقف",
+          "ری‌استارت"
+        ],
+        "inputs": 0,
+        "tables": 0,
+        "cards": 2
+      },
+      "findings": [
+        {
+          "id": "UI-SV-001",
+          "class": "GAP",
+          "priority": "P1",
+          "observation": "Page assumes canonical Windows service although dev topology includes direct gateway process and Desktop Runtime Agent task.",
+          "action": "Show actual execution topology and recovery state.",
+          "owner": "HWG-WORK-025",
+          "status": "OPEN"
+        }
+      ]
+    },
+    {
+      "workspace": "work",
+      "overall": "CORRECT",
+      "live": {
+        "title": "کارهای باقی‌مانده",
+        "buttons": [],
+        "inputs": 0,
+        "tables": 0,
+        "cards": 6
+      },
+      "findings": [
+        {
+          "id": "UI-WK-001",
+          "class": "CORRECT",
+          "priority": "P0",
+          "observation": "Work Register exposes validity, dependency-ready actions, Evidence and Exit Criteria.",
+          "action": "Preserve as anti-forgetting workspace.",
+          "owner": "HWG-WORK-025",
+          "status": "VERIFIED"
+        }
+      ]
+    },
+    {
+      "workspace": "logs",
+      "overall": "GAP",
+      "live": {
+        "title": "گزارش‌ها و شواهد",
+        "buttons": [],
+        "inputs": 1,
+        "tables": 0,
+        "cards": 0
+      },
+      "findings": [
+        {
+          "id": "UI-LG-001",
+          "class": "GAP",
+          "priority": "P1",
+          "observation": "Raw diagnostics and structured evidence are conflated.",
+          "action": "Separate diagnostics from evidence/change/certification records.",
+          "owner": "HWG-WORK-025",
+          "status": "OPEN"
+        }
+      ]
+    },
+    {
+      "workspace": "provider-form",
+      "overall": "GAP",
+      "live": {
+        "title": null,
+        "buttons": null,
+        "inputs": null,
+        "tables": null,
+        "cards": null
+      },
+      "findings": [
+        {
+          "id": "UI-PROVFORM-001",
+          "class": "GAP",
+          "priority": "P1",
+          "observation": "Provisioning shows Provider→Runtime but Account Instance is not part of the visible outcome.",
+          "action": "Show Provider→Account→Runtime/Profile and the next account/session step.",
+          "owner": "HWG-WORK-025",
+          "status": "OPEN"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "workspace_count": 16,
+    "finding_counts": {
+      "CORRECT": 6,
+      "GAP": 14,
+      "MISPLACED": 2,
+      "REDUNDANT": 1
+    },
+    "p0_open": 0,
+    "verified": 16
+  }
+}

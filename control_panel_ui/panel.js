@@ -3,7 +3,9 @@
 
   const PANEL_TITLES = {
     overview: 'وضعیت کلی',
-    runtimes: 'مرورگر و اتصال',
+    runtimes: 'Runtimeهای مرورگر',
+    profiles: 'پروفایل‌های مرورگر',
+    accounts: 'حساب‌ها و Session',
     providers: 'فراهم‌کننده‌ها',
     'provider-form': 'افزودن Provider',
     models: 'مدل‌ها و قابلیت‌ها',
@@ -78,6 +80,8 @@
     $('#panel-title').textContent = PANEL_TITLES[name] || name;
     if (name === 'overview') loadOverview();
     if (name === 'runtimes') loadRuntimes();
+    if (name === 'profiles') loadProfiles();
+    if (name === 'accounts') loadAccounts();
     if (name === 'providers') loadProviders();
     if (name === 'models') loadModelsTab();
     if (name === 'discovery') loadDiscovery();
@@ -344,8 +348,8 @@ function initNav() {
     const status = $('#runtime-action-global');
     setStatus(status, '', '');
     try {
-      const [data, profileData, orchestration] = await Promise.all([
-        api('/browser-runtimes'), api('/runtime/profiles'), api('/runtime/orchestration')
+      const [data, orchestration] = await Promise.all([
+        api('/browser-runtimes'), api('/runtime/orchestration')
       ]);
       const agent = orchestration.desktop_agent || {};
       const banner = $('#runtime-agent-state');
@@ -356,7 +360,6 @@ function initNav() {
           ? '<b>Desktop Runtime Agent آماده است.</b><span class="ltr">' + (agent.url || '') + '</span>'
           : '<b>عامل کنترل Runtime در دسترس نیست.</b><span>CDPهای موجود ممکن است زنده باشند، اما Start/Restart/Open تا بازگشت Agent غیرفعال است. ' + (agent.url || '-') + '</span>';
       }
-      const profiles = profileData.profiles || [];
       const cards = $('#runtime-cards');
       cards.innerHTML = (data.browser_runtimes || []).map(r => {
         const canOperate = agent.reachable === true;
@@ -379,7 +382,6 @@ function initNav() {
       }).join('');
       cards.querySelectorAll('button[data-act]').forEach(b => b.addEventListener('click', () => runtimeAction(b.dataset.id, b.dataset.act, b)));
       cards.querySelectorAll('button[data-open]').forEach(b => b.addEventListener('click', () => window.HwgOpenProvider(b.dataset.id)));
-      renderProfiles(profiles);
     } catch (e) {
       const cards = $('#runtime-cards');
       if (cards) cards.innerHTML = `<div class="card hint">خطا: ${e.message}</div>`;
@@ -387,27 +389,38 @@ function initNav() {
     $('#runtime-repair-all').onclick = () => runtimeAction('all', 'repair', null);
   }
 
-  function renderProfiles(profiles) {
-    const box = $('#profiles-grid');
-    if (!box) return;
+  function normPath(v) { return String(v || '').replace(/\\/g, '/').toLowerCase(); }
+
+  async function loadProfiles() {
+    try {
+      const [profileData, inventory] = await Promise.all([api('/runtime/profiles'), api('/ng/inventory')]);
+      renderProfiles(profileData.profiles || [], inventory.account_instances || [], inventory.conflicts || []);
+    } catch (e) {
+      const box = $('#profiles-grid'); if (box) box.innerHTML = `<div class="hint">خطا: ${e.message}</div>`;
+    }
+  }
+
+  function renderProfiles(profiles, accounts, conflicts) {
+    const box = $('#profiles-grid'); if (!box) return;
     box.innerHTML = profiles.map(p => {
-      const assigned = (p.assigned_to || []);
-      const kindLabel = p.kind === 'shared' ? 'Shared' : (p.kind === 'managed' ? 'Managed' : 'Legacy');
+      const pnorm = normPath(p.profile_dir);
+      const linked = accounts.filter(a => { const ap=normPath(a.browser_profile?.path); return ap && (pnorm.endsWith(ap) || ap.endsWith(pnorm)); });
+      const modes = [...new Set(linked.map(a => a.browser_profile?.sharing_mode).filter(Boolean))];
+      const hasConflict = linked.some(a => a.browser_profile?.sharing_mode === 'same_origin_conflict');
+      const isolation = hasConflict ? 'Same-origin conflict' : (modes.includes('cross_origin_isolated') ? 'Cross-origin isolated' : (modes[0] || 'بدون Account'));
       const contentState = p.initialized ? 'دارای داده مرورگر' : 'تقریباً خالی';
-      const whyLocked = assigned.length ? 'برای حذف ابتدا Providerهای متصل را به Profile دیگری منتقل کنید.' : '';
+      const whyLocked = (p.assigned_to || []).length ? 'برای حذف ابتدا اتصال‌های عملیاتی را منتقل کنید.' : '';
+      const accountRows = linked.map(a => `<div class="hint"><b class="ltr">${a.account_id}</b> · <span class="ltr">${a.browser_profile?.origin || 'origin?'}</span></div>`).join('');
       return `<div class="profile-card semantic-profile ${p.kind || ''}">
-        <div class="profile-card-head"><div><b class="ltr">${p.name}</b><span class="badge neutral">${kindLabel}</span></div><span class="badge ${p.initialized ? 'info' : 'neutral'}">${contentState}</span></div>
-        <div class="hint ltr">${p.profile_dir}</div>
-        <div class="profile-purpose">Chrome user-data: Session / Cookie / Local Storage / تنظیمات مرورگر</div>
-        <div class="profile-assignment">${assigned.length ? 'فرزندهای متصل: ' + assigned.join('، ') : 'هیچ Providerی به این Profile متصل نیست'}</div>
-        ${p.kind === 'shared' ? '<div class="dependency-note">این Profile مشترک است و چند Web Chat می‌توانند همان Browser identity را استفاده کنند.</div>' : ''}
+        <div class="profile-card-head"><div><b class="ltr">${p.name}</b><span class="badge neutral">${p.kind || 'profile'}</span></div><span class="badge ${hasConflict ? 'bad' : (linked.length ? 'ok' : 'neutral')}">${isolation}</span></div>
+        <div class="hint ltr">${p.profile_dir}</div><div class="profile-purpose">Chrome user-data: Session / Cookie / Local Storage / Browser settings</div>
+        <div class="profile-assignment">${linked.length ? 'Accountهای متصل:' : 'Account متصلی ثبت نشده است.'}${accountRows}</div>
+        <span class="badge ${p.initialized ? 'info' : 'neutral'}">${contentState}</span>
         ${whyLocked ? `<div class="dependency-note warn">${whyLocked}</div>` : ''}
-        <button class="btn danger btn-xs" data-profile-dir="${p.profile_dir}" ${p.deletable ? '' : 'disabled'}>حذف Profile و داده‌های مرورگر</button>
-      </div>`;
+        <button class="btn danger btn-xs" data-profile-dir="${p.profile_dir}" ${p.deletable ? '' : 'disabled'}>حذف Profile و داده‌های مرورگر</button></div>`;
     }).join('') || '<div class="hint">پروفایلی ثبت نشده است.</div>';
     box.querySelectorAll('[data-profile-dir]').forEach(btn => btn.addEventListener('click', () => deleteProfile(btn.dataset.profileDir)));
-    const create = $('#profile-create');
-    if (create) create.onclick = createProfile;
+    const create=$('#profile-create'); if (create) create.onclick=createProfile;
   }
 
   async function createProfile() {
@@ -418,7 +431,7 @@ function initNav() {
       await api('/runtime/profiles', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({name}) });
       input.value = '';
       toast('Profile خالی ساخته شد؛ مرحله بعد اتصال آن به Runtime و سپس Login است.', 'ok');
-      await loadRuntimes();
+      await loadProfiles();
       await loadProviders();
     } catch (e) { toast('ساخت پروفایل: ' + e.message, 'err'); }
   }
@@ -428,7 +441,7 @@ function initNav() {
     try {
       await api('/runtime/profiles', { method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({profile_dir: profileDir}) });
       toast('Profile و داده‌های مرورگر حذف شد', 'ok');
-      await loadRuntimes();
+      await loadProfiles();
       await loadProviders();
     } catch (e) { toast('حذف Profile: ' + e.message, 'err'); }
   }
@@ -452,6 +465,51 @@ function initNav() {
     }
   }
 
+  async function loadAccounts() {
+    const box=$('#accounts-grid'), global=$('#accounts-global-status');
+    if (global) setStatus(global,'','');
+    try {
+      const [data, readiness, runtimes] = await Promise.all([api('/accounts'), api('/readiness'), api('/browser-runtimes')]);
+      const rmap = new Map((readiness.providers || []).map(r => [r.account_id, r]));
+      const groups = runtimes.browser_runtimes || [];
+      box.innerHTML = (data.accounts || []).map(a => {
+        const b=a.browser_profile || {}, sess=a.session || {}, rr=rmap.get(a.account_id) || {};
+        const pnorm=normPath(b.path); const rg=groups.find(g => {const gp=normPath(g.profile); return pnorm && (gp.endsWith(pnorm)||pnorm.endsWith(gp));});
+        const access=sess.access_state || sess.state || 'UNKNOWN';
+        const ready=rr.ready===true && rr.current===true;
+        const readinessText=ready ? 'READY عملکردی' : (rr.state==='READY' ? 'STALE · Probe لازم' : (rr.state || 'UNKNOWN'));
+        const conflict=b.sharing_mode==='same_origin_conflict';
+        return `<div class="profile-card account-card ${conflict?'conflict':''}">
+          <div class="profile-card-head"><div><b class="ltr">${a.account_id}</b><span class="badge neutral ltr">${a.provider_profile_id || '-'}</span></div><span class="badge ${access==='AUTHENTICATED'?'ok':(access==='BLOCKED'?'bad':'warn')}">${access}</span></div>
+          <div class="relationship-preview"><b>Provider Profile</b> <span class="ltr">${a.provider_profile_id || '-'}</span> → <b>Account</b> <span class="ltr">${a.account_id}</span> → <b>Profile/Origin</b> <span class="ltr">${b.path || '-'} · ${b.origin || '-'}</span> → <b>Runtime</b> <span class="ltr">${rg?.cdp_url || a.runtime?.cdp_url || 'provider runtime'}</span></div>
+          <div class="kv"><span>Isolation</span><b>${b.sharing_mode || b.ownership || 'unknown'}</b><span>Session</span><b>${access}</b><span>Readiness</span><b>${readinessText}</b></div>
+          ${conflict ? '<div class="dependency-note warn">Same-origin multi-account conflict: این Account باید Profile/Runtime مستقل داشته باشد.</div>' : ''}
+          <div class="btn-row mt"><button class="btn ghost btn-xs" data-account="${a.account_id}" data-aa="validate">Validate Session</button><button class="btn primary btn-xs" data-account="${a.account_id}" data-aa="login">Open / Login</button><button class="btn ghost btn-xs" data-account="${a.account_id}" data-aa="reauth">Re-auth</button><button class="btn danger btn-xs" data-account="${a.account_id}" data-aa="logout">Logout</button></div>
+          <div class="status-line" id="account-status-${a.account_id}"></div></div>`;
+      }).join('') || '<div class="hint">Account Instance ثبت نشده است.</div>';
+      box.querySelectorAll('[data-aa]').forEach(btn => btn.addEventListener('click', () => accountAction(btn.dataset.account, btn.dataset.aa, btn)));
+    } catch(e) { if(box) box.innerHTML=`<div class="hint">خطا: ${e.message}</div>`; }
+  }
+
+  async function accountAction(accountId, action, btn) {
+    const status=document.getElementById('account-status-'+accountId), orig=btn.textContent;
+    if(action==='logout' && !confirm('Logout فقط Origin همین Account را پاک می‌کند. ادامه می‌دهید؟')) return;
+    btn.disabled=true; btn.textContent='در حال انجام...'; setStatus(status,'در حال اجرا و سپس راستی‌آزمایی...','working');
+    try {
+      if(action==='validate') await api('/accounts/'+encodeURIComponent(accountId)+'/session');
+      else if(action==='login') await api('/accounts/'+encodeURIComponent(accountId)+'/login/open',{method:'POST'});
+      else if(action==='reauth') await api('/accounts/'+encodeURIComponent(accountId)+'/reauth',{method:'POST'});
+      else if(action==='logout') await api('/accounts/'+encodeURIComponent(accountId)+'/logout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirm:true})});
+      await new Promise(r=>setTimeout(r, action==='validate'?0:500));
+      const verified=await api('/accounts/'+encodeURIComponent(accountId)+'/session');
+      const state=verified.lifecycle?.access_state || verified.access?.state || 'UNKNOWN';
+      setStatus(status,'راستی‌آزمایی پس از عملیات: '+state,'ok');
+      toast('Account '+accountId+': '+state,'ok');
+      await loadAccounts();
+    } catch(e) { setStatus(status,'خطا: '+e.message,'err'); toast('Account: '+e.message,'err'); }
+    finally { btn.disabled=false; btn.textContent=orig; }
+  }
+
   /* ---------------- Providers ---------------- */
   async function loadProviders(opts) {
     let data;
@@ -470,61 +528,42 @@ function initNav() {
       summary.innerHTML = providers.map(p => {
         const functionalReady = p.readiness?.ready === true && p.readiness?.current === true;
         const stateClass = functionalReady ? 'ready' : (p.runtime?.ready ? 'unknown' : 'down');
-        const stateLabel = functionalReady ? 'READY عملکردی' : (p.readiness?.state || (p.runtime?.ready ? 'نیازمند Probe' : 'Browser در دسترس نیست'));
+        const rawReadiness = p.readiness?.state || 'UNKNOWN';
+        const stateLabel = functionalReady ? 'READY عملکردی' : (rawReadiness === 'READY' ? 'STALE · Probe لازم' : (rawReadiness || (p.runtime?.ready ? 'نیازمند Probe' : 'Browser در دسترس نیست')));
         return `<div class="provider-status-card ${stateClass}">
           <div class="provider-status-head"><span class="status-dot"></span><b class="ltr">${p.id}</b></div>
           <div class="provider-status-state">${stateLabel}</div>
-          <div class="provider-status-meta">${p.enabled ? 'فعال' : 'غیرفعال'} · Browser: ${p.runtime?.status || 'unknown'} · Readiness: ${p.readiness?.state || 'UNKNOWN'}</div>
+          <div class="provider-status-meta">${p.enabled ? 'فعال' : 'غیرفعال'} · Browser: ${p.runtime?.status || 'unknown'} · Readiness: ${stateLabel}</div>
         </div>`;
       }).join('');
     }
 
     if (opts && opts.quiet) return;
 
-    const tbody = $('#providers-body');
-    tbody.innerHTML = providers.map(p => `
-      <tr>
-        <td class="ltr">${p.id}</td>
-        <td><span class="hwg-chip hwg-neutral">${p.type}</span></td>
-        <td><label class="provider-switch"><input type="checkbox" ${p.enabled ? 'checked' : ''} onchange="window.HwgProviderEnabled && HwgProviderEnabled('${p.id}',this.checked)"><span>${p.enabled ? 'فعال' : 'غیرفعال'}</span></label></td>
-        <td>
-          <span class="hwg-chip ${p.runtime?.ready ? 'hwg-ok' : 'hwg-bad'}">${p.runtime?.ready ? 'Browser آماده' : 'Browser آماده نیست'}</span>
-          <span class="hwg-chip ${p.readiness?.ready && p.readiness?.current ? 'hwg-ok' : 'hwg-neutral'}">${p.readiness?.ready && p.readiness?.current ? 'READY عملکردی' : (p.readiness?.state || 'Readiness نامشخص')}</span>
-          <div class="hint">Profile: <span class="ltr">${p.profile_dir || 'تعریف نشده'}</span></div>
-          <button class="btn ghost btn-xs" onclick="window.HwgGoRuntime && HwgGoRuntime()">مدیریت Browser/Profile</button>
-        </td>
-        <td>${p.priority}</td>
-        <td><div class="capability-badges">${Object.entries(p.capabilities || {}).filter(([k, v]) => v === true).map(([k]) => `<span class="cap-badge">${k}</span>`).join('')}</div></td>
-        <td>
-          <label class="check"><input type="checkbox" ${p.features?.defaults?.thinking ? 'checked' : ''} ${p.features?.controls?.thinking ? '' : 'disabled'}
-            onchange="window.HwgProvidersToggle && HwgProvidersToggle('${p.id}','thinking',this.checked)"><span>${p.features?.controls?.thinking ? (p.features?.defaults?.thinking ? 'روشن' : 'خاموش') : 'N/A'}</span></label>
-        </td>
-        <td>
-          <label class="check"><input type="checkbox" ${p.features?.defaults?.search ? 'checked' : ''} ${p.features?.controls?.search ? '' : 'disabled'}
-            onchange="window.HwgProvidersToggle && HwgProvidersToggle('${p.id}','search',this.checked)"><span>${p.features?.controls?.search ? (p.features?.defaults?.search ? 'روشن' : 'خاموش') : 'N/A'}</span></label>
-        </td>
-        <td>
-          <div class="btn-row">
-            <select class="ctrl" id="model-${p.id}" style="max-width:180px" data-original="${(p.model?.default || p.id)?.replace(/"/g, '&quot;')}">
-              ${(p.model?.options || [p.model?.default || p.id]).map(m => `<option value="${m.replace(/"/g, '&quot;')}">${m}</option>`).join('')}
-            </select>
-            <button class="btn primary btn-xs" onclick="window.HwgModelSave && HwgModelSave('${p.id}')">ذخیره</button>
-          </div>
-          <div class="hint">فعلی: <span class="ltr">${p.model?.default || p.id}</span></div>
-          <div id="model-status-${p.id}" class="status-line"></div>
-        </td>
-        <td>
-          <div class="btn-row">
-            <button class="btn primary btn-xs" id="ready-${p.id}" onclick="window.HwgReadinessProbe && HwgReadinessProbe('${p.id}')" ${p.runtime?.ready ? '' : 'disabled'}>آمادگی عملکردی</button>
-            <button class="btn ghost btn-xs" id="test-${p.id}" onclick="window.HwgTestProvider && HwgTestProvider('${p.id}')" ${p.runtime?.ready ? '' : 'disabled'}>تست Provider</button>
-            <button class="btn btn-danger btn-xs" onclick="window.HwgDeleteProvider && HwgDeleteProvider('${p.id}')">حذف Provider</button>
-          </div>
-          ${p.runtime?.ready ? '' : '<div class="hint">ابتدا Browser Runtime را آماده کنید.</div>'}
-          <div id="ready-status-${p.id}" class="status-line"></div>
-          <div id="test-status-${p.id}" class="status-line"></div>
-        </td>
-      </tr>`).join('');
-    $('#repair-all-runtimes').onclick = () => runtimeAction('all', 'repair', null);
+    const grid = $('#providers-grid');
+    grid.innerHTML = providers.map(p => {
+      const functionalReady = p.readiness?.ready === true && p.readiness?.current === true;
+      const canEnable = p.enabled || functionalReady;
+      const rawReadiness = p.readiness?.state || 'UNKNOWN';
+      const readyLabel = functionalReady ? 'READY' : (rawReadiness === 'READY' ? 'STALE · Probe لازم' : rawReadiness);
+      const featureBadges = Object.entries(p.capabilities || {}).filter(([k,v]) => v === true).map(([k]) => `<span class="cap-badge">${k}</span>`).join('');
+      const modelOptions = (p.model?.options || [p.model?.default || p.id]).map(m => `<option value="${m.replace(/"/g,'&quot;')}">${m}</option>`).join('');
+      return `<div class="card provider-relationship-card">
+        <div class="card-head"><div><b class="ltr">${p.id}</b><div class="hint">${p.type} · اولویت ${p.priority}</div></div><div class="btn-row"><span class="badge ${p.runtime?.ready ? 'ok' : 'bad'}">Browser ${p.runtime?.ready ? 'ready' : 'down'}</span><span class="badge ${functionalReady ? 'ok' : 'neutral'}">${readyLabel}</span></div></div>
+        <div class="relationship-preview"><b>Provider</b> <span class="ltr">${p.id}</span> → <b>Profile</b> <span class="ltr">${p.profile_dir || '-'}</span> → <b>Readiness</b> ${readyLabel}</div>
+        <div class="grid-2 mt">
+          <div><div class="hint">قابلیت‌های اعلام‌شده</div><div class="capability-badges">${featureBadges || '<span class="hint">ثبت نشده</span>'}</div></div>
+          <div><div class="hint">وضعیت فعال‌سازی</div><label class="provider-switch"><input type="checkbox" ${p.enabled ? 'checked' : ''} ${canEnable ? '' : 'disabled'} onchange="window.HwgProviderEnabled && HwgProviderEnabled('${p.id}',this.checked)"><span>${p.enabled ? 'فعال' : (functionalReady ? 'آماده فعال‌سازی' : 'پس از READY قابل فعال‌سازی')}</span></label></div>
+        </div>
+        <div class="grid-2 mt">
+          <div class="card compact-card"><div class="hint">مدل پیش‌فرض</div><div class="btn-row"><select class="ctrl" id="model-${p.id}">${modelOptions}</select><button class="btn primary btn-xs" onclick="window.HwgModelSave && HwgModelSave('${p.id}')">ذخیره مدل</button></div><div class="hint">فعلی: <span class="ltr">${p.model?.default || p.id}</span></div><div id="model-status-${p.id}" class="status-line"></div></div>
+          <div class="card compact-card"><div class="hint">Feature defaults</div><div class="btn-row"><label class="check"><input type="checkbox" ${p.features?.defaults?.thinking ? 'checked' : ''} ${p.features?.controls?.thinking ? '' : 'disabled'} onchange="window.HwgProvidersToggle && HwgProvidersToggle('${p.id}','thinking',this.checked)"><span>Thinking ${p.features?.controls?.thinking ? '' : '(N/A)'}</span></label><label class="check"><input type="checkbox" ${p.features?.defaults?.search ? 'checked' : ''} ${p.features?.controls?.search ? '' : 'disabled'} onchange="window.HwgProvidersToggle && HwgProvidersToggle('${p.id}','search',this.checked)"><span>Search ${p.features?.controls?.search ? '' : '(N/A)'}</span></label></div></div>
+        </div>
+        <div class="btn-row mt"><button class="btn ghost btn-xs" onclick="window.HwgGoRuntime && HwgGoRuntime()">Browser Runtime</button><button class="btn ghost btn-xs" onclick="window.HwgGoAccounts && HwgGoAccounts()">Accounts</button><button class="btn primary btn-xs" id="ready-${p.id}" onclick="window.HwgReadinessProbe && HwgReadinessProbe('${p.id}')" ${p.runtime?.ready ? '' : 'disabled'}>اجرای Readiness</button><button class="btn ghost btn-xs" id="test-${p.id}" onclick="window.HwgTestProvider && HwgTestProvider('${p.id}')" ${p.runtime?.ready ? '' : 'disabled'}>تست Provider</button><button class="btn btn-danger btn-xs" onclick="window.HwgDeleteProvider && HwgDeleteProvider('${p.id}')">حذف</button></div>
+        ${!p.runtime?.ready ? '<div class="dependency-note warn mt">ابتدا Browser Runtime را آماده کنید.</div>' : (!functionalReady ? '<div class="dependency-note mt">فعال‌سازی عملیاتی بعد از Readiness معتبر انجام می‌شود.</div>' : '')}
+        <div id="ready-status-${p.id}" class="status-line"></div><div id="test-status-${p.id}" class="status-line"></div>
+      </div>`;
+    }).join('') || '<div class="hint">Provider ثبت نشده است.</div>';
   }
 
   window.HwgProviderEnabled = async function (providerId, enabled) {
@@ -538,6 +577,7 @@ function initNav() {
   };
 
   window.HwgGoRuntime = function () { showPanel('runtimes'); };
+  window.HwgGoAccounts = function () { showPanel('accounts'); };
 
   window.HwgRuntimeProfile = async function (providerId) {
     const select = document.getElementById('runtime-profile-' + providerId);
@@ -881,18 +921,16 @@ function initNav() {
     $('#cfg-server-threads').value = server.threads || '';
     $('#cfg-provider-concurrency').value = server.provider_concurrency || '';
     $('#cfg-server-debug').checked = server.debug === true;
-    $('#cfg-cdp-url').value = cdp.url || '';
     $('#cfg-cdp-timeout').value = cdp.timeout || '';
     $('#cfg-auth-enabled').checked = auth.enabled === true;
     const box = $('#config-providers');
     box.innerHTML = (data.providers || []).map(p => `<div class="card">
       <div class="kv">
         <span class="ltr">${p.id}</span>
-        <label class="check"><input id="cfg-provider-enabled-${p.id}" type="checkbox" ${p.enabled ? 'checked' : ''}>فعال</label>
+        <span class="badge ${p.enabled ? 'ok' : 'neutral'}">${p.enabled ? 'فعال' : 'غیرفعال'}</span>
         <span>اولویت</span><b>${p.priority ?? ''}</b>
       </div>
       <div class="btn-row mt">
-        <label class="field">CDP<input id="cfg-provider-cdp-${p.id}" class="ctrl ltr" value="${(p.cdp_url || '').replace(/"/g, '&quot;')}"></label>
         <label class="field">مدل پیش‌فرض<input id="cfg-provider-model-${p.id}" class="ctrl" value="${(p.default_upstream_model || '').replace(/"/g, '&quot;')}"></label>
         <label class="check"><input id="cfg-provider-thinking-${p.id}" type="checkbox" ${p.thinking ? 'checked' : ''}>تفکر</label>
         <label class="check"><input id="cfg-provider-search-${p.id}" type="checkbox" ${p.search ? 'checked' : ''}>جستجو</label>
@@ -907,9 +945,7 @@ function initNav() {
       if (!id) return;
       providers.push({
         id,
-        enabled: document.getElementById('cfg-provider-enabled-' + id)?.checked === true,
         priority: Number(document.getElementById('cfg-provider-priority-' + id)?.value || card.querySelector('.kv b')?.textContent || 0),
-        cdp_url: document.getElementById('cfg-provider-cdp-' + id)?.value || '',
         default_upstream_model: document.getElementById('cfg-provider-model-' + id)?.value || '',
         thinking: document.getElementById('cfg-provider-thinking-' + id)?.checked === true,
         search: document.getElementById('cfg-provider-search-' + id)?.checked === true,
@@ -923,7 +959,7 @@ function initNav() {
         threads: Number($('#cfg-server-threads').value || 0),
         provider_concurrency: Number($('#cfg-provider-concurrency').value || 0),
       },
-      cdp: { url: $('#cfg-cdp-url').value, timeout: Number($('#cfg-cdp-timeout').value || 0) },
+      cdp: { timeout: Number($('#cfg-cdp-timeout').value || 0) },
       auth: { enabled: $('#cfg-auth-enabled').checked },
       providers,
     };
@@ -1098,7 +1134,7 @@ function initNav() {
       if (r.state === 'CERTIFICATION_REQUIRED') action = `<div class="btn-row"><button class="btn success btn-sm" data-disc-act="cert-auto" data-provider="${r.provider_id}" data-run="${r.run_id}">اجرای Certification خودکار / E2</button><button class="btn ghost btn-sm" data-disc-act="cert-start" data-provider="${r.provider_id}" data-run="${r.run_id}">ثبت پذیرش/مشاهده انسانی</button></div><div class="hint mt">Certification فنی خودکار از round-trip واقعی و Evidence ماشینی استفاده می‌کند؛ کنترل انسانی مسیر جداگانه Acceptance است.</div>`;
       if (r.state === 'CERTIFYING') action = `<div><input class="ctrl ltr" id="cert-evidence-${r.run_id}" placeholder="Evidence record/path"><label class="check mt"><input type="checkbox" id="cert-confirm-${r.run_id}"><span>نتیجه را شخصاً مشاهده و تأیید کردم</span></label><div class="btn-row mt"><button class="btn success btn-sm" data-disc-act="cert-pass" data-provider="${r.provider_id}" data-run="${r.run_id}">ثبت PASS / E2</button><button class="btn ghost btn-sm" data-disc-act="cert-hold" data-provider="${r.provider_id}" data-run="${r.run_id}">HOLD</button></div></div>`;
       return `<div class="work-item"><div><b class="ltr">${r.provider_id}</b><span class="badge">${r.state}</span><span class="badge">${r.evidence_level}</span></div><div class="hint ltr">run=${r.run_id}</div><div class="hint">Account: <span class="ltr">${r.account_id || '-'}</span> · Recipe: <span class="ltr">${r.recipe_version}</span> · Decision: ${r.decision || 'PENDING'}</div>${action}</div>`;
-    }).join('') || '<div class="hint">هنوز Discovery Run ثبت نشده است.</div>';
+    }).join('') || '<div class="work-item discovery-empty"><b>هنوز Run ثبت نشده است.</b><div class="hint">برای شروع، Provider و در صورت وجود Account Instance را انتخاب کنید. Run همیشه از RESEARCH_REQUIRED آغاز می‌شود؛ سپس Baseline وضعیت Runtime/Page/Login را می‌سنجد. Exploration فقط پس از عبور از Access Gate اجرا می‌شود و هیچ یافته‌ای مستقیماً Profile عملیاتی را تغییر نمی‌دهد.</div><div class="hint mt">مسیر بعدی: Research → Baseline → Exploration → Candidate → Certification. در ابهام‌های باقی‌مانده Behavior Lab و AI-assisted analysis قابل استفاده‌اند.</div></div>';
     box.querySelectorAll('[data-disc-act]').forEach(btn => btn.addEventListener('click', () => discoveryRunAction(btn)));
   }
 
