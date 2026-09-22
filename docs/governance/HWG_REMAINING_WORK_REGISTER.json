@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.22.0",
-  "updated_at": "2026-09-22T13:15:00+03:30",
+  "version": "1.23.0",
+  "updated_at": "2026-09-22T14:05:00+03:30",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -783,8 +783,9 @@
       ],
       "latest_evidence": {
         "date": "2026-09-22",
-        "type": "live_runtime_observation",
-        "result": "Task existed but agent was not listening on 5181 after previous abnormal exit; manual task start restored 5181 health. Auto-recovery remains unproven."
+        "type": "live_runtime_restart_failure",
+        "result": "Gateway restart task invoked restart_gateway_hwg.ps1, but configured service HooshkaHWGNGDevGateway is not installed; restart state recorded failed and the old 5080 process remained active. Manual scoped replacement of the identified 5080 main.py process restored the new code without touching port 5000.",
+        "record": "docs/evidence/HWG_AGENT_LOOP_GOVERNANCE_E2_20260922.md"
       }
     },
     {
@@ -914,10 +915,14 @@
       ],
       "latest_evidence": {
         "date": "2026-09-22",
-        "type": "E1 capability expansion",
-        "result": "Governed read/inspection capability plane expanded from 3 to 11 tools; mutating tools remain fail-closed pending controlled authorization/execution plane.",
-        "record": "docs/evidence/HWG_AGENT_CAPABILITY_EXPANSION_E1_20260922.md"
-      }
+        "type": "E1+E2 bounded agent loop governance",
+        "result": "Read-only Agent Plane now has configurable max steps/time budget, per-tool timeout, duplicate-call blocking, bounded results, cumulative evidence and terminal states. DeepSeek E2 completed list_drives, system_info and network_listeners. Mutating tools remain fail-closed.",
+        "record": "docs/evidence/HWG_AGENT_LOOP_GOVERNANCE_E2_20260922.md"
+      },
+      "evidence": [
+        "docs/evidence/HWG_AGENT_CAPABILITY_EXPANSION_E1_20260922.md",
+        "docs/evidence/HWG_AGENT_LOOP_GOVERNANCE_E2_20260922.md"
+      ]
     }
   ]
 }

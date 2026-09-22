@@ -16,12 +16,14 @@ def test_local_tools_fail_closed_outside_roots(tmp_path):
     else: raise AssertionError('outside root must be rejected')
 
 
-def test_interactive_chat_enables_agent_tool_loop():
+def test_interactive_chat_enables_bounded_agent_tool_loop():
     main=Path('main.py').read_text(encoding='utf-8-sig')
     js=Path('control_panel_ui/chat.js').read_text(encoding='utf-8-sig')
     assert 'agent_tool_definitions()' in main
     assert '_agent_tool_result_messages' in main
-    assert 'for _step in range(4)' in main
+    assert 'range(policy.max_steps)' in main
+    assert 'agent_evidence' in main
+    assert 'agent_terminal' in main
     assert 'agent_mode: true' in js
     names={x['function']['name'] for x in agent_tool_definitions()}
     assert {'tool_catalog','list_drives','system_info','environment_info','list_processes','network_listeners','list_files','file_info','find_files','read_file','search_files'} == names

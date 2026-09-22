@@ -28,6 +28,7 @@ from core.tool_compat import drop_optional_tools_for_text_only_provider, request
 from core.agent_boundary import boundary_is_active_for_request, enforce_response_boundary, register_action_candidate_for_boundary
 from core.functional_readiness import load_readiness
 from core.local_tools import LocalToolRegistry, LocalToolError, agent_tool_definitions
+from core.agent_execution import AgentLoopPolicy, execute_tool_call, remaining_loop_seconds, summarize_terminal_state
 from core.feature_settings import (
     apply_feature_defaults,
     persist_provider_feature_defaults,
@@ -1337,20 +1338,13 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         roots=cfg.get("read_roots") or ([r"D:\\"] if os.name == "nt" else [str(Path.cwd())])
         return LocalToolRegistry(roots=roots)
 
-    def _agent_tool_result_messages(tool_calls, registry):
-        messages=[]
+    def _agent_tool_result_messages(tool_calls, registry, policy, seen, step):
+        messages=[]; evidence=[]; duplicate_blocked=False
         for call in tool_calls or []:
-            fn=(call.get("function") or {})
-            name=fn.get("name")
-            raw=fn.get("arguments") or {}
-            if isinstance(raw,str):
-                try: args=json.loads(raw)
-                except json.JSONDecodeError: args={}
-            else: args=raw
-            try: result=registry.execute(name,args)
-            except (LocalToolError,OSError) as exc: result={"error":str(exc),"tool":name}
-            messages.append({"role":"tool","tool_call_id":call.get("id"),"name":name,"content":json.dumps(result,ensure_ascii=False)})
-        return messages
+            message, record, duplicate = execute_tool_call(registry, call, policy, seen, step)
+            messages.append(message); evidence.append(record)
+            duplicate_blocked = duplicate_blocked or duplicate
+        return messages, evidence, duplicate_blocked
 
     @app.route("/v1/chat/conversation", methods=["POST"])
     def conversation_chat():
@@ -1435,18 +1429,51 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                 normalized = mcp_normalizer.normalize_response(response, provider, translated_req)
                 if agent_mode:
                     registry = _interactive_agent_tools()
-                    for _step in range(4):
+                    policy = AgentLoopPolicy.from_config(config.get("agent_tools"))
+                    loop_started = time.monotonic()
+                    seen_calls = {}
+                    agent_evidence = []
+                    terminal_state = "completed"
+                    steps = 0
+                    for _step in range(policy.max_steps):
                         msg = normalized.choices[0].message
                         if not msg.tool_calls:
+                            terminal_state = "completed"
+                            break
+                        steps = _step + 1
+                        remaining = remaining_loop_seconds(loop_started, policy)
+                        if remaining <= 0:
+                            terminal_state = "timeout_budget_exhausted"
                             break
                         req.messages.append({"role":"assistant","content":msg.content or "","tool_calls":msg.tool_calls})
-                        req.messages.extend(_agent_tool_result_messages(msg.tool_calls, registry))
+                        tool_messages, records, duplicate_blocked = _agent_tool_result_messages(
+                            msg.tool_calls, registry, policy, seen_calls, steps
+                        )
+                        req.messages.extend(tool_messages)
+                        agent_evidence.extend(records)
+                        if duplicate_blocked:
+                            terminal_state = "duplicate_call_blocked"
+                            break
                         translated_req = mcp_translator.translate_request(req, provider)
-                        response = _run_async(provider.chat_completion(translated_req, session), timeout=240)
+                        remaining = remaining_loop_seconds(loop_started, policy)
+                        if remaining <= 0:
+                            terminal_state = "timeout_budget_exhausted"
+                            break
+                        response = _run_async(
+                            provider.chat_completion(translated_req, session),
+                            timeout=min(240, max(1.0, remaining)),
+                        )
                         normalized = mcp_normalizer.normalize_response(response, provider, translated_req)
+                    else:
+                        if normalized.choices[0].message.tool_calls:
+                            terminal_state = "max_steps_exhausted"
                     normalized.provider_meta = normalized.provider_meta or {}
                     normalized.provider_meta["agent_mode"] = True
                     normalized.provider_meta["agent_tools"] = [x["function"]["name"] for x in agent_tool_definitions()]
+                    normalized.provider_meta["agent_evidence"] = agent_evidence
+                    normalized.provider_meta["agent_terminal"] = summarize_terminal_state(
+                        terminal_state, steps, agent_evidence, loop_started
+                    )
                 _finalize_usage_for_audit(req, normalized)
 
                 if normalized.provider_meta.get("conversation_id"):
