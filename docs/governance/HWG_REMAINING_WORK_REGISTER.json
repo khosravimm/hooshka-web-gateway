@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.19.0",
-  "updated_at": "2026-09-22T10:08:00+03:30",
+  "version": "1.20.0",
+  "updated_at": "2026-09-22T10:05:00+03:30",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -423,7 +423,7 @@
       "id": "HWG-WORK-013",
       "title": "Provider certification and E3 reliability program",
       "area": "evidence",
-      "status": "OPEN",
+      "status": "IN_PROGRESS",
       "priority": "P1",
       "source": [
         "NG-DISC-004",
@@ -442,6 +442,18 @@
         "Changed provider/profile/account has interactive E2 certification",
         "Reliability claims use predefined repeated E3 windows",
         "Capability matrix links scoped evidence"
+      ],
+      "latest_evidence": {
+        "date": "2026-09-22",
+        "type": "E3 predefined window W1",
+        "provider": "deepseek-web",
+        "result": "Predefined E3 contract requires 3 independent windows >=30 minutes apart, each 3/3 exact-token probes. DeepSeek W1 passed 3/3 with terminal commitment and retry_allowed=false. W2/W3 remain pending; no E3 claim yet.",
+        "record": "docs/evidence/HWG_E3_DEEPSEEK_W1_20260922.md"
+      },
+      "evidence": [
+        "docs/evidence/HWG_E3_DEEPSEEK_W1_20260922.md",
+        "docs/governance/HWG_E3_RELIABILITY_PROGRAM_V1.md",
+        "docs/governance/HWG_PROVIDER_CERTIFICATION_MATRIX_V1.json"
       ]
     },
     {

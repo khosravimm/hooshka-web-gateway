@@ -55,7 +55,7 @@ This is an E2 tool-capable smoke result, not E3/production reliability. Search/v
 
 DeepSeek is no longer classified as blocked by the current Web Chat UI account state. A controlled manual Web Chat audit on 2026-09-12 observed an authenticated UI, no CAPTCHA/challenge/mute/suspension, a successful direct marker response, valid tool-envelope JSON generation, and tool-result continuation.
 
-`deepseek-web` is now implemented as a Gateway provider using the project-owned DeepSeek browser profile on CDP port 9226. KiloGate-WM E2 smoke certification passed read, grep, write, edit and bash tool paths through Kilo. This is still an E2 smoke result, not an E3/production-reliability claim.
+`deepseek-web` is implemented as a Gateway provider on the current shared-browser runtime (CDP 9330) with cross-origin session isolation. The historical KiloGate-WM E2 smoke certified read/grep/write/edit/bash tool paths. On 2026-09-22 the current scoped readiness path `deepseek-web / deepseek-web:default-account / deepseek-web` passed W1 of the governed E3 program (3/3 exact-token probes). W2 and W3 remain pending and must begin at least 30 minutes apart; no E3 reliability claim is authorized yet. Evidence: `docs/evidence/HWG_E3_DEEPSEEK_W1_20260922.md`.
 
 See:
 

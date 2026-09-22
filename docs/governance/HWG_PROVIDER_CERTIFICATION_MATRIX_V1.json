@@ -1,0 +1,41 @@
+{
+  "id": "HWG-PROVIDER-CERT-MATRIX-001",
+  "version": "1.0.0",
+  "updated_at": "2026-09-22T10:40:00+03:30",
+  "rows": [
+    {
+      "provider_id": "deepseek-web",
+      "account_id": "deepseek-web:default-account",
+      "model": "deepseek-web",
+      "status": "W1_PASS",
+      "evidence_level": "E2_REPEATED_WINDOW",
+      "evidence": "docs/evidence/HWG_E3_DEEPSEEK_W1_20260922.md",
+      "program_status": "E3_IN_PROGRESS"
+    },
+    {
+      "provider_id": "chatgpt-web",
+      "account_id": "chatgpt-web:default-account",
+      "model": "chatgpt-web",
+      "status": "REVALIDATION_REQUIRED",
+      "evidence_level": "E2_HISTORICAL",
+      "evidence": "docs/evidence/HWG_E2_CHATGPT_WEB_20260920.md"
+    },
+    {
+      "provider_id": "zai-web",
+      "account_id": "zai-web:default-account",
+      "model": "zai-web",
+      "status": "REVALIDATION_REQUIRED",
+      "evidence_level": "E2_HISTORICAL",
+      "evidence": "docs/evidence/HWG_E2_ZAI_WEB_20260920.md"
+    },
+    {
+      "provider_id": "qwen-web",
+      "account_id": "qwen-web:default-account",
+      "model": "qwen-web",
+      "status": "HOLD_BLOCKED",
+      "evidence_level": "E2_NEGATIVE",
+      "reason": "region_restriction",
+      "evidence": "docs/evidence/HWG_BLIND_DISCOVERY_ACCESS_GATING_20260921.md"
+    }
+  ]
+}
