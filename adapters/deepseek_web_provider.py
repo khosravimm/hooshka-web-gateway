@@ -204,6 +204,8 @@ class DeepSeekWebProvider(Provider):
                 "conversation_id": self._browser.last_conversation_url,
                 "block_signals": dict(self._browser.last_block_signals or {}),
                 "features": dict(getattr(self._browser, "last_feature_state", {}) or {}),
+                "commitment_state": getattr(self._browser, "last_commitment_state", "not_sent"),
+                "retry_allowed": getattr(self._browser, "last_commitment_state", "not_sent") == "not_sent",
             },
         )
 

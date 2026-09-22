@@ -183,15 +183,20 @@ async def run_functional_probe(
         observed = ""
         if response.choices:
             observed = (response.choices[0].message.content or "").strip()
-        feature_apply_ok, applied = _features_match(provider, getattr(response, "provider_meta", None))
+        meta = getattr(response, "provider_meta", None) or {}
+        feature_apply_ok, applied = _features_match(provider, meta)
+        commitment = {
+            "commitment_state": meta.get("commitment_state"),
+            "retry_allowed": meta.get("retry_allowed"),
+        }
         if not feature_apply_ok:
-            add("functional_probe", False, expected=marker, observed=observed[:256], feature_application=applied)
+            add("functional_probe", False, expected=marker, observed=observed[:256], feature_application=applied, commitment=commitment)
             return _final_record(provider, account_id, "FEATURE_APPLY_MISMATCH", False, stages, started, ttl_seconds, model=model)
         if not observed:
-            add("functional_probe", False, expected=marker, observed="", classification="silence", feature_application=applied)
+            add("functional_probe", False, expected=marker, observed="", classification="silence", feature_application=applied, commitment=commitment)
             return _final_record(provider, account_id, "SILENCE", False, stages, started, ttl_seconds, model=model)
         passed = observed == marker
-        add("functional_probe", passed, expected=marker, observed=observed[:256], feature_application=applied)
+        add("functional_probe", passed, expected=marker, observed=observed[:256], feature_application=applied, commitment=commitment)
         state = "READY" if passed else "INVALID_RESPONSE"
     except Exception as exc:
         state = _classify_probe_exception(exc)

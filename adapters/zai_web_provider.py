@@ -306,6 +306,8 @@ class ZaiWebProvider(Provider):
                 "selected_model_label": getattr(self._browser, "last_selected_model_label", None),
                 "backend_request_model": getattr(self._browser, "last_backend_request_model", None),
                 "model_evidence": model_evidence,
+                "commitment_state": getattr(self._browser, "last_commitment_state", "not_sent"),
+                "retry_allowed": getattr(self._browser, "last_commitment_state", "not_sent") == "not_sent",
                 "features": {
                     "thinking": bool(getattr(self._browser, "last_backend_features", {}).get("enable_thinking")),
                     "search": bool(getattr(self._browser, "last_backend_features", {}).get("web_search")),

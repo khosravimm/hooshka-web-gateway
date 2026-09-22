@@ -56,3 +56,20 @@ class CommitmentTracker:
         if not self.may_retry():
             raise CommitmentError(
                 f"retry forbidden at state={self._state.value} (cid={self.correlation_id})")
+
+
+
+def commitment_metadata(state: Commitment | str) -> dict:
+    value = state.value if isinstance(state, Commitment) else str(state or Commitment.NOT_SENT.value)
+    return {
+        "commitment_state": value,
+        "retry_allowed": value == Commitment.NOT_SENT.value,
+    }
+
+
+def annotate_error_details(details: dict | None, state: Commitment | str, *, failure_class: str | None = None) -> dict:
+    out = dict(details or {})
+    out.update(commitment_metadata(state))
+    if failure_class and "failure_class" not in out:
+        out["failure_class"] = failure_class
+    return out

@@ -785,6 +785,8 @@ class QwenWebProvider(Provider):
                     "selected_models": list(getattr(self._browser, "last_selected_models", [])),
                     "backend_request_model": getattr(self._browser, "last_backend_request_model", None),
                     "model_evidence": model_evidence,
+                    "commitment_state": getattr(self._browser, "last_commitment_state", "not_sent"),
+                    "retry_allowed": getattr(self._browser, "last_commitment_state", "not_sent") == "not_sent",
                     "browser_observability": {
                         "network_lifecycle": list(getattr(self._browser, "_network_events", [])[-8:]),
                     },
@@ -930,6 +932,8 @@ class QwenWebProvider(Provider):
                     "selected_models": list(getattr(self._browser, "last_selected_models", [])),
                     "backend_request_model": getattr(self._browser, "last_backend_request_model", None),
                     "model_evidence": model_evidence,
+                    "commitment_state": getattr(self._browser, "last_commitment_state", "not_sent"),
+                    "retry_allowed": getattr(self._browser, "last_commitment_state", "not_sent") == "not_sent",
                     "browser_observability": {
                         "network_lifecycle": list(getattr(self._browser, "_network_events", [])[-8:]),
                     },

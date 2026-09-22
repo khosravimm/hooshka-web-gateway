@@ -7,6 +7,7 @@ from typing import AsyncIterator, Optional
 
 from playwright.async_api import Browser, BrowserContext, Page, Playwright, async_playwright
 
+from core.commitment import Commitment, CommitmentTracker, annotate_error_details
 from core.providers import ProviderError, ProviderTimeoutError
 from core.model_liveness import classify_model_liveness
 
@@ -61,6 +62,7 @@ class ZaiBrowserControllerTransport:
         self.last_backend_response_content_type: Optional[str] = None
         self.backend_lifecycle: list[dict] = []
         self.last_liveness: dict = {}
+        self.last_commitment_state: str = Commitment.NOT_SENT.value
 
     def _record_backend_lifecycle(self, event: dict) -> None:
         self.backend_lifecycle.append(event)
@@ -543,6 +545,10 @@ class ZaiBrowserControllerTransport:
                 await page.route("**/api/chat/completions**", feature_route)
                 await page.route("**/api/v2/chat/completions**", feature_route)
                 feature_route_installed = True
+                commitment = CommitmentTracker(f"{self.provider_id}:{time.time_ns()}")
+                self.last_commitment_state = commitment.state.value
+                commitment.advance(Commitment.MAYBE_SENT)
+                self.last_commitment_state = commitment.state.value
                 await page.evaluate(
                     """(prompt) => {
                       window.postMessage(
@@ -553,6 +559,8 @@ class ZaiBrowserControllerTransport:
                     prompt,
                 )
                 committed = True
+                commitment.advance(Commitment.COMMITTED)
+                self.last_commitment_state = commitment.state.value
 
                 while True:
                     now = time.monotonic()
@@ -658,12 +666,17 @@ class ZaiBrowserControllerTransport:
                                     self.provider_id,
                                     {"thinking": thinking, "search": search},
                                 )
+                            if commitment.state != Commitment.TERMINAL:
+                                commitment.advance(Commitment.TERMINAL)
+                                self.last_commitment_state = commitment.state.value
                             return
 
                     if now - last_meaningful > self.idle_timeout:
                         raise ProviderTimeoutError(self.provider_id, "Z.ai meaningful idle timeout")
                     await asyncio.sleep(self.poll_interval)
-            except BaseException:
+            except BaseException as exc:
+                if isinstance(exc, ProviderError):
+                    exc.details.update(annotate_error_details(exc.details, self.last_commitment_state))
                 if committed:
                     logger.warning("Stopping Z.ai Web Chat after failed/cancelled stream", exc_info=True)
                     try:

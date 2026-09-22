@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 import json
 import logging
 import re
@@ -8,6 +8,7 @@ from typing import AsyncIterator, Optional
 
 from playwright.async_api import async_playwright, Browser, BrowserContext, Page, Playwright
 
+from core.commitment import Commitment, CommitmentTracker, annotate_error_details
 from core.providers import ProviderError, ProviderTimeoutError
 from core.provider_risk import detect_provider_risk
 
@@ -68,6 +69,7 @@ class QwenBrowserControllerTransport:
         self._network_events: list[dict] = []
         self.last_selected_models: list[str] = []
         self.last_backend_request_model: Optional[str] = None
+        self.last_commitment_state: str = Commitment.NOT_SENT.value
 
     def _record_network_event(self, event: dict) -> None:
         self._network_events.append(event)
@@ -385,11 +387,19 @@ class QwenBrowserControllerTransport:
 
     async def _start_send(self, prompt: str, *, thinking: Optional[bool], search: bool, upstream_model: Optional[str] = None) -> str:
         page = await self._ensure()
+        commitment = CommitmentTracker(f"{self.provider_id}:{time.time_ns()}")
+        self.last_commitment_state = commitment.state.value
         for attempt in range(2):
             try:
                 await self._session_status_unlocked()
                 self.last_backend_request_model = None
+                if commitment.state == Commitment.NOT_SENT:
+                    commitment.advance(Commitment.MAYBE_SENT)
+                    self.last_commitment_state = commitment.state.value
                 result = await self._apply_features_and_send(page, prompt, thinking=thinking, search=search, upstream_model=upstream_model)
+                if commitment.state == Commitment.MAYBE_SENT:
+                    commitment.advance(Commitment.COMMITTED)
+                    self.last_commitment_state = commitment.state.value
                 self.last_selected_models = await page.evaluate(
                     "() => [...(window.__mwbQwenFeatureManager?.getSelectedModels?.() || window.__mwbQwenFeatureManager?.currentSelection?.selectedModels || [])].map(x => typeof x === 'string' ? x : x?.id).filter(Boolean)"
                 )
@@ -416,6 +426,17 @@ class QwenBrowserControllerTransport:
                         "unsupported_feature",
                         self.provider_id,
                         {"feature": "search", "upstream_model": upstream_model},
+                    ) from exc
+                if commitment.state != Commitment.NOT_SENT:
+                    self.last_commitment_state = commitment.state.value
+                    if isinstance(exc, ProviderError):
+                        exc.details.update(annotate_error_details(exc.details, commitment.state))
+                        raise
+                    raise ProviderError(
+                        "Qwen send failed after submission may have started; replay is forbidden",
+                        "ambiguous_submission_failure",
+                        self.provider_id,
+                        annotate_error_details({}, commitment.state),
                     ) from exc
                 if not self._is_transient_navigation_error(exc) or attempt == 1:
                     raise
@@ -657,6 +678,8 @@ class QwenBrowserControllerTransport:
                                 self.provider_id,
                                 {"snapshot": snap.get("debug") or {}},
                             )
+                        if self.last_commitment_state != Commitment.TERMINAL.value:
+                            self.last_commitment_state = Commitment.TERMINAL.value
                         yield {
                             "type": "done",
                             "text": "",
@@ -667,7 +690,9 @@ class QwenBrowserControllerTransport:
                         return
                     await asyncio.sleep(self.poll_interval)
 
-            except BaseException:
+            except BaseException as exc:
+                if isinstance(exc, ProviderError):
+                    exc.details.update(annotate_error_details(exc.details, self.last_commitment_state))
                 logger.warning("Resetting Qwen browser transport after failed/cancelled stream", exc_info=True)
                 try:
                     await self._reset()

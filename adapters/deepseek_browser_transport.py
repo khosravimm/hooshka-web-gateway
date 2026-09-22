@@ -6,6 +6,7 @@ from typing import AsyncIterator, Optional
 
 from playwright.async_api import Browser, BrowserContext, Page, Playwright, async_playwright
 
+from core.commitment import Commitment, CommitmentTracker, annotate_error_details
 from core.providers import ProviderAuthError, ProviderError, ProviderTimeoutError
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,7 @@ class DeepSeekBrowserUITransport:
         self.last_conversation_url: Optional[str] = None
         self.last_block_signals: dict = {}
         self.last_assistant_text: Optional[str] = None
+        self.last_commitment_state: str = Commitment.NOT_SENT.value
 
     async def _ensure(self) -> Page:
         if self._page and not self._page.is_closed():
@@ -331,7 +333,13 @@ class DeepSeekBrowserUITransport:
             )
             before = await self._assistant_messages(page)
             before_count = len(before)
+            commitment = CommitmentTracker(f"{self.provider_id}:{time.time_ns()}")
+            self.last_commitment_state = commitment.state.value
+            commitment.advance(Commitment.MAYBE_SENT)
+            self.last_commitment_state = commitment.state.value
             await self._submit(page, prompt)
+            commitment.advance(Commitment.COMMITTED)
+            self.last_commitment_state = commitment.state.value
             start = time.monotonic()
             first_seen_at: Optional[float] = None
             stable_since: Optional[float] = None
@@ -365,12 +373,17 @@ class DeepSeekBrowserUITransport:
                         elif stable_since is not None and now - stable_since >= stable_window:
                             self.last_assistant_text = latest
                             self.last_conversation_url = page.url
+                            if commitment.state != Commitment.TERMINAL:
+                                commitment.advance(Commitment.TERMINAL)
+                                self.last_commitment_state = commitment.state.value
                             yield {"type": "text_delta", "text": latest, "conversation_id": page.url}
                             return
                     elif now - start > self.first_event_timeout and first_seen_at is None:
                         raise ProviderTimeoutError(self.provider_id, "DeepSeek Web Chat did not produce an assistant message")
                     await page.wait_for_timeout(int(self.poll_interval * 1000))
-            except BaseException:
+            except BaseException as exc:
+                if isinstance(exc, ProviderError):
+                    exc.details.update(annotate_error_details(exc.details, self.last_commitment_state))
                 logger.warning("Stopping DeepSeek Web Chat after failed/cancelled stream", exc_info=True)
                 try:
                     await self.cancel_active_generation("stream_cancelled")

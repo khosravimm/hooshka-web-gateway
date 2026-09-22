@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.16.0",
-  "updated_at": "2026-09-22T08:55:00+03:30",
+  "version": "1.17.0",
+  "updated_at": "2026-09-22T09:20:00+03:30",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -375,7 +375,7 @@
       "id": "HWG-WORK-012",
       "title": "Failure retry commitment conformance",
       "area": "reliability",
-      "status": "PARTIAL",
+      "status": "DONE",
       "priority": "P0",
       "source": [
         "Playbook §6",
@@ -393,7 +393,22 @@
         "All transports expose commitment state",
         "Post-maybe-sent replay is prohibited unless reconciled",
         "Timeout and provider risk states are classified"
-      ]
+      ],
+      "completed_at": "2026-09-22",
+      "latest_evidence": {
+        "date": "2026-09-22",
+        "type": "E1+E2 failure/retry/commitment",
+        "result": "All Web Chat provider paths expose commitment metadata; retry is only allowed before send. DeepSeek live readiness E2 reached terminal commitment with retry_allowed=false."
+      },
+      "evidence": {
+        "type": [
+          "E1",
+          "E2"
+        ],
+        "provider": "deepseek-web",
+        "result": "Commitment state contract integrated into ChatGPT/DeepSeek/Qwen/Z.ai; DeepSeek E2 terminal state observed with exact-token readiness response.",
+        "record": "docs/evidence/HWG_FAILURE_RETRY_COMMITMENT_E2_20260922.md"
+      }
     },
     {
       "id": "HWG-WORK-013",

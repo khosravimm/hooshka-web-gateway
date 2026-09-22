@@ -2,6 +2,7 @@ import asyncio
 import logging
 from typing import AsyncIterator, Optional
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
+from core.commitment import Commitment, CommitmentTracker, annotate_error_details, commitment_metadata
 from core.providers import (
     Provider,
     ProviderConfig,
@@ -1271,7 +1272,7 @@ class ChatGPTWebProvider(Provider):
                     # timeout can duplicate the user's turn in ChatGPT Web.
                     raise
                 except ProviderError as e:
-                    if e.code == "tool_protocol_violation" or e.details.get("submission_started"):
+                    if e.code == "tool_protocol_violation" or e.details.get("submission_started") or e.details.get("retry_allowed") is False:
                         raise
                     last_error = e
                     if attempt == 0:
@@ -1315,6 +1316,8 @@ class ChatGPTWebProvider(Provider):
         )
 
         submission_started = False
+        commitment = CommitmentTracker(f"{self.provider_id}:{conversation_id}:{self._generate_id()}")
+        self.last_commitment_state = commitment.state.value
         try:
             assistant_messages = self._page.locator(ASSISTANT_SELECTOR)
             previous_count = await assistant_messages.count()
@@ -1364,7 +1367,13 @@ class ChatGPTWebProvider(Provider):
                 # is ambiguous from the gateway's perspective and must never
                 # trigger an automatic replay of the same user turn.
                 submission_started = True
+                if commitment.state == Commitment.NOT_SENT:
+                    commitment.advance(Commitment.MAYBE_SENT)
+                    self.last_commitment_state = commitment.state.value
                 await self._send_message(f"{prefix}{chunk}", search=requested_search)
+                if commitment.state == Commitment.MAYBE_SENT:
+                    commitment.advance(Commitment.COMMITTED)
+                    self.last_commitment_state = commitment.state.value
                 applied_features["search"] = requested_search
                 if idx < len(chunks) - 1:
                     await asyncio.sleep(2)
@@ -1402,6 +1411,9 @@ class ChatGPTWebProvider(Provider):
                     finish_reason = "tool_calls"
 
             mcp_session_manager.update_provider_session_id(conversation_id, self._page.url)
+            if commitment.state != Commitment.TERMINAL:
+                commitment.advance(Commitment.TERMINAL)
+                self.last_commitment_state = commitment.state.value
 
             return ChatCompletionResponse(
                 id=self._generate_id(),
@@ -1428,14 +1440,17 @@ class ChatGPTWebProvider(Provider):
                     "downloads": downloads,
                     "conversation_id": conversation_id,
                     "features": applied_features,
+                    **commitment_metadata(commitment.state),
                 },
             )
         except PlaywrightTimeout as e:
             err = ProviderTimeoutError(self.provider_id, f"Request timeout: {e}")
             err.details["submission_started"] = submission_started
+            err.details.update(annotate_error_details(err.details, commitment.state, failure_class="stalled_or_timeout"))
             raise err
         except ProviderError as e:
             e.details.setdefault("submission_started", submission_started)
+            e.details.update(annotate_error_details(e.details, commitment.state))
             raise
         except Exception as e:
             import traceback
@@ -1444,7 +1459,7 @@ class ChatGPTWebProvider(Provider):
                 str(e),
                 "chat_completion_failed",
                 self.provider_id,
-                details={"submission_started": submission_started},
+                details=annotate_error_details({"submission_started": submission_started}, commitment.state),
             )
 
     async def chat_completion_stream(
