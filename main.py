@@ -266,6 +266,8 @@ def create_app(config_path: str = "config.yaml") -> Flask:
     config = load_config(config_path)
 
     app = Flask(__name__)
+    input_limits = (config.get("governance", {}) or {}).get("input_limits", {}) or {}
+    app.config["MAX_CONTENT_LENGTH"] = int(input_limits.get("max_request_bytes", 8 * 1024 * 1024))
 
     Swagger(app, template=SWAGGER_TEMPLATE, config={
         "headers": [],
@@ -487,6 +489,8 @@ def create_app(config_path: str = "config.yaml") -> Flask:
     default_model_id = default_provider.provider_id if default_provider else ""
 
     server_config = config["server"]
+    from core.security_gate import assert_remote_exposure_safe
+    assert_remote_exposure_safe(config)
 
     def _build_request(data: dict) -> ChatCompletionRequest:
         def _content_to_text(content) -> str:

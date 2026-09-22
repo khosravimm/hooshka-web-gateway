@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.15.0",
-  "updated_at": "2026-09-21",
+  "version": "1.16.0",
+  "updated_at": "2026-09-22T08:55:00+03:30",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -340,7 +340,13 @@
         "Secret leakage/auth/trust/isolation/input/rate/rollback gates pass",
         "Remote exposure fails closed",
         "Audit is metadata-first and bounded"
-      ]
+      ],
+      "latest_evidence": {
+        "date": "2026-09-22",
+        "type": "E1 security gate expansion",
+        "result": "Remote health/auth bypass is loopback-only, non-loopback bind has fail-closed startup guard, audit sanitizer redacts content/secret fields, request body limit is bounded, secret scan found 0 findings across 35 scoped files, and dependency lock matches validated environment. Security release gate remains PARTIAL pending file/multimodal validation, supply-chain audit expansion, challenge-risk taxonomy and rollback linkage.",
+        "record": "docs/evidence/HWG_SECURITY_GATE_PARTIAL_E1_20260922.md"
+      }
     },
     {
       "id": "HWG-WORK-011",
@@ -774,8 +780,9 @@
       ],
       "latest_evidence": {
         "date": "2026-09-22",
-        "type": "E1+E2 mission-driven UI audit pass2",
-        "result": "Audit Register v1.3.0 has 23/23 findings verified. Pass 2 fixed Runtime raw-link redundancy, Account readiness reason/next-action, account/model certification scope, Chat readiness gating, actual Service topology, Diagnostics-vs-Evidence separation, and truthful Provider provisioning semantics. Human acceptance remains pending by design."
+        "type": "Human acceptance script registered",
+        "result": "HWG_HUMAN_ACCEPTANCE_SCRIPT_V1.md defines 15 scenario-based human UI acceptance checks tied to Mission IA, state, relationship, next action and post-action verification. Human acceptance remains pending.",
+        "record": "docs/governance/HWG_HUMAN_ACCEPTANCE_SCRIPT_V1.md"
       }
     },
     {

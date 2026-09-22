@@ -95,6 +95,24 @@ class AuthManager:
         return None
 
 
+_AUDIT_SECRET_TERMS = ("token", "secret", "api_key", "authorization", "cookie", "password")
+_AUDIT_CONTENT_KEYS = {"prompt", "messages", "content", "body", "request_body", "response_body", "headers"}
+
+def _sanitize_audit_value(value):
+    if isinstance(value, dict):
+        out = {}
+        for key, item in value.items():
+            normalized = str(key).lower().replace("-", "_")
+            if normalized in _AUDIT_CONTENT_KEYS or any(term in normalized for term in _AUDIT_SECRET_TERMS):
+                out[key] = "[REDACTED]"
+            else:
+                out[key] = _sanitize_audit_value(item)
+        return out
+    if isinstance(value, list):
+        return [_sanitize_audit_value(x) for x in value]
+    return value
+
+
 class AuditLogger:
     def __init__(self, log_file: str = "logs/audit.log"):
         self._log_file = log_file
@@ -104,6 +122,7 @@ class AuditLogger:
         if not self._enabled:
             return
         
+        event = _sanitize_audit_value(dict(event or {}))
         event["timestamp"] = time.time()
         event["request_id"] = getattr(g, "request_id", "unknown")
         
@@ -129,8 +148,8 @@ def _is_loopback_request():
 
 
 def auth_middleware():
-    if request.path in ("/health", "/ready", "/health/deep"):
-        g.identity = {"identity": "health-check", "metadata": {}}
+    if request.path in ("/health", "/ready", "/health/deep") and _is_loopback_request():
+        g.identity = {"identity": "health-check", "metadata": {"source": "loopback"}}
         g.api_key = None
         return
 

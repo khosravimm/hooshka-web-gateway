@@ -72,7 +72,7 @@
     "e1_dev7": {
       "status": "PASS",
       "date": "2026-09-22",
-      "tests": 364,
+      "tests": 377,
       "evidence": "docs/governance/HWG_1.0.0-dev.7_CHANGE_RECORD_20260922.md",
       "scope": "mission-driven Control Plane semantics, UI audit governance and deterministic validation"
     },
@@ -81,6 +81,13 @@
       "date": "2026-09-22",
       "evidence": "docs/evidence/HWG_MISSION_DRIVEN_UI_AUDIT_PASS2_E2_20260922.md",
       "scope": "live 5080 mission-driven semantic UI audit pass2"
+    },
+    "e1_security_partial": {
+      "status": "PASS",
+      "date": "2026-09-22",
+      "tests": 377,
+      "evidence": "docs/evidence/HWG_SECURITY_GATE_PARTIAL_E1_20260922.md",
+      "scope": "remote exposure guard, local trust, audit redaction, request body bound, secret scan and dependency lock; full security release gate remains PARTIAL"
     }
   },
   "docs": {
@@ -109,7 +116,10 @@
     "dev7_change_record": "docs/governance/HWG_1.0.0-dev.7_CHANGE_RECORD_20260922.md",
     "ui_audit_framework": "docs/governance/HWG_MISSION_DRIVEN_UI_AUDIT_FRAMEWORK.md",
     "ui_audit_register": "docs/governance/HWG_UI_UX_AUDIT_REGISTER.json",
-    "ui_audit_pass2_evidence": "docs/evidence/HWG_MISSION_DRIVEN_UI_AUDIT_PASS2_E2_20260922.md"
+    "ui_audit_pass2_evidence": "docs/evidence/HWG_MISSION_DRIVEN_UI_AUDIT_PASS2_E2_20260922.md",
+    "human_acceptance_script": "docs/governance/HWG_HUMAN_ACCEPTANCE_SCRIPT_V1.md",
+    "security_release_gate_matrix": "docs/governance/HWG_SECURITY_RELEASE_GATE_MATRIX_V1.md",
+    "security_gate_partial_evidence": "docs/evidence/HWG_SECURITY_GATE_PARTIAL_E1_20260922.md"
   },
   "contracts": {
     "provider_profile_schema": "urn:hwg:schema:provider-profile:1.0.0",
@@ -118,11 +128,11 @@
     "discovery_ai_policy": "discovery/policies/ai-assistance-v1.json",
     "discovery_routing_policy": "discovery/policies/routing-v1.json",
     "provider_self_use_schema": "urn:hwg:schema:provider-self-use-qualification:1.0.0",
-    "work_register": "HWG-WORK-REGISTER-001@1.15.0",
+    "work_register": "HWG-WORK-REGISTER-001@1.16.0",
     "functional_readiness_api": "/panel/api/readiness",
     "ui_audit_register": "HWG-UI-AUDIT-REGISTER-001@1.3.0"
   },
   "evidence": {
-    "full_suite": "364 passed"
+    "full_suite": "377 passed"
   }
 }
