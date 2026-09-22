@@ -1,3 +1,18 @@
+## 1.0.0-dev.7 - 2026-09-22 - WIP (mission-driven Control Plane)
+- Added governed Mission-driven UI/UX audit framework and machine-readable Audit Register v1.3.0.
+- Closed all 23 automated UI findings with E1/E2 evidence; Human Acceptance remains a separate gate.
+- Gated Chat by current readiness evidence and exposed Provider/Account/Model certification scope.
+- Added readiness reason/next-action to Account cards and governed Readiness Probe in-context.
+- Rendered actual Gateway/Windows Service/Desktop Runtime Agent topology instead of assuming a Windows Service.
+- Separated raw Diagnostics from structured Evidence/Certification/Change Records.
+- Made Provider provisioning explicit that Account Instance is a subsequent lifecycle step.
+- Closed HWG-WORK-006; HWG-WORK-025 remains IN_PROGRESS for human acceptance.
+
+### Evidence
+- Live Pass 2 audit on 5080: zero console errors; 23/23 findings verified.
+- Scoped E2: `docs/evidence/HWG_MISSION_DRIVEN_UI_AUDIT_PASS2_E2_20260922.md`.
+- Full deterministic suite: **364 passed**; compileall, JavaScript syntax and git diff checks passed.
+
 ## 1.0.0-dev.6 - 2026-09-22 - WIP (relationship-driven Control Plane)
 - Grouped Browser Runtime cards by CDP + Browser Profile and rendered Providers as child tabs instead of duplicate runtime cards.
 - Preserved the single-window/multi-tab architecture intent while separating Browser/CDP readiness from Runtime Agent and Login readiness.

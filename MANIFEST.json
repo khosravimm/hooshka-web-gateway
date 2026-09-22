@@ -1,6 +1,6 @@
 {
   "name": "hwg-next",
-  "version": "1.0.0-dev.6",
+  "version": "1.0.0-dev.7",
   "canonical_id": "hooshka-web-gateway-next",
   "release_channel": "dev",
   "build_date": "2026-09-22",
@@ -68,6 +68,19 @@
       "date": "2026-09-22",
       "evidence": "docs/evidence/HWG_FUNCTIONAL_READINESS_E2_20260922.md",
       "scope": "runtime/access/model/feature/exact-token readiness chain and fail-closed negative path"
+    },
+    "e1_dev7": {
+      "status": "PASS",
+      "date": "2026-09-22",
+      "tests": 364,
+      "evidence": "docs/governance/HWG_1.0.0-dev.7_CHANGE_RECORD_20260922.md",
+      "scope": "mission-driven Control Plane semantics, UI audit governance and deterministic validation"
+    },
+    "e2_dev7_ui_audit": {
+      "status": "PASS",
+      "date": "2026-09-22",
+      "evidence": "docs/evidence/HWG_MISSION_DRIVEN_UI_AUDIT_PASS2_E2_20260922.md",
+      "scope": "live 5080 mission-driven semantic UI audit pass2"
     }
   },
   "docs": {
@@ -92,7 +105,11 @@
     "profile_account_persistence_evidence": "docs/evidence/HWG_PROFILE_ACCOUNT_PERSISTENCE_20260922.md",
     "dev6_change_record": "docs/governance/HWG_1.0.0-dev.6_CHANGE_RECORD_20260922.md",
     "account_session_lifecycle_evidence": "docs/evidence/HWG_ACCOUNT_SESSION_LIFECYCLE_E2_20260922.md",
-    "functional_readiness_evidence": "docs/evidence/HWG_FUNCTIONAL_READINESS_E2_20260922.md"
+    "functional_readiness_evidence": "docs/evidence/HWG_FUNCTIONAL_READINESS_E2_20260922.md",
+    "dev7_change_record": "docs/governance/HWG_1.0.0-dev.7_CHANGE_RECORD_20260922.md",
+    "ui_audit_framework": "docs/governance/HWG_MISSION_DRIVEN_UI_AUDIT_FRAMEWORK.md",
+    "ui_audit_register": "docs/governance/HWG_UI_UX_AUDIT_REGISTER.json",
+    "ui_audit_pass2_evidence": "docs/evidence/HWG_MISSION_DRIVEN_UI_AUDIT_PASS2_E2_20260922.md"
   },
   "contracts": {
     "provider_profile_schema": "urn:hwg:schema:provider-profile:1.0.0",
@@ -101,10 +118,11 @@
     "discovery_ai_policy": "discovery/policies/ai-assistance-v1.json",
     "discovery_routing_policy": "discovery/policies/routing-v1.json",
     "provider_self_use_schema": "urn:hwg:schema:provider-self-use-qualification:1.0.0",
-    "work_register": "HWG-WORK-REGISTER-001@1.12.0",
-    "functional_readiness_api": "/panel/api/readiness"
+    "work_register": "HWG-WORK-REGISTER-001@1.15.0",
+    "functional_readiness_api": "/panel/api/readiness",
+    "ui_audit_register": "HWG-UI-AUDIT-REGISTER-001@1.3.0"
   },
   "evidence": {
-    "full_suite": "342 passed"
+    "full_suite": "364 passed"
   }
 }

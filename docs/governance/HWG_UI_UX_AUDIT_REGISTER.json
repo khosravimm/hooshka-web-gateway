@@ -1,6 +1,6 @@
 {
   "id": "HWG-UI-AUDIT-REGISTER-001",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "date": "2026-09-22",
   "framework": "HWG-UI-AUDIT-001",
   "work_item": "HWG-WORK-025",
@@ -53,7 +53,7 @@
     },
     {
       "workspace": "runtimes",
-      "overall": "GAP",
+      "overall": "CORRECT",
       "live": {
         "title": "Runtimeهای مرورگر",
         "buttons": [
@@ -86,7 +86,9 @@
           "observation": "Provider child exposes both raw external URL and governed Open/Login action.",
           "action": "Prefer governed managed action.",
           "owner": "HWG-WORK-025",
-          "status": "OPEN"
+          "status": "VERIFIED",
+          "verified_at": "2026-09-22",
+          "verification": "Pass 2 live 5080 semantic UI audit; corrected behavior observed with zero console errors."
         }
       ]
     },
@@ -121,7 +123,7 @@
     },
     {
       "workspace": "accounts",
-      "overall": "GAP",
+      "overall": "CORRECT",
       "live": {
         "title": "حساب‌ها و Session",
         "buttons": [
@@ -163,7 +165,9 @@
           "observation": "UNKNOWN readiness is shown without reason or next action.",
           "action": "Show readiness reason/evidence age and next action.",
           "owner": "HWG-WORK-025",
-          "status": "OPEN"
+          "status": "VERIFIED",
+          "verified_at": "2026-09-22",
+          "verification": "Pass 2 live 5080 semantic UI audit; corrected behavior observed with zero console errors."
         }
       ]
     },
@@ -227,7 +231,7 @@
     },
     {
       "workspace": "models",
-      "overall": "GAP",
+      "overall": "CORRECT",
       "live": {
         "title": "مدل‌ها و قابلیت‌ها",
         "buttons": [
@@ -245,7 +249,9 @@
           "observation": "Capability matrix is provider-level and does not expose certification scope per account/model.",
           "action": "Show certified capability scope and evidence age.",
           "owner": "HWG-WORK-025",
-          "status": "OPEN"
+          "status": "VERIFIED",
+          "verified_at": "2026-09-22",
+          "verification": "Pass 2 live 5080 semantic UI audit; corrected behavior observed with zero console errors."
         }
       ]
     },
@@ -289,7 +295,7 @@
     },
     {
       "workspace": "chat",
-      "overall": "GAP",
+      "overall": "CORRECT",
       "live": {
         "title": "چت تعاملی",
         "buttons": [
@@ -317,7 +323,9 @@
           "observation": "Chat does not visibly explain readiness/certification basis for the selected account.",
           "action": "Display Account readiness/certification and disable unsupported paths with reason.",
           "owner": "HWG-WORK-025",
-          "status": "OPEN"
+          "status": "VERIFIED",
+          "verified_at": "2026-09-22",
+          "verification": "Pass 2 live 5080 semantic UI audit; corrected behavior observed with zero console errors."
         }
       ]
     },
@@ -438,7 +446,7 @@
     },
     {
       "workspace": "service",
-      "overall": "GAP",
+      "overall": "CORRECT",
       "live": {
         "title": "سرویس و ری‌استارت",
         "buttons": [
@@ -458,7 +466,9 @@
           "observation": "Page assumes canonical Windows service although dev topology includes direct gateway process and Desktop Runtime Agent task.",
           "action": "Show actual execution topology and recovery state.",
           "owner": "HWG-WORK-025",
-          "status": "OPEN"
+          "status": "VERIFIED",
+          "verified_at": "2026-09-22",
+          "verification": "Pass 2 live 5080 semantic UI audit; corrected behavior observed with zero console errors."
         }
       ]
     },
@@ -486,7 +496,7 @@
     },
     {
       "workspace": "logs",
-      "overall": "GAP",
+      "overall": "CORRECT",
       "live": {
         "title": "گزارش‌ها و شواهد",
         "buttons": [],
@@ -502,13 +512,15 @@
           "observation": "Raw diagnostics and structured evidence are conflated.",
           "action": "Separate diagnostics from evidence/change/certification records.",
           "owner": "HWG-WORK-025",
-          "status": "OPEN"
+          "status": "VERIFIED",
+          "verified_at": "2026-09-22",
+          "verification": "Pass 2 live 5080 semantic UI audit; corrected behavior observed with zero console errors."
         }
       ]
     },
     {
       "workspace": "provider-form",
-      "overall": "GAP",
+      "overall": "CORRECT",
       "live": {
         "title": null,
         "buttons": null,
@@ -524,7 +536,9 @@
           "observation": "Provisioning shows Provider→Runtime but Account Instance is not part of the visible outcome.",
           "action": "Show Provider→Account→Runtime/Profile and the next account/session step.",
           "owner": "HWG-WORK-025",
-          "status": "OPEN"
+          "status": "VERIFIED",
+          "verified_at": "2026-09-22",
+          "verification": "Pass 2 live 5080 semantic UI audit; corrected behavior observed with zero console errors."
         }
       ]
     }
@@ -538,6 +552,11 @@
       "REDUNDANT": 1
     },
     "p0_open": 0,
-    "verified": 16
+    "verified": 23
+  },
+  "pass2": {
+    "date": "2026-09-22",
+    "scope": "Open P1 semantic findings from pass1",
+    "result": "All seven P1 findings remediated and revalidated live on 5080; human acceptance remains separate."
   }
 }

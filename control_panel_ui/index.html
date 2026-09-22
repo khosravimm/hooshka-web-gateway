@@ -189,7 +189,7 @@
         </div>
         <div class="card provision-step"><span class="step-no">۳</span><h3 class="card-title">مرور و ثبت</h3>
           <div id="pf-relationship-preview" class="relationship-preview"><span class="hint">نوع Provider و Browser Runtime را انتخاب کنید.</span></div>
-          <div class="dependency-note">مسیر بعد از ثبت: Provider غیرفعال → Login/Session → Discovery → Certification → Enable & Test.</div>
+          <div class="dependency-note">این فرم فقط Provider Definition را می‌سازد. Account Instance هنوز ایجاد نمی‌شود. مسیر بعد: Provider غیرفعال → Accounts (ساخت/انتخاب Account) → Login/Session → Discovery → Functional Readiness → Enable.</div>
           <div class="btn-row mt"><button id="pf-save" class="btn primary" type="button">ثبت Provider</button><button id="pf-cancel" class="btn ghost" type="button">انصراف</button></div>
         </div>
       </div>
@@ -204,6 +204,7 @@
         <button id="reload-models" class="btn ghost btn-sm" type="button">تازه‌سازی</button>
       </div>
       <div id="models-summary" class="mini-grid"></div>
+      <div class="card mt"><div class="card-head"><div><h3 class="card-title">دامنه گواهی و Evidence</h3><p class="hint">قابلیت اعلام‌شده با آمادگی گواهی‌شده یکی نیست. این بخش Account/Model/سن Evidence را از Readiness record نشان می‌دهد.</p></div></div><div id="models-certification-scope" class="work-list"></div></div>
       <div class="card mt">
         <h3 class="card-title">قابلیت‌های Runtime</h3>
         <div id="capability-matrix" class="table-scroll"></div>
@@ -256,6 +257,7 @@
           <span class="cap-indicators" id="chat-cap-indicators"></span>
           <button id="chat-new" class="btn ghost btn-sm" type="button">گفتگوی جدید</button>
         </div>
+        <div id="chat-readiness" class="dependency-banner"></div>
         <div id="chat-transcript" class="chat-transcript"></div>
         <div class="composer">
           <div class="composer-toolbar">
@@ -385,6 +387,10 @@
             <span>قابل توقف</span><b id="svc-can-stop">-</b>
             <span>نوع سرویس</span><b id="svc-service-type">-</b>
             <span>سرویس سابق</span><b id="svc-legacy">-</b>
+            <span>Gateway Runtime</span><b id="svc-gateway-runtime">-</b>
+            <span>Gateway Health</span><b id="svc-gateway-health">-</b>
+            <span>Desktop Runtime Agent</span><b id="svc-agent-status">-</b>
+            <span>Agent Task</span><b class="ltr" id="svc-agent-task">-</b>
           </div>
           <details class="mt"><summary class="hint">خروجی خام</summary><pre id="service-raw" class="code-view"></pre></details>
         </div>
@@ -413,8 +419,8 @@
     </section>
 
     <section class="panel" id="panel-logs">
-      <div class="card-head">
-        <div><h3 class="card-title">گزارش‌ها و شواهد</h3><p class="hint">۱۰۰ خط آخر از لاگ‌های انتخابی.</p></div>
+      <div class="card-head"><div><h3 class="card-title">Diagnostics و Evidence</h3><p class="hint">لاگ خام برای عیب‌یابی است؛ Evidence/Certification/Change Record برای ممیزی ساختاریافته است.</p></div></div>
+      <div class="grid-2"><div class="card"><div class="card-head"><div><h3 class="card-title">Diagnostics خام</h3><p class="hint">۱۰۰ خط آخر از لاگ انتخابی؛ PASS/Certification از این بخش استنتاج نمی‌شود.</p></div>
         <select id="log-select" class="ctrl">
           <option value="bridge">bridge.log (برنامه)</option>
           <option value="audit">audit.log (حسابرسی JSON)</option>
@@ -422,7 +428,8 @@
           <option value="service_stderr">service_stderr.log</option>
         </select>
       </div>
-      <pre id="log-content" class="code-view tall"></pre>
+      <pre id="log-content" class="code-view tall"></pre></div>
+      <div class="card"><div class="card-head"><div><h3 class="card-title">Structured Evidence</h3><p class="hint">رکوردهای E2/Certification/Change که برای ممیزی قابل استناد هستند.</p></div></div><div id="evidence-index" class="work-list"></div></div></div>
     </section>
 
   </main>

@@ -1657,6 +1657,26 @@ def api_logs(log_type):
             content = "".join(lines[-100:])  # Last 100 lines
     return jsonify({"content": content})
 
+@control_panel_bp.route('/api/evidence/index')
+def api_evidence_index():
+    root = Path(__file__).parent
+    rows = []
+    sources = [(root / "docs" / "evidence", "evidence"), (root / "docs" / "governance", "governance")]
+    for folder, category in sources:
+        if not folder.exists():
+            continue
+        for path in folder.glob("*.md"):
+            name = path.name
+            if category == "governance" and not ("CHANGE_RECORD" in name or "CONTINUATION_RECORD" in name):
+                continue
+            try:
+                first = next((ln.strip().lstrip("# ") for ln in path.read_text(encoding="utf-8-sig").splitlines() if ln.strip()), name)
+                rows.append({"category": category, "file": name, "title": first, "modified_epoch": path.stat().st_mtime})
+            except OSError:
+                continue
+    rows.sort(key=lambda r: r["modified_epoch"], reverse=True)
+    return jsonify({"records": rows[:100]})
+
 def _config_summary_from_dict(config):
     providers=[]
     for item in config.get("providers", []) or []:

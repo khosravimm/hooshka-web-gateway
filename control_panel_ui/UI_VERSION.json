@@ -1,6 +1,6 @@
 {
   "name": "hwg-control-plane-ui",
-  "version": "1.0.0-dev.6",
+  "version": "1.0.0-dev.7",
   "released": "2026-09-22",
   "direction": "rtl",
   "language": "fa",
@@ -54,6 +54,12 @@
       "date": "2026-09-22",
       "class": "MINOR",
       "notes": "بازطراحی رابطه‌محور Control Plane: Browser Runtime grouping، Provider provisioning مرحله‌ای، حذف ورودی خام CDP/Profile و ثبت غیرفعال تا Certification."
+    },
+    {
+      "version": "1.0.0-dev.7",
+      "date": "2026-09-22",
+      "class": "MINOR",
+      "notes": "Mission-driven Control Plane audit: human-understandable entity relationships, readiness/certification gating, actual service topology and structured Evidence separation."
     }
   ]
 }

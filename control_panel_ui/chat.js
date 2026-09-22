@@ -51,6 +51,7 @@
   async function populateProviders() {
     const sel = $('#chat-provider');
     const msel = $('#chat-model');
+    const previous = sel ? sel.value : '';
     try {
       const data = await api('/providers');
       providerData = data.providers || [];
@@ -62,11 +63,11 @@
       for (let i = 0; i < list.length; i++) {
         if (list[i].id === wantDefault || list[i].default === true) { target = list[i]; break; }
       }
+      if (previous && list.some(function(p){return p.id === previous;})) target = list.find(function(p){return p.id === previous;});
       if (!target) target = list[0];
       if (target) sel.value = target.id;
-      renderIndicators();
-      refreshModelList();
-      setStatus('آماده. انتخاب مدل: ' + (msel.options.length ? msel.options[msel.selectedIndex].text : '-'), 'ok');
+      renderIndicators(); refreshModelList(); renderChatReadiness();
+      if (target && target.readiness && target.readiness.ready === true && target.readiness.current === true) setStatus('آماده. انتخاب مدل: ' + (msel.options.length ? msel.options[msel.selectedIndex].text : '-'), 'ok');
     } catch (e) {
       setStatus('بارگیری پراوایدر ناموفق: ' + e.message, 'err');
     }
@@ -88,6 +89,15 @@
       const search = c.search ? 'جستجو: بله' : 'جستجو: خیر';
       return '<span class="cap-chip" title="' + esc(p.id) + '">' + esc(p.id) + ' · ' + thinking + ' · ' + search + '</span>';
     }).join('');
+  }
+
+  function renderChatReadiness() {
+    const box=$('#chat-readiness'), send=$('#chat-send'), id=$('#chat-provider')?.value || ''; const p=providerById(id), r=(p && p.readiness) || {}; if (!box) return;
+    const current=r.ready===true && r.current===true, stale=r.state==='READY' && !r.current, failed=(r.stages || []).find(function(x){return x.ok===false;});
+    const state=current ? 'READY جاری' : (stale ? 'STALE' : (r.state || 'UNKNOWN')); const why=current ? 'ارسال مجاز است.' : (failed ? ('توقف در '+failed.stage) : (stale ? 'Evidence منقضی شده است.' : 'Evidence جاری وجود ندارد.'));
+    const account=r.account_id || 'حساب مسیر فعلی نامشخص', model=r.model || ($('#chat-model')?.value || '-');
+    box.className='dependency-banner '+(current?'ok':(r.state==='BLOCKED'?'bad':'warn')); box.innerHTML='<b>'+state+'</b><span class="ltr">'+esc(account)+' / '+esc(model)+'</span><span>'+esc(why)+'</span>'+(current?'':'<button id="chat-readiness-probe" class="btn primary btn-xs" type="button">اجرای Readiness Probe</button>');
+    if (send && !sendInFlight) send.disabled=!current; const probe=$('#chat-readiness-probe'); if (probe) probe.onclick=async function(){ probe.disabled=true; probe.textContent='در حال Probe...'; try { await api('/providers/'+encodeURIComponent(id)+'/readiness/probe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({execution_authority:'automated_validation',ttl_seconds:300})}); await populateProviders(); } catch(e){ toast('Readiness: '+e.message,'err'); } }; if (!current) setStatus(state+' — '+why,'warn');
   }
 
   function setStatus(msg, kind) {
@@ -307,8 +317,8 @@
     } finally {
       activeController = null;
       sendInFlight = false;
-      $('#chat-send').disabled = false;
       $('#chat-stop').disabled = true;
+      renderChatReadiness();
     }
   }
 
@@ -361,6 +371,7 @@
     $('#chat-provider').addEventListener('change', function () {
       refreshModelList();
       renderIndicators();
+      renderChatReadiness();
     });
     $('#chat-send').addEventListener('click', sendMessage);
     $('#chat-stop').addEventListener('click', stopStream);

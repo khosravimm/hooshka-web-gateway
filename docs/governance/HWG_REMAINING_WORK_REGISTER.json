@@ -1,6 +1,6 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "updated_at": "2026-09-21",
   "status_vocabulary": [
     "OPEN",
@@ -213,7 +213,7 @@
       "id": "HWG-WORK-006",
       "title": "Control Plane relationship redesign",
       "area": "ui",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "priority": "P0",
       "source": [
         "Management UI §11"
@@ -234,8 +234,17 @@
       ],
       "latest_evidence": {
         "date": "2026-09-22",
-        "type": "E1+E2 relationship-workspace audit",
-        "result": "Live Control Plane exposes distinct Runtime, Profiles, Accounts and Discovery workspaces; Browser Runtime grouping is 2 groups, semantic Browser Profiles 5, Account Instances 4, and post-action Account verification is wired. Provider workspace now uses relationship-aware cards. Work remains IN_PROGRESS pending clean integration/commit of all Control Plane dependencies and human acceptance."
+        "type": "E1+E2 Control Plane relationship redesign",
+        "result": "Distinct Runtime, Profiles, Accounts and Discovery workspaces are live on 5080; parent-child relationships, session/readiness state, next action and post-action verification are human-visible. Mission-driven UI audit Pass 2 revalidated the relationship model with zero console errors."
+      },
+      "completed_at": "2026-09-22",
+      "evidence": {
+        "type": [
+          "E1",
+          "E2"
+        ],
+        "result": "Distinct Runtime, Profiles, Accounts and Discovery workspaces are live; relationships, prerequisites, readiness/session state, next action and post-action verification are human-visible. Mission-driven UI audit Pass 2 closed remaining semantic gaps with zero console errors.",
+        "record": "docs/evidence/HWG_MISSION_DRIVEN_UI_AUDIT_PASS2_E2_20260922.md"
       }
     },
     {
@@ -765,8 +774,8 @@
       ],
       "latest_evidence": {
         "date": "2026-09-22",
-        "type": "E1+E2 mission-driven UI audit pass1",
-        "result": "Live 5080 audit covered 15 navigable workspaces plus Provider provisioning; zero console errors. Audit Register v1.2.0 records 23 findings with 16 verified and no open P0 findings. Config raw CDP/provider-enable controls, Provider runtime repair duplication, synthetic telemetry pollution, stale-readiness mislabeling, Discovery flow visibility and legacy Sessions terminology were corrected and revalidated."
+        "type": "E1+E2 mission-driven UI audit pass2",
+        "result": "Audit Register v1.3.0 has 23/23 findings verified. Pass 2 fixed Runtime raw-link redundancy, Account readiness reason/next-action, account/model certification scope, Chat readiness gating, actual Service topology, Diagnostics-vs-Evidence separation, and truthful Provider provisioning semantics. Human acceptance remains pending by design."
       }
     },
     {

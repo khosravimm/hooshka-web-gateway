@@ -8,6 +8,8 @@ def test_ui_audit_framework_and_register_are_governed():
     assert 'HWG-UI-AUDIT-001' in framework
     assert reg['id'] == 'HWG-UI-AUDIT-REGISTER-001'
     assert reg['work_item'] == 'HWG-WORK-025'
+    assert reg['version'] == '1.3.0'
+    assert reg['summary']['verified'] == 23
     assert reg['summary']['workspace_count'] >= 16
     assert reg['summary']['p0_open'] == 0
 

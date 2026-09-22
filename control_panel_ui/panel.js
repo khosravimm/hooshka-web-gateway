@@ -368,7 +368,7 @@ function initNav() {
         const children = (r.providers || []).map(p => `
           <div class="runtime-child-row">
             <div><b class="ltr">${p.id}</b><span class="hint">${p.label || ''}</span></div>
-            <a class="ltr" href="${p.home_url || '#'}" target="_blank" rel="noopener">${p.home_url || '-'}</a>
+            <span class="hint ltr">${p.home_url || '-'}</span>
             <button class="btn ghost btn-xs" data-id="${p.id}" data-open="1" ${canOperate ? '' : 'disabled'}>باز کردن Tab / ورود</button>
           </div>`).join('');
         return `<div class="runtime-operation-card ${r.ready ? 'ready' : 'down'}">
@@ -478,16 +478,20 @@ function initNav() {
         const access=sess.access_state || sess.state || 'UNKNOWN';
         const ready=rr.ready===true && rr.current===true;
         const readinessText=ready ? 'READY عملکردی' : (rr.state==='READY' ? 'STALE · Probe لازم' : (rr.state || 'UNKNOWN'));
+        const failedStage=(rr.stages || []).find(x => x.ok === false); const checkedAt=rr.checked_at ? new Date(rr.checked_at).toLocaleString('fa-IR') : 'ثبت نشده';
+        const readinessReason=ready ? 'Evidence معتبر و جاری است.' : (rr.state==='READY' ? 'Evidence منقضی شده؛ Probe را دوباره اجرا کنید.' : (failedStage ? ('توقف در '+failedStage.stage) : 'Evidence آمادگی ثبت نشده است.'));
+        const providerId=(a.provider_profile_id || '').split(':')[0] || a.provider_id || '';
         const conflict=b.sharing_mode==='same_origin_conflict';
         return `<div class="profile-card account-card ${conflict?'conflict':''}">
           <div class="profile-card-head"><div><b class="ltr">${a.account_id}</b><span class="badge neutral ltr">${a.provider_profile_id || '-'}</span></div><span class="badge ${access==='AUTHENTICATED'?'ok':(access==='BLOCKED'?'bad':'warn')}">${access}</span></div>
           <div class="relationship-preview"><b>Provider Profile</b> <span class="ltr">${a.provider_profile_id || '-'}</span> → <b>Account</b> <span class="ltr">${a.account_id}</span> → <b>Profile/Origin</b> <span class="ltr">${b.path || '-'} · ${b.origin || '-'}</span> → <b>Runtime</b> <span class="ltr">${rg?.cdp_url || a.runtime?.cdp_url || 'provider runtime'}</span></div>
-          <div class="kv"><span>Isolation</span><b>${b.sharing_mode || b.ownership || 'unknown'}</b><span>Session</span><b>${access}</b><span>Readiness</span><b>${readinessText}</b></div>
+          <div class="kv"><span>Isolation</span><b>${b.sharing_mode || b.ownership || 'unknown'}</b><span>Session</span><b>${access}</b><span>Readiness</span><b>${readinessText}</b><span>Evidence</span><b>${checkedAt}</b><span>چرا/قدم بعد</span><b>${readinessReason}</b></div>
           ${conflict ? '<div class="dependency-note warn">Same-origin multi-account conflict: این Account باید Profile/Runtime مستقل داشته باشد.</div>' : ''}
-          <div class="btn-row mt"><button class="btn ghost btn-xs" data-account="${a.account_id}" data-aa="validate">Validate Session</button><button class="btn primary btn-xs" data-account="${a.account_id}" data-aa="login">Open / Login</button><button class="btn ghost btn-xs" data-account="${a.account_id}" data-aa="reauth">Re-auth</button><button class="btn danger btn-xs" data-account="${a.account_id}" data-aa="logout">Logout</button></div>
+          <div class="btn-row mt"><button class="btn ghost btn-xs" data-account="${a.account_id}" data-aa="validate">Validate Session</button><button class="btn primary btn-xs" data-account="${a.account_id}" data-aa="login">Open / Login</button><button class="btn ghost btn-xs" data-account="${a.account_id}" data-aa="reauth">Re-auth</button><button class="btn primary btn-xs" data-account="${a.account_id}" data-provider-ready="${providerId}" ${providerId ? '' : 'disabled'}>اجرای Readiness</button><button class="btn danger btn-xs" data-account="${a.account_id}" data-aa="logout">Logout</button></div>
           <div class="status-line" id="account-status-${a.account_id}"></div></div>`;
       }).join('') || '<div class="hint">Account Instance ثبت نشده است.</div>';
       box.querySelectorAll('[data-aa]').forEach(btn => btn.addEventListener('click', () => accountAction(btn.dataset.account, btn.dataset.aa, btn)));
+      box.querySelectorAll('[data-provider-ready]').forEach(btn => btn.addEventListener('click', async () => { btn.disabled=true; const orig=btn.textContent; btn.textContent='در حال Probe...'; try { await api('/providers/'+encodeURIComponent(btn.dataset.providerReady)+'/readiness/probe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({execution_authority:'automated_validation',ttl_seconds:300})}); toast('Readiness Probe اجرا شد','ok'); await loadAccounts(); } catch(e){ toast('Readiness: '+e.message,'err'); } finally { btn.disabled=false; btn.textContent=orig; } }));
     } catch(e) { if(box) box.innerHTML=`<div class="hint">خطا: ${e.message}</div>`; }
   }
 
@@ -731,7 +735,7 @@ function initNav() {
     const preview = $('#pf-relationship-preview');
     if (preview) {
       const id = ($('#pf-id')?.value || '').trim() || 'Provider';
-      preview.innerHTML = type && runtime ? `<div class="relationship-chain"><b class="ltr">${id}</b><span>→</span><b>${runtime.shared ? 'Browser Runtime مشترک' : 'Browser Runtime'}</b><span>→</span><b class="ltr">${(runtime.profile || '').split(/[\\/]/).filter(Boolean).pop() || '-'}</b><span>→</span><b class="ltr">${($('#pf-homeurl').value || spec?.home || '-')}</b></div>` : '<span class="hint">نوع Provider و Browser Runtime را انتخاب کنید.</span>';
+      preview.innerHTML = type && runtime ? `<div class="relationship-chain"><b class="ltr">${id}</b><span>→</span><b>Account: هنوز ایجاد نشده</b><span>→</span><b>${runtime.shared ? 'Browser Runtime مشترک' : 'Browser Runtime'}</b><span>→</span><b class="ltr">${(runtime.profile || '').split(/[\\/]/).filter(Boolean).pop() || '-'}</b><span>→</span><b class="ltr">${($('#pf-homeurl').value || spec?.home || '-')}</b></div><div class="hint">پس از ثبت Provider، مرحله بعد ساخت/انتخاب Account Instance در Workspace «حساب‌ها و Session» است.</div>` : '<span class="hint">نوع Provider و Browser Runtime را انتخاب کنید.</span>';
     }
   }
 
@@ -741,6 +745,7 @@ function initNav() {
       const caps = await fetch('/v1/capabilities', { cache: 'no-store' }).then(r => r.json());
       const models = await fetch('/v1/models', { cache: 'no-store' }).then(r => r.json());
       const prov = await api('/providers');
+      const readiness = await api('/readiness');
 
       const mbox = $('#models-summary');
       mbox.innerHTML = `
@@ -761,6 +766,19 @@ function initNav() {
           <span>پیش‌فرض</span><b class="ltr">${prov.default || '-'}</b>
           <span>هم‌روندی</span><b>${models.provider_runtime?.inflight || 0}/${models.provider_runtime?.max_concurrency || '-'}</b>
         </div></div>`;
+
+      const certBox = $('#models-certification-scope');
+      if (certBox) {
+        certBox.innerHTML = (readiness.providers || []).map(r => {
+          const current = r.ready === true && r.current === true;
+          const failed = (r.stages || []).find(x => x.ok === false);
+          const age = r.checked_at ? new Date(r.checked_at).toLocaleString('fa-IR') : 'ثبت نشده';
+          const state = current ? 'READY جاری' : (r.state === 'READY' ? 'STALE' : (r.state || 'UNKNOWN'));
+          const scope = [r.provider_id, r.account_id || 'account?', r.model || 'model?'].join(' / ');
+          const why = current ? 'Evidence معتبر است.' : (failed ? ('توقف در '+failed.stage) : 'Evidence جاری وجود ندارد؛ Probe لازم است.');
+          return `<div class="work-item"><div><b class="ltr">${scope}</b><span class="badge ${current?'ok':(r.state==='BLOCKED'?'bad':'warn')}">${state}</span></div><div class="hint">Evidence: ${age} · ${why}</div></div>`;
+        }).join('') || '<div class="hint">Readiness Evidence ثبت نشده است.</div>';
+      }
 
       const capKeys = ['chat_completion', 'streaming', 'tools', 'vision', 'embeddings', 'search', 'reasoning', 'files', 'max_context_tokens'];
       const plist = (caps.providers || []).filter(p => p.enabled !== false);
@@ -1024,27 +1042,15 @@ function initNav() {
   /* ---------------- Service ---------------- */
   async function loadServiceStatus() {
     try {
-      const data = await api('/service/status');
-      const service = data.service || {}, legacy = data.legacy_service || {};
-      const status = data.status || service.status || 'Unknown';
-      const exists = data.exists === true || service.exists === true;
-      const badge = $('#service-status-badge2');
-      badge.textContent = exists ? status : 'نصب نشده';
-      badge.className = 'badge ' + (exists ? (status === 'Running' ? 'ok' : status === 'Stopped' ? 'bad' : 'warn') : 'neutral');
-      $('#svc-start').disabled = exists && status === 'Running';
-      $('#svc-stop').disabled = !exists || status !== 'Running';
-      $('#svc-restart').disabled = !exists;
-      $('#svc-name').textContent = service.name || 'HooshkaWebGateway';
-      $('#svc-status-text').textContent = exists ? status : 'نصب نشده';
-      $('#svc-start-type').textContent = service.start_type || '-';
-      $('#svc-can-stop').textContent = exists ? (service.can_stop ? 'بله' : 'خیر') : '-';
-      $('#svc-service-type').textContent = service.service_type || '-';
-      $('#svc-legacy').textContent = (legacy.name || '-') + ': ' + (legacy.status || '؟');
-      $('#service-message').textContent = !exists ? 'سرویس ویندوز cannonical نصب نشده است.' : '';
-      $('#service-raw').textContent = data.output || '';
-    } catch (e) {
-      $('#service-message').textContent = 'خطا: ' + e.message;
-    }
+      const [data, orchestration, health] = await Promise.all([api('/service/status'), api('/runtime/orchestration'), api('/health')]);
+      const service=data.service||{}, legacy=data.legacy_service||{}, agent=orchestration.desktop_agent||{};
+      const status=data.status||service.status||'Unknown', exists=data.exists===true||service.exists===true;
+      const badge=$('#service-status-badge2'); badge.textContent=exists?status:(health.status?'Gateway زنده / Service نصب نیست':'نصب نشده'); badge.className='badge '+(health.status?'ok':(exists?'warn':'neutral'));
+      $('#svc-start').disabled=!exists || status==='Running'; $('#svc-stop').disabled=!exists || status!=='Running'; $('#svc-restart').disabled=!exists;
+      $('#svc-name').textContent=service.name||'HooshkaHWGNGDevGateway'; $('#svc-status-text').textContent=exists?status:'NotInstalled'; $('#svc-start-type').textContent=service.start_type||'-'; $('#svc-can-stop').textContent=exists?(service.can_stop?'بله':'خیر'):'-'; $('#svc-service-type').textContent=service.service_type||'-'; $('#svc-legacy').textContent=(legacy.name||'-')+': '+(legacy.status||'؟');
+      $('#svc-gateway-runtime').textContent=exists?'Windows Service':'Direct Gateway Process'; $('#svc-gateway-health').textContent=health.status||'unknown'; $('#svc-agent-status').textContent=agent.reachable===true?'reachable':'down'; $('#svc-agent-task').textContent=(agent.task||'-')+(agent.task_exists===true?' · exists':' · missing');
+      $('#service-message').textContent=!exists ? 'Windows Service canonical نصب نیست؛ Gateway توسعه به‌صورت process مستقیم اجراست. عملیات سرویس تا نصب مسیر canonical غیرفعال است.' : ''; $('#service-raw').textContent=data.output||'';
+    } catch(e){ $('#service-message').textContent='خطا: '+e.message; }
   }
 
   async function waitForServiceRecovery(requestId) {
@@ -1219,15 +1225,12 @@ function initNav() {
 
   /* ---------------- Logs ---------------- */
   async function loadLogs() {
-    const type = $('#log-select').value;
+    const type=$('#log-select').value;
     try {
-      const data = await api('/logs/' + encodeURIComponent(type));
-      $('#log-content').textContent = data.content || '(خالی)';
-      const box = $('#log-content');
-      box.scrollTop = box.scrollHeight;
-    } catch (e) {
-      $('#log-content').textContent = 'خطا: ' + e.message;
-    }
+      const [data,evidence]=await Promise.all([api('/logs/'+encodeURIComponent(type)),api('/evidence/index')]);
+      $('#log-content').textContent=data.content||'(خالی)'; const box=$('#log-content'); box.scrollTop=box.scrollHeight;
+      const ebox=$('#evidence-index'); if (ebox) ebox.innerHTML=(evidence.records||[]).map(r=>`<div class="work-item"><div><span class="badge">${r.category}</span><b>${r.title||r.file}</b></div><div class="hint ltr">${r.file}</div><div class="hint">${r.modified_epoch?new Date(r.modified_epoch*1000).toLocaleString('fa-IR'):'-'}</div></div>`).join('')||'<div class="hint">Evidence ساختاریافته‌ای ثبت نشده است.</div>';
+    } catch(e){ $('#log-content').textContent='خطا: '+e.message; const ebox=$('#evidence-index'); if(ebox) ebox.innerHTML='<div class="hint">'+e.message+'</div>'; }
   }
 
   /* ---------------- Init ---------------- */
