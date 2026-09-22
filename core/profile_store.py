@@ -247,6 +247,45 @@ def update_account_session(account_id: str, session: dict[str, Any], root: str |
     return payload
 
 
+def update_provider_tool_capabilities(provider_id: str, result: dict[str, Any], root: str | Path | None = None) -> dict[str, Any]:
+    """Persist bounded non-secret tool qualification evidence in a Provider Profile."""
+    root = Path(root) if root else DEFAULT_ROOT
+    profiles_dir, _accounts_dir = _dirs(root)
+    matches = []
+    for candidate in profiles_dir.glob("*.json") if profiles_dir.exists() else []:
+        payload = json.loads(candidate.read_text(encoding="utf-8-sig"))
+        if str(payload.get("provider_id") or "") == str(provider_id or ""):
+            matches.append((candidate, payload))
+    if not matches:
+        raise FileNotFoundError(f"provider profile not found: {provider_id}")
+    if len(matches) > 1:
+        raise RuntimeError(f"multiple provider profiles found for provider: {provider_id}")
+    path, payload = matches[0]
+    allowed = {
+        "schema_version", "tested_at", "provider_id", "model", "probe_tool",
+        "tested", "supported", "evidence_level", "execution", "marker_match",
+        "protocol_valid", "returned_tool", "reason", "error_type", "error_code",
+    }
+    safe = {k: result.get(k) for k in allowed if k in result}
+    safe["provider_id"] = provider_id
+    now = _now()
+    current = dict(payload.get("tool_capabilities") or {})
+    history = list(current.get("history") or [])
+    history.append(safe)
+    payload["tool_capabilities"] = {
+        "schema_version": "1.0.0",
+        "latest": safe,
+        "history": history[-20:],
+        "updated_at": now,
+    }
+    payload["updated_at"] = now
+    log = list(payload.get("change_log") or [])
+    log.append({"at": now, "change": "provider_tool_capability_qualified", "evidence_level": safe.get("evidence_level") or "E1"})
+    payload["change_log"] = log[-100:]
+    _atomic_json(path, payload)
+    return payload
+
+
 def _allocate_account_port(config_path: str | Path, accounts: list[dict[str, Any]], preferred: int | None = None) -> int:
     from core.runtime_inventory import load_runtime_inventory
     used = {int(r["port"]) for r in load_runtime_inventory(config_path)}

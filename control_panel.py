@@ -20,7 +20,7 @@ from core.config import load_config, deep_merge, get_default_config
 from core.feature_settings import persist_provider_feature_defaults, provider_feature_state
 from core.runtime_inventory import inventory_by_id, load_orchestration_settings
 from core.profile_contract import project_ng_inventory
-from core.profile_store import load_ng_inventory, migrate_legacy_inventory, rollback_legacy_migration, update_account_session, reconcile_isolation_metadata, provision_account_instance, account_runtime, deprovision_account_instance
+from core.profile_store import load_ng_inventory, migrate_legacy_inventory, rollback_legacy_migration, update_account_session, update_provider_tool_capabilities, reconcile_isolation_metadata, provision_account_instance, account_runtime, deprovision_account_instance
 from core.work_register import load_register, summarize_register, validate_register
 from core.discovery_orchestrator import (
     attach_baseline as discovery_attach_baseline,
@@ -39,6 +39,7 @@ from core.discovery_orchestrator import (
 from core.discovery_runtime import explore_cdp as discovery_explore_cdp, probe_cdp_behavior as discovery_probe_cdp_behavior
 from core.provider_self_use_gate import self_use_status as provider_self_use_status
 from core.self_use_roundtrip_probe import controlled_roundtrip as controlled_self_use_roundtrip
+from core.provider_tool_probe import probe_provider_tool_call
 from core.browser_behavior_probe import BehaviorAction, ProbePolicy
 from core.discovery_ai_service import execute_ai_assistance
 from core.blind_discovery import probe_auth_cdp as discovery_probe_auth_cdp
@@ -691,6 +692,41 @@ def api_discovery_explore(provider_id, run_id):
         import asyncio
         future = asyncio.run_coroutine_threadsafe(discovery_explore_cdp(provider_id, item.get("cdp_url"), item.get("home_url")), loop)
         findings, drift = future.result(timeout=45)
+
+        # Tool-call qualification is part of Provider Discovery. The active
+        # probe requests one harmless forced function call but never executes it.
+        provider = provider_registry.get(provider_id)
+        if provider is None:
+            tool_probe = {
+                "schema_version": "1.0.0", "provider_id": provider_id,
+                "tested": False, "supported": False, "evidence_level": "E1",
+                "execution": "not_executed", "reason": "provider_runtime_unavailable",
+            }
+        else:
+            model = str((provider.config.config or {}).get("default_model") or "").strip()
+            if not model:
+                models = list(getattr(provider.capabilities, "supported_models", []) or [])
+                model = str(models[0]) if models else provider_id
+            probe_future = asyncio.run_coroutine_threadsafe(probe_provider_tool_call(provider, model), loop)
+            tool_probe = dict(probe_future.result(timeout=120) or {})
+        findings["tool_capability_probe"] = tool_probe
+        findings.setdefault("capabilities", []).append({
+            "name": "tool_calling",
+            "supported": bool(tool_probe.get("supported")),
+            "evidence": {
+                "type": tool_probe.get("evidence_level") or "E1",
+                "confidence": "high" if tool_probe.get("tested") else "low",
+                "source": "forced non-executed tool-call qualification probe",
+                "detail": tool_probe.get("reason"),
+            },
+            "meta": {"model": tool_probe.get("model"), "execution": "not_executed"},
+        })
+        profile = update_provider_tool_capabilities(provider_id, tool_probe)
+        findings["tool_capability_profile"] = {
+            "profile_id": profile.get("profile_id"),
+            "updated_at": profile.get("updated_at"),
+            "persisted": True,
+        }
         discovery_attach_exploration(run, findings, drift)
         discovery_synthesize(run)
         path = run.save()

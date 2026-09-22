@@ -170,13 +170,17 @@
     "provider_certification_matrix": "HWG-PROVIDER-CERT-MATRIX-001@1.0.0"
   },
   "evidence": {
-    "full_suite": "419 passed",
+    "full_suite": "423 passed",
     "agent_loop_governance_e2": "docs/evidence/HWG_AGENT_LOOP_GOVERNANCE_E2_20260922.md",
-    "agent_tool_domains_e2": "docs/evidence/HWG_AGENT_TOOL_DOMAINS_E2_20260922.md"
+    "agent_tool_domains_e2": "docs/evidence/HWG_AGENT_TOOL_DOMAINS_E2_20260922.md",
+    "provider_tool_discovery_profile_e2": "docs/evidence/HWG_PROVIDER_TOOL_DISCOVERY_PROFILE_E2_20260922.md"
   },
   "security": {
     "release_gate": "PASS",
     "matrix": "docs/governance/HWG_SECURITY_RELEASE_GATE_MATRIX_V1.md",
     "evidence": "docs/evidence/HWG_SECURITY_RELEASE_GATE_E2_20260922.md"
+  },
+  "governance": {
+    "work_register": "HWG-WORK-REGISTER-001@1.25.0"
   }
 }

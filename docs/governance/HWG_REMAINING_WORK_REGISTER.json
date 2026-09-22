@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.24.0",
-  "updated_at": "2026-09-22T14:25:00+03:30",
+  "version": "1.25.0",
+  "updated_at": "2026-09-22T14:50:00+03:30",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -915,14 +915,15 @@
       ],
       "latest_evidence": {
         "date": "2026-09-22",
-        "type": "E1+E2 multi-domain read-only agent tool plane",
-        "result": "Canonical AgentToolRegistry exposes 38 active read-only/diagnostic tools across Native HWG, Native OS, engineering runtimes/Git, GitHub, and REST/OpenAPI. DeepSeek E2 selected and executed github_repo_info and openapi_inspect with source/risk evidence and completed terminal states. Mutating/execution tools remain fail-closed pending CAG authorization path.",
-        "record": "docs/evidence/HWG_AGENT_TOOL_DOMAINS_E2_20260922.md"
+        "type": "E1+E2 provider tool discovery and profile persistence",
+        "result": "Provider Discovery Explore now runs a forced non-executed tool-call qualification probe, records structured E2 sub-evidence, and persists bounded non-secret results into the NG Provider Profile tool_capabilities section. DeepSeek live discovery proved protocol_valid=true, marker_match=true, supported=true, persisted=true. Mutating tools remain fail-closed pending CAG.",
+        "record": "docs/evidence/HWG_PROVIDER_TOOL_DISCOVERY_PROFILE_E2_20260922.md"
       },
       "evidence": [
         "docs/evidence/HWG_AGENT_CAPABILITY_EXPANSION_E1_20260922.md",
         "docs/evidence/HWG_AGENT_LOOP_GOVERNANCE_E2_20260922.md",
-        "docs/evidence/HWG_AGENT_TOOL_DOMAINS_E2_20260922.md"
+        "docs/evidence/HWG_AGENT_TOOL_DOMAINS_E2_20260922.md",
+        "docs/evidence/HWG_PROVIDER_TOOL_DISCOVERY_PROFILE_E2_20260922.md"
       ]
     }
   ]
