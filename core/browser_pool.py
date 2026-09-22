@@ -4,9 +4,10 @@ NG-BRW-001 target state. OPT-IN via ``runtime_orchestration.shared_browser``
 in config.yaml (default off → current per-provider Chrome behavior unchanged).
 
 Design (ADR-002):
-- One Chrome owns one CDP endpoint; each (provider_id, account_id) gets its
-  own CDP target (tab). Account A can never resolve account B's target
-  (NG-BRW-003).
+- One Chrome owns one CDP endpoint; each (provider_id, account_id) may get its
+  own CDP target (tab) for ownership/navigation. A tab is NOT a storage
+  isolation boundary: same-Origin multi-account sessions require a separate
+  Profile/Runtime (NG-BRW-003).
 - Background tab operations NEVER activate the tab (NG-BRW-002): creation
   uses Target.createTarget without focus; Page.bringToFront is only allowed
   inside FocusGuard.user_initiated() (open/login/CAPTCHA/certification).

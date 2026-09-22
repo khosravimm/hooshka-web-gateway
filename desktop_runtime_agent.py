@@ -10,9 +10,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import psutil
 
 from core.runtime_inventory import inventory_by_id, load_runtime_inventory, load_orchestration_settings
+from core.profile_store import load_persistent_inventory, account_runtime
 
 _agent_url = load_orchestration_settings()["desktop_agent_url"]
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 _agent_parsed = urlparse(str(_agent_url))
 HOST = _agent_parsed.hostname or "127.0.0.1"
 PORT = int(_agent_parsed.port or 5181)
@@ -38,6 +39,20 @@ def providers():
     return inventory_by_id()
 
 
+def account_runtimes():
+    try:
+        inv = load_persistent_inventory()
+    except FileNotFoundError:
+        return {}
+    out = {}
+    for account in inv.get("account_instances", []):
+        if account.get("runtime"):
+            aid = str(account.get("account_id") or "")
+            if aid:
+                out[aid] = account_runtime(aid)
+    return out
+
+
 def cdp_ready(item):
     try:
         with urllib.request.urlopen(item["cdp_url"] + "/json/version", timeout=1.2) as response:
@@ -61,17 +76,14 @@ def profile_pids(profile):
     return out
 
 
-def start_provider(provider_id):
-    item = providers()[provider_id]
+def start_runtime_item(item):
     os.makedirs(item["profile"], exist_ok=True)
     args = [
         chrome_executable(),
         f'--remote-debugging-port={item["port"]}',
         "--remote-debugging-address=127.0.0.1",
         f'--user-data-dir={item["profile"]}',
-        "--no-first-run",
-        "--disable-default-apps",
-        "--new-window",
+        "--no-first-run", "--disable-default-apps", "--new-window",
         item["home_url"],
     ]
     subprocess.Popen(args, close_fds=True)
@@ -82,14 +94,21 @@ def start_provider(provider_id):
     return False
 
 
-def stop_provider(provider_id):
-    item = providers()[provider_id]
+def stop_runtime_item(item):
     for pid in profile_pids(item["profile"]):
         try:
             subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True, timeout=8)
         except Exception:
             pass
     time.sleep(0.7)
+
+
+def start_provider(provider_id):
+    return start_runtime_item(providers()[provider_id])
+
+
+def stop_provider(provider_id):
+    stop_runtime_item(providers()[provider_id])
 
 
 def visible_window_for_profile(profile):
@@ -126,21 +145,15 @@ def _foreground(window):
         pass
 
 
-def _launch_visible_window(provider_id):
-    item = providers()[provider_id]
-    subprocess.Popen(
-        [
-            chrome_executable(),
-            f'--remote-debugging-port={item["port"]}',
-            "--remote-debugging-address=127.0.0.1",
-            f'--user-data-dir={item["profile"]}',
-            "--no-first-run",
-            "--disable-default-apps",
-            "--new-window",
-            item["home_url"],
-        ],
-        close_fds=True,
-    )
+def _launch_visible_window_item(item):
+    subprocess.Popen([
+        chrome_executable(),
+        f'--remote-debugging-port={item["port"]}',
+        "--remote-debugging-address=127.0.0.1",
+        f'--user-data-dir={item["profile"]}',
+        "--no-first-run", "--disable-default-apps", "--new-window",
+        item["home_url"],
+    ], close_fds=True)
     for _ in range(16):
         window = visible_window_for_profile(item["profile"])
         if window:
@@ -150,36 +163,62 @@ def _launch_visible_window(provider_id):
     return None
 
 
-def open_provider(provider_id):
-    item = providers()[provider_id]
-    if not cdp_ready(item) and not start_provider(provider_id):
+def open_runtime_item(item):
+    if not cdp_ready(item) and not start_runtime_item(item):
         return False
     window = visible_window_for_profile(item["profile"])
     if window:
         _foreground(window)
         return True
-    if _launch_visible_window(provider_id):
+    if _launch_visible_window_item(item):
         return True
-    # A stale Chrome singleton can absorb --new-window. One controlled restart
-    # is allowed here because Open Browser is an explicit user action.
-    stop_provider(provider_id)
-    if not start_provider(provider_id):
+    stop_runtime_item(item)
+    if not start_runtime_item(item):
         return False
     return visible_window_for_profile(item["profile"]) is not None
+
+
+def _launch_visible_window(provider_id):
+    return _launch_visible_window_item(providers()[provider_id])
+
+
+def open_provider(provider_id):
+    return open_runtime_item(providers()[provider_id])
+
+
+def _item_status(item):
+    return {
+        "ready": cdp_ready(item),
+        "port": item["port"],
+        "cdp_url": item["cdp_url"],
+        "profile": item["profile"],
+        "pids": profile_pids(item["profile"]),
+    }
 
 
 def status():
     result = {}
     for item in load_runtime_inventory():
-        result[item["id"]] = {
-            "enabled": item["enabled"],
-            "ready": cdp_ready(item),
-            "port": item["port"],
-            "cdp_url": item["cdp_url"],
-            "profile": item["profile"],
-            "pids": profile_pids(item["profile"]),
-        }
+        result[item["id"]] = {"enabled": item["enabled"], **_item_status(item)}
     return result
+
+
+def account_status():
+    return {aid: _item_status(item) for aid, item in account_runtimes().items()}
+
+
+def runtime_action(item, action):
+    if action == "start":
+        return cdp_ready(item) or start_runtime_item(item)
+    if action == "restart":
+        stop_runtime_item(item); return start_runtime_item(item)
+    if action == "stop":
+        stop_runtime_item(item); return not cdp_ready(item)
+    if action == "repair":
+        return cdp_ready(item) or start_runtime_item(item)
+    if action == "open":
+        return open_runtime_item(item)
+    raise ValueError("invalid_action")
 
 
 class H(BaseHTTPRequestHandler):
@@ -198,32 +237,31 @@ class H(BaseHTTPRequestHandler):
         if self.path == "/health":
             return self.out(200, {"ok": True, "service": "hwg-desktop-runtime-agent", "port": PORT})
         if self.path == "/status":
-            return self.out(200, {"ok": True, "providers": status(), "session": os.environ.get("SESSIONNAME", "")})
+            return self.out(200, {"ok": True, "providers": status(), "accounts": account_status(), "session": os.environ.get("SESSIONNAME", "")})
         return self.out(404, {"error": "not_found"})
 
     def do_POST(self):
         parts = self.path.strip("/").split("/")
-        current = providers()
-        if len(parts) != 3 or parts[0] != "providers" or parts[1] not in current:
+        if len(parts) != 3:
             return self.out(404, {"error": "not_found"})
-        provider_id, action = parts[1], parts[2]
-        item = current[provider_id]
+        scope, raw_id, action = parts
+        resource_id = unquote(raw_id)
+        if scope == "providers":
+            current = providers()
+        elif scope == "accounts":
+            current = account_runtimes()
+        else:
+            return self.out(404, {"error": "not_found"})
+        item = current.get(resource_id)
+        if item is None:
+            return self.out(404, {"error": "not_found"})
         try:
-            if action == "start":
-                ok = cdp_ready(item) or start_provider(provider_id)
-            elif action == "restart":
-                stop_provider(provider_id)
-                ok = start_provider(provider_id)
-            elif action == "stop":
-                stop_provider(provider_id)
-                ok = not cdp_ready(item)
-            elif action == "repair":
-                ok = cdp_ready(item) or start_provider(provider_id)
-            elif action == "open":
-                ok = open_provider(provider_id)
-            else:
-                return self.out(400, {"error": "invalid_action"})
-            return self.out(200 if ok else 503, {"ok": ok, "provider": provider_id, "action": action, "status": status()[provider_id]})
+            ok = runtime_action(item, action)
+            payload = {"ok": ok, "scope": scope, "id": resource_id,
+                       "action": action, "status": _item_status(item)}
+            return self.out(200 if ok else 503, payload)
+        except ValueError as exc:
+            return self.out(400, {"error": str(exc)})
         except Exception as exc:
             return self.out(500, {"ok": False, "error": type(exc).__name__, "message": str(exc)})
 

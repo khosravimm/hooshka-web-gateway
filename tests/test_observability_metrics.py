@@ -40,3 +40,17 @@ def test_stats_count_only_provider_bound_model_requests(tmp_path, monkeypatch):
     assert result['requests_1h'] == 2
     assert result['breakdown'] == {'success': 1, 'failure': 1}
     assert sum(point['count'] for point in result['requests_history']) == 2
+
+
+def test_model_usage_excludes_requests_without_selected_provider(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    log_dir = Path('logs')
+    log_dir.mkdir()
+    events = [
+        {'event': 'request_complete', 'timestamp': 1000, 'endpoint': '/v1/chat/completions', 'provider': 'unknown', 'model': 'no-such-model-xyz', 'status_code': 404, 'latency_ms': 0},
+        {'event': 'request_complete', 'timestamp': 1001, 'endpoint': '/v1/responses', 'provider': 'default', 'model': 'chatgpt-web', 'status_code': 404, 'latency_ms': 0},
+        {'event': 'request_complete', 'timestamp': 1002, 'endpoint': '/v1/chat/completions', 'provider': 'deepseek-web', 'model': 'deepseek-web', 'status_code': 200, 'latency_ms': 10},
+    ]
+    (log_dir / 'audit.log').write_text('\n'.join(json.dumps(e) for e in events) + '\n', encoding='utf-8')
+    result = _model_usage_window(now=1020, seconds=60)
+    assert [(row['provider'], row['model'], row['requests']) for row in result['models']] == [('deepseek-web', 'deepseek-web', 1)]

@@ -20,7 +20,7 @@ from core.config import load_config, deep_merge, get_default_config
 from core.feature_settings import persist_provider_feature_defaults, provider_feature_state
 from core.runtime_inventory import inventory_by_id, load_orchestration_settings
 from core.profile_contract import project_ng_inventory
-from core.profile_store import load_ng_inventory, migrate_legacy_inventory, rollback_legacy_migration, update_account_session, reconcile_isolation_metadata
+from core.profile_store import load_ng_inventory, migrate_legacy_inventory, rollback_legacy_migration, update_account_session, reconcile_isolation_metadata, provision_account_instance, account_runtime, deprovision_account_instance
 from core.work_register import load_register, summarize_register, validate_register
 from core.discovery_orchestrator import (
     attach_baseline as discovery_attach_baseline,
@@ -1257,6 +1257,22 @@ def _profile_relative(path):
     return str(path.relative_to(Path(__file__).parent.resolve())).replace("/", "\\")
 
 
+def _looks_like_browser_profile(path, *, assigned=False, shared=False, managed=False):
+    path = Path(path)
+    if assigned or shared or managed:
+        return True
+    if any((path / marker).exists() for marker in (".hwg-profile.json", "Local State", "First Run", "DevToolsActivePort")):
+        return True
+    return (path / "Default").is_dir()
+
+
+def _profile_initialized(path):
+    path = Path(path)
+    if not path.exists():
+        return False
+    return any(child.name != ".hwg-profile.json" for child in path.iterdir())
+
+
 @control_panel_bp.route('/api/providers/<provider_id>/settings', methods=['PUT'])
 def api_provider_settings(provider_id):
     data = request.get_json(force=True) or {}
@@ -1328,16 +1344,6 @@ def api_runtime_profiles():
             "success": True, "name": name, "profile_dir": _profile_relative(path),
             "meaning": "Chrome user-data directory; it becomes useful after browser launch/login",
         }), 201
-    paths = set(assigned)
-    if root.exists():
-        for path in root.iterdir():
-            if path.is_dir() and path.name != "profiles":
-                paths.add(str(path.resolve()))
-        managed = root / "profiles"
-        if managed.exists():
-            for path in managed.iterdir():
-                if path.is_dir():
-                    paths.add(str(path.resolve()))
     profiles = []
     shared_cfg = (((cfg.get("runtime_orchestration") or {}).get("shared_browser") or {}))
     shared_path = None
@@ -1345,12 +1351,27 @@ def api_runtime_profiles():
         shared_path = _safe_profile_path(shared_cfg.get("profile_dir")) if shared_cfg.get("profile_dir") else None
     except ValueError:
         shared_path = None
+    paths = set(assigned)
+    if shared_path:
+        paths.add(str(shared_path.resolve()))
+    if root.exists():
+        managed = root / "profiles"
+        for path in root.iterdir():
+            if not path.is_dir() or path.name == "profiles":
+                continue
+            raw = str(path.resolve())
+            if _looks_like_browser_profile(path, assigned=raw in assigned, shared=bool(shared_path and path.resolve() == shared_path.resolve())):
+                paths.add(raw)
+        if managed.exists():
+            for path in managed.iterdir():
+                if path.is_dir() and _looks_like_browser_profile(path, managed=True):
+                    paths.add(str(path.resolve()))
     for raw in sorted(paths):
         path = Path(raw)
         rel = _profile_relative(path)
         users = assigned.get(str(path), [])
         kind = "shared" if shared_path and path == shared_path else ("managed" if "profiles" in path.relative_to(_profile_root()).parts else "legacy")
-        initialized = path.exists() and any(path.iterdir())
+        initialized = _profile_initialized(path)
         profiles.append({
             "name": path.name, "profile_dir": rel, "assigned_to": users,
             "kind": kind, "initialized": initialized, "exists": path.exists(),
@@ -1576,7 +1597,7 @@ def _model_usage_window(now=None, seconds=3600):
                         continue
                     provider = str(entry.get("provider") or "unknown")
                     model = str(entry.get("model") or "unknown")
-                    if provider == "unknown" and model == "unknown":
+                    if provider in ("", "unknown", "default"):
                         continue
                     row = ensure_row(provider, model)
                     row["requests"] += 1
@@ -2039,12 +2060,120 @@ async def _logout_origin(cdp_url: str, origin: str) -> dict:
         await pw.stop()
 
 
-@control_panel_bp.route('/api/accounts/<path:account_id>/session')
-def api_account_session(account_id):
+def _account_runtime_action(account_id, action):
+    runtime = account_runtime(account_id)
+    agent_base = str(load_orchestration_settings(CONFIG_PATH)['desktop_agent_url']).rstrip('/')
+    url = f"{agent_base}/accounts/{urllib.parse.quote(account_id, safe='')}/{action}"
+    req = urllib.request.Request(url, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=30) as response:
+            payload = json.loads(response.read().decode("utf-8") or "{}")
+            return payload, response.status
+    except urllib.error.HTTPError as exc:
+        try: payload = json.loads(exc.read().decode("utf-8") or "{}")
+        except Exception: payload = {"error": "agent_http_error"}
+        return payload, exc.code
+    except Exception as exc:
+        return {"error": type(exc).__name__, "message": str(exc)}, 503
+
+
+def _evaluate_account_session(account_id):
+    provider_id, account, authority = _provider_for_account(account_id)
+    if not account or not provider_id:
+        return {"error": "Account instance not found"}, 404
+    if not account.get("runtime"):
+        return _evaluate_provider_session(provider_id)
+    loop = current_app.config.get("HWG_ASYNC_LOOP")
+    if loop is None or not loop.is_running():
+        return {"error": "Gateway async runtime unavailable"}, 503
+    import asyncio, concurrent.futures
+    runtime = account_runtime(account_id)
+    started = time.time()
+    try:
+        future = asyncio.run_coroutine_threadsafe(
+            discovery_probe_auth_cdp(runtime["cdp_url"], runtime["home_url"]), loop)
+        access = dict(future.result(timeout=30) or {})
+    except concurrent.futures.TimeoutError:
+        access = {"state": "UNKNOWN", "reason": "structural_probe_timeout"}
+    previous = ((account.get("session") or {}).get("access_state"))
+    lifecycle = normalize_session({}, access.get("state"), previous)
+    persisted = False
+    if authority == "persistent_ng_store":
+        update_account_session(account_id, lifecycle); persisted = True
+    return {"provider": provider_id, "account_id": account_id,
+            "checked_at": datetime.now().isoformat(),
+            "duration_ms": int((time.time()-started)*1000),
+            "access": access, "lifecycle": lifecycle,
+            "persistence": {"authority": authority, "persisted": persisted}}, 200
+
+
+@control_panel_bp.route('/api/accounts', methods=['GET'])
+def api_accounts():
+    inv = load_ng_inventory(CONFIG_PATH)
+    return jsonify({"authority": inv.get("authority"), "accounts": inv.get("account_instances", []),
+                    "conflicts": inv.get("conflicts", [])})
+
+
+@control_panel_bp.route('/api/accounts', methods=['POST'])
+def api_create_account():
+    payload = request.get_json(silent=True) or {}
+    if payload.get("confirm") is not True:
+        return jsonify({"error": "confirmation_required", "message": "Account provisioning requires confirm=true"}), 400
+    provider_id = str(payload.get("provider_id") or "").strip()
+    account_id = str(payload.get("account_id") or "").strip()
+    preferred = payload.get("preferred_port")
+    try:
+        account = provision_account_instance(provider_id, account_id, CONFIG_PATH,
+                                             preferred_port=int(preferred) if preferred is not None else None)
+        return jsonify({"account": account, "next_action": "login/open"}), 201
+    except FileExistsError as exc:
+        return jsonify({"error": "account_exists", "message": str(exc)}), 409
+    except (ValueError, KeyError) as exc:
+        return jsonify({"error": "invalid_account_request", "message": str(exc)}), 400
+    except FileNotFoundError as exc:
+        return jsonify({"error": "persistent_store_not_initialized", "message": str(exc)}), 409
+
+
+@control_panel_bp.route('/api/accounts/<path:account_id>/runtime/<action>', methods=['POST'])
+def api_account_runtime_action(account_id, action):
+    if action not in {"start", "restart", "stop", "repair", "open"}:
+        return jsonify({"error": "invalid_action"}), 400
+    try:
+        payload, status = _account_runtime_action(account_id, action)
+        return jsonify(payload), status
+    except KeyError:
+        return jsonify({"error": "account_runtime_not_found"}), 404
+
+
+@control_panel_bp.route('/api/accounts/<path:account_id>', methods=['DELETE'])
+def api_delete_account_instance(account_id):
+    body = request.get_json(silent=True) or {}
+    if body.get("confirm") is not True:
+        return jsonify({"error": "confirmation_required", "message": "Account deprovision requires confirm=true"}), 400
     provider_id, account, _authority = _provider_for_account(account_id)
     if not account or not provider_id:
         return jsonify({"error": "Account instance not found"}), 404
-    return api_provider_session(provider_id)
+    if not account.get("runtime"):
+        return jsonify({"error": "default_account_protected"}), 409
+    stopped, stop_status = _account_runtime_action(account_id, "stop")
+    if stop_status >= 400 or stopped.get("ok") is not True:
+        return jsonify({"error": "runtime_stop_failed", "details": stopped}), 503
+    result = deprovision_account_instance(account_id)
+    profile_deleted = False
+    if body.get("delete_profile") is True:
+        profile = _safe_profile_path((result.get("runtime") or {}).get("profile_dir"))
+        accounts_root = (_profile_root() / "accounts").resolve()
+        if profile != accounts_root and accounts_root in profile.parents and profile.exists():
+            shutil.rmtree(profile)
+            profile_deleted = True
+    return jsonify({"success": True, "account_id": account_id,
+                    "profile_deleted": profile_deleted, "deprovision": result})
+
+
+@control_panel_bp.route('/api/accounts/<path:account_id>/session')
+def api_account_session(account_id):
+    body, status = _evaluate_account_session(account_id)
+    return jsonify(body), status
 
 
 @control_panel_bp.route('/api/accounts/<path:account_id>/login/open', methods=['POST'])
@@ -2052,24 +2181,47 @@ def api_account_login_open(account_id):
     provider_id, account, _authority = _provider_for_account(account_id)
     if not account or not provider_id:
         return jsonify({"error": "Account instance not found"}), 404
+    if account.get("runtime"):
+        payload, status = _account_runtime_action(account_id, "open")
+        return jsonify(payload), status
     return api_open_provider_browser(provider_id)
 
 
 @control_panel_bp.route('/api/accounts/<path:account_id>/reauth', methods=['POST'])
 def api_account_reauth(account_id):
-    provider_id, account, _authority = _provider_for_account(account_id)
-    if not account or not provider_id:
-        return jsonify({"error": "Account instance not found"}), 404
-    opened = api_open_provider_browser(provider_id)
-    return opened
+    return api_account_login_open(account_id)
 
 
 @control_panel_bp.route('/api/accounts/<path:account_id>/logout', methods=['POST'])
 def api_account_logout(account_id):
-    provider_id, account, _authority = _provider_for_account(account_id)
+    provider_id, account, authority = _provider_for_account(account_id)
     if not account or not provider_id:
         return jsonify({"error": "Account instance not found"}), 404
-    return api_provider_logout(provider_id)
+    if not account.get("runtime"):
+        return api_provider_logout(provider_id)
+    body = request.get_json(force=True, silent=True) or {}
+    if body.get("confirm") is not True:
+        return jsonify({"error": "Logout requires explicit confirmation"}), 400
+    runtime = account_runtime(account_id)
+    origin = str((account.get("browser_profile") or {}).get("origin") or "")
+    if not origin:
+        return jsonify({"error": "account_origin_missing"}), 409
+    loop = current_app.config.get("HWG_ASYNC_LOOP")
+    if loop is None or not loop.is_running():
+        return jsonify({"error": "Gateway async runtime unavailable"}), 503
+    import asyncio, concurrent.futures
+    try:
+        future = asyncio.run_coroutine_threadsafe(_logout_origin(runtime["cdp_url"], origin), loop)
+        cleared = future.result(timeout=120)
+    except concurrent.futures.TimeoutError:
+        return jsonify({"success": False, "message": "Logout timed out"}), 504
+    lifecycle = normalize_session({"authenticated": False, "reason": "explicit_logout"}, "LOGIN_REQUIRED")
+    persisted = False
+    if authority == "persistent_ng_store":
+        update_account_session(account_id, lifecycle); persisted = True
+    return jsonify({"success": True, "provider": provider_id, "account_id": account_id,
+                    "origin": origin, "cleared": cleared, "session": lifecycle,
+                    "persistence": {"authority": authority, "persisted": persisted}})
 
 
 @control_panel_bp.route('/api/auth/keys')
