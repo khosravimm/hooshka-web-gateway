@@ -1446,7 +1446,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                         normalized = mcp_normalizer.normalize_response(response, provider, translated_req)
                     normalized.provider_meta = normalized.provider_meta or {}
                     normalized.provider_meta["agent_mode"] = True
-                    normalized.provider_meta["agent_tools"] = ["list_files","read_file","search_files"]
+                    normalized.provider_meta["agent_tools"] = [x["function"]["name"] for x in agent_tool_definitions()]
                 _finalize_usage_for_audit(req, normalized)
 
                 if normalized.provider_meta.get("conversation_id"):

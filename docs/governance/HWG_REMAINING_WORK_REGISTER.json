@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.21.0",
-  "updated_at": "2026-09-22T10:35:00+03:30",
+  "version": "1.22.0",
+  "updated_at": "2026-09-22T13:15:00+03:30",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -891,7 +891,7 @@
       "id": "HWG-WORK-028",
       "title": "Generalized governed Agent Tool Execution Plane",
       "area": "agent-orchestration",
-      "status": "OPEN",
+      "status": "IN_PROGRESS",
       "priority": "P0",
       "source": [
         "Owner HWG agent/tool-execution principle 2026-09-22"
@@ -911,7 +911,13 @@
         "Tool results are returned to the model for bounded multi-step synthesis",
         "Unsupported or unauthorized tools fail closed with human-readable evidence",
         "Tool execution has audit records and scoped E2 tests"
-      ]
+      ],
+      "latest_evidence": {
+        "date": "2026-09-22",
+        "type": "E1 capability expansion",
+        "result": "Governed read/inspection capability plane expanded from 3 to 11 tools; mutating tools remain fail-closed pending controlled authorization/execution plane.",
+        "record": "docs/evidence/HWG_AGENT_CAPABILITY_EXPANSION_E1_20260922.md"
+      }
     }
   ]
 }
