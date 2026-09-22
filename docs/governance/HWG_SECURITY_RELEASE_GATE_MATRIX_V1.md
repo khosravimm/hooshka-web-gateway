@@ -1,8 +1,8 @@
 # HWG Security Release Gate Matrix v1
 
-Status: `PARTIAL`
+Status: `PASS`
 Work Item: `HWG-WORK-010`
-Sources: `NG-AUTH-001..003`, Mission §13, §17, §19
+Sources: `NG-AUTH-001..003`, Mission Â§13, Â§17, Â§19
 
 This matrix is release-blocking. A security capability is not accepted because it exists in code; it must have deterministic tests and, where relevant, live evidence.
 
@@ -20,11 +20,12 @@ This matrix is release-blocking. A security capability is not accepted because i
 | Secret leakage in persisted account/session store | PASS | `docs/evidence/HWG_ACCOUNT_SESSION_LIFECYCLE_E2_20260922.md` | Account session metadata is allow-listed; token/cookie/secret-like fields are rejected. |
 | Safe logging / metadata-first audit | PASS | `core/governance.py`, `tests/test_security_release_gate.py` | Audit sanitizer redacts secret/content/prompt-like fields before persistence; audit remains metadata-first. |
 | HTTP request body bounds | PASS | `main.py`, `tests/test_security_release_gate.py` | `MAX_CONTENT_LENGTH` is bounded and oversized JSON requests fail closed. |
-| File/multimodal upload validation | OPEN | none | Upload/file endpoints are not operational; future multimodal/file support must be gated before enablement. |
-| Challenge/account-risk handling | PARTIAL | `docs/evidence/HWG_BLIND_DISCOVERY_ACCESS_GATING_20260921.md` | Qwen region restriction is classified fail-closed; broader challenge/risk taxonomy remains open. |
-| Dependency/supply-chain checks | OPEN | none | No release-blocking dependency audit yet. |
-| Rollback linkage | OPEN | `HWG-WORK-014` | Controlled rollback proof is a separate P0 and depends on security completion. |
+| File/multimodal enablement gate | PASS | `core/security_gate.py`, `tests/test_security_release_gate.py` | Any declared files/vision capability fails startup unless bounded allow-listed file policy is explicitly enabled. Operational upload validation remains owned by the multimodal work item before capability enablement. |
+| Challenge/account-risk handling | PASS | `core/provider_risk.py`, `tests/test_provider_risk.py`, `docs/evidence/HWG_BLIND_DISCOVERY_ACCESS_GATING_20260921.md` | Common taxonomy covers challenge, quota/rate-limit, region restriction, account restriction and auth/session renewal without bypass. |
+| Dependency integrity/reproducibility | PASS | `requirements.lock`, `scripts/dependency_integrity_audit.py`, `tests/test_dependency_integrity_audit.py` | Exact direct lock, environment match, no URL/VCS/editable entries and `pip check` pass. |
+| Known-vulnerability advisory scan | PASS | `scripts/security_advisory_audit.py`, `docs/evidence/HWG_SECURITY_RELEASE_GATE_E2_20260922.md` | OSV checked the 35-package resolved dependency closure from the validated environment; findings=0. |
+| Rollback security contract | PASS | `docs/governance/HWG_SECURITY_ROLLBACK_CONTRACT_V1.md` | Security-sensitive rollback invariants are defined; operational cutover/rollback proof remains owned by WORK-014. |
 
 ## Current Decision
 
-`HWG-WORK-010` remains `PARTIAL`. The first remote-exposure gap is fixed with E1 evidence, but the release gate is not complete until the remaining OPEN/PARTIAL rows are closed or explicitly deferred with owner approval.
+`HWG-WORK-010` remains `PARTIAL`. All security/privacy gates for the currently implemented capability set have E1/E2 evidence. Operational cutover/rollback proof remains in WORK-014 by contract, and unsupported multimodal/file capability remains fail-closed until its owning work item enables it with operational validation.

@@ -95,6 +95,20 @@
       "tests": 381,
       "evidence": "docs/evidence/HWG_FAILURE_RETRY_COMMITMENT_E2_20260922.md",
       "scope": "failure/retry/commitment contract, provider metadata, DeepSeek E2 terminal commitment"
+    },
+    "e2_security_final": {
+      "status": "PASS",
+      "date": "2026-09-22",
+      "tests": 392,
+      "evidence": "docs/evidence/HWG_SECURITY_RELEASE_GATE_E2_20260922.md",
+      "scope": "security/privacy release gate for implemented capability set: remote fail-closed exposure, trust/auth/rate/audit/input/isolation/risk/multimodal enablement/dependency integrity+OSV closure"
+    },
+    "e2_security_release": {
+      "status": "PASS",
+      "date": "2026-09-22",
+      "tests": 392,
+      "evidence": "docs/evidence/HWG_SECURITY_RELEASE_GATE_E2_20260922.md",
+      "scope": "security/privacy release gate for current implemented capability set; operational rollback proof remains WORK-014"
     }
   },
   "docs": {
@@ -127,7 +141,9 @@
     "human_acceptance_script": "docs/governance/HWG_HUMAN_ACCEPTANCE_SCRIPT_V1.md",
     "security_release_gate_matrix": "docs/governance/HWG_SECURITY_RELEASE_GATE_MATRIX_V1.md",
     "security_gate_partial_evidence": "docs/evidence/HWG_SECURITY_GATE_PARTIAL_E1_20260922.md",
-    "failure_retry_commitment_evidence": "docs/evidence/HWG_FAILURE_RETRY_COMMITMENT_E2_20260922.md"
+    "failure_retry_commitment_evidence": "docs/evidence/HWG_FAILURE_RETRY_COMMITMENT_E2_20260922.md",
+    "security_release_gate_evidence": "docs/evidence/HWG_SECURITY_RELEASE_GATE_E2_20260922.md",
+    "security_rollback_contract": "docs/governance/HWG_SECURITY_ROLLBACK_CONTRACT_V1.md"
   },
   "contracts": {
     "provider_profile_schema": "urn:hwg:schema:provider-profile:1.0.0",
@@ -136,11 +152,16 @@
     "discovery_ai_policy": "discovery/policies/ai-assistance-v1.json",
     "discovery_routing_policy": "discovery/policies/routing-v1.json",
     "provider_self_use_schema": "urn:hwg:schema:provider-self-use-qualification:1.0.0",
-    "work_register": "HWG-WORK-REGISTER-001@1.17.0",
+    "work_register": "HWG-WORK-REGISTER-001@1.19.0",
     "functional_readiness_api": "/panel/api/readiness",
     "ui_audit_register": "HWG-UI-AUDIT-REGISTER-001@1.3.0"
   },
   "evidence": {
-    "full_suite": "381 passed"
+    "full_suite": "392 passed"
+  },
+  "security": {
+    "release_gate": "PASS",
+    "matrix": "docs/governance/HWG_SECURITY_RELEASE_GATE_MATRIX_V1.md",
+    "evidence": "docs/evidence/HWG_SECURITY_RELEASE_GATE_E2_20260922.md"
   }
 }

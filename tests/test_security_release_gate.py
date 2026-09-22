@@ -106,3 +106,23 @@ def test_default_hwg_body_limit_is_bounded():
     from main import create_app
     app = create_app('config.yaml')
     assert app.config['MAX_CONTENT_LENGTH'] == 8 * 1024 * 1024
+
+
+def test_multimodal_capability_fails_closed_without_file_policy():
+    from core.security_gate import validate_multimodal_enablement
+    cfg = {'providers':[{'id':'p1','capabilities':{'files':True,'vision':False}}]}
+    errors = validate_multimodal_enablement(cfg)
+    assert errors
+    assert any('file_upload.enabled' in e for e in errors)
+
+
+def test_multimodal_capability_accepts_bounded_allowlisted_policy():
+    from core.security_gate import validate_multimodal_enablement
+    cfg = {
+        'providers':[{'id':'p1','capabilities':{'files':True,'vision':True}}],
+        'governance':{'input_validation':{'file_upload':{
+            'enabled':True,'max_file_bytes':1048576,
+            'allowed_mime_types':['image/png'],'reject_unknown_type':True,
+        }}},
+    }
+    assert validate_multimodal_enablement(cfg) == []

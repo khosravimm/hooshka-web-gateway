@@ -37,3 +37,15 @@ dev.7 treats the Control Plane as an executable representation of Mission, domai
 ## Live development cutover
 
 Development 5080 was reloaded after final validation and reported application version `1.0.0-dev.7`; semantic Browser Profile enumeration returned five real profiles with temporary audit profiles removed.
+
+## Security gate continuation
+
+- `HWG-WORK-010` Security and Privacy Release Gate closed with E1+E2 evidence.
+- Remote exposure is fail-closed; loopback-only local trust remains explicit.
+- File/vision capability cannot be enabled without bounded allow-listed input-validation policy.
+- Provider risk taxonomy covers challenge, quota/rate limit, region restriction, account restriction and auth renewal.
+- Dependency integrity passes and OSV checked the 35-package resolved dependency closure with zero findings.
+- Security-sensitive rollback invariants are recorded; operational rollback proof remains owned by `HWG-WORK-014`.
+- Final deterministic suite after security closure: **392 passed**.
+
+Evidence: `docs/evidence/HWG_SECURITY_RELEASE_GATE_E2_20260922.md`.

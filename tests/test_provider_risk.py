@@ -29,3 +29,24 @@ def test_detects_slider_challenge_separately():
 
 def test_ordinary_tool_text_is_not_risk():
     assert detect_provider_risk('{"tool_calls":[{"name":"read_file","arguments":{"path":"README.md"}}]}') is None
+
+
+def test_detects_region_restriction():
+    signal = detect_provider_risk('Qwen is not available in your region.')
+    assert signal is not None
+    assert signal.kind == 'region_restriction'
+    assert signal.failure_class == 'provider_region_restricted'
+
+
+def test_detects_account_restriction():
+    signal = detect_provider_risk('Your account has been suspended.')
+    assert signal is not None
+    assert signal.kind == 'account_restriction'
+    assert signal.failure_class == 'provider_account_restricted'
+
+
+def test_detects_auth_required():
+    signal = detect_provider_risk('Sign in to continue')
+    assert signal is not None
+    assert signal.kind == 'auth_required'
+    assert signal.failure_class == 'provider_auth_required'

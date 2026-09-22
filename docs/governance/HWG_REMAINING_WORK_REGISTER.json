@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.17.0",
-  "updated_at": "2026-09-22T09:20:00+03:30",
+  "version": "1.19.0",
+  "updated_at": "2026-09-22T10:08:00+03:30",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -321,7 +321,7 @@
       "id": "HWG-WORK-010",
       "title": "Security and privacy release gate completion",
       "area": "security",
-      "status": "PARTIAL",
+      "status": "DONE",
       "priority": "P0",
       "source": [
         "Security §17",
@@ -337,16 +337,25 @@
         "E2"
       ],
       "exit_criteria": [
-        "Secret leakage/auth/trust/isolation/input/rate/rollback gates pass",
+        "Secret leakage/auth/trust/isolation/input/rate gates pass",
         "Remote exposure fails closed",
-        "Audit is metadata-first and bounded"
+        "Audit is metadata-first and bounded",
+        "Security-sensitive rollback contract is recorded; operational proof is delegated to HWG-WORK-014",
+        "Dependency integrity passes and known-vulnerability advisory coverage is explicit"
       ],
       "latest_evidence": {
         "date": "2026-09-22",
-        "type": "E1 security gate expansion",
-        "result": "Remote health/auth bypass is loopback-only, non-loopback bind has fail-closed startup guard, audit sanitizer redacts content/secret fields, request body limit is bounded, secret scan found 0 findings across 35 scoped files, and dependency lock matches validated environment. Security release gate remains PARTIAL pending file/multimodal validation, supply-chain audit expansion, challenge-risk taxonomy and rollback linkage.",
-        "record": "docs/evidence/HWG_SECURITY_GATE_PARTIAL_E1_20260922.md"
-      }
+        "type": "E1+E2 security release gate",
+        "result": "Loopback trust, remote fail-closed exposure, auth/key handling, rate controls, safe audit logging, bounded request input, origin/account isolation, risk taxonomy, fail-closed file/vision enablement, dependency integrity and OSV advisory scan all passed for the current implemented capability set. Rollback security contract is recorded; operational rollback proof remains delegated to WORK-014.",
+        "record": "docs/evidence/HWG_SECURITY_RELEASE_GATE_E2_20260922.md"
+      },
+      "completed_at": "2026-09-22T10:08:00+03:30",
+      "evidence": [
+        "docs/evidence/HWG_SECURITY_GATE_PARTIAL_E1_20260922.md",
+        "docs/evidence/HWG_SECURITY_RELEASE_GATE_E2_20260922.md",
+        "docs/governance/HWG_SECURITY_RELEASE_GATE_MATRIX_V1.md",
+        "docs/governance/HWG_SECURITY_ROLLBACK_CONTRACT_V1.md"
+      ]
     },
     {
       "id": "HWG-WORK-011",

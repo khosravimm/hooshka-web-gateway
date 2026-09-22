@@ -25,6 +25,25 @@ _QUOTA_PATTERNS = [
     r"wait\s+\d+\s+hours?",
 ]
 
+_REGION_PATTERNS = [
+    r"not\s+available\s+in\s+your\s+(?:region|country)",
+    r"service\s+is\s+not\s+available\s+in\s+your\s+(?:region|country)",
+    r"unsupported\s+(?:region|country)",
+]
+
+_ACCOUNT_RESTRICTION_PATTERNS = [
+    r"account\s+(?:has\s+been\s+)?(?:suspended|restricted|disabled|muted)",
+    r"access\s+(?:has\s+been\s+)?(?:suspended|restricted|disabled)",
+    r"temporarily\s+(?:suspended|restricted|disabled)",
+]
+
+_AUTH_PATTERNS = [
+    r"sign\s+in\s+to\s+continue",
+    r"log\s+in\s+to\s+continue",
+    r"session\s+(?:has\s+)?expired",
+    r"authentication\s+(?:required|expired)",
+]
+
 _CHALLENGE_PATTERNS = [
     r"please\s+drag\s+the\s+slider",
     r"please\s+slide\s+to\s+verify",
@@ -55,6 +74,12 @@ def detect_provider_risk(text: object) -> Optional[ProviderRiskSignal]:
     if not raw.strip():
         return None
     lower = raw.lower()
+    if any(re.search(p, lower, re.I) for p in _REGION_PATTERNS):
+        return ProviderRiskSignal(kind="region_restriction", failure_class="provider_region_restricted", message="Provider access is unavailable in the current region/country.")
+    if any(re.search(p, lower, re.I) for p in _ACCOUNT_RESTRICTION_PATTERNS):
+        return ProviderRiskSignal(kind="account_restriction", failure_class="provider_account_restricted", message="Provider account is suspended/restricted/disabled.")
+    if any(re.search(p, lower, re.I) for p in _AUTH_PATTERNS):
+        return ProviderRiskSignal(kind="auth_required", failure_class="provider_auth_required", message="Provider authentication/session renewal is required.")
     if any(re.search(p, lower, re.I) for p in _CHALLENGE_PATTERNS):
         return ProviderRiskSignal(
             kind="challenge",

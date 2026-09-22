@@ -45,3 +45,33 @@ def assert_remote_exposure_safe(config: dict) -> None:
     errors = validate_remote_exposure(config)
     if errors:
         raise RuntimeError("Unsafe non-loopback bind refused: " + "; ".join(errors))
+
+
+def validate_multimodal_enablement(config: dict) -> list[str]:
+    providers = config.get("providers", []) or []
+    requested = []
+    for provider in providers:
+        caps = provider.get("capabilities", {}) or {}
+        if caps.get("files") is True or caps.get("vision") is True:
+            requested.append(str(provider.get("id") or "unknown"))
+    if not requested:
+        return []
+    policy = (((config.get("governance", {}) or {}).get("input_validation", {}) or {}).get("file_upload", {}) or {})
+    errors = []
+    if policy.get("enabled") is not True:
+        errors.append("file/vision capability requires input_validation.file_upload.enabled=true")
+    if int(policy.get("max_file_bytes") or 0) <= 0:
+        errors.append("file/vision capability requires bounded max_file_bytes")
+    if not list(policy.get("allowed_mime_types") or []):
+        errors.append("file/vision capability requires non-empty allowed_mime_types")
+    if policy.get("reject_unknown_type") is not True:
+        errors.append("file/vision capability requires reject_unknown_type=true")
+    if errors:
+        errors.insert(0, "providers requesting file/vision: " + ",".join(sorted(requested)))
+    return errors
+
+
+def assert_release_security_config(config: dict) -> None:
+    errors = validate_remote_exposure(config) + validate_multimodal_enablement(config)
+    if errors:
+        raise RuntimeError("Unsafe security configuration refused: " + "; ".join(errors))

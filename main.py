@@ -489,8 +489,8 @@ def create_app(config_path: str = "config.yaml") -> Flask:
     default_model_id = default_provider.provider_id if default_provider else ""
 
     server_config = config["server"]
-    from core.security_gate import assert_remote_exposure_safe
-    assert_remote_exposure_safe(config)
+    from core.security_gate import assert_release_security_config
+    assert_release_security_config(config)
 
     def _build_request(data: dict) -> ChatCompletionRequest:
         def _content_to_text(content) -> str:
