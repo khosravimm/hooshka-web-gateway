@@ -224,7 +224,8 @@
         body: JSON.stringify({
           model: model,
           messages: history,
-          stream: true,
+          stream: false,
+          agent_mode: true,
           thinking: thinking,
           search: search,
           conversation_id: currentConversationId,
@@ -237,15 +238,26 @@
         try { errData = await resp.json(); } catch (e) { /* ignore */ }
         throw new Error((errData.error && (errData.error.message || JSON.stringify(errData.error))) || ('HTTP ' + resp.status));
       }
-      if (!resp.body) throw new Error('بدون جریان پاسخ');
-
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder('utf-8');
       let buf = '';
       let finished = false;
       let errored = false;
       let showedMeta = false;
+      const contentType = resp.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const payload = await resp.json();
+        const choice = payload.choices && payload.choices[0];
+        acc = (choice && choice.message && choice.message.content) || '';
+        renderNow();
+        const pm = payload.provider_meta || {};
+        const parts = ['پراوایدر: ' + ($('#chat-provider').value || ''), 'مدل: ' + (payload.model || model)];
+        if (pm.agent_mode) parts.push('Agent: فعال');
+        meta.textContent = parts.join(' · ');
+        finished = true;
+      } else {
+      if (!resp.body) throw new Error('بدون جریان پاسخ');
 
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder('utf-8');
       for (;;) {
         const r = await reader.read();
         if (r.done) break;
@@ -277,6 +289,7 @@
           idx = buf.indexOf('\n');
         }
         if (finished || errored) break;
+      }
       }
       if (buf.trim().length) {
         parseSse(buf.split('\n'),

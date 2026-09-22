@@ -21,4 +21,4 @@ def test_work013_remains_partial_until_other_scopes_and_interactive_e2_close():
     doc=json.loads((ROOT/'docs/governance/HWG_REMAINING_WORK_REGISTER.json').read_text(encoding='utf-8-sig'))
     item=next(x for x in doc['items'] if x['id']=='HWG-WORK-013')
     assert item['status']=='IN_PROGRESS'
-    assert item['latest_evidence']['record']=='docs/evidence/HWG_E3_DEEPSEEK_W1_20260922.md'\n
+    assert item['latest_evidence']['record']=='docs/evidence/HWG_E3_DEEPSEEK_W1_20260922.md'

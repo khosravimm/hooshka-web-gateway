@@ -27,6 +27,7 @@ from core.config import load_config
 from core.tool_compat import drop_optional_tools_for_text_only_provider, request_requires_tools
 from core.agent_boundary import boundary_is_active_for_request, enforce_response_boundary, register_action_candidate_for_boundary
 from core.functional_readiness import load_readiness
+from core.local_tools import LocalToolRegistry, LocalToolError, agent_tool_definitions
 from core.feature_settings import (
     apply_feature_defaults,
     persist_provider_feature_defaults,
@@ -1331,6 +1332,26 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         finally:
             _release_provider_slot("code_chat", provider.provider_id)
 
+    def _interactive_agent_tools():
+        cfg=(config.get("agent_tools") or {})
+        roots=cfg.get("read_roots") or ([r"D:\\"] if os.name == "nt" else [str(Path.cwd())])
+        return LocalToolRegistry(roots=roots)
+
+    def _agent_tool_result_messages(tool_calls, registry):
+        messages=[]
+        for call in tool_calls or []:
+            fn=(call.get("function") or {})
+            name=fn.get("name")
+            raw=fn.get("arguments") or {}
+            if isinstance(raw,str):
+                try: args=json.loads(raw)
+                except json.JSONDecodeError: args={}
+            else: args=raw
+            try: result=registry.execute(name,args)
+            except (LocalToolError,OSError) as exc: result={"error":str(exc),"tool":name}
+            messages.append({"role":"tool","tool_call_id":call.get("id"),"name":name,"content":json.dumps(result,ensure_ascii=False)})
+        return messages
+
     @app.route("/v1/chat/conversation", methods=["POST"])
     def conversation_chat():
         """
@@ -1368,6 +1389,11 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         data = request.get_json(force=True)
         req = _build_request(data)
         req.conversation_id = data.get("conversation_id") or uuid.uuid4().hex
+        agent_mode = bool(data.get("agent_mode"))
+        if agent_mode:
+            req.stream = False
+            req.tools = agent_tool_definitions()
+            req.tool_choice = "auto"
 
         valid, error_msg = _validate_request(req)
         if not valid:
@@ -1407,6 +1433,20 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             else:
                 response = _run_async(provider.chat_completion(translated_req, session), timeout=240)
                 normalized = mcp_normalizer.normalize_response(response, provider, translated_req)
+                if agent_mode:
+                    registry = _interactive_agent_tools()
+                    for _step in range(4):
+                        msg = normalized.choices[0].message
+                        if not msg.tool_calls:
+                            break
+                        req.messages.append({"role":"assistant","content":msg.content or "","tool_calls":msg.tool_calls})
+                        req.messages.extend(_agent_tool_result_messages(msg.tool_calls, registry))
+                        translated_req = mcp_translator.translate_request(req, provider)
+                        response = _run_async(provider.chat_completion(translated_req, session), timeout=240)
+                        normalized = mcp_normalizer.normalize_response(response, provider, translated_req)
+                    normalized.provider_meta = normalized.provider_meta or {}
+                    normalized.provider_meta["agent_mode"] = True
+                    normalized.provider_meta["agent_tools"] = ["list_files","read_file","search_files"]
                 _finalize_usage_for_audit(req, normalized)
 
                 if normalized.provider_meta.get("conversation_id"):

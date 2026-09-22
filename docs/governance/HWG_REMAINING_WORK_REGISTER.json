@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.20.0",
-  "updated_at": "2026-09-22T10:05:00+03:30",
+  "version": "1.21.0",
+  "updated_at": "2026-09-22T10:35:00+03:30",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -852,6 +852,66 @@
         "type": "E1 implementation",
         "result": "Provisioning/runtime/deprovision APIs and Desktop Runtime Agent account routes exist; deterministic tests pass. Live second-account E2 remains pending."
       }
+    },
+    {
+      "id": "HWG-WORK-027",
+      "title": "Interactive Chat governed agent tool execution",
+      "area": "agent-orchestration",
+      "status": "DONE",
+      "priority": "P0",
+      "source": [
+        "Owner interactive-chat acceptance finding 2026-09-22"
+      ],
+      "depends_on": [
+        "HWG-WORK-003"
+      ],
+      "target_version": "1.0.0-dev.7",
+      "evidence_required": [
+        "E1",
+        "E2"
+      ],
+      "exit_criteria": [
+        "Interactive Chat exposes governed tools to tool-capable provider",
+        "HWG executes tool calls and returns results for final synthesis",
+        "Filesystem access is bounded and write/command tools fail closed",
+        "Real browser UI request can list D drive through agent tool execution"
+      ],
+      "latest_evidence": {
+        "date": "2026-09-22",
+        "type": "E2 live API + browser UI",
+        "result": "DeepSeek requested list_files; HWG executed the local read-only tool and rendered the actual D drive listing in Interactive Chat with zero browser console errors.",
+        "record": "docs/evidence/HWG_INTERACTIVE_AGENT_LOCAL_TOOLS_E2_20260922.md"
+      },
+      "evidence": [
+        "docs/evidence/HWG_INTERACTIVE_AGENT_LOCAL_TOOLS_E2_20260922.md"
+      ],
+      "completed_at": "2026-09-22T10:45:00+03:30"
+    },
+    {
+      "id": "HWG-WORK-028",
+      "title": "Generalized governed Agent Tool Execution Plane",
+      "area": "agent-orchestration",
+      "status": "OPEN",
+      "priority": "P0",
+      "source": [
+        "Owner HWG agent/tool-execution principle 2026-09-22"
+      ],
+      "depends_on": [
+        "HWG-WORK-027",
+        "HWG-WORK-010"
+      ],
+      "target_version": "1.0.0-rc.1",
+      "evidence_required": [
+        "E1",
+        "E2"
+      ],
+      "exit_criteria": [
+        "Interactive Agent can discover governed tool capabilities beyond the initial read-only filesystem slice",
+        "Write/command/MCP or external tool execution passes explicit authorization and security policy before execution",
+        "Tool results are returned to the model for bounded multi-step synthesis",
+        "Unsupported or unauthorized tools fail closed with human-readable evidence",
+        "Tool execution has audit records and scoped E2 tests"
+      ]
     }
   ]
 }

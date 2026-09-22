@@ -112,6 +112,10 @@ def _first_json_object(text: str):
 
 
 def _json_loads_tolerant(raw: str):
+    # A model may encode a Windows drive root as \"D:\\"; the trailing
+    # backslash then escapes the JSON quote. Canonicalize only this narrow
+    # drive-root form to a Windows-compatible forward-slash path.
+    raw = re.sub(r'([A-Za-z]):\\(?=\"[,}])', r'\1:/', raw)
     try:
         return json.loads(raw)
     except Exception as first_error:
@@ -297,6 +301,9 @@ def parse_tool_calls(text: str):
     if not text:
         return text, None
     text = normalize_unicode(text)
+    # Repair malformed Windows drive-root JSON before structural scanning;
+    # otherwise the trailing backslash makes the closing quote look escaped.
+    text = re.sub(r'([A-Za-z]):\\(?=\"[,}])', r'\1:/', text)
 
     if "DSML" in text and "invoke" in text:
         dsml = text.replace("｜", "|")
