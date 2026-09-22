@@ -97,14 +97,18 @@ def execute_tool_call(registry, call: dict, policy: AgentLoopPolicy, seen: dict[
         "name": name,
         "content": content,
     }
+    descriptor = registry.describe(name) if hasattr(registry, "describe") else None
+    risk_class = (descriptor or {}).get("risk_class", "READ_ONLY")
+    authorization_mode = (descriptor or {}).get("authorization_mode", "none")
     evidence = {
         "step": step,
         "tool": name,
-        "risk_class": "READ_ONLY",
+        "source": (descriptor or {}).get("source", "local"),
+        "risk_class": risk_class,
         "execution_state": status,
         "duration_ms": duration_ms,
         "truncated": truncated,
-        "authorization_state": "not_required_read_only",
+        "authorization_state": "not_required_read_only" if authorization_mode == "none" else authorization_mode,
         "input_summary": args,
     }
     if error:

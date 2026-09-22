@@ -164,14 +164,15 @@
     "discovery_ai_policy": "discovery/policies/ai-assistance-v1.json",
     "discovery_routing_policy": "discovery/policies/routing-v1.json",
     "provider_self_use_schema": "urn:hwg:schema:provider-self-use-qualification:1.0.0",
-    "work_register": "HWG-WORK-REGISTER-001@1.23.0",
+    "work_register": "HWG-WORK-REGISTER-001@1.24.0",
     "functional_readiness_api": "/panel/api/readiness",
     "ui_audit_register": "HWG-UI-AUDIT-REGISTER-001@1.3.0",
     "provider_certification_matrix": "HWG-PROVIDER-CERT-MATRIX-001@1.0.0"
   },
   "evidence": {
-    "full_suite": "411 passed",
-    "agent_loop_governance_e2": "docs/evidence/HWG_AGENT_LOOP_GOVERNANCE_E2_20260922.md"
+    "full_suite": "419 passed",
+    "agent_loop_governance_e2": "docs/evidence/HWG_AGENT_LOOP_GOVERNANCE_E2_20260922.md",
+    "agent_tool_domains_e2": "docs/evidence/HWG_AGENT_TOOL_DOMAINS_E2_20260922.md"
   },
   "security": {
     "release_gate": "PASS",

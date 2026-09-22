@@ -1,6 +1,7 @@
 from pathlib import Path
 import fnmatch, json, os, platform, shutil, subprocess
 from datetime import datetime, timezone
+from core.tool_contract import read_only_descriptor
 
 class LocalToolError(ValueError): pass
 
@@ -101,7 +102,7 @@ class LocalToolRegistry:
         return {'listeners':cp.stdout.splitlines()[1:limit+1],'truncated':len(cp.stdout.splitlines())>limit+1}
 
     def tool_catalog(self):
-        return {'tools':[{'name':x['function']['name'],'description':x['function']['description'],'risk':'read_only'} for x in agent_tool_definitions()]}
+        return {'tools':[x.to_dict() for x in local_tool_descriptors()]}
 
     def execute(self,name,arguments=None):
         names={x['function']['name'] for x in agent_tool_definitions()}
@@ -128,3 +129,13 @@ def agent_tool_definitions():
         _fn('read_file','Read a text file from an allowed path.',{**path,'max_chars':{'type':'integer','minimum':1,'maximum':100000}},['path']),
         _fn('search_files','Search text inside files under an allowed path.',{'query':{'type':'string'},**path,'pattern':{'type':'string'},**limit},['query','path']),
     ]
+
+
+def local_tool_descriptors():
+    descriptors=[]
+    for item in agent_tool_definitions():
+        fn=item['function']
+        descriptors.append(read_only_descriptor(
+            fn['name'], fn['description'], fn['parameters'], source='hwg_native'
+        ))
+    return descriptors

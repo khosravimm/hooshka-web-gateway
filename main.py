@@ -9,6 +9,7 @@ import atexit
 import queue
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from datetime import datetime
+from pathlib import Path
 from flask import Flask, request, jsonify, Response, stream_with_context, g
 from flasgger import Swagger
 from core.providers import (
@@ -27,7 +28,7 @@ from core.config import load_config
 from core.tool_compat import drop_optional_tools_for_text_only_provider, request_requires_tools
 from core.agent_boundary import boundary_is_active_for_request, enforce_response_boundary, register_action_candidate_for_boundary
 from core.functional_readiness import load_readiness
-from core.local_tools import LocalToolRegistry, LocalToolError, agent_tool_definitions
+from core.agent_tools import AgentToolRegistry, agent_tool_definitions
 from core.agent_execution import AgentLoopPolicy, execute_tool_call, remaining_loop_seconds, summarize_terminal_state
 from core.feature_settings import (
     apply_feature_defaults,
@@ -1336,7 +1337,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
     def _interactive_agent_tools():
         cfg=(config.get("agent_tools") or {})
         roots=cfg.get("read_roots") or ([r"D:\\"] if os.name == "nt" else [str(Path.cwd())])
-        return LocalToolRegistry(roots=roots)
+        return AgentToolRegistry(roots=roots, repo_root=Path.cwd())
 
     def _agent_tool_result_messages(tool_calls, registry, policy, seen, step):
         messages=[]; evidence=[]; duplicate_blocked=False
