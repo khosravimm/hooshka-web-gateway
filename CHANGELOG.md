@@ -1,5 +1,10 @@
 ## 1.0.0-dev.7 - 2026-09-23 - WIP continuation (Machine-readable API contract)
 - Added OpenAPI 3.1 generation from the live Flask route registry for management and agent APIs.
+
+### SDK conformance slice ? 2026-09-23
+- Expanded Python and TypeScript reference SDKs with machine-readable contract discovery, canonical multimodal helpers, explicit provider selection and structured errors.
+- Verified bounded E2 round-trips for both SDKs against Candidate HWG/DeepSeek and explicit unsupported-media failure.
+- WORK-009 remains PARTIAL pending profile/account targeting and explicit cancellation API.
 - Added versioned JSON Schema bundle for profiles, accounts, capabilities, errors, events and compatibility manifest.
 - Added `/v1/contracts/openapi.json`, `/v1/contracts/schemas` and `/v1/compatibility`.
 - Closed `HWG-WORK-008` at E1; no uncertified capability was promoted.

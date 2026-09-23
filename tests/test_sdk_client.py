@@ -60,3 +60,25 @@ def test_chat_stream_yields_until_done():
     c._session = MagicMock()
     c._session.post.return_value = cm
     assert list(c.chat_stream("m", [])) == [{"x": 1}]
+
+
+def test_contract_discovery_methods():
+    c=_client_with_mock({"openapi":"3.1.0"})
+    assert c.openapi()["openapi"]=="3.1.0"
+    assert c._session.get.call_args[0][0].endswith("/v1/contracts/openapi.json")
+
+def test_structured_error_preserves_message_code_details_provider():
+    c=_client_with_mock({"error":{"message":"unsupported","code":"unsupported_media_type","details":{"media":"image"},"provider":"deepseek-web"}},status=400)
+    with pytest.raises(HwgError) as ei: c.chat("deepseek-web",[])
+    e=ei.value
+    assert str(e)=="unsupported" and e.code=="unsupported_media_type" and e.details=={"media":"image"} and e.provider=="deepseek-web"
+
+def test_provider_selection_is_explicit_in_chat_body():
+    c=_client_with_mock({"id":"x"})
+    c.chat("deepseek-web",[{"role":"user","content":"hi"}],provider="deepseek-web")
+    assert c._session.post.call_args[1]["json"]["provider"]=="deepseek-web"
+
+def test_multimodal_helpers_use_canonical_part_types():
+    assert HwgClient.text_part("x")=={"type":"text","text":"x"}
+    assert HwgClient.image_part("data:image/png;base64,AA==")["type"]=="input_image"
+    assert HwgClient.file_part("D:/x.pdf")["type"]=="input_file"

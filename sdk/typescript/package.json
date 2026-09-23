@@ -1,23 +1,23 @@
-{
-  "name": "hwg-client",
-  "version": "0.1.0",
-  "description": "Hooshka Web Gateway standard-only TypeScript client (mirrors sdk/python/hwg_client.py). Zero runtime dependencies.",
-  "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
-  "engines": {
-    "node": ">=20"
-  },
-  "scripts": {
-    "typecheck": "tsc --noEmit",
-    "onboard": "tsc -p tsconfig.json --declaration --emitDeclarationOnly true",
-    "test": "node --experimental-strip-types test/smoke.ts"
-  },
-  "license": "UNLICENSED",
-  "dependencies": {
-    "typescript": "^5.9.3"
-  }
+﻿{
+    "name":  "hwg-client",
+    "version":  "0.1.0",
+    "description":  "Hooshka Web Gateway standard-only TypeScript client (mirrors sdk/python/hwg_client.py). Zero runtime dependencies.",
+    "type":  "module",
+    "main":  "dist/index.js",
+    "types":  "dist/index.d.ts",
+    "files":  [
+                  "dist"
+              ],
+    "engines":  {
+                    "node":  "\u003e=20"
+                },
+    "scripts":  {
+                    "typecheck":  "tsc --noEmit",
+                    "onboard":  "tsc -p tsconfig.json --declaration --emitDeclarationOnly true",
+                    "test":  "node --experimental-strip-types test/contract.ts"
+                },
+    "license":  "UNLICENSED",
+    "dependencies":  {
+                         "typescript":  "^5.9.3"
+                     }
 }

@@ -6,17 +6,21 @@ export interface HwgErrorOptions {
 export class HwgError extends Error {
   readonly code?: string;
   readonly status?: number;
+  readonly details?: unknown;
+  readonly provider?: string;
 
-  constructor(message: string, opts: HwgErrorOptions = {}) {
+  constructor(message: string, opts: HwgErrorOptions & { details?: unknown; provider?: string } = {}) {
     super(message);
     this.name = "HwgError";
     this.code = opts.code;
     this.status = opts.status;
+    this.details = opts.details;
+    this.provider = opts.provider;
   }
 }
 
 export interface ErrorEnvelope {
-  error?: { code?: string };
+  error?: { code?: string; message?: string; details?: unknown; provider?: string };
 }
 
 export interface HwgClientOptions {
@@ -64,10 +68,10 @@ export class HwgClient {
   private async json<T>(method: string, path: string, body?: unknown): Promise<T> {
     const r = await this.send(method, path, body);
     if (!r.ok) {
-      const code = ((await r.json().catch(() => ({}))) as ErrorEnvelope).error?.code;
-      throw new HwgError(`${method} ${path} -> ${r.status}`, {
-        code,
-        status: r.status,
+      const envelope = (await r.json().catch(() => ({}))) as ErrorEnvelope;
+      const err = envelope.error ?? {};
+      throw new HwgError(err.message ?? `${method} ${path} -> ${r.status}`, {
+        code: err.code, status: r.status, details: err.details, provider: err.provider,
       });
     }
     return (await r.json()) as T;
@@ -86,6 +90,19 @@ export class HwgClient {
   async capabilities(): Promise<unknown> {
     return this.json("GET", "/v1/capabilities");
   }
+
+  async openapi(): Promise<unknown> { return this.json("GET", "/v1/contracts/openapi.json"); }
+  async schemas(): Promise<unknown> { return this.json("GET", "/v1/contracts/schemas"); }
+  async compatibility(): Promise<unknown> { return this.json("GET", "/v1/compatibility"); }
+  async inventory(): Promise<unknown> { return this.json("GET", "/panel/api/ng/inventory"); }
+  async accounts(): Promise<unknown> {
+    const data = await this.json<{ accounts: unknown }>("GET", "/panel/api/accounts");
+    return data.accounts;
+  }
+
+  static textPart(text: string): Record<string, unknown> { return { type: "text", text }; }
+  static imagePart(imageUrl: string): Record<string, unknown> { return { type: "input_image", image_url: imageUrl }; }
+  static filePart(filePath: string): Record<string, unknown> { return { type: "input_file", file_path: filePath }; }
 
   async chat(
     model: string,
