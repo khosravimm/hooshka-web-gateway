@@ -1,3 +1,13 @@
+## 1.0.0-dev.7 - 2026-09-23 - WIP continuation (Agent authorization gate)
+- Enforced ToolDescriptor risk and authorization mode before Agent Tool registry dispatch.
+- Added trusted, scoped policy/human-approval/CAG authorization context; raw model/client requests are not authorization evidence.
+- Unknown/descriptorless tools and non-read-only tools without valid authorization now fail closed.
+- `HWG-WORK-028` remains IN_PROGRESS: no mutating production tool was enabled and CAG runtime integration still requires controlled E2.
+
+### Evidence
+- `docs/evidence/HWG_AGENT_AUTHORIZATION_GATE_E1_20260923.md` — E1 only.
+- Authorization-policy tests: 9 passed; full deterministic suite: 427 passed; compileall and git diff checks passed.
+
 ## 1.0.0-dev.7 - 2026-09-22 - WIP (mission-driven Control Plane)
 - Added governed Mission-driven UI/UX audit framework and machine-readable Audit Register v1.3.0.
 - Closed all 23 automated UI findings with E1/E2 evidence; Human Acceptance remains a separate gate.

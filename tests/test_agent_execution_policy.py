@@ -1,14 +1,23 @@
 import json
 import time
 
-from core.agent_execution import AgentLoopPolicy, execute_tool_call, remaining_loop_seconds
+from core.agent_execution import (
+    AgentLoopPolicy,
+    ToolAuthorizationContext,
+    execute_tool_call,
+    remaining_loop_seconds,
+)
 
 
 class FakeRegistry:
     def __init__(self, value=None, delay=0):
         self.value=value if value is not None else {'ok': True}
         self.delay=delay
+        self.executions=0
+    def describe(self, name):
+        return {'name': name, 'source': 'test', 'risk_class': 'READ_ONLY', 'authorization_mode': 'none'}
     def execute(self, name, args):
+        self.executions += 1
         if self.delay:
             time.sleep(self.delay)
         return self.value
@@ -56,3 +65,66 @@ def test_loop_budget_reaches_zero():
     p=AgentLoopPolicy(max_loop_seconds=0.01)
     started=time.monotonic(); time.sleep(0.02)
     assert remaining_loop_seconds(started,p) == 0.0
+
+
+class GuardedRegistry(FakeRegistry):
+    def __init__(self, mode='cag', risk='EXECUTION'):
+        super().__init__()
+        self.mode=mode
+        self.risk=risk
+    def describe(self, name):
+        return {
+            'name': name,
+            'source': 'test',
+            'risk_class': self.risk,
+            'authorization_mode': self.mode,
+        }
+
+
+def test_non_read_only_tool_fails_closed_without_trusted_authorization():
+    registry=GuardedRegistry(mode='cag')
+    msg, ev, _dup=execute_tool_call(registry,call('run_command'),AgentLoopPolicy(),{},1)
+    assert registry.executions == 0
+    assert ev['execution_state'] == 'authorization_blocked'
+    assert ev['authorization_state'] == 'trusted_authorization_required'
+    assert 'blocked' in msg['content'].lower()
+
+
+def test_cag_tool_requires_scoped_verified_evidence():
+    registry=GuardedRegistry(mode='cag')
+    auth=ToolAuthorizationContext(
+        trusted=True,
+        approved_tools=('run_command',),
+        cag_decision='approved',
+        cag_evidence_id='CAG-EVIDENCE-001',
+    )
+    _msg, ev, _dup=execute_tool_call(registry,call('run_command'),AgentLoopPolicy(),{},1,authorization=auth)
+    assert registry.executions == 1
+    assert ev['execution_state'] == 'ok'
+    assert ev['authorization_state'] == 'cag_approved'
+
+
+def test_authorized_scope_blocks_other_tool():
+    registry=GuardedRegistry(mode='approval', risk='CONTROLLED_WRITE')
+    auth=ToolAuthorizationContext(
+        trusted=True,
+        approved_tools=('write_file',),
+        approval_id='approval-1',
+        approved_by='owner',
+    )
+    _msg, ev, _dup=execute_tool_call(registry,call('run_command'),AgentLoopPolicy(),{},1,authorization=auth)
+    assert registry.executions == 0
+    assert ev['authorization_state'] == 'tool_outside_authorized_scope'
+
+
+class DescriptorlessRegistry(FakeRegistry):
+    def describe(self, name):
+        return None
+
+
+def test_tool_without_descriptor_fails_closed():
+    registry=DescriptorlessRegistry()
+    _msg, ev, _dup=execute_tool_call(registry,call('unknown_tool'),AgentLoopPolicy(),{},1)
+    assert registry.executions == 0
+    assert ev['execution_state'] == 'authorization_blocked'
+    assert ev['authorization_state'] == 'tool_descriptor_required'

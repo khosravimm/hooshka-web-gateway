@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as ToolTimeoutError
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import hashlib
 import json
 import time
@@ -27,6 +27,49 @@ class AgentLoopPolicy:
         )
 
 
+@dataclass(frozen=True)
+class ToolAuthorizationContext:
+    """Trusted server-side evidence for authorizing non-read-only tools."""
+    trusted: bool = False
+    policy_decision: str | None = None
+    approved_tools: tuple[str, ...] = field(default_factory=tuple)
+    approval_id: str | None = None
+    approved_by: str | None = None
+    cag_decision: str | None = None
+    cag_evidence_id: str | None = None
+
+
+def authorize_tool_execution(
+    descriptor: dict | None,
+    name: str,
+    authorization: ToolAuthorizationContext | None = None,
+) -> tuple[bool, str]:
+    if not descriptor:
+        return False, "tool_descriptor_required"
+    risk_class = str(descriptor.get("risk_class") or "READ_ONLY")
+    mode = str(descriptor.get("authorization_mode") or "none")
+    if mode == "none":
+        if risk_class != "READ_ONLY":
+            return False, "authorization_misconfigured_non_read_only"
+        return True, "not_required_read_only"
+
+    auth = authorization or ToolAuthorizationContext()
+    if not auth.trusted:
+        return False, "trusted_authorization_required"
+    if auth.approved_tools and name not in auth.approved_tools:
+        return False, "tool_outside_authorized_scope"
+    if mode == "policy":
+        ok = auth.policy_decision == "allow"
+        return ok, "policy_allowed" if ok else "policy_denied"
+    if mode == "approval":
+        ok = bool(auth.approval_id and auth.approved_by)
+        return ok, "human_approval_verified" if ok else "human_approval_required"
+    if mode == "cag":
+        ok = auth.cag_decision == "approved" and bool(auth.cag_evidence_id)
+        return ok, "cag_approved" if ok else "cag_approval_required"
+    return False, "unknown_authorization_mode"
+
+
 def tool_call_fingerprint(name: str, arguments) -> str:
     if isinstance(arguments, str):
         try:
@@ -49,7 +92,14 @@ def _bounded_result(result, max_chars: int) -> tuple[str, bool]:
     return json.dumps(wrapper, ensure_ascii=False), True
 
 
-def execute_tool_call(registry, call: dict, policy: AgentLoopPolicy, seen: dict[str, int], step: int):
+def execute_tool_call(
+    registry,
+    call: dict,
+    policy: AgentLoopPolicy,
+    seen: dict[str, int],
+    step: int,
+    authorization: ToolAuthorizationContext | None = None,
+):
     fn = call.get("function") or {}
     name = str(fn.get("name") or "")
     raw_args = fn.get("arguments") or {}
@@ -60,6 +110,9 @@ def execute_tool_call(registry, call: dict, policy: AgentLoopPolicy, seen: dict[
             args = {}
     else:
         args = dict(raw_args)
+
+    descriptor = registry.describe(name) if hasattr(registry, "describe") else None
+    allowed, authorization_state = authorize_tool_execution(descriptor, name, authorization)
     fingerprint = tool_call_fingerprint(name, args)
     seen[fingerprint] = seen.get(fingerprint, 0) + 1
     duplicate = seen[fingerprint] > policy.duplicate_call_limit
@@ -68,7 +121,11 @@ def execute_tool_call(registry, call: dict, policy: AgentLoopPolicy, seen: dict[
     error = None
     result = None
 
-    if duplicate:
+    if not allowed:
+        status = "authorization_blocked"
+        error = f"Tool execution blocked: {authorization_state}"
+        result = {"error": error, "tool": name}
+    elif duplicate:
         status = "duplicate_blocked"
         error = "Duplicate tool call blocked by agent loop policy"
         result = {"error": error, "tool": name}
@@ -97,9 +154,7 @@ def execute_tool_call(registry, call: dict, policy: AgentLoopPolicy, seen: dict[
         "name": name,
         "content": content,
     }
-    descriptor = registry.describe(name) if hasattr(registry, "describe") else None
     risk_class = (descriptor or {}).get("risk_class", "READ_ONLY")
-    authorization_mode = (descriptor or {}).get("authorization_mode", "none")
     evidence = {
         "step": step,
         "tool": name,
@@ -108,7 +163,7 @@ def execute_tool_call(registry, call: dict, policy: AgentLoopPolicy, seen: dict[
         "execution_state": status,
         "duration_ms": duration_ms,
         "truncated": truncated,
-        "authorization_state": "not_required_read_only" if authorization_mode == "none" else authorization_mode,
+        "authorization_state": authorization_state,
         "input_summary": args,
     }
     if error:

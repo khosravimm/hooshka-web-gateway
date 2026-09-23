@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.25.0",
-  "updated_at": "2026-09-22T14:50:00+03:30",
+  "version": "1.26.0",
+  "updated_at": "2026-09-23T11:17:00+03:30",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -914,16 +914,17 @@
         "Tool execution has audit records and scoped E2 tests"
       ],
       "latest_evidence": {
-        "date": "2026-09-22",
-        "type": "E1+E2 provider tool discovery and profile persistence",
-        "result": "Provider Discovery Explore now runs a forced non-executed tool-call qualification probe, records structured E2 sub-evidence, and persists bounded non-secret results into the NG Provider Profile tool_capabilities section. DeepSeek live discovery proved protocol_valid=true, marker_match=true, supported=true, persisted=true. Mutating tools remain fail-closed pending CAG.",
-        "record": "docs/evidence/HWG_PROVIDER_TOOL_DISCOVERY_PROFILE_E2_20260922.md"
+        "date": "2026-09-23",
+        "type": "E1 fail-closed authorization gate",
+        "result": "Agent execution now enforces ToolDescriptor risk/authorization before dispatch. Missing descriptors, untrusted evidence, scope mismatch and unauthorized non-read-only tools fail closed; trusted scoped CAG evidence is represented but no mutating production tool is enabled.",
+        "record": "docs/evidence/HWG_AGENT_AUTHORIZATION_GATE_E1_20260923.md"
       },
       "evidence": [
         "docs/evidence/HWG_AGENT_CAPABILITY_EXPANSION_E1_20260922.md",
         "docs/evidence/HWG_AGENT_LOOP_GOVERNANCE_E2_20260922.md",
         "docs/evidence/HWG_AGENT_TOOL_DOMAINS_E2_20260922.md",
-        "docs/evidence/HWG_PROVIDER_TOOL_DISCOVERY_PROFILE_E2_20260922.md"
+        "docs/evidence/HWG_PROVIDER_TOOL_DISCOVERY_PROFILE_E2_20260922.md",
+        "docs/evidence/HWG_AGENT_AUTHORIZATION_GATE_E1_20260923.md"
       ]
     }
   ]
