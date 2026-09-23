@@ -34,6 +34,13 @@ def parse_accept(accept: str) -> dict[str, Any]:
     classes={}
     for name,reps in REPRESENTATIVE_EXTENSIONS.items():
         classes[name]=any(ext in extensions for ext in reps)
+    mime_prefixes={
+        "image":"image/", "audio":"audio/", "video":"video/",
+        "text":"text/",
+    }
+    for name,prefix in mime_prefixes.items():
+        if any(m == prefix + "*" or m.startswith(prefix) for m in mime_types):
+            classes[name]=True
     return {"tokens":tokens,"extensions":extensions,"mime_types":mime_types,"classes":classes}
 
 
@@ -41,11 +48,13 @@ async def observe_file_upload_surface(page) -> dict[str, Any]:
     inputs=await page.locator("input[type=file]").evaluate_all("""nodes => nodes.map((e,i)=>({index:i,accept:e.accept||'',multiple:!!e.multiple,disabled:!!e.disabled}))""")
     parsed=[]
     combined=set()
+    classes={name:False for name in REPRESENTATIVE_EXTENSIONS}
     for item in inputs:
         info=parse_accept(item.get("accept") or "")
         combined.update(info["extensions"])
+        for name,value in info["classes"].items():
+            classes[name]=classes.get(name,False) or bool(value)
         parsed.append({**item,"parsed":info})
-    classes={name:any(ext in combined for ext in reps) for name,reps in REPRESENTATIVE_EXTENSIONS.items()}
     return {
         "schema_version": QUALIFICATION_VERSION,
         "qualification_policy": media_qualification_policy(),

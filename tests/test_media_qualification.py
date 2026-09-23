@@ -66,3 +66,11 @@ def test_profile_persistence_merges_certified_classes(tmp_path):
     out=update_provider_media_qualification('p',{'certified':{'file_upload':True},'certified_classes':{'spreadsheet':True},'evidence_level':'E2'},root)
     classes=out['media_qualification']['latest']['certified_classes']
     assert classes=={'document':True,'spreadsheet':True}
+
+
+def test_accept_parser_maps_mime_wildcards_to_classes():
+    x=parse_accept('image/*,video/*,audio/*,text/plain')
+    assert x['classes']['image'] is True
+    assert x['classes']['video'] is True
+    assert x['classes']['audio'] is True
+    assert x['classes']['text'] is True

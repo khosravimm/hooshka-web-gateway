@@ -3,6 +3,8 @@ import logging
 from typing import AsyncIterator, Optional
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
 from core.commitment import Commitment, CommitmentTracker, annotate_error_details, commitment_metadata
+from core.media_qualification import qualification_result
+from core.visual_discovery import wait_for_upload_settled
 from core.providers import (
     Provider,
     ProviderConfig,
@@ -47,14 +49,15 @@ SEND_SELECTORS = (
     "button[data-testid='send-button']",
     "button[data-testid='composer-submit-button']",
     "button#composer-submit-button",
+    "button[aria-label='Send']",
     "button[aria-label='Send message']",
     "button[aria-label='Send prompt']",
     "button.composer-submit-button-color[aria-label='Send prompt']",
     "button.composer-submit-button-color[aria-label='Send message']",
 )
-ASSISTANT_SELECTOR = "[data-message-author-role='assistant']"
+ASSISTANT_SELECTOR = "[data-message-author-role='assistant'],[data-markdown-text-style='assistant-message']"
 FILE_INPUT_SELECTOR = "input[type='file']"
-UPLOAD_READY_SELECTOR = "button[data-testid='send-button'], text=Upload complete, .upload-complete"
+UPLOAD_READY_SELECTOR = "button[data-testid='send-button'], .upload-complete"
 MAX_FILE_UPLOAD_TIMEOUT = 600000
 LONG_TEXT_CHUNK_SIZE = 2048
 COMPOSER_FILL_THRESHOLD = 8192
@@ -119,14 +122,14 @@ class ChatGPTWebProvider(Provider):
                     return r.width > 0 && r.height > 0 &&
                       st.visibility !== 'hidden' && st.display !== 'none';
                   };
-                  const profileCount = [...document.querySelectorAll("[data-testid='accounts-profile-button']")].filter(visible).length;
+                  const profileCount = [...document.querySelectorAll("[data-testid='accounts-profile-button'],button[aria-label='Open profile menu'],[aria-label='Open profile menu']")].filter(visible).length;
                   const loginCount = [...document.querySelectorAll("a,button")].filter((el) => {
                     if (!visible(el)) return false;
                     const text = (el.innerText || el.textContent || "").trim();
                     return /^(log in|sign up)$/i.test(text);
                   }).length;
                   const composerCount = [...document.querySelectorAll(
-                    "#prompt-textarea,#prompt-textarea[contenteditable='true'],#prompt-textarea.ProseMirror,[contenteditable='true'][role='textbox'][aria-label*='Chat'],textarea[aria-label*='Chat'],textarea#mobile-composer-prompt"
+                    "#prompt-textarea,#prompt-textarea[contenteditable='true'],#prompt-textarea.ProseMirror,[contenteditable='true'][role='textbox'][aria-label*='Chat'],[contenteditable='true'][role='textbox'][aria-label*='ChatGPT'],textarea[aria-label*='Chat'],textarea#mobile-composer-prompt"
                   )].filter(visibleInViewport).length;
                   const stopCount = [...document.querySelectorAll("button[data-testid='stop-button'],button[aria-label*='Stop'],button")].filter((el) => {
                     if (!visibleInViewport(el)) return false;
@@ -268,27 +271,52 @@ class ChatGPTWebProvider(Provider):
             await asyncio.sleep(0.25)
         raise PlaywrightTimeout("Timed out waiting for a visible ChatGPT composer")
 
+    async def _prepare_stateless_composer(self) -> dict:
+        """Use Explorer evidence to remove a stale draft before a stateless turn."""
+        if self._page is None:
+            return {"cleared": False, "reason": "no_page"}
+        try:
+            from core.discovery_engine import discover_page
+            report = await discover_page(self._page, self.provider_id)
+            selector = report.frontend.get("composer_selector")
+            box = self._page.locator(selector).first if selector else await self._resolve_composer()
+            if not await box.count() or not await box.is_visible():
+                box = await self._resolve_composer()
+            before = await self._composer_text(box)
+            if self._normalize_composer_text(before):
+                await box.click()
+                await self._page.keyboard.press("Control+A")
+                await self._page.keyboard.press("Backspace")
+                await self._page.wait_for_timeout(120)
+            after = await self._composer_text(box)
+            return {
+                "cleared": not bool(self._normalize_composer_text(after)),
+                "had_stale_draft": bool(self._normalize_composer_text(before)),
+                "engine_version": report.engine_version,
+                "composer_selector": selector,
+            }
+        except Exception as exc:
+            logger.debug("Explorer stateless composer preparation failed: %s", type(exc).__name__)
+            return {"cleared": False, "reason": type(exc).__name__}
+
     @property
     def capabilities(self) -> ProviderCapabilities:
-        return ProviderCapabilities(
-            chat_completion=True,
-            # DOM mode also supports the compatibility streaming endpoint by
-            # returning the completed response as a single chunk.  Advertising
-            # this capability lets OpenAI-compatible clients such as Kilo
-            # select the provider when they send stream=true.
-            streaming=True,
-            streaming_mode="buffered",
-            tools=True,
-            vision=False,
-            embeddings=False,
-            max_context_tokens=128000,
-            # Canonical gateway model id. Do not claim arbitrary upstream model
-            # aliases that the Web UI does not prove or expose deterministically.
-            supported_models=["chatgpt-web"],
-            search=True,
-            reasoning=True,
-            transport_mode="browser_ui",
+        return self._capabilities
+
+    async def qualify_media(self, media_kind: str, file_path: str, prompt: str, expected_marker: str) -> dict:
+        req = ChatCompletionRequest(
+            model="chatgpt-web",
+            messages=[{"role":"user","content":prompt}],
+            stream=False,
+            provider_options={"file_paths":[file_path],"thinking":False,"search":False},
         )
+        response = await self.chat_completion(req)
+        content = ""
+        if response.choices:
+            content = str(response.choices[0].message.content or "")
+        result = qualification_result(self.provider_id, media_kind, file_path, content, expected_marker)
+        result["response_preview"] = content[:500]
+        return result
 
     async def health_check(self) -> bool:
         """Check provider availability without mutating browser state.
@@ -456,7 +484,7 @@ class ChatGPTWebProvider(Provider):
     async def _resolve_send_button(self):
         if self._page is None:
             raise ProviderError("Page is not initialized", "page_not_initialized", self.provider_id)
-        deadline = asyncio.get_running_loop().time() + 15
+        deadline = asyncio.get_running_loop().time() + 8
         while asyncio.get_running_loop().time() < deadline:
             for selector in SEND_SELECTORS:
                 try:
@@ -469,10 +497,29 @@ class ChatGPTWebProvider(Provider):
                 except Exception:
                     pass
             await asyncio.sleep(0.15)
+        # Explorer-assisted fallback: selector drift is expected in Web Chat UIs.
+        try:
+            from core.discovery_engine import discover_page
+            report = await discover_page(self._page, self.provider_id)
+            for control in report.frontend.get("controls", []):
+                if control.get("kind") != "send" or not control.get("selector"):
+                    continue
+                loc = self._page.locator(control["selector"]).first
+                if await loc.count() and await loc.is_visible() and await loc.is_enabled():
+                    logger.info("ChatGPT send control recovered by Explorer: %s", control["selector"])
+                    return loc
+            details = {
+                "engine_version": report.engine_version,
+                "composer_selector": report.frontend.get("composer_selector"),
+                "send_controls": [c for c in report.frontend.get("controls", []) if c.get("kind") == "send"],
+            }
+        except Exception as exc:
+            details = {"explorer_error": type(exc).__name__}
         raise ProviderError(
             "ChatGPT send button is unavailable",
             "send_button_unavailable",
             self.provider_id,
+            details,
         )
 
     async def _submit_message_via_current_dom(self, message: str) -> dict:
@@ -555,7 +602,7 @@ class ChatGPTWebProvider(Provider):
                 const hay = label(el);
                 return el.getAttribute('data-testid') === 'send-button' ||
                   el.id === 'composer-submit-button' ||
-                  /(^|\b)(send prompt|send message)(\b|$)/i.test(hay);
+                  /(^|\b)(send|send prompt|send message)(\b|$)/i.test(hay);
               });
               if (!send || send.disabled || send.getAttribute('aria-disabled') === 'true') {
                 return {ok: false, reason: 'send_not_found_or_disabled', actual_len: actual.length, composer_visible: composerVisible, composer_rect: {x: Math.round(composerRect.x), y: Math.round(composerRect.y), w: Math.round(composerRect.width), h: Math.round(composerRect.height)}, viewport: {w: window.innerWidth, h: window.innerHeight}};
@@ -618,13 +665,14 @@ class ChatGPTWebProvider(Provider):
 
         composer = await self._resolve_composer()
         form = composer.locator("xpath=ancestor::form[1]")
-        if await form.count() == 0:
-            raise ProviderError("ChatGPT composer form not found", "feature_control_failed", self.provider_id)
+        scope = form if await form.count() else self._page
+        if scope is self._page:
+            logger.debug("ChatGPT composer has no form ancestor; using page-scoped feature discovery")
 
-        search_pill = form.locator('[data-inline-selection-pill][data-id="search"]')
+        search_pill = scope.locator('[data-inline-selection-pill][data-id="search"]')
         active = await search_pill.count() > 0
         if search and not active:
-            plus = form.locator('button[data-testid="composer-plus-btn"]').first
+            plus = scope.locator('button[data-testid="composer-plus-btn"]').first
             await self._click_feature_control(plus, "search_menu")
             item = self._page.get_by_text("Web search", exact=True).last
             await item.wait_for(state="visible", timeout=5000)
@@ -880,7 +928,7 @@ class ChatGPTWebProvider(Provider):
         composer = await self._resolve_composer()
         form = composer.locator("xpath=ancestor::form[1]")
         if await form.count() == 0:
-            raise ProviderError("ChatGPT composer form not found", "feature_control_failed", self.provider_id)
+            logger.debug("ChatGPT composer has no form ancestor; using page-scoped feature discovery")
 
         # Thinking maps to the lowest available effort when disabled and to a
         # non-zero effort when enabled. ChatGPT may still perform internal
@@ -1006,6 +1054,7 @@ class ChatGPTWebProvider(Provider):
         previous_count: int,
         previous_text: str = "",
         previous_action_count: int = 0,
+        previous_url: str = "",
         timeout: int = 120000,
     ):
         """Wait for a completed assistant response without retaining stale DOM locators."""
@@ -1026,7 +1075,8 @@ class ChatGPTWebProvider(Provider):
                 except Exception:
                     text = ""
 
-            is_new = count > previous_count or (count == previous_count and text and text != previous_text)
+            url_transitioned = bool(previous_url and self._page.url != previous_url)
+            is_new = url_transitioned or count > previous_count or (count == previous_count and text and text != previous_text)
             if is_new and text and text.lower() not in transient:
                 try:
                     action_count = await self._page.locator(
@@ -1049,12 +1099,13 @@ class ChatGPTWebProvider(Provider):
                     except Exception:
                         pass
 
-                # Current ChatGPT renders one copy action for the user turn and
-                # one for the completed assistant turn. Requiring both protects
-                # against accepting the transient assistant placeholder.
-                response_actions_ready = action_count >= previous_action_count + 2
-
-                if not generating and response_actions_ready:
+                # Current ChatGPT no longer guarantees the legacy
+                # copy-turn-action-button test-id. Completion is therefore
+                # established by a non-transient assistant message that remains
+                # stable across several samples while no stop/generating control
+                # is visible. This remains bounded and avoids accepting a
+                # streaming placeholder as terminal output.
+                if not generating:
                     if text == stable_text:
                         stable_samples += 1
                     else:
@@ -1116,24 +1167,49 @@ class ChatGPTWebProvider(Provider):
     async def _upload_file(self, file_path: str):
         ensure_file_exists(file_path)
 
-        add_btn = self._page.locator("button[data-testid='composer-plus-btn']")
-        if await add_btn.count() == 0:
-            raise ProviderError("File upload button not found", "upload_failed", self.provider_id)
+        async def resolve_file_input():
+            inputs = self._page.locator("input[type=file]")
+            count = await inputs.count()
+            if count:
+                # Current ChatGPT keeps a generic hidden "Attach files" input
+                # in the DOM. Prefer an unrestricted input over media-only
+                # inputs so document/code uploads do not depend on menu layout.
+                for index in range(count):
+                    candidate = inputs.nth(index)
+                    accept = (await candidate.get_attribute("accept") or "").strip()
+                    label = (await candidate.get_attribute("aria-label") or "").lower()
+                    if not accept or "attach files" in label:
+                        return candidate
+                return inputs.first
+            return None
 
-        await add_btn.click()
-
-        try:
-            file_input = self._page.locator(FILE_INPUT_SELECTOR)
-            await file_input.set_input_files(file_path)
-        except Exception:
+        file_input = await resolve_file_input()
+        if file_input is None:
+            add_btn = self._page.locator("button[data-testid='composer-plus-btn']").first
+            if await add_btn.count() == 0:
+                raise ProviderError("File upload input not found", "upload_failed", self.provider_id)
             await add_btn.click()
-            file_input = self._page.locator(FILE_INPUT_SELECTOR)
-            await file_input.set_input_files(file_path)
+            await self._page.wait_for_timeout(150)
+            file_input = await resolve_file_input()
+            if file_input is None:
+                raise ProviderError("File upload input not found after opening attachment menu", "upload_failed", self.provider_id)
 
-        try:
-            await self._page.wait_for_selector(UPLOAD_READY_SELECTOR, timeout=MAX_FILE_UPLOAD_TIMEOUT)
-        except PlaywrightTimeout:
-            logger.warning("File upload timeout; continuing anyway")
+        await file_input.set_input_files(file_path)
+
+        # File upload is asynchronous. Observe the rendered viewport just as a
+        # user would: selected -> Uploading/processing -> settled attachment.
+        # Never attempt submission while the provider still presents a busy state.
+        base_name = str(file_path).replace("\\", "/").rsplit("/", 1)[-1]
+        lifecycle = await wait_for_upload_settled(
+            self._page, self.provider_id, base_name, timeout_seconds=60.0
+        )
+        self.last_upload_lifecycle = lifecycle
+        if not lifecycle.get("ready"):
+            raise ProviderError(
+                "ChatGPT file upload did not reach a user-visible ready state",
+                "upload_not_ready", self.provider_id,
+                {"file_name": base_name, "visual_evidence": lifecycle.get("trace", [])[-3:]},
+            )
 
     async def _upload_files(self, file_paths):
         if not file_paths:
@@ -1327,6 +1403,11 @@ class ChatGPTWebProvider(Provider):
             previous_text = ""
             if previous_count:
                 previous_text = (await assistant_messages.nth(previous_count - 1).inner_text(timeout=10000)).strip()
+            previous_url = self._page.url
+
+            if not explicit_conversation:
+                prep = await self._prepare_stateless_composer()
+                logger.info("ChatGPT stateless composer prep: %s", prep)
 
             if file_paths:
                 await self._upload_files(file_paths)
@@ -1382,6 +1463,7 @@ class ChatGPTWebProvider(Provider):
                 previous_count,
                 previous_text,
                 previous_action_count=previous_action_count,
+                previous_url=previous_url,
                 timeout=self._timeout * 1000,
             )
             response_text = await self._extract_latest_assistant_text()

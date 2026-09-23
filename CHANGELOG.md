@@ -1,5 +1,14 @@
 ## 1.0.0-dev.7 - 2026-09-23 - WIP continuation (Machine-readable API contract)
+
+- Discovery visual observation now captures viewport screenshots and user-visible upload lifecycle state. ChatGPT media upload waits for provider-visible upload completion before submit; bounded E2 TXT and PNG qualifications passed.
 - Added OpenAPI 3.1 generation from the live Flask route registry for management and agent APIs.
+
+### ChatGPT Web media qualification ? 2026-09-23
+- Updated ChatGPT Web DOM/session/upload/send/response detection for the current UI without bypassing authentication or provider controls.
+- Added visual upload lifecycle evidence and support for provider-renamed attachment filenames.
+- Certified ChatGPT Web TXT file upload and PNG image input at E2 through the official HWG qualification endpoint.
+- Persisted certification is reflected in `/v1/capabilities`; untested media classes remain uncertified.
+- Evidence: `docs/evidence/HWG_MEDIA_QUALIFICATION_CHATGPT_E2_20260923.md`.
 
 ### Development media qualification ? 2026-09-23
 - Added mandatory generic File/Media qualification policy for every current and future Provider.

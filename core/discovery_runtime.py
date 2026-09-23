@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 from playwright.async_api import async_playwright
 
 from core.discovery_engine import discover_page, diff_drift
+from core.visual_discovery import capture_user_view
 
 PROFILE_ROOT = Path(__file__).resolve().parents[1] / "docs" / "profiles"
 
@@ -38,6 +39,7 @@ def _latest_discovery(provider_id: str) -> dict:
 def _flatten(report: dict) -> dict:
     return {
         "controls": ((report.get("frontend") or {}).get("controls") or []),
+        "upload_surface": ((report.get("frontend") or {}).get("upload_surface") or {}),
         "candidate_endpoints": ((report.get("backend") or {}).get("candidate_endpoints") or []),
     }
 
@@ -58,6 +60,7 @@ async def explore_cdp(provider_id: str, cdp_url: str, home_url: str) -> tuple[di
         report = await discover_page(pages[0], provider_id)
         from core.media_qualification import observe_file_upload_surface
         media_surface = await observe_file_upload_surface(pages[0])
+        visual_observation = await capture_user_view(pages[0], provider_id, "discovery-read-only")
 
     findings = {
         "page_url": report.page_url,
@@ -67,6 +70,7 @@ async def explore_cdp(provider_id: str, cdp_url: str, home_url: str) -> tuple[di
         "backend": report.backend,
         "capabilities": report.capabilities,
         "media_upload_surface": media_surface,
+        "visual_observation": visual_observation,
     }
     old = _flatten(_latest_discovery(provider_id))
     drift = diff_drift(old, _flatten(findings))

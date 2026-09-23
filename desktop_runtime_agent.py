@@ -13,7 +13,7 @@ from core.runtime_inventory import inventory_by_id, load_runtime_inventory, load
 from core.profile_store import load_persistent_inventory, account_runtime
 
 _agent_url = load_orchestration_settings()["desktop_agent_url"]
-from urllib.parse import urlparse, unquote
+from urllib.parse import urlparse, unquote, quote
 _agent_parsed = urlparse(str(_agent_url))
 HOST = _agent_parsed.hostname or "127.0.0.1"
 PORT = int(_agent_parsed.port or 5181)
@@ -57,6 +57,34 @@ def cdp_ready(item):
     try:
         with urllib.request.urlopen(item["cdp_url"] + "/json/version", timeout=1.2) as response:
             return response.status == 200
+    except Exception:
+        return False
+
+
+def provider_page_ready(item):
+    """Return True only when this provider host has a real page on the CDP runtime."""
+    host = (urlparse(str(item.get("home_url") or "")).hostname or "").lower()
+    if not host:
+        return False
+    try:
+        with urllib.request.urlopen(item["cdp_url"] + "/json", timeout=1.5) as response:
+            rows = json.loads(response.read().decode("utf-8") or "[]")
+        return any(
+            str(row.get("type") or "") == "page"
+            and (urlparse(str(row.get("url") or "")).hostname or "").lower() == host
+            for row in rows if isinstance(row, dict)
+        )
+    except Exception:
+        return False
+
+
+def open_provider_tab(item):
+    """Open the requested provider home in an already-running shared CDP browser."""
+    try:
+        target = item["cdp_url"] + "/json/new?" + quote(str(item["home_url"]), safe=":/?=&")
+        req = urllib.request.Request(target, method="PUT")
+        with urllib.request.urlopen(req, timeout=4) as response:
+            return 200 <= int(response.status) < 300
     except Exception:
         return False
 
@@ -166,16 +194,24 @@ def _launch_visible_window_item(item):
 def open_runtime_item(item):
     if not cdp_ready(item) and not start_runtime_item(item):
         return False
+    # A shared browser being alive does not prove the requested provider tab
+    # exists. Ensure host-specific presence before reporting success.
+    if not provider_page_ready(item):
+        if not open_provider_tab(item):
+            return False
+        for _ in range(12):
+            if provider_page_ready(item):
+                break
+            time.sleep(0.25)
+        if not provider_page_ready(item):
+            return False
     window = visible_window_for_profile(item["profile"])
     if window:
         _foreground(window)
         return True
     if _launch_visible_window_item(item):
-        return True
-    stop_runtime_item(item)
-    if not start_runtime_item(item):
-        return False
-    return visible_window_for_profile(item["profile"]) is not None
+        return provider_page_ready(item)
+    return False
 
 
 def _launch_visible_window(provider_id):

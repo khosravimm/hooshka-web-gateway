@@ -28,8 +28,9 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from core.control_discovery import classify, ENUMERATE_JS
+from core.media_qualification import observe_file_upload_surface
 
-ENGINE_VERSION = "1.0.0"
+ENGINE_VERSION = "1.1.0"
 PROFILE_ROOT = Path(__file__).resolve().parents[1] / "docs" / "profiles"
 
 
@@ -127,8 +128,11 @@ def build_capabilities(frontend: dict, backend: dict) -> list[Capability]:
                    Evidence("E1" if has("search_toggle") else "E0",
                             conf("search_toggle") if has("search_toggle") else "low",
                             "search toggle control")),
-        Capability("file_upload", has("file_upload"),
-                   Evidence("E1" if has("file_upload") else "E0", "medium", "upload control")),
+        Capability("file_upload", bool((frontend.get("upload_surface") or {}).get("input_present")) or has("file_upload"),
+                   Evidence("E1" if (bool((frontend.get("upload_surface") or {}).get("input_present")) or has("file_upload")) else "E0",
+                            "high" if (frontend.get("upload_surface") or {}).get("input_present") else "medium",
+                            "file input observed" if (frontend.get("upload_surface") or {}).get("input_present") else "upload control"),
+                   {"surface": frontend.get("upload_surface") or {}}),
         Capability("streaming", bool(backend.get("stream_transports")),
                    Evidence("E1" if backend.get("stream_transports") else "E0",
                             "medium" if backend.get("stream_transports") else "low",
@@ -159,6 +163,15 @@ def diff_drift(old: dict, new: dict) -> list[dict]:
         drift.append({"type": "endpoint_added", "path": ep})
     for ep in sorted(old_eps - new_eps):
         drift.append({"type": "endpoint_missing", "path": ep})
+    old_up = old.get("upload_surface") or {}
+    new_up = new.get("upload_surface") or {}
+    old_classes = old_up.get("advertised_classes") or {}
+    new_classes = new_up.get("advertised_classes") or {}
+    for name in sorted(set(old_classes) | set(new_classes)):
+        if bool(old_classes.get(name)) != bool(new_classes.get(name)):
+            drift.append({"type": "upload_class_changed", "class": name, "old": bool(old_classes.get(name)), "new": bool(new_classes.get(name))})
+    if bool(old_up.get("input_present")) != bool(new_up.get("input_present")):
+        drift.append({"type":"upload_surface_changed","old":bool(old_up.get("input_present")),"new":bool(new_up.get("input_present"))})
     return drift
 
 
@@ -183,7 +196,35 @@ BACKEND_JS = r"""() => {
 
 FRONTEND_JS = r"""() => {
   const comp = document.querySelector('textarea, [contenteditable=true][role=textbox], [contenteditable=true]');
-  return {composer: comp ? (comp.tagName + '#' + (comp.id || '')) : null};
+  const esc = (v) => String(v || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  let selector = null;
+  if (comp) {
+    if (comp.id) selector = '#' + CSS.escape(comp.id);
+    else if (comp.getAttribute('aria-label')) selector = `[aria-label='${esc(comp.getAttribute('aria-label'))}']`;
+    else if (comp.getAttribute('role')) selector = `${comp.tagName.toLowerCase()}[role='${esc(comp.getAttribute('role'))}'][contenteditable='true']`;
+    else selector = comp.tagName.toLowerCase();
+  }
+  const assistantSelectors = [
+    "[data-message-author-role='assistant']",
+    "[data-markdown-text-style='assistant-message']",
+    "[data-content-search-unit-key*='assistant']"
+  ];
+  let assistantNodes = [];
+  for (const s of assistantSelectors) assistantNodes.push(...document.querySelectorAll(s));
+  assistantNodes = [...new Set(assistantNodes)];
+  const latest = assistantNodes.length ? assistantNodes[assistantNodes.length - 1] : null;
+  const bodyText = document.body?.innerText || '';
+  const responding = /chatgpt is responding|thinking|generating/i.test(bodyText.slice(-1500));
+  return {
+    composer: comp ? (comp.tagName + '#' + (comp.id || '')) : null,
+    composer_selector: selector,
+    assistant_surface: {
+      count: assistantNodes.length,
+      selectors: assistantSelectors,
+      latest_text_length: latest ? String(latest.innerText || latest.textContent || '').trim().length : 0,
+      responding_visible: responding
+    }
+  };
 }"""
 
 
@@ -194,8 +235,12 @@ async def discover_page(page, provider_id: str) -> DiscoveryReport:
     elements = await page.evaluate(ENUMERATE_JS)
     backend_raw = await page.evaluate(BACKEND_JS)
     controls = classify(elements)
+    upload_surface = await observe_file_upload_surface(page)
     frontend = {"composer": front_raw.get("composer"),
-                "controls": [c.__dict__ for c in controls]}
+                "composer_selector": front_raw.get("composer_selector"),
+                "assistant_surface": front_raw.get("assistant_surface") or {},
+                "controls": [c.__dict__ for c in controls],
+                "upload_surface": upload_surface}
     backend = analyze_backend(backend_raw, _host(url))
     caps = build_capabilities(frontend, backend)
     return DiscoveryReport(
@@ -227,16 +272,18 @@ def save_report(report: DiscoveryReport, root: Path | None = None) -> Path:
     d = root / report.provider_id
     d.mkdir(parents=True, exist_ok=True)
     old = load_stored_profile(report.provider_id, root)
-    old_flat = {"controls": [], "candidate_endpoints": []}
+    old_flat = {"controls": [], "candidate_endpoints": [], "upload_surface": {}}
     for f in sorted(d.glob("discovery.v*.json")):
         try:
             prev = json.loads(f.read_text(encoding="utf-8"))
             old_flat = {"controls": prev.get("frontend", {}).get("controls", []),
-                        "candidate_endpoints": prev.get("backend", {}).get("candidate_endpoints", [])}
+                        "candidate_endpoints": prev.get("backend", {}).get("candidate_endpoints", []),
+                        "upload_surface": prev.get("frontend", {}).get("upload_surface", {})}
         except Exception:
             pass
     new_flat = {"controls": report.frontend.get("controls", []),
-                "candidate_endpoints": report.backend.get("candidate_endpoints", [])}
+                "candidate_endpoints": report.backend.get("candidate_endpoints", []),
+                "upload_surface": report.frontend.get("upload_surface", {})}
     report.drift = diff_drift(old_flat, new_flat)
     existing = sorted(d.glob("discovery.v*.json"))
     version = "1.0"

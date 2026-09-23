@@ -62,3 +62,26 @@ def test_drift_diff_explicit():
     assert ("control_missing", "s-old") in types
     assert ("endpoint_added", "/fresh") in types
     assert len(drift) == 3
+
+
+def test_file_upload_capability_uses_observed_file_input_surface():
+    front = {"composer": "TEXTAREA#x", "controls": [], "upload_surface": {
+        "input_present": True, "advertised_classes": {"image": True, "document": True}
+    }}
+    back = {"candidate_endpoints": [], "stream_transports": []}
+    caps = {c.name: c for c in build_capabilities(front, back)}
+    assert caps["file_upload"].supported is True
+    assert caps["file_upload"].evidence.type == "E1"
+    assert caps["file_upload"].evidence.confidence == "high"
+    assert caps["file_upload"].meta["surface"]["advertised_classes"]["document"] is True
+
+
+def test_upload_surface_drift_is_explicit():
+    old = {"controls": [], "candidate_endpoints": [], "upload_surface": {
+        "input_present": True, "advertised_classes": {"image": True, "document": False}
+    }}
+    new = {"controls": [], "candidate_endpoints": [], "upload_surface": {
+        "input_present": True, "advertised_classes": {"image": True, "document": True}
+    }}
+    drift = diff_drift(old, new)
+    assert {"type": "upload_class_changed", "class": "document", "old": False, "new": True} in drift
