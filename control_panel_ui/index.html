@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>هوشکا وب گیت‌وی - کنترل پنل</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="/panel/assets/panel.css?b=20260924-0240">
+<link rel="stylesheet" href="/panel/assets/panel.css?b=20260924-0310">
 </head>
 <body>
 <div class="app-shell">
@@ -170,27 +170,26 @@
 
     <section class="panel" id="panel-provider-form">
       <div class="card-head">
-        <div><h3 class="card-title">افزودن Provider</h3><p class="hint">Provider را تعریف کنید، سپس آن را به یک Browser Runtime موجود متصل کنید. فعال‌سازی عملیاتی بعد از Login/Discovery/Certification انجام می‌شود.</p></div>
+        <div><h3 class="card-title">افزودن وب‌چت جدید</h3><p class="hint">فقط آدرس وب‌چت را وارد کنید. HWG صفحه را مشاهده می‌کند، تنظیمات لازم را پیشنهاد می‌دهد و فقط در نقاط ضروری از شما تأیید می‌گیرد.</p></div>
         <button id="btn-close-provider-form" class="btn ghost btn-sm" type="button">بستن</button>
       </div>
       <div id="provider-form-status" class="status-line"></div>
-      <div class="provider-provision-flow">
-        <div class="card provision-step"><span class="step-no">۱</span><h3 class="card-title">تعریف Provider</h3>
-          <label class="field">نوع Provider<select id="pf-type" class="ctrl"><option value="">انتخاب کنید…</option><option value="chatgpt_web">ChatGPT Web</option><option value="deepseek_web">DeepSeek Web</option><option value="zai_web">Z.ai Web</option><option value="qwen_web">Qwen Web</option></select></label>
-          <label class="field">شناسه<input id="pf-id" class="ctrl ltr" type="text" placeholder="مثال: deepseek-office"></label>
-          <label class="field">اولویت<input id="pf-priority" class="ctrl" type="number" min="1" max="100" value="50"></label>
-          <div class="dependency-note">Provider جدید همیشه غیرفعال ثبت می‌شود. فعال‌سازی فقط پس از Login، Discovery و Certification انجام می‌شود.</div>
+      <div class="wizard-stack">
+        <div class="card provision-step"><span class="step-no">۱</span><h3 class="card-title">آدرس وب‌چت</h3>
+          <label class="field">URL<input id="pf-url" class="ctrl ltr" type="url" placeholder="https://example.ai/chat" autocomplete="off"></label>
+          <p class="hint">نام، شناسه، نوع Adapter، Profile و Runtime را از شما نمی‌خواهیم؛ HWG ابتدا خودش پیشنهاد می‌دهد.</p>
+          <div class="btn-row mt"><button id="pf-analyze" class="btn primary" type="button">بررسی و پیشنهاد</button><button id="pf-cancel" class="btn ghost" type="button">انصراف</button></div>
         </div>
-        <div class="card provision-step"><span class="step-no">۲</span><h3 class="card-title">اتصال به Browser Runtime</h3>
-          <label class="field">Browser Runtime<select id="pf-runtime" class="ctrl ltr"><option value="">در حال بارگذاری…</option></select></label>
-          <div id="pf-runtime-summary" class="relationship-preview"></div>
-          <label class="field">Home URL<input id="pf-homeurl" class="ctrl ltr" type="url" placeholder="پس از انتخاب نوع Provider تکمیل می‌شود"></label>
-          <p class="hint">CDP و Profile به‌صورت دستی وارد نمی‌شوند؛ از Runtime انتخاب‌شده خوانده می‌شوند تا رابطه Browser/Profile ناسازگار ایجاد نشود.</p>
+        <div class="card provision-step wizard-hidden" id="pf-proposal-card"><span class="step-no">۲</span><h3 class="card-title">پیشنهاد HWG</h3>
+          <div id="pf-proposal" class="relationship-preview"></div>
+          <label class="field">Runtime پیشنهادی<select id="pf-runtime" class="ctrl ltr"></select></label>
+          <p class="hint">در حالت عادی همان پیشنهاد HWG را بپذیرید. فقط اگر دلیل مشخصی دارید Runtime دیگری انتخاب کنید.</p>
+          <div class="btn-row mt"><button id="pf-observe" class="btn primary" type="button">باز کردن و مشاهده از دید کاربر</button></div>
         </div>
-        <div class="card provision-step"><span class="step-no">۳</span><h3 class="card-title">مرور و ثبت</h3>
-          <div id="pf-relationship-preview" class="relationship-preview"><span class="hint">نوع Provider و Browser Runtime را انتخاب کنید.</span></div>
-          <div class="dependency-note">این فرم فقط Provider Definition را می‌سازد. Account Instance هنوز ایجاد نمی‌شود. مسیر بعد: Provider غیرفعال → Accounts (ساخت/انتخاب Account) → Login/Session → Discovery → Functional Readiness → Enable.</div>
-          <div class="btn-row mt"><button id="pf-save" class="btn primary" type="button">ثبت Provider</button><button id="pf-cancel" class="btn ghost" type="button">انصراف</button></div>
+        <div class="card provision-step wizard-hidden" id="pf-observation-card"><span class="step-no">۳</span><h3 class="card-title">نتیجه مشاهده و گام بعد</h3>
+          <div id="pf-observation" class="relationship-preview"></div>
+          <div class="dependency-note mt" id="pf-next-action"></div>
+          <div class="btn-row mt"><button id="pf-reobserve" class="btn ghost" type="button">دوباره بررسی کن</button><button id="pf-save" class="btn primary" type="button" disabled>ثبت با پیشنهاد HWG</button></div>
         </div>
       </div>
     </section>
@@ -439,8 +438,8 @@
 
 <div id="toast-region" class="toast-region" aria-live="polite"></div>
 
-<script src="/panel/assets/markdown.js?b=20260924-0240"></script>
-<script src="/panel/assets/panel.js?b=20260924-0240"></script>
-<script src="/panel/assets/chat.js?b=20260924-0240"></script>
+<script src="/panel/assets/markdown.js?b=20260924-0310"></script>
+<script src="/panel/assets/panel.js?b=20260924-0310"></script>
+<script src="/panel/assets/chat.js?b=20260924-0310"></script>
 </body>
 </html>

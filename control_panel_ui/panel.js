@@ -7,7 +7,7 @@
     profiles: 'پروفایل‌های مرورگر',
     accounts: 'حساب‌ها و Session',
     providers: 'فراهم‌کننده‌ها',
-    'provider-form': 'افزودن Provider',
+    'provider-form': 'افزودن وب‌چت جدید',
     models: 'مدل‌ها و قابلیت‌ها',
     discovery: 'کاوش و گواهی',
     chat: 'چت تعاملی',
@@ -22,6 +22,9 @@
 
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+  const esc = (value) => String(value == null ? '' : value)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
   function setStatus(el, msg, kind) {
     if (!el) return;
@@ -701,44 +704,41 @@ function initNav() {
     }
   };
 
-  const PROVIDER_FORM_DEFAULTS = {
-    chatgpt_web: { id: 'chatgpt-web', home: 'https://chatgpt.com/' },
-    deepseek_web: { id: 'deepseek-web', home: 'https://chat.deepseek.com/' },
-    zai_web: { id: 'zai-web', home: 'https://chat.z.ai/' },
-    qwen_web: { id: 'qwen-web', home: 'https://chat.qwen.ai/' },
-  };
+  let providerWizard = { analysis:null, observation:null, candidate:null, runtimes:[] };
+
+  function resetProviderWizard() {
+    providerWizard = { analysis:null, observation:null, candidate:null, runtimes:[] };
+    $('#pf-url').value='';
+    $('#pf-proposal-card').classList.add('wizard-hidden');
+    $('#pf-observation-card').classList.add('wizard-hidden');
+    $('#pf-proposal').innerHTML=''; $('#pf-observation').innerHTML=''; $('#pf-next-action').innerHTML='';
+    $('#pf-save').disabled=true; setStatus($('#provider-form-status'),'','');
+  }
 
   async function loadProviderForm() {
-    setStatus($('#provider-form-status'), '', '');
+    resetProviderWizard();
     try {
-      const data = await api('/browser-runtimes');
-      window.__hwgProviderFormRuntimes = data.browser_runtimes || [];
-      const sel = $('#pf-runtime');
-      sel.innerHTML = '<option value="">Browser Runtime را انتخاب کنید…</option>' + window.__hwgProviderFormRuntimes.map(r => {
-        const profile = (r.profile || '').split(/[\\/]/).filter(Boolean).pop() || '-';
-        return `<option value="${r.runtime_key}">${r.port || '-'} · ${profile} · ${r.provider_count || 0} Tab</option>`;
-      }).join('');
-      updateProviderProvisionPreview();
-    } catch (e) {
-      setStatus($('#provider-form-status'), 'بارگذاری Browser Runtimeها شکست خورد: ' + e.message, 'err');
-    }
+      const data=await api('/browser-runtimes'); providerWizard.runtimes=data.browser_runtimes||[];
+    } catch(e) { setStatus($('#provider-form-status'),'بارگذاری Runtimeها شکست خورد: '+e.message,'err'); }
   }
 
-  function updateProviderProvisionPreview() {
-    const type = $('#pf-type')?.value || '';
-    const spec = PROVIDER_FORM_DEFAULTS[type];
-    if (spec && !($('#pf-homeurl').value || '').trim()) $('#pf-homeurl').value = spec.home;
-    const runtimeKey = $('#pf-runtime')?.value || '';
-    const runtime = (window.__hwgProviderFormRuntimes || []).find(r => r.runtime_key === runtimeKey);
-    const summary = $('#pf-runtime-summary');
-    if (summary) summary.innerHTML = runtime ? `<div class="kv"><span>CDP</span><b class="ltr">${runtime.cdp_url}</b><span>Profile</span><b class="ltr">${runtime.profile || '-'}</b><span>Provider/Tab فعلی</span><b>${runtime.provider_count || 0}</b></div>` : '<span class="hint">هنوز Browser Runtime انتخاب نشده است.</span>';
-    const preview = $('#pf-relationship-preview');
-    if (preview) {
-      const id = ($('#pf-id')?.value || '').trim() || 'Provider';
-      preview.innerHTML = type && runtime ? `<div class="relationship-chain"><b class="ltr">${id}</b><span>→</span><b>Account: هنوز ایجاد نشده</b><span>→</span><b>${runtime.shared ? 'Browser Runtime مشترک' : 'Browser Runtime'}</b><span>→</span><b class="ltr">${(runtime.profile || '').split(/[\\/]/).filter(Boolean).pop() || '-'}</b><span>→</span><b class="ltr">${($('#pf-homeurl').value || spec?.home || '-')}</b></div><div class="hint">پس از ثبت Provider، مرحله بعد ساخت/انتخاب Account Instance در Workspace «حساب‌ها و Session» است.</div>` : '<span class="hint">نوع Provider و Browser Runtime را انتخاب کنید.</span>';
-    }
+  function fillWizardRuntimeSelect(recommendedKey) {
+    const sel=$('#pf-runtime');
+    sel.innerHTML=(providerWizard.runtimes||[]).map(r=>{
+      const profile=(r.profile||'').split(/[\\/]/).filter(Boolean).pop()||'-';
+      const ready=r.ready?'آماده':'متوقف';
+      return `<option value="${esc(r.runtime_key)}" ${r.runtime_key===recommendedKey?'selected':''}>${esc(ready+' · '+profile+' · '+(r.port||'-'))}</option>`;
+    }).join('') || '<option value="">Runtime آماده‌ای وجود ندارد</option>';
   }
 
+  function renderWizardProposal(a) {
+    fillWizardRuntimeSelect(a.recommended_runtime_key);
+    const existing=(a.existing_origin_provider_ids||[]);
+    const adapter=existing.length ? `این Origin قبلاً با Provider <b class="ltr">${esc(existing.join(', '))}</b> ثبت شده است؛ پیشنهاد HWG استفاده از همان Provider و افزودن Account در صورت نیاز است.` : (a.reuse_existing_adapter ? `Adapter موجود قابل استفاده است: <b class="ltr">${esc(a.known_adapter_type)}</b>` : 'Provider جدید است؛ ابتدا Candidate کاوش ساخته می‌شود و Adapter بعد از Evidence پیشنهاد خواهد شد.');
+    $('#pf-proposal').innerHTML=`<div class="kv"><span>نام پیشنهادی</span><b>${esc(a.suggested_name)}</b><span>شناسه پیشنهادی</span><b class="ltr">${esc(a.suggested_provider_id)}</b><span>Origin</span><b class="ltr">${esc(a.origin)}</b><span>پیشنهاد</span><b>${adapter}</b></div>`;
+    $('#pf-proposal-card').classList.remove('wizard-hidden');
+    $('#pf-observe').textContent=existing.length?'مشاهده دوباره صفحه':'باز کردن و مشاهده از دید کاربر';
+  }
   /* ---------------- Models & Capabilities ---------------- */
   async function loadModelsTab() {
     try {
@@ -1248,46 +1248,62 @@ function initNav() {
     $('#svc-stop').addEventListener('click', () => serviceAction('stop'));
     $('#svc-restart').addEventListener('click', () => serviceAction('restart'));
 
-    // Provider form handlers
+    // URL-driven Provider onboarding wizard
     $('#btn-add-provider').addEventListener('click', async () => { showPanel('provider-form'); await loadProviderForm(); });
     $('#btn-close-provider-form').addEventListener('click', () => showPanel('providers'));
     $('#pf-cancel').addEventListener('click', () => showPanel('providers'));
 
-    $('#pf-type').addEventListener('change', () => {
-      const spec = PROVIDER_FORM_DEFAULTS[$('#pf-type').value];
-      if (spec) {
-        if (!$('#pf-id').value.trim()) $('#pf-id').value = spec.id;
-        $('#pf-homeurl').value = spec.home;
-      }
-      updateProviderProvisionPreview();
+    $('#pf-analyze').addEventListener('click', async () => {
+      const url=($('#pf-url').value||'').trim(); const status=$('#provider-form-status');
+      if (!url) { setStatus(status,'آدرس وب‌چت را وارد کنید.','err'); return; }
+      setStatus(status,'در حال تحلیل URL و انتخاب پیشنهاد مناسب...','working');
+      try {
+        const a=await api('/provider-wizard/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url})});
+        providerWizard.analysis=a; renderWizardProposal(a); $('#pf-observation-card').classList.add('wizard-hidden');
+        setStatus(status,'پیشنهاد اولیه آماده است. مرحله بعد مشاهده واقعی صفحه است.','ok');
+      } catch(e) { setStatus(status,'تحلیل URL شکست خورد: '+e.message,'err'); }
     });
-    $('#pf-runtime').addEventListener('change', updateProviderProvisionPreview);
-    $('#pf-id').addEventListener('input', updateProviderProvisionPreview);
-    $('#pf-homeurl').addEventListener('input', updateProviderProvisionPreview);
+
+    async function observeWizardPage() {
+      const status=$('#provider-form-status'); const a=providerWizard.analysis;
+      if (!a) { setStatus(status,'ابتدا URL را بررسی کنید.','err'); return; }
+      const runtimeKey=$('#pf-runtime').value || a.recommended_runtime_key;
+      setStatus(status,'در حال باز کردن وب‌چت و مشاهده از دید کاربر...','working');
+      $('#pf-observe').disabled=true; $('#pf-reobserve').disabled=true;
+      try {
+        const r=await api('/provider-wizard/observe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:a.url,runtime_key:runtimeKey})});
+        providerWizard.observation=r.observation; providerWizard.candidate=r.candidate;
+        const o=r.observation||{}, c=o.classification||{}, m=o.interaction_summary||{};
+        $('#pf-observation').innerHTML=`<div class="kv"><span>وضعیت قابل مشاهده</span><b>${esc(c.state||'unknown')}</b><span>شاهد</span><b>${esc(c.evidence||'-')}</b><span>عنوان صفحه</span><b>${esc(o.title||'-')}</b><span>کنترل‌های قابل مشاهده</span><b>${m.controls??'-'}</b><span>ورودی فایل</span><b>${m.file_inputs??'-'}</b><span>ورودی پیام/متن</span><b>${m.editable_inputs??'-'}</b></div>`;
+        const known=!!r.analysis?.reuse_existing_adapter && r.analysis?.register_new_provider!==false;
+        const save=$('#pf-save'); save.disabled=!known;
+        if (r.analysis?.register_new_provider===false) save.textContent='Provider موجود است';
+        else if (known) save.textContent='ثبت Provider پیشنهادی';
+        else save.textContent='Candidate ثبت شد';
+        const state=c.state||'unknown';
+        let nextAction='';
+        if (state==='login_required') nextAction='صفحه در Browser باز است. ورود/شرایط استفاده را کامل کنید و سپس «دوباره بررسی کن» را بزنید.';
+        else if (state==='challenge') nextAction='صفحه نیازمند Verification/CAPTCHA است. آن را در Browser کامل کنید و سپس دوباره بررسی کنید.';
+        else if (state==='region_blocked') nextAction='دسترسی از این محیط به‌صورت منطقه‌ای مسدود است؛ Candidate ثبت می‌شود اما کاوش عملیاتی تا رفع این شرط ادامه پیدا نمی‌کند.';
+        else if (r.analysis?.register_new_provider===false) nextAction='این Origin از قبل ثبت شده است. Provider جدید ساخته نمی‌شود؛ برای Session یا هویت دوم به Workspace حساب‌ها و Session بروید.';
+        else if (known) nextAction='Adapter موجود با URL تطبیق دارد. HWG می‌تواند Provider را با تنظیمات پیشنهادی ثبت کند؛ سپس Login/Discovery/Readiness ادامه می‌یابد.';
+        else nextAction='این URL یک Provider جدید است. Candidate کاوش ذخیره شد؛ HWG آن را به‌عنوان Provider قابل اجرا ثبت نمی‌کند تا Adapter و Evidence لازم ساخته شوند.';
+        $('#pf-next-action').innerHTML=nextAction;
+        $('#pf-observation-card').classList.remove('wizard-hidden');
+        setStatus(status, known?'مشاهده کامل شد؛ پیشنهاد قابل ثبت است.':'مشاهده کامل شد؛ Candidate کاوش ثبت شد.','ok');
+      } catch(e) { setStatus(status,'مشاهده صفحه شکست خورد: '+e.message,'err'); }
+      finally { $('#pf-observe').disabled=false; $('#pf-reobserve').disabled=false; }
+    }
+    $('#pf-observe').addEventListener('click', observeWizardPage);
+    $('#pf-reobserve').addEventListener('click', observeWizardPage);
 
     $('#pf-save').addEventListener('click', async () => {
-      const status = $('#provider-form-status');
-      const data = {
-        id: $('#pf-id').value.trim(),
-        type: $('#pf-type').value.trim(),
-        runtime_key: $('#pf-runtime').value,
-        home_url: $('#pf-homeurl').value.trim(),
-        priority: parseInt($('#pf-priority').value, 10) || 50,
-      };
-      if (!data.id || !data.type || !data.runtime_key) {
-        setStatus(status, 'نوع Provider، شناسه و Browser Runtime الزامی هستند.', 'err');
-        return;
-      }
-      setStatus(status, 'در حال ثبت Provider و رابطه Runtime...', 'working');
-      try {
-        const r = await api('/providers', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
-        if (!r.success) throw new Error(r.error || 'ذخیره ناموفق');
-        toast('Provider ثبت شد؛ مرحله بعد Login/Discovery/Certification است.', 'ok');
-        showPanel('providers');
-        await loadProviders();
-      } catch (e) {
-        setStatus(status, 'خطا: ' + e.message, 'err');
-      }
+      const a=providerWizard.analysis; const status=$('#provider-form-status');
+      if (!a || !a.known_adapter_type || a.register_new_provider===false) { setStatus(status,'برای Provider جدید ابتدا Adapter Candidate باید تکمیل شود.','err'); return; }
+      const data={id:a.suggested_provider_id,type:a.known_adapter_type,runtime_key:$('#pf-runtime').value||a.recommended_runtime_key,home_url:a.url,priority:50};
+      setStatus(status,'در حال ثبت Provider با پیشنهاد HWG...','working');
+      try { const r=await api('/providers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}); if(!r.success) throw new Error(r.error||'ذخیره ناموفق'); toast('Provider ثبت شد؛ ادامه مسیر Login/Discovery/Readiness است.','ok'); showPanel('providers'); await loadProviders(); }
+      catch(e){ setStatus(status,'ثبت Provider شکست خورد: '+e.message,'err'); }
     });
   }
 

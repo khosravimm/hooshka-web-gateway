@@ -1,3 +1,10 @@
+### 1.0.0-dev.7 (WIP - URL-driven provider onboarding)
+- Replaced the implementation-oriented Add Provider form with a URL-first guided discovery wizard.
+- Initial user input is only the Web Chat URL; HWG proposes provider identity, runtime and adapter strategy.
+- Unknown providers become persisted discovery candidates and are observed through the User-View Explorer before any executable provider config is created.
+- Existing origins are detected and duplicate provider creation is prevented; Account/Session reuse is recommended instead.
+- Live E2: Mistral reached `login_required`; existing DeepSeek origin was correctly recognized.
+
 ### Dynamic Control Plane User-View Audit — 2026-09-24
 - Replaced fast/static UI inspection with dynamic settle gates, fetch/XHR quiescence, stable rendered-state confirmation, scroll sweeps and safe interaction revalidation across all 15 workspaces.
 - Added reusable `visible_interaction_map()` to the HWG Visual Observer and a Control Plane visual-audit runner.

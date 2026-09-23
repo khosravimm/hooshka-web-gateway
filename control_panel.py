@@ -46,6 +46,7 @@ from core.blind_discovery import probe_auth_cdp as discovery_probe_auth_cdp
 from core.account_session import normalize_session
 from core.functional_readiness import run_functional_probe, save_readiness, load_readiness, invalidate_readiness
 from core.media_contract import provider_media_manifest
+from core.provider_onboarding import analyze_url as analyze_provider_url, observe_url_sync, save_candidate
 
 control_panel_bp = Blueprint('control_panel', __name__, url_prefix='/panel')
 
@@ -1001,6 +1002,41 @@ def _browser_runtime_groups():
         rows.append(group)
     return rows
 
+
+
+
+@control_panel_bp.route('/api/provider-wizard/analyze', methods=['POST'])
+def api_provider_wizard_analyze():
+    data = request.get_json(silent=True) or {}
+    try:
+        existing = [p.provider_id for p in provider_registry.list_providers(enabled_only=False)]
+        result = analyze_provider_url(data.get("url"), _browser_runtime_groups(), existing)
+        return jsonify(result)
+    except ValueError as exc:
+        return jsonify({"error":"invalid_url","message":str(exc)}), 400
+
+
+@control_panel_bp.route('/api/provider-wizard/observe', methods=['POST'])
+def api_provider_wizard_observe():
+    data = request.get_json(silent=True) or {}
+    try:
+        existing = [p.provider_id for p in provider_registry.list_providers(enabled_only=False)]
+        analysis = analyze_provider_url(data.get("url"), _browser_runtime_groups(), existing)
+    except ValueError as exc:
+        return jsonify({"error":"invalid_url","message":str(exc)}), 400
+    runtime_key = str(data.get("runtime_key") or analysis.get("recommended_runtime_key") or '').strip()
+    runtime = _browser_runtime_by_key(runtime_key) if runtime_key else None
+    if runtime is None or not runtime.get("ready"):
+        return jsonify({"error":"browser_runtime_not_ready","message":"A ready Browser Runtime is required for user-view observation","analysis":analysis}), 409
+    try:
+        observation = observe_url_sync(analysis["url"], runtime["cdp_url"])
+        if analysis.get("register_new_provider") is False:
+            return jsonify({"analysis":analysis,"observation":observation,"candidate":None,"record":None})
+        persisted = save_candidate(Path(__file__).parent, analysis, observation)
+        return jsonify({"analysis":analysis,"observation":observation,**persisted})
+    except Exception as exc:
+        logger.warning("Provider onboarding observation failed", exc_info=True)
+        return jsonify({"error":"provider_observation_failed","message":str(exc),"analysis":analysis}), 502
 
 @control_panel_bp.route('/api/runtimes')
 def api_runtimes():

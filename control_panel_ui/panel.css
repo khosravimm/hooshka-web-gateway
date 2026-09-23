@@ -363,3 +363,13 @@ input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent);
   opacity: 1;
   box-shadow: none;
 }
+
+/* URL-driven provider onboarding wizard */
+.wizard-stack { display:grid; gap:14px; }
+.wizard-hidden { display:none !important; }
+.wizard-stack .provision-step { min-height:auto; }
+.wizard-stack .relationship-preview { line-height:1.8; }
+.wizard-stack .kv { grid-template-columns:minmax(140px,auto) minmax(0,1fr); }
+.wizard-stack .kv b { overflow-wrap:anywhere; word-break:break-word; }
+#pf-url { font-size:16px; padding-block:11px; }
+@media (max-width:760px) { .wizard-stack .kv { grid-template-columns:1fr; } }

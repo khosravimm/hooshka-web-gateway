@@ -47,6 +47,7 @@ def test_diagnostics_and_structured_evidence_are_separate():
 
 
 def test_provider_provisioning_does_not_imply_account_was_created():
-    assert 'Account Instance هنوز ایجاد نمی‌شود' in HTML
-    assert 'Account: هنوز ایجاد نشده' in PANEL
+    assert 'فقط آدرس وب‌چت را وارد کنید' in HTML
+    assert 'افزودن Account در صورت نیاز' in PANEL
     assert 'حساب‌ها و Session' in PANEL
+    assert 'register_new_provider===false' in PANEL
