@@ -329,3 +329,37 @@ input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent);
 @media (max-width: 1100px) { .provider-provision-flow { grid-template-columns:1fr; } }
 
 .chat-attachments{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}.attachment-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;font-size:12px}.attachment-chip button{border:0;background:transparent;cursor:pointer;font-size:14px}
+
+/* User-view audit remediation: prevent dense relationship cards from clipping. */
+.profiles-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+}
+.profile-card {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+.profile-card > *, .provider-relationship-card > *, .compact-card > * { min-width: 0; }
+.profile-card-head { flex-wrap: wrap; align-items: flex-start; }
+.profile-card .ltr, .profile-purpose, .profile-assignment,
+.relationship-preview, .relationship-preview .ltr, .dependency-note {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.provider-performance-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+}
+.provider-relationship-card .grid-2 { grid-template-columns: minmax(0, 1fr); }
+.provider-relationship-card .btn-row { flex-wrap: wrap; }
+.provider-relationship-card .ctrl { max-width: 100%; min-width: 0; }
+@media (max-width: 760px) {
+  .profiles-grid, .provider-performance-grid { grid-template-columns: 1fr; }
+}
+
+/* Make readiness gating visually unambiguous in Embedded Chat. */
+#chat-send:disabled {
+  background: var(--panel-2);
+  color: var(--text-3);
+  border: 1px solid var(--border);
+  opacity: 1;
+  box-shadow: none;
+}

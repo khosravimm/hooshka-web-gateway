@@ -1,6 +1,6 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.39.0",
+  "version": "1.40.0",
   "updated_at": "2026-09-24",
   "status_vocabulary": [
     "OPEN",
@@ -866,17 +866,19 @@
         "P0/P1 UI semantic gaps are fixed and revalidated in live UI before human acceptance"
       ],
       "latest_evidence": {
-        "date": "2026-09-23",
-        "type": "E2 live Embedded Chat remediation",
-        "result": "Live Control Plane audit found ATTACH was a dead control. It now uses canonical HWG uploads, capability gating, visible attachment state and exact-response rendering; live DeepSeek file round-trip passed with zero console errors. Human acceptance remains pending.",
-        "record": "docs/evidence/HWG_EMBEDDED_CHAT_UPLOAD_E2_20260923.md"
+        "date": "2026-09-24",
+        "type": "E2 dynamic user-view Control Plane audit",
+        "result": "All 15 workspaces were re-audited with dynamic settle gates, scroll sweeps and safe interactions. Profiles/Accounts/Providers overflow and clipping were remediated and live-revalidated to zero; Chat readiness semantics and Telemetry scope labels were clarified. Human acceptance remains pending.",
+        "record": "docs/evidence/HWG_CONTROL_PLANE_DYNAMIC_VISUAL_AUDIT_E2_20260924.md"
       },
-      "updated_at": "2026-09-23",
+      "updated_at": "2026-09-24",
       "evidence": [
-        "docs/evidence/HWG_EMBEDDED_CHAT_UPLOAD_E2_20260923.md"
+        "docs/evidence/HWG_EMBEDDED_CHAT_UPLOAD_E2_20260923.md",
+        "docs/evidence/HWG_CONTROL_PLANE_DYNAMIC_VISUAL_AUDIT_E2_20260924.md"
       ],
       "evidence_paths": [
-        "docs/evidence/HWG_EMBEDDED_CHAT_UPLOAD_E2_20260923.md"
+        "docs/evidence/HWG_EMBEDDED_CHAT_UPLOAD_E2_20260923.md",
+        "docs/evidence/HWG_CONTROL_PLANE_DYNAMIC_VISUAL_AUDIT_E2_20260924.md"
       ]
     },
     {

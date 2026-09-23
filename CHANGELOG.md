@@ -1,3 +1,11 @@
+### Dynamic Control Plane User-View Audit — 2026-09-24
+- Replaced fast/static UI inspection with dynamic settle gates, fetch/XHR quiescence, stable rendered-state confirmation, scroll sweeps and safe interaction revalidation across all 15 workspaces.
+- Added reusable `visible_interaction_map()` to the HWG Visual Observer and a Control Plane visual-audit runner.
+- Fixed real horizontal overflow/clipping in Profiles, Accounts and Providers; targeted live re-audit now reports zero overflow/clipped elements for those workspaces.
+- Clarified Embedded Chat capability-vs-active-state labels and made STALE readiness gating visibly disabled (`ارسال (نیازمند READY)`).
+- Clarified Telemetry scopes so HTTP panel/API counters are not confused with actual Provider dispatch counts.
+- Evidence: `docs/evidence/HWG_CONTROL_PLANE_DYNAMIC_VISUAL_AUDIT_E2_20260924.md`.
+
 ### SDK conformance completion + Control Plane build refresh — 2026-09-24
 - Completed canonical Provider/Profile/Account targeting across Chat Completions, Conversation Chat and Responses API.
 - Python and TypeScript SDKs now expose canonical upload/delete, explicit targeting and public cancellation.

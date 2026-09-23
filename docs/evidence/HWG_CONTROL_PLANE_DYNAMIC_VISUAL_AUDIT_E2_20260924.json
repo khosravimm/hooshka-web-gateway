@@ -1,0 +1,269 @@
+{
+  "schema_version": "1.0.0",
+  "date": "2026-09-24",
+  "method": "dynamic_user_view_audit",
+  "source_runtime_artifact": "D:\\Code\\mcp-web-bridge\\.runtime-dev\\control-plane-visual-audit-20260923T223818Z\\audit.json",
+  "workspaces": [
+    {
+      "panel": "overview",
+      "label": "O\nوضعیت کلی",
+      "ready": true,
+      "controls": 12,
+      "headings": 4,
+      "horizontal_overflow": false,
+      "clipped_count": 0,
+      "interactions": [],
+      "console_errors": 0,
+      "request_failures": 0
+    },
+    {
+      "panel": "runtimes",
+      "label": "R\nRuntimeهای مرورگر",
+      "ready": true,
+      "controls": 19,
+      "headings": 2,
+      "horizontal_overflow": false,
+      "clipped_count": 0,
+      "interactions": [],
+      "console_errors": 0,
+      "request_failures": 0
+    },
+    {
+      "panel": "profiles",
+      "label": "F\nپروفایل‌های مرورگر",
+      "ready": true,
+      "controls": 19,
+      "headings": 2,
+      "horizontal_overflow": true,
+      "clipped_count": 8,
+      "interactions": [],
+      "console_errors": 0,
+      "request_failures": 0
+    },
+    {
+      "panel": "accounts",
+      "label": "A\nحساب‌ها و Session",
+      "ready": true,
+      "controls": 27,
+      "headings": 1,
+      "horizontal_overflow": true,
+      "clipped_count": 6,
+      "interactions": [],
+      "console_errors": 0,
+      "request_failures": 0
+    },
+    {
+      "panel": "providers",
+      "label": "P\nفراهم‌کننده‌ها",
+      "ready": true,
+      "controls": 53,
+      "headings": 1,
+      "horizontal_overflow": true,
+      "clipped_count": 14,
+      "interactions": [
+        {
+          "kind": "select",
+          "id": "model-zai-web",
+          "from": "glm-5.3-flash",
+          "to": "glm-5.3",
+          "result": "changed_then_restored"
+        }
+      ],
+      "console_errors": 0,
+      "request_failures": 0
+    },
+    {
+      "panel": "models",
+      "label": "M\nمدل‌ها و قابلیت‌ها",
+      "ready": true,
+      "controls": 13,
+      "headings": 3,
+      "horizontal_overflow": false,
+      "clipped_count": 0,
+      "interactions": [
+        {
+          "kind": "button",
+          "text": "تازه‌سازی",
+          "result": "clicked"
+        }
+      ],
+      "console_errors": 0,
+      "request_failures": 0
+    },
+    {
+      "panel": "discovery",
+      "label": "D\nکاوش و گواهی",
+      "ready": true,
+      "controls": 18,
+      "headings": 3,
+      "horizontal_overflow": false,
+      "clipped_count": 0,
+      "interactions": [
+        {
+          "kind": "select",
+          "id": "discovery-provider",
+          "from": "chatgpt-web",
+          "to": "deepseek-web",
+          "result": "changed_then_restored"
+        },
+        {
+          "kind": "button",
+          "text": "تازه‌سازی",
+          "result": "clicked"
+        }
+      ],
+      "console_errors": 0,
+      "request_failures": 0
+    },
+    {
+      "panel": "chat",
+      "label": "C\nچت تعاملی",
+      "ready": true,
+      "controls": 29,
+      "headings": 0,
+      "horizontal_overflow": false,
+      "clipped_count": 0,
+      "interactions": [
+        {
+          "kind": "button",
+          "text": "اجرای Readiness Probe",
+          "result": "clicked"
+        }
+      ],
+      "console_errors": 0,
+      "request_failures": 0
+    },
+    {
+      "panel": "sessions",
+      "label": "S\nگفتگوها",
+      "ready": true,
+      "controls": 13,
+      "headings": 1,
+      "horizontal_overflow": false,
+      "clipped_count": 0,
+      "interactions": [
+        {
+          "kind": "button",
+          "text": "تازه‌سازی",
+          "result": "clicked"
+        }
+      ],
+      "console_errors": 0,
+      "request_failures": 0
+    },
+    {
+      "panel": "telemetry",
+      "label": "T\nآمار مصرف",
+      "ready": true,
+      "controls": 13,
+      "headings": 4,
+      "horizontal_overflow": false,
+      "clipped_count": 0,
+      "interactions": [
+        {
+          "kind": "button",
+          "text": "تازه‌سازی",
+          "result": "clicked"
+        }
+      ],
+      "console_errors": 0,
+      "request_failures": 0
+    },
+    {
+      "panel": "apikeys",
+      "label": "K\nکلیدها و دسترسی",
+      "ready": true,
+      "controls": 14,
+      "headings": 1,
+      "horizontal_overflow": false,
+      "clipped_count": 0,
+      "interactions": [],
+      "console_errors": 0,
+      "request_failures": 0
+    },
+    {
+      "panel": "config",
+      "label": "G\nتنظیمات",
+      "ready": true,
+      "controls": 36,
+      "headings": 4,
+      "horizontal_overflow": false,
+      "clipped_count": 0,
+      "interactions": [
+        {
+          "kind": "button",
+          "text": "بازخوانی",
+          "result": "clicked"
+        }
+      ],
+      "console_errors": 0,
+      "request_failures": 0
+    },
+    {
+      "panel": "service",
+      "label": "V\nسرویس و ری‌استارت",
+      "ready": true,
+      "controls": 20,
+      "headings": 3,
+      "horizontal_overflow": false,
+      "clipped_count": 0,
+      "interactions": [],
+      "console_errors": 0,
+      "request_failures": 0
+    },
+    {
+      "panel": "work",
+      "label": "W\nکارهای باقی‌مانده",
+      "ready": true,
+      "controls": 17,
+      "headings": 2,
+      "horizontal_overflow": false,
+      "clipped_count": 0,
+      "interactions": [],
+      "console_errors": 0,
+      "request_failures": 0
+    },
+    {
+      "panel": "logs",
+      "label": "L\nگزارش‌ها و شواهد",
+      "ready": true,
+      "controls": 18,
+      "headings": 3,
+      "horizontal_overflow": false,
+      "clipped_count": 0,
+      "interactions": [
+        {
+          "kind": "select",
+          "id": "log-select",
+          "from": "bridge",
+          "to": "audit",
+          "result": "changed_then_restored"
+        }
+      ],
+      "console_errors": 0,
+      "request_failures": 0
+    }
+  ],
+  "remediation_reaudit": {
+    "profiles": {
+      "overflow": false,
+      "clipped": 0
+    },
+    "accounts": {
+      "overflow": false,
+      "clipped": 0
+    },
+    "providers": {
+      "overflow": false,
+      "clipped": 0
+    },
+    "chat": {
+      "stale_send_disabled": true,
+      "send_label": "ارسال (نیازمند READY)",
+      "capability_labels_disambiguated": true
+    },
+    "telemetry": {
+      "scope_labels_disambiguated": true
+    }
+  }
+}

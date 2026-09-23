@@ -1,6 +1,6 @@
 import pytest
 
-from core.visual_discovery import visible_page_state, wait_for_upload_settled
+from core.visual_discovery import visible_page_state, wait_for_upload_settled, visible_interaction_map
 
 
 class FakePage:
@@ -56,3 +56,13 @@ async def test_visible_state_prefers_real_composer_send_control():
     assert state["send_present"] is True
     assert state["send_enabled"] is False
     assert state["send_controls"][0]["id"] == "send-message-button"
+
+
+@pytest.mark.asyncio
+async def test_visible_interaction_map_contract():
+    expected={"viewport":{"width":1200,"height":800},"scroll":{"width":1200,"height":1600,"x":0,"y":0},"horizontal_overflow":False,"controls":[{"id":"send","disabled":True}],"headings":[{"text":"Chat"}],"clipped":[],"visible_text":"Chat"}
+    page=FakePage([expected])
+    result=await visible_interaction_map(page)
+    assert result["horizontal_overflow"] is False
+    assert result["controls"][0]["id"] == "send"
+    assert result["headings"][0]["text"] == "Chat"

@@ -147,8 +147,8 @@
     if (!box) return;
     box.innerHTML = providerData.filter(function (p) { return p.enabled !== false; }).map(function (p) {
       const c = (p.features && p.features.controls) || {};
-      const thinking = c.thinking ? 'تفکر: بله' : 'تفکر: خیر';
-      const search = c.search ? 'جستجو: بله' : 'جستجو: خیر';
+      const thinking = c.thinking ? 'قابلیت تفکر: دارد' : 'قابلیت تفکر: ندارد';
+      const search = c.search ? 'قابلیت جستجو: دارد' : 'قابلیت جستجو: ندارد';
       return '<span class="cap-chip" title="' + esc(p.id) + '">' + esc(p.id) + ' · ' + thinking + ' · ' + search + '</span>';
     }).join('');
   }
@@ -159,7 +159,7 @@
     const state=current ? 'READY جاری' : (stale ? 'STALE' : (r.state || 'UNKNOWN')); const why=current ? 'ارسال مجاز است.' : (failed ? ('توقف در '+failed.stage) : (stale ? 'Evidence منقضی شده است.' : 'Evidence جاری وجود ندارد.'));
     const account=r.account_id || 'حساب مسیر فعلی نامشخص', model=r.model || ($('#chat-model')?.value || '-');
     box.className='dependency-banner '+(current?'ok':(r.state==='BLOCKED'?'bad':'warn')); box.innerHTML='<b>'+state+'</b><span class="ltr">'+esc(account)+' / '+esc(model)+'</span><span>'+esc(why)+'</span>'+(current?'':'<button id="chat-readiness-probe" class="btn primary btn-xs" type="button">اجرای Readiness Probe</button>');
-    if (send && !sendInFlight) send.disabled=!current; renderAttachments(); const probe=$('#chat-readiness-probe'); if (probe) probe.onclick=async function(){ probe.disabled=true; probe.textContent='در حال Probe...'; try { await api('/providers/'+encodeURIComponent(id)+'/readiness/probe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({execution_authority:'automated_validation',ttl_seconds:300})}); await populateProviders(); } catch(e){ toast('Readiness: '+e.message,'err'); } }; if (!current) setStatus(state+' — '+why,'warn');
+    if (send && !sendInFlight) { send.disabled=!current; send.textContent=current?'ارسال':'ارسال (نیازمند READY)'; } renderAttachments(); const probe=$('#chat-readiness-probe'); if (probe) probe.onclick=async function(){ probe.disabled=true; probe.textContent='در حال Probe...'; try { await api('/providers/'+encodeURIComponent(id)+'/readiness/probe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({execution_authority:'automated_validation',ttl_seconds:300})}); await populateProviders(); } catch(e){ toast('Readiness: '+e.message,'err'); } }; if (!current) setStatus(state+' — '+why,'warn');
   }
 
   function setStatus(msg, kind) {

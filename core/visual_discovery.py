@@ -148,3 +148,16 @@ async def wait_for_upload_settled(page, provider_id: str, file_name: str, *, tim
     trace.append(await capture_user_view(page, provider_id, "upload-timeout", file_name=file_name))
     return {"ready": False, "file_name": file_name, "final": final, "trace": trace,
             "reason": "upload_not_settled_before_timeout"}
+
+
+async def visible_interaction_map(page) -> dict[str, Any]:
+    """Capture the rendered viewport as a user-facing interaction map."""
+    return await page.evaluate(r"""() => {
+      const vis = e => { const r=e.getBoundingClientRect(), s=getComputedStyle(e); return r.width>0&&r.height>0&&r.bottom>=0&&r.top<=innerHeight&&r.right>=0&&r.left<=innerWidth&&s.display!=='none'&&s.visibility!=='hidden'; };
+      const rect = e => { const r=e.getBoundingClientRect(); return {x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height)}; };
+      const nodes=[...document.querySelectorAll('button,a,input,select,textarea,[role=button],[role=tab],[role=checkbox]')].filter(vis);
+      const controls=nodes.slice(0,300).map((e,i)=>({i,tag:e.tagName.toLowerCase(),id:e.id||'',type:e.type||'',text:(e.innerText||e.value||e.textContent||'').trim().slice(0,180),label:e.getAttribute('aria-label')||e.getAttribute('title')||'',disabled:!!e.disabled||e.getAttribute('aria-disabled')==='true',checked:!!e.checked,selected:e.getAttribute('aria-selected'),rect:rect(e)}));
+      const headings=[...document.querySelectorAll('h1,h2,h3,h4,[role=heading]')].filter(vis).slice(0,80).map(e=>({text:(e.innerText||e.textContent||'').trim().slice(0,240),rect:rect(e)}));
+      const clipped=[...document.querySelectorAll('main *')].filter(vis).filter(e=>e.scrollWidth>e.clientWidth+8).slice(0,80).map(e=>({tag:e.tagName.toLowerCase(),id:e.id||'',text:(e.innerText||e.textContent||'').trim().slice(0,120),clientWidth:e.clientWidth,scrollWidth:e.scrollWidth,rect:rect(e)}));
+      return {viewport:{width:innerWidth,height:innerHeight},scroll:{width:document.documentElement.scrollWidth,height:document.documentElement.scrollHeight,x:scrollX,y:scrollY},horizontal_overflow:document.documentElement.scrollWidth>innerWidth+4,controls,headings,clipped,visible_text:(document.body?.innerText||'').slice(0,12000)};
+    }""")
