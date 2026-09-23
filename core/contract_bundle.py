@@ -34,7 +34,8 @@ def compatibility_manifest() -> dict:
             "function_tool_calling": "normalized",
             "structured_schemas": "normalized",
             "multimodal_inputs": "uncertified",
-            "files_uploads": "uncertified",
+            "files_uploads": "normalized",
+            "cancellation_api": "normalized",
             "auth_conventions": "normalized",
             "error_conventions": "normalized",
         },
@@ -88,6 +89,26 @@ def build_openapi(app) -> dict:
             elif path == "/v1/uploads/{upload_id}" and method == "DELETE":
                 entry["summary"] = "Delete a temporary upload"
                 entry["responses"] = {"200": {"description": "Deletion result"}}
+            elif path == "/v1/chat/cancel" and method == "POST":
+                entry["summary"] = "Cancel active provider generation"
+                entry["requestBody"] = {
+                    "required": True,
+                    "content": {"application/json": {"schema": {
+                        "type": "object",
+                        "properties": {
+                            "provider": {"type": "string"},
+                            "conversation_id": {"type": "string"},
+                            "reason": {"type": "string"},
+                        },
+                        "anyOf": [{"required": ["provider"]}, {"required": ["conversation_id"]}],
+                    }}},
+                }
+                entry["responses"] = {
+                    "200": {"description": "Cancellation attempt result"},
+                    "400": {"description": "Cancellation target missing"},
+                    "409": {"description": "Conversation/provider mismatch or unsupported cancellation"},
+                    "502": {"description": "Provider cancellation failed"},
+                }
             item[method.lower()] = entry
     return {
         "openapi": OPENAPI_VERSION,

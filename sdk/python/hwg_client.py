@@ -55,3 +55,8 @@ class HwgClient:
         body={"model":model,"input":user_input,**kwargs}
         if provider: body["provider"]=provider
         return self._post("/v1/responses",body)
+    def cancel(self,provider=None,conversation_id=None,reason="client_cancel"):
+        body={"reason":reason}
+        if provider: body["provider"]=provider
+        if conversation_id: body["conversation_id"]=conversation_id
+        return self._post("/v1/chat/cancel",body)

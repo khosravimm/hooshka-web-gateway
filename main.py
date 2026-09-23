@@ -645,6 +645,8 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             return 404
         if isinstance(error, ProviderError) and error.code in {"authentication_failed", "auth_required"}:
             return 401
+        if isinstance(error, ProviderError) and error.code == "generation_cancelled":
+            return 409
         if isinstance(error, ProviderError) and error.code in {
             "unsupported_feature",
             "unsupported_tools",
@@ -1100,6 +1102,30 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         finally:
             if not req.stream:
                 _release_provider_slot("chat_completions", provider.provider_id)
+
+    @app.route("/v1/chat/cancel", methods=["POST"])
+    def cancel_chat_generation():
+        data = request.get_json(silent=True) or {}
+        conversation_id = str(data.get("conversation_id") or "").strip()
+        requested_provider = str(data.get("provider") or "").strip()
+        reason = str(data.get("reason") or "client_cancel").strip()[:160] or "client_cancel"
+        session = mcp_session_manager.get_session(conversation_id) if conversation_id else None
+        session_provider = str((session or {}).get("provider_id") or "").strip()
+        if requested_provider and session_provider and requested_provider != session_provider:
+            return jsonify({"error": {"message": "provider does not match conversation", "type": "invalid_request_error", "code": "conversation_provider_mismatch", "details": {"conversation_id": conversation_id, "provider": requested_provider, "session_provider": session_provider}}}), 409
+        provider_id = requested_provider or session_provider
+        if not provider_id:
+            return jsonify({"error": {"message": "provider or known conversation_id is required", "type": "invalid_request_error", "code": "cancel_target_required"}}), 400
+        provider = provider_registry.get(provider_id)
+        if provider is None:
+            return jsonify({"error": {"message": f"Unknown provider: {provider_id}", "type": "invalid_request_error", "code": "unknown_provider"}}), 404
+        try:
+            result = _run_async(provider.cancel_active_generation(reason), timeout=10) or {}
+            payload = {"object": "chat.cancel.result", "provider": provider_id, "conversation_id": conversation_id or None, "reason": reason, **dict(result)}
+            return jsonify(payload), (200 if payload.get("supported", True) else 409)
+        except Exception as exc:
+            logger.warning("Public cancellation failed for %s", provider_id, exc_info=True)
+            return jsonify({"error": {"message": str(exc), "type": "provider_error", "code": "cancel_failed", "provider": provider_id}}), 502
 
     @app.route("/v1/responses", methods=["POST"])
     def create_response():

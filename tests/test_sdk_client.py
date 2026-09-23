@@ -82,3 +82,12 @@ def test_multimodal_helpers_use_canonical_part_types():
     assert HwgClient.text_part("x")=={"type":"text","text":"x"}
     assert HwgClient.image_part("data:image/png;base64,AA==")["type"]=="input_image"
     assert HwgClient.file_part("D:/x.pdf")["type"]=="input_file"
+
+
+def test_cancel_posts_public_cancellation_contract():
+    c=_client_with_mock({"object":"chat.cancel.result","provider":"deepseek-web","cancelled":True})
+    body=c.cancel(conversation_id="conv-1",reason="user_stop")
+    assert body["cancelled"] is True
+    assert c._session.post.call_args[0][0].endswith("/v1/chat/cancel")
+    sent=c._session.post.call_args[1]["json"]
+    assert sent=={"reason":"user_stop","conversation_id":"conv-1"}

@@ -1,3 +1,10 @@
+### Public cancellation API — 2026-09-24
+- Added canonical `POST /v1/chat/cancel` with provider or known-conversation targeting and fail-closed mismatch handling.
+- Python and TypeScript reference SDKs now expose public cancellation.
+- DeepSeek user-view E2 identified the actual Send→Stop control transition; cancellation now clicks the visible Stop state and returns `cancelled=true`.
+- In-flight DeepSeek requests now terminate as `409 generation_cancelled` after a public Stop instead of degrading into provider timeout; committed requests are never replayed.
+- Evidence: `docs/evidence/HWG_PUBLIC_CANCELLATION_E2_20260924.md`.
+
 - Added canonical temporary media uploads with opaque `upload_ids`, TTL cleanup, bounded multipart ingestion, media-certification enforcement, and OpenAPI 3.1 multipart contract.
 - Embedded Chat now supports certified file/image attachment lifecycle through `/v1/uploads`; live DeepSeek E2 returned exact marker `HWG_EMBEDDED_UI_UPLOAD_E2_T4K7` with zero browser console errors.
 - Hardened DeepSeek attached-file submission using user-visible upload settlement, stale-composer cleanup and real send-control click; fixed Markdown intraword underscore rendering without breaking normal `_italic_` syntax.

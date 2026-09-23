@@ -43,6 +43,8 @@ class DeepSeekBrowserUITransport:
         self.idle_timeout = idle_timeout
         self.total_timeout = total_timeout
         self.poll_interval = poll_interval
+        self._cancel_requested = False
+        self._cancel_reason = None
         self._pw: Optional[Playwright] = None
         self._browser: Optional[Browser] = None
         self._context: Optional[BrowserContext] = None
@@ -418,6 +420,8 @@ class DeepSeekBrowserUITransport:
                 await self._upload_files(page, list(file_paths))
             before = await self._assistant_messages(page)
             before_count = len(before)
+            self._cancel_requested = False
+            self._cancel_reason = None
             commitment = CommitmentTracker(f"{self.provider_id}:{time.time_ns()}")
             self.last_commitment_state = commitment.state.value
             commitment.advance(Commitment.MAYBE_SENT)
@@ -433,6 +437,12 @@ class DeepSeekBrowserUITransport:
             try:
                 while True:
                     now = time.monotonic()
+                    if self._cancel_requested:
+                        raise ProviderError(
+                            "DeepSeek Web Chat generation cancelled",
+                            "generation_cancelled", self.provider_id,
+                            {"reason": self._cancel_reason or "client_cancelled"},
+                        )
                     if now - start > self.total_timeout:
                         raise ProviderTimeoutError(self.provider_id, "DeepSeek Web Chat completion timed out")
                     body = await self._body_text(page)
@@ -470,10 +480,11 @@ class DeepSeekBrowserUITransport:
                 if isinstance(exc, ProviderError):
                     exc.details.update(annotate_error_details(exc.details, self.last_commitment_state))
                 logger.warning("Stopping DeepSeek Web Chat after failed/cancelled stream", exc_info=True)
-                try:
-                    await self.cancel_active_generation("stream_cancelled")
-                except Exception:
-                    logger.debug("DeepSeek active-generation cancel hook failed", exc_info=True)
+                if not (isinstance(exc, ProviderError) and exc.code == "generation_cancelled"):
+                    try:
+                        await self.cancel_active_generation("stream_cancelled")
+                    except Exception:
+                        logger.debug("DeepSeek active-generation cancel hook failed", exc_info=True)
                 raise
 
     async def cancel_active_generation(self, reason: str = "client_cancelled") -> dict:
@@ -484,6 +495,32 @@ class DeepSeekBrowserUITransport:
             result["detail"] = "no_active_page"
             return result
         try:
+            composer_stop = await page.evaluate(
+                """() => {
+                  const ta = document.querySelector('textarea');
+                  if (!ta || String(ta.value || '').trim()) return null;
+                  let root = ta.parentElement;
+                  for (let i=0; i<5 && root; i++, root=root.parentElement) {
+                    const btn = root.querySelector('[role="button"].ds-button--primary.ds-button--filled.ds-button--circle');
+                    if (!btn) continue;
+                    const cls = String(btn.className || '');
+                    const r = btn.getBoundingClientRect();
+                    const visible = r.width > 0 && r.height > 0 && r.bottom >= 0 && r.top <= innerHeight;
+                    if (!visible || /ds-button--disabled/.test(cls)) return null;
+                    btn.click();
+                    return {clicked:true, method:'composer_primary_stop', class_name:cls, rect:{x:r.x,y:r.y,w:r.width,h:r.height}};
+                  }
+                  return null;
+                }"""
+            )
+            if composer_stop and composer_stop.get("clicked"):
+                await page.wait_for_timeout(250)
+                result.update(composer_stop)
+                result["attempted"] = True
+                result["cancelled"] = True
+                self._cancel_requested = True
+                self._cancel_reason = reason
+                return result
             clicked = await page.evaluate(
                 """() => {
                   const rect = (el) => {

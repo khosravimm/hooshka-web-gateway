@@ -161,4 +161,12 @@ export class HwgClient {
       ...extra,
     });
   }
+
+  async cancel(options: { provider?: string; conversationId?: string; reason?: string } = {}): Promise<unknown> {
+    return this.json("POST", "/v1/chat/cancel", {
+      provider: options.provider,
+      conversation_id: options.conversationId,
+      reason: options.reason ?? "client_cancel",
+    });
+  }
 }

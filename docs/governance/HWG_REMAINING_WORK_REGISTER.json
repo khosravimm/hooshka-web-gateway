@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.37.0",
-  "updated_at": "2026-09-23T23:10:00+03:30",
+  "version": "1.38.0",
+  "updated_at": "2026-09-24T01:15:00+03:30",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -349,13 +349,14 @@
         "Both pass conformance server and candidate HWG tests"
       ],
       "latest_evidence": {
-        "date": "2026-09-23",
-        "type": "E2 SDK multimodal file path",
-        "result": "Python SDK completed real TXT and PNG file_paths round-trips through Candidate HWG to DeepSeek Web after E2 media qualification. Profile/account targeting and public cancellation API remain open.",
-        "record": "docs/evidence/HWG_MEDIA_QUALIFICATION_DEEPSEEK_E2_20260923.md"
+        "date": "2026-09-24",
+        "type": "E2 public cancellation API",
+        "result": "Python and TypeScript SDKs now expose the canonical /v1/chat/cancel operation. DeepSeek E2 clicked the user-visible Stop control, returned cancelled=true, and the in-flight request terminated as 409 generation_cancelled without hidden replay. Explicit Profile/Account targeting remains open.",
+        "record": "docs/evidence/HWG_PUBLIC_CANCELLATION_E2_20260924.md"
       },
       "evidence": [
-        "docs/evidence/HWG_SDK_CONFORMANCE_E2_20260923.md"
+        "docs/evidence/HWG_SDK_CONFORMANCE_E2_20260923.md",
+        "docs/evidence/HWG_PUBLIC_CANCELLATION_E2_20260924.md"
       ]
     },
     {
