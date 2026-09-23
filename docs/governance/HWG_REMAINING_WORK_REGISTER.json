@@ -274,14 +274,13 @@
         "date": "2026-09-23",
         "type": "E1+E2 Explorer-assisted multi-provider media qualification",
         "result": "DeepSeek is E2-certified for text/document/spreadsheet/image/code/presentation. Z.ai has E2 passes for text/image/document/presentation/code with spreadsheet still unresolved. ChatGPT is E2-certified for text/file and image after Explorer-assisted upload/composer/response drift handling. Qwen currently exposes no file input in E1 read-only discovery and remains unverified for media upload.",
-        "record": "docs/evidence/HWG_DISCOVERY_VISUAL_UPLOAD_CHATGPT_E2_20260923.md"
+        "record": "docs/evidence/HWG_MEDIA_QUALIFICATION_CHATGPT_E2_20260923.md"
       },
       "evidence": [
         "docs/evidence/HWG_MULTIMODAL_CANONICAL_CONTRACT_E1_20260923.md",
         "docs/evidence/HWG_MEDIA_QUALIFICATION_DEEPSEEK_E2_20260923.md",
         "docs/evidence/HWG_MEDIA_QUALIFICATION_DEEPSEEK_MATRIX_E2_20260923.md",
         "docs/evidence/HWG_MEDIA_QUALIFICATION_ZAI_E2_20260923.md",
-        "docs/evidence/HWG_EXPLORER_MEDIA_CHATGPT_E2_20260923.md",
         "docs/evidence/HWG_MEDIA_QUALIFICATION_CHATGPT_E2_20260923.md",
         "docs/evidence/HWG_DISCOVERY_VISUAL_UPLOAD_CHATGPT_E2_20260923.md"
       ],
