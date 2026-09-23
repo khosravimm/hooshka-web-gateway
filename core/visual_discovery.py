@@ -58,9 +58,15 @@ async def capture_user_view(page, provider_id: str, stage: str, *, root: Path | 
     folder.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     path = folder / f"{stamp}-{_slug(stage)}.png"
-    await page.screenshot(path=str(path), full_page=False)
+    screenshot = None
+    screenshot_error = None
+    try:
+        await page.screenshot(path=str(path), full_page=False, timeout=8000)
+        screenshot = str(path)
+    except Exception as exc:
+        screenshot_error = type(exc).__name__
     state = await visible_page_state(page, file_name=file_name)
-    state.update({"stage": stage, "screenshot": str(path), "captured_at": stamp})
+    state.update({"stage": stage, "screenshot": screenshot, "screenshot_error": screenshot_error, "captured_at": stamp})
     return state
 
 

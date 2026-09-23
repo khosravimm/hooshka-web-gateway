@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.33.0",
-  "updated_at": "2026-09-23T22:45:00+03:30",
+  "version": "1.34.0",
+  "updated_at": "2026-09-23T23:10:00+03:30",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -272,9 +272,9 @@
       ],
       "latest_evidence": {
         "date": "2026-09-23",
-        "type": "E1+E2 Explorer-assisted multi-provider media qualification",
-        "result": "DeepSeek is E2-certified for text/document/spreadsheet/image/code/presentation. Z.ai has E2 passes for text/image/document/presentation/code with spreadsheet still unresolved. ChatGPT is E2-certified for text/file and image after Explorer-assisted upload/composer/response drift handling. Qwen currently exposes no file input in E1 read-only discovery and remains unverified for media upload.",
-        "record": "docs/evidence/HWG_MEDIA_QUALIFICATION_CHATGPT_E2_20260923.md"
+        "type": "E1+E2 multi-provider media qualification with Explorer follow-up",
+        "result": "DeepSeek E2 covers text/document/spreadsheet/image/code/presentation. ChatGPT E2 covers text/file and image. Z.ai E2 covers text/image/document/presentation/code and spreadsheet via CSV; XLSX remains failed, MP4 upload is observed but E2 timed out, audio remains unverified. Qwen is region-blocked and media-unverified.",
+        "record": "docs/evidence/HWG_MEDIA_QUALIFICATION_ZAI_E2_20260923.md"
       },
       "evidence": [
         "docs/evidence/HWG_MULTIMODAL_CANONICAL_CONTRACT_E1_20260923.md",
@@ -285,7 +285,7 @@
         "docs/evidence/HWG_DISCOVERY_VISUAL_UPLOAD_CHATGPT_E2_20260923.md"
       ],
       "updated_at": "2026-09-23",
-      "result": "Canonical media contract has E2 qualification on DeepSeek, Z.ai and ChatGPT. ChatGPT text/file and image paths passed with Explorer-assisted visual upload lifecycle and DOM drift handling. Remaining ChatGPT classes, unresolved Z.ai spreadsheet/audio/video, and Qwen media qualification remain open."
+      "result": "Media qualification now uses Explorer-assisted evidence across providers. Remaining gaps are ChatGPT extended document classes, Z.ai XLSX/audio/video, and Qwen media under current region block."
     },
     {
       "id": "HWG-WORK-008",
@@ -617,9 +617,9 @@
       ],
       "latest_evidence": {
         "date": "2026-09-23",
-        "type": "E1+E2 Explorer Engine 1.1.0 live discovery",
-        "result": "Explorer now discovers upload surfaces, composer selectors, assistant response surfaces, visual upload lifecycle and upload-class drift. It was used live to diagnose and recover ChatGPT UI drift while qualifying real media requests; Z.ai and Qwen media surfaces were also observed read-only.",
-        "record": "docs/evidence/HWG_DISCOVERY_VISUAL_UPLOAD_CHATGPT_E2_20260923.md"
+        "type": "E1+E2 Explorer Engine live media diagnostics",
+        "result": "Explorer Engine 1.1.0 identified provider upload surfaces, media-class drift, ChatGPT UI drift, Z.ai MP4 upload completion and /api/v1/files/ runtime evidence, while preserving unverified status when provider round-trip did not complete.",
+        "record": "docs/evidence/HWG_MEDIA_QUALIFICATION_ZAI_E2_20260923.md"
       },
       "evidence": [
         "docs/evidence/HWG_DISCOVERY_VISUAL_UPLOAD_CHATGPT_E2_20260923.md"
