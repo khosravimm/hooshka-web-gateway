@@ -91,3 +91,32 @@ def test_cancel_posts_public_cancellation_contract():
     assert c._session.post.call_args[0][0].endswith("/v1/chat/cancel")
     sent=c._session.post.call_args[1]["json"]
     assert sent=={"reason":"user_stop","conversation_id":"conv-1"}
+
+def test_python_sdk_serializes_profile_account_target():
+    c=_client_with_mock({"id":"x"})
+    c.chat("deepseek-web",[{"role":"user","content":"hi"}],provider="deepseek-web",profile_id="deepseek-web:default",account_id="deepseek-web:default-account")
+    body=c._session.post.call_args[1]["json"]
+    assert body["provider"]=="deepseek-web"
+    assert body["profile_id"]=="deepseek-web:default"
+    assert body["account_id"]=="deepseek-web:default-account"
+
+def test_python_sdk_uploads_multipart_and_can_delete(tmp_path):
+    c=_client_with_mock({"data":[{"id":"up1"}]})
+    c._session.delete.return_value = c._session.post.return_value
+    f=tmp_path / "marker.txt"
+    f.write_text("MARKER",encoding="utf-8")
+    body=c.upload([f],provider="deepseek-web")
+    assert body["data"][0]["id"]=="up1"
+    kwargs=c._session.post.call_args[1]
+    assert kwargs["data"]["provider"]=="deepseek-web"
+    assert kwargs["files"][0][0]=="files"
+    c.delete_upload("up1")
+    assert c._session.delete.call_args[0][0].endswith("/v1/uploads/up1")
+
+def test_python_sdk_respond_serializes_profile_account_target():
+    c=_client_with_mock({"object":"response","output":[]})
+    c.respond("deepseek-web","hi",provider="deepseek-web",profile_id="deepseek-web:default",account_id="deepseek-web:default-account")
+    body=c._session.post.call_args[1]["json"]
+    assert body["provider"]=="deepseek-web"
+    assert body["profile_id"]=="deepseek-web:default"
+    assert body["account_id"]=="deepseek-web:default-account"

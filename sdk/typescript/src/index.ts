@@ -29,6 +29,17 @@ export interface HwgClientOptions {
   timeoutMs?: number;
 }
 
+export interface InferenceTarget {
+  provider?: string;
+  profileId?: string;
+  accountId?: string;
+}
+
+export interface UploadPart {
+  name: string;
+  blob: Blob;
+}
+
 export class HwgClient {
   readonly baseUrl: string;
   readonly timeoutMs: number;
@@ -94,6 +105,28 @@ export class HwgClient {
   async openapi(): Promise<unknown> { return this.json("GET", "/v1/contracts/openapi.json"); }
   async schemas(): Promise<unknown> { return this.json("GET", "/v1/contracts/schemas"); }
   async compatibility(): Promise<unknown> { return this.json("GET", "/v1/compatibility"); }
+  async upload(files: UploadPart[], provider?: string): Promise<unknown> {
+    const form = new FormData();
+    for (const file of files) form.append("files", file.blob, file.name);
+    if (provider) form.append("provider", provider);
+    const headers: Record<string, string> = {};
+    if (this.apiKey) headers.authorization = `Bearer ${this.apiKey}`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const r = await fetch(this.baseUrl + "/v1/uploads", {method:"POST", headers, body:form, signal:controller.signal});
+      if (!r.ok) {
+        const envelope = (await r.json().catch(() => ({}))) as ErrorEnvelope;
+        const err = envelope.error ?? {};
+        throw new HwgError(err.message ?? `POST /v1/uploads -> ${r.status}`, {code:err.code,status:r.status,details:err.details,provider:err.provider});
+      }
+      return await r.json();
+    } finally { clearTimeout(timer); }
+  }
+  async deleteUpload(uploadId: string): Promise<unknown> {
+    return this.json("DELETE", `/v1/uploads/${encodeURIComponent(uploadId)}`);
+  }
+
   async inventory(): Promise<unknown> { return this.json("GET", "/panel/api/ng/inventory"); }
   async accounts(): Promise<unknown> {
     const data = await this.json<{ accounts: unknown }>("GET", "/panel/api/accounts");
@@ -103,17 +136,26 @@ export class HwgClient {
   static textPart(text: string): Record<string, unknown> { return { type: "text", text }; }
   static imagePart(imageUrl: string): Record<string, unknown> { return { type: "input_image", image_url: imageUrl }; }
   static filePart(filePath: string): Record<string, unknown> { return { type: "input_file", file_path: filePath }; }
+  static target(target: InferenceTarget = {}): Record<string, unknown> {
+    return {
+      ...(target.provider ? { provider: target.provider } : {}),
+      ...(target.profileId ? { profile_id: target.profileId } : {}),
+      ...(target.accountId ? { account_id: target.accountId } : {}),
+    };
+  }
 
   async chat(
     model: string,
     messages: Array<Record<string, unknown>>,
     extra: Record<string, unknown> = {},
+    target: InferenceTarget = {},
   ): Promise<unknown> {
     return this.json("POST", "/v1/chat/completions", {
       model,
       messages,
       stream: false,
       ...extra,
+      ...HwgClient.target(target),
     });
   }
 
@@ -121,12 +163,14 @@ export class HwgClient {
     model: string,
     messages: Array<Record<string, unknown>>,
     extra: Record<string, unknown> = {},
+    target: InferenceTarget = {},
   ): AsyncGenerator<Record<string, unknown>> {
     const r = await this.send("POST", "/v1/chat/completions", {
       model,
       messages,
       stream: true,
       ...extra,
+      ...HwgClient.target(target),
     });
     if (!r.ok || !r.body) {
       throw new HwgError(`stream -> ${r.status}`, { status: r.status });
@@ -154,11 +198,13 @@ export class HwgClient {
     model: string,
     userInput: string,
     extra: Record<string, unknown> = {},
+    target: InferenceTarget = {},
   ): Promise<unknown> {
     return this.json("POST", "/v1/responses", {
       model,
       input: userInput,
       ...extra,
+      ...HwgClient.target(target),
     });
   }
 

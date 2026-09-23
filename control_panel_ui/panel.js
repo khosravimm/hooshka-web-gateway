@@ -131,7 +131,7 @@ function initNav() {
     } catch (e) { /* keep placeholders */ }
     try {
       const ui = await fetch('/panel/assets/UI_VERSION.json', { cache: 'no-store' }).then(r => r.json());
-      $('#meta-ui').textContent = ui.version || '-';
+      $('#meta-ui').textContent = (ui.version || '-') + (ui.build ? (' · ' + ui.build) : '');
     } catch (e) {
       $('#meta-ui').textContent = '-';
     }

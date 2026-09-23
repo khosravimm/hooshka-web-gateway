@@ -19,3 +19,31 @@ assert.ok(captured.url?.endsWith("/v1/chat/cancel"));
 assert.equal(JSON.parse(captured.body ?? "{}").conversation_id,"conv-ts");
 globalThis.fetch = originalFetch;
 console.log("[PASS] TypeScript SDK contract helpers + cancellation");
+assert.deepEqual(HwgClient.target({provider:"deepseek-web",profileId:"deepseek-web:default",accountId:"deepseek-web:default-account"}), {
+  provider:"deepseek-web",
+  profile_id:"deepseek-web:default",
+  account_id:"deepseek-web:default-account",
+});
+
+let uploadForm: FormData | null = null;
+globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+  uploadForm = init?.body as FormData;
+  return new Response(JSON.stringify({data:[{id:"up-ts"}]}), {status:201,headers:{"content-type":"application/json"}});
+}) as typeof fetch;
+const uploaded = await c.upload([{name:"marker.txt",blob:new Blob(["MARKER"],{type:"text/plain"})}],"deepseek-web") as any;
+assert.equal(uploaded.data[0].id,"up-ts");
+assert.ok(uploadForm instanceof FormData);
+assert.equal(uploadForm?.get("provider"),"deepseek-web");
+globalThis.fetch = originalFetch;
+
+let respondBody = "";
+globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+  respondBody = String(init?.body ?? "");
+  return new Response(JSON.stringify({object:"response",output:[]}), {status:200,headers:{"content-type":"application/json"}});
+}) as typeof fetch;
+await c.respond("deepseek-web","hi",{}, {provider:"deepseek-web",profileId:"deepseek-web:default",accountId:"deepseek-web:default-account"});
+const parsedRespond=JSON.parse(respondBody);
+assert.equal(parsedRespond.provider,"deepseek-web");
+assert.equal(parsedRespond.profile_id,"deepseek-web:default");
+assert.equal(parsedRespond.account_id,"deepseek-web:default-account");
+globalThis.fetch = originalFetch;

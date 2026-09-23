@@ -32,6 +32,7 @@ from core.agent_tools import AgentToolRegistry, agent_tool_definitions
 from core.agent_execution import AgentLoopPolicy, execute_tool_call, remaining_loop_seconds, summarize_terminal_state
 from core.contract_bundle import build_openapi, load_schema_bundle, compatibility_manifest
 from core.media_contract import MediaContractError, provider_media_manifest, validate_media_request
+from core.provider_targeting import TargetingError, resolve_inference_target, bind_provider_to_target
 from core.upload_store import UploadStoreError, save_upload, resolve_upload_ids, delete_upload
 from core.feature_settings import (
     apply_feature_defaults,
@@ -114,6 +115,9 @@ SWAGGER_TEMPLATE = {
                 "tool_choice": {"type": "object"},
                 "user": {"type": "string", "example": "user-123"},
                 "conversation_id": {"type": "string", "example": "conv-abc123"},
+                "provider": {"type": "string", "example": "deepseek-web"},
+                "profile_id": {"type": "string", "example": "deepseek-web:default"},
+                "account_id": {"type": "string", "example": "deepseek-web:default-account"},
                 "file_paths": {"type": "array", "items": {"type": "string"}, "example": ["/path/to/file.txt"]},
                 "upload_ids": {"type": "array", "items": {"type": "string"}, "description": "Opaque IDs returned by /v1/uploads"},
                 "file_path": {"type": "string", "example": "/path/to/file.txt"},
@@ -597,6 +601,31 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         g.total_tokens = usage.total_tokens
         g.usage_estimated = estimated
 
+    def _resolve_inference_provider(data: dict, req: ChatCompletionRequest):
+        target = resolve_inference_target(data, config_path)
+        provider_id = target.provider_id if target else str(data.get("provider") or "").strip() or None
+        base = provider_router.select_provider(
+            model=req.model, provider_id=provider_id,
+            require_streaming=req.stream, require_tools=request_requires_tools(req),
+        )
+        if base is None:
+            return None, target, False
+        provider, temporary = bind_provider_to_target(base, target, config_path)
+        req.provider_options = req.provider_options or {}
+        if target:
+            req.provider_options["inference_target"] = target.metadata()
+        return provider, target, temporary
+
+    def _target_error(exc: TargetingError):
+        return jsonify({"error": {"message": str(exc), "type": "invalid_request_error", "code": exc.code, "details": exc.details}}), exc.status
+
+    def _annotate_inference_target(normalized, req: ChatCompletionRequest):
+        target=(req.provider_options or {}).get("inference_target")
+        if target:
+            normalized.provider_meta = normalized.provider_meta or {}
+            normalized.provider_meta["inference_target"] = target
+        return normalized
+
     def _validate_request(req: ChatCompletionRequest) -> tuple[bool, str]:
         if not req.messages:
             return False, "messages is required"
@@ -1035,20 +1064,10 @@ def create_app(config_path: str = "config.yaml") -> Flask:
 
         g.request_model = req.model
 
-        provider_id = data.get("provider")
-        if provider_id and provider_registry.get(provider_id) is None:
-            return jsonify({"error": {
-                "message": f"Unknown provider: {provider_id}",
-                "type": "invalid_request_error",
-                "code": "unknown_provider",
-            }}), 404
-        provider = provider_router.select_provider(
-            model=req.model,
-            provider_id=provider_id,
-            require_streaming=req.stream,
-            require_tools=request_requires_tools(req),
-        )
-
+        try:
+            provider, inference_target, temporary_provider = _resolve_inference_provider(data, req)
+        except TargetingError as exc:
+            return _target_error(exc)
         if not provider:
             return jsonify({"error": {
                 "message": f"No enabled provider supports model '{req.model}' with the requested capabilities (including optional vs required tool support).",
@@ -1081,10 +1100,10 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             session = _get_session(req)
 
             if req.stream:
-                return _stream_response(provider, translated_req, session, "chat_completions")
+                return _stream_response(provider, translated_req, session, "chat_completions", close_provider=temporary_provider)
             else:
                 response = _run_async(provider.chat_completion(translated_req, session), timeout=240)
-                normalized = mcp_normalizer.normalize_response(response, provider, translated_req)
+                normalized = _annotate_inference_target(mcp_normalizer.normalize_response(response, provider, translated_req), req)
 
                 if session and normalized.provider_meta.get("conversation_id"):
                     mcp_session_manager.update_provider_session_id(
@@ -1102,6 +1121,9 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         finally:
             if not req.stream:
                 _release_provider_slot("chat_completions", provider.provider_id)
+                if temporary_provider:
+                    try: _run_async(provider.close(), timeout=10)
+                    except Exception: logger.debug("Target provider cleanup failed", exc_info=True)
 
     @app.route("/v1/chat/cancel", methods=["POST"])
     def cancel_chat_generation():
@@ -1174,19 +1196,10 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         if not valid:
             return jsonify({"error": {"message": error_msg, "type": "invalid_request_error"}}), 400
         g.request_model = req.model
-        provider_id = data.get("provider")
-        if provider_id and provider_registry.get(provider_id) is None:
-            return jsonify({"error": {
-                "message": f"Unknown provider: {provider_id}",
-                "type": "invalid_request_error",
-                "code": "unknown_provider",
-            }}), 404
-        provider = provider_router.select_provider(
-            model=req.model,
-            provider_id=provider_id,
-            require_streaming=False,
-            require_tools=request_requires_tools(req),
-        )
+        try:
+            provider, inference_target, temporary_provider = _resolve_inference_provider(data, req)
+        except TargetingError as exc:
+            return _target_error(exc)
         if not provider:
             return jsonify({"error": {
                 "message": f"No enabled provider supports model '{req.model}'.",
@@ -1205,7 +1218,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             translated_req = mcp_translator.translate_request(req, provider)
             session = _get_session(req)
             response = _run_async(provider.chat_completion(translated_req, session), timeout=240)
-            normalized = mcp_normalizer.normalize_response(response, provider, translated_req)
+            normalized = _annotate_inference_target(mcp_normalizer.normalize_response(response, provider, translated_req), req)
             _finalize_usage_for_audit(req, normalized)
             text = "".join(c.message.content or "" for c in normalized.choices)
             return jsonify({
@@ -1231,8 +1244,11 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             return jsonify(error_resp), _http_status_for_error(e)
         finally:
             _release_provider_slot("responses", provider.provider_id)
+            if temporary_provider:
+                try: _run_async(provider.close(), timeout=10)
+                except Exception: logger.debug("Target responses provider cleanup failed", exc_info=True)
 
-    def _stream_response(provider, req: ChatCompletionRequest, session, slot_kind: str):
+    def _stream_response(provider, req: ChatCompletionRequest, session, slot_kind: str, close_provider: bool = False):
         def generate():
             event_queue = queue.Queue()
             sentinel = object()
@@ -1246,6 +1262,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                         for_finish_reason = "stop"
                         async for chunk in provider.chat_completion_stream(req, session):
                             normalized = mcp_normalizer.normalize_chunk(chunk, provider)
+                            normalized = _annotate_inference_target(normalized, req)
                             last_chunk = normalized
                             for choice in normalized.choices:
                                 if choice.delta and choice.delta.content:
@@ -1277,6 +1294,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
 
                     async for chunk in provider.chat_completion_stream(req, session):
                         normalized = mcp_normalizer.normalize_chunk(chunk, provider)
+                        normalized = _annotate_inference_target(normalized, req)
                         event_queue.put(("data", _format_stream_chunk(normalized)))
                     event_queue.put(("done", sentinel))
                 except Exception as e:
@@ -1336,6 +1354,12 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                 if not future.done():
                     future.cancel()
                 _release_provider_slot(slot_kind, provider.provider_id)
+                if close_provider:
+                    try:
+                        close_future = asyncio.run_coroutine_threadsafe(provider.close(), _async_loop)
+                        close_future.result(timeout=10)
+                    except Exception:
+                        logger.debug("Target stream provider cleanup failed", exc_info=True)
 
         return Response(stream_with_context(generate()), mimetype="text/event-stream")
 
@@ -1514,11 +1538,10 @@ def create_app(config_path: str = "config.yaml") -> Flask:
 
         g.request_model = req.model
 
-        provider = provider_router.select_provider(
-            model=req.model,
-            require_streaming=req.stream,
-            require_tools=request_requires_tools(req),
-        )
+        try:
+            provider, inference_target, temporary_provider = _resolve_inference_provider(data, req)
+        except TargetingError as exc:
+            return _target_error(exc)
         if not provider:
             return jsonify({"error": {
                 "message": f"No provider supports model '{req.model}' with the requested capabilities. If using Kilo Code with qwen/zai, tool schemas are only optional; required tool calls need chatgpt-web or a tool-capable provider.",
@@ -1551,10 +1574,10 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             session = _get_session(req)
 
             if req.stream:
-                return _stream_response(provider, translated_req, session, "conversation_chat")
+                return _stream_response(provider, translated_req, session, "conversation_chat", close_provider=temporary_provider)
             else:
                 response = _run_async(provider.chat_completion(translated_req, session), timeout=240)
-                normalized = mcp_normalizer.normalize_response(response, provider, translated_req)
+                normalized = _annotate_inference_target(mcp_normalizer.normalize_response(response, provider, translated_req), req)
                 if agent_mode:
                     registry = _interactive_agent_tools()
                     policy = AgentLoopPolicy.from_config(config.get("agent_tools"))
@@ -1621,6 +1644,9 @@ def create_app(config_path: str = "config.yaml") -> Flask:
         finally:
             if not req.stream:
                 _release_provider_slot("conversation_chat", provider.provider_id)
+                if temporary_provider:
+                    try: _run_async(provider.close(), timeout=10)
+                    except Exception: logger.debug("Target conversation provider cleanup failed", exc_info=True)
 
     return app
 

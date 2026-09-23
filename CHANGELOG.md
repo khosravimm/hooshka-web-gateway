@@ -1,3 +1,11 @@
+### SDK conformance completion + Control Plane build refresh — 2026-09-24
+- Completed canonical Provider/Profile/Account targeting across Chat Completions, Conversation Chat and Responses API.
+- Python and TypeScript SDKs now expose canonical upload/delete, explicit targeting and public cancellation.
+- Live E2 passed for Python and TypeScript targeted DeepSeek calls, canonical SDK uploads, Responses targeting and provider-side Stop cancellation.
+- Control Plane Embedded Chat Stop now invokes `/v1/chat/cancel`; UI assets use build marker `20260924-0105` while release version remains synchronized at `1.0.0-dev.7`.
+- Closed `HWG-WORK-009`; Work Register advanced to `1.39.0`.
+- Evidence: `docs/evidence/HWG_SDK_TARGETING_UPLOAD_CONFORMANCE_E2_20260924.md`.
+
 ### Public cancellation API — 2026-09-24
 - Added canonical `POST /v1/chat/cancel` with provider or known-conversation targeting and fail-closed mismatch handling.
 - Python and TypeScript reference SDKs now expose public cancellation.

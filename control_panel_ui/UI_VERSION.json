@@ -60,6 +60,14 @@
       "date": "2026-09-22",
       "class": "MINOR",
       "notes": "Mission-driven Control Plane audit: human-understandable entity relationships, readiness/certification gating, actual service topology and structured Evidence separation."
+    },
+    {
+      "version": "1.0.0-dev.7",
+      "date": "2026-09-24",
+      "class": "BUILD",
+      "notes": "Embedded Chat canonical uploads, provider-side Stop/cancellation, User-View discovery states و media qualification عملیاتی."
     }
-  ]
+  ],
+  "build": "20260924-0105",
+  "last_updated": "2026-09-24"
 }

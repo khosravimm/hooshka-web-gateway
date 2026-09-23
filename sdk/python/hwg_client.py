@@ -1,6 +1,7 @@
 """HWG reference Python SDK."""
 from __future__ import annotations
 import json
+from pathlib import Path
 import requests
 
 class HwgError(RuntimeError):
@@ -23,6 +24,23 @@ class HwgClient:
         r=self._session.get(self.base_url+path,timeout=self.timeout); self._raise(r,"GET",path); return r.json()
     def _post(self,path,body):
         r=self._session.post(self.base_url+path,json=body,timeout=self.timeout); self._raise(r,"POST",path); return r.json()
+    def upload(self,paths,provider=None):
+        handles=[]
+        try:
+            files=[]
+            for value in paths:
+                path=Path(value)
+                h=path.open("rb"); handles.append(h)
+                files.append(("files",(path.name,h,"application/octet-stream")))
+            data={"provider":provider} if provider else {}
+            r=self._session.post(self.base_url+"/v1/uploads",files=files,data=data,timeout=self.timeout)
+            self._raise(r,"POST","/v1/uploads")
+            return r.json()
+        finally:
+            for h in handles: h.close()
+    def delete_upload(self,upload_id):
+        path=f"/v1/uploads/{upload_id}"
+        r=self._session.delete(self.base_url+path,timeout=self.timeout); self._raise(r,"DELETE",path); return r.json()
     def models(self): return self._get("/v1/models")["data"]
     def providers(self): return self._get("/v1/providers")["providers"]
     def capabilities(self): return self._get("/v1/capabilities")
@@ -37,13 +55,17 @@ class HwgClient:
     def image_part(image_url): return {"type":"input_image","image_url":image_url}
     @staticmethod
     def file_part(file_path): return {"type":"input_file","file_path":file_path}
-    def chat(self,model,messages,provider=None,**kwargs):
+    def chat(self,model,messages,provider=None,profile_id=None,account_id=None,**kwargs):
         body={"model":model,"messages":messages,"stream":False,**kwargs}
         if provider: body["provider"]=provider
+        if profile_id: body["profile_id"]=profile_id
+        if account_id: body["account_id"]=account_id
         return self._post("/v1/chat/completions",body)
-    def chat_stream(self,model,messages,provider=None,**kwargs):
+    def chat_stream(self,model,messages,provider=None,profile_id=None,account_id=None,**kwargs):
         body={"model":model,"messages":messages,"stream":True,**kwargs}
         if provider: body["provider"]=provider
+        if profile_id: body["profile_id"]=profile_id
+        if account_id: body["account_id"]=account_id
         with self._session.post(self.base_url+"/v1/chat/completions",json=body,timeout=self.timeout,stream=True) as r:
             self._raise(r,"POST","/v1/chat/completions")
             for line in r.iter_lines(decode_unicode=True):
@@ -51,9 +73,11 @@ class HwgClient:
                 data=line[5:].strip()
                 if data=="[DONE]": return
                 yield json.loads(data)
-    def respond(self,model,user_input,provider=None,**kwargs):
+    def respond(self,model,user_input,provider=None,profile_id=None,account_id=None,**kwargs):
         body={"model":model,"input":user_input,**kwargs}
         if provider: body["provider"]=provider
+        if profile_id: body["profile_id"]=profile_id
+        if account_id: body["account_id"]=account_id
         return self._post("/v1/responses",body)
     def cancel(self,provider=None,conversation_id=None,reason="client_cancel"):
         body={"reason":reason}

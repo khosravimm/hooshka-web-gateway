@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.38.0",
-  "updated_at": "2026-09-24T01:15:00+03:30",
+  "version": "1.39.0",
+  "updated_at": "2026-09-24",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -331,7 +331,7 @@
       "id": "HWG-WORK-009",
       "title": "Python and TypeScript SDK conformance",
       "area": "sdk",
-      "status": "PARTIAL",
+      "status": "DONE",
       "priority": "P1",
       "source": [
         "NG-SDK-003/004"
@@ -350,14 +350,16 @@
       ],
       "latest_evidence": {
         "date": "2026-09-24",
-        "type": "E2 public cancellation API",
-        "result": "Python and TypeScript SDKs now expose the canonical /v1/chat/cancel operation. DeepSeek E2 clicked the user-visible Stop control, returned cancelled=true, and the in-flight request terminated as 409 generation_cancelled without hidden replay. Explicit Profile/Account targeting remains open.",
-        "record": "docs/evidence/HWG_PUBLIC_CANCELLATION_E2_20260924.md"
+        "type": "E2 SDK targeting/upload/cancellation conformance",
+        "result": "Python and TypeScript SDKs cover canonical uploads, Provider/Profile/Account targeting, Responses targeting and public cancellation. Live DeepSeek Candidate HWG E2 passed for both SDKs; full Python suite 488 passed and TypeScript conformance passed.",
+        "record": "docs/evidence/HWG_SDK_TARGETING_UPLOAD_CONFORMANCE_E2_20260924.md"
       },
       "evidence": [
         "docs/evidence/HWG_SDK_CONFORMANCE_E2_20260923.md",
-        "docs/evidence/HWG_PUBLIC_CANCELLATION_E2_20260924.md"
-      ]
+        "docs/evidence/HWG_PUBLIC_CANCELLATION_E2_20260924.md",
+        "docs/evidence/HWG_SDK_TARGETING_UPLOAD_CONFORMANCE_E2_20260924.md"
+      ],
+      "completed_at": "2026-09-24"
     },
     {
       "id": "HWG-WORK-010",

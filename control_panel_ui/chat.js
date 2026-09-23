@@ -402,9 +402,25 @@
     }
   }
 
-  function stopStream() {
-    if (activeController) {
-      activeController.abort();
+  async function stopStream() {
+    if (!activeController) return;
+    const controller = activeController;
+    const provider = $('#chat-provider')?.value || null;
+    const conversationId = currentConversationId || null;
+    setStatus('در حال توقف پاسخ Provider ...', 'working');
+    const cancelRequest = fetch('/v1/chat/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider, conversation_id: conversationId, reason: 'embedded_chat_user_stop' }),
+    });
+    controller.abort();
+    try {
+      const resp = await cancelRequest;
+      const result = await resp.json().catch(function () { return {}; });
+      if (resp.ok && result.cancelled === true) toast('توقف Provider تأیید شد', 'ok');
+      else toast('درخواست توقف ارسال شد؛ تأیید Provider دریافت نشد', 'warn');
+    } catch (e) {
+      toast('توقف محلی انجام شد؛ وضعیت Provider نامشخص است', 'warn');
     }
   }
 
