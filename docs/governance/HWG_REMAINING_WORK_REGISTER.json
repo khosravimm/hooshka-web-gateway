@@ -1,6 +1,6 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.29.0",
+  "version": "1.30.0",
   "updated_at": "2026-09-23T12:35:00+03:30",
   "status_vocabulary": [
     "OPEN",
@@ -272,12 +272,13 @@
       ],
       "latest_evidence": {
         "date": "2026-09-23",
-        "type": "E1 canonical multimodal contract",
-        "result": "Versioned media capability/constraint contract is exposed in API and Provider Profiles; uncertified media fails explicitly before provider execution. E2 provider/media certification remains open.",
-        "record": "docs/evidence/HWG_MULTIMODAL_CANONICAL_CONTRACT_E1_20260923.md"
+        "type": "E1+E2 generic media qualification + DeepSeek pilot",
+        "result": "Media/file qualification is now mandatory for all current and future providers. DeepSeek live DOM advertised 979 extensions; TXT file processing and PNG image processing passed real E2 qualification and normal SDK->HWG->DeepSeek file_paths round-trips. Other provider/media classes remain uncertified.",
+        "record": "docs/evidence/HWG_MEDIA_QUALIFICATION_DEEPSEEK_E2_20260923.md"
       },
       "evidence": [
-        "docs/evidence/HWG_MULTIMODAL_CANONICAL_CONTRACT_E1_20260923.md"
+        "docs/evidence/HWG_MULTIMODAL_CANONICAL_CONTRACT_E1_20260923.md",
+        "docs/evidence/HWG_MEDIA_QUALIFICATION_DEEPSEEK_E2_20260923.md"
       ]
     },
     {
@@ -337,9 +338,9 @@
       ],
       "latest_evidence": {
         "date": "2026-09-23",
-        "type": "E1+E2 Python/TypeScript SDK conformance slice",
-        "result": "Python and TypeScript SDKs now expose contract/capability discovery, explicit provider selection, canonical multimodal helpers and structured errors. Both SDKs completed bounded live DeepSeek round-trips against Candidate HWG on port 5080; unsupported image input failed explicitly with unsupported_media_type before provider execution. Profile/account inference targeting and explicit cancellation API remain open.",
-        "record": "docs/evidence/HWG_SDK_CONFORMANCE_E2_20260923.md"
+        "type": "E2 SDK multimodal file path",
+        "result": "Python SDK completed real TXT and PNG file_paths round-trips through Candidate HWG to DeepSeek Web after E2 media qualification. Profile/account targeting and public cancellation API remain open.",
+        "record": "docs/evidence/HWG_MEDIA_QUALIFICATION_DEEPSEEK_E2_20260923.md"
       },
       "evidence": [
         "docs/evidence/HWG_SDK_CONFORMANCE_E2_20260923.md"

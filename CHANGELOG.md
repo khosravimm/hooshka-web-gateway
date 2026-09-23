@@ -1,6 +1,13 @@
 ## 1.0.0-dev.7 - 2026-09-23 - WIP continuation (Machine-readable API contract)
 - Added OpenAPI 3.1 generation from the live Flask route registry for management and agent APIs.
 
+### Development media qualification ? 2026-09-23
+- Added mandatory generic File/Media qualification policy for every current and future Provider.
+- Discovery now observes live `input[type=file]` accept/multiple metadata without promoting advertised support to certified support.
+- Added provider qualification hook and persisted E2 media qualification in Provider Profiles.
+- DeepSeek Web now supports certified file upload/image input after successful E2 TXT and PNG round-trips.
+- Verified normal Python SDK `file_paths` round-trips for TXT and PNG through HWG to DeepSeek.
+
 ### SDK conformance slice ? 2026-09-23
 - Expanded Python and TypeScript reference SDKs with machine-readable contract discovery, canonical multimodal helpers, explicit provider selection and structured errors.
 - Verified bounded E2 round-trips for both SDKs against Candidate HWG/DeepSeek and explicit unsupported-media failure.

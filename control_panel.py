@@ -20,7 +20,7 @@ from core.config import load_config, deep_merge, get_default_config
 from core.feature_settings import persist_provider_feature_defaults, provider_feature_state
 from core.runtime_inventory import inventory_by_id, load_orchestration_settings
 from core.profile_contract import project_ng_inventory
-from core.profile_store import load_ng_inventory, migrate_legacy_inventory, rollback_legacy_migration, update_account_session, update_provider_tool_capabilities, reconcile_isolation_metadata, provision_account_instance, account_runtime, deprovision_account_instance
+from core.profile_store import load_ng_inventory, migrate_legacy_inventory, rollback_legacy_migration, update_account_session, update_provider_tool_capabilities, update_provider_media_qualification, reconcile_isolation_metadata, provision_account_instance, account_runtime, deprovision_account_instance
 from core.work_register import load_register, summarize_register, validate_register
 from core.discovery_orchestrator import (
     attach_baseline as discovery_attach_baseline,
@@ -479,6 +479,40 @@ def api_provider_readiness(provider_id):
     if not provider:
         return jsonify({"error":"Provider not found"}), 404
     return jsonify(load_readiness(provider_id) or {"provider_id":provider_id,"state":"UNKNOWN","ready":False,"current":False})
+
+
+@control_panel_bp.route('/api/providers/<provider_id>/media/qualify', methods=['POST'])
+def api_provider_media_qualify(provider_id):
+    """Run one explicit E2 media qualification using the provider-owned implementation."""
+    import asyncio
+    import concurrent.futures
+    provider=provider_registry.get(provider_id)
+    if not provider:
+        return jsonify({"error":"Provider not found"}),404
+    data=request.get_json(silent=True) or {}
+    if data.get("confirmed_by_user") is not True:
+        return jsonify({"error":"user_confirmation_required","message":"Media qualification sends a real provider request"}),400
+    file_path=str(data.get("file_path") or "").strip()
+    media_kind=str(data.get("media_kind") or "file_upload").strip()
+    prompt=str(data.get("prompt") or "").strip()
+    marker=str(data.get("expected_marker") or "").strip()
+    if not file_path or not prompt or not marker:
+        return jsonify({"error":"file_path_prompt_marker_required"}),400
+    loop=current_app.config.get("HWG_ASYNC_LOOP")
+    if loop is None or not loop.is_running():
+        return jsonify({"error":"async_runtime_unavailable"}),503
+    try:
+        future=asyncio.run_coroutine_threadsafe(provider.qualify_media(media_kind,file_path,prompt,marker),loop)
+        result=dict(future.result(timeout=150) or {})
+        profile=update_provider_media_qualification(provider_id,result)
+        from core.media_qualification import apply_persisted_media_certification
+        apply_persisted_media_certification(provider,{"provider_profiles":[profile]})
+        return jsonify({"qualification":result,"persisted":True,"media":provider_media_manifest(provider)})
+    except concurrent.futures.TimeoutError:
+        return jsonify({"error":"media_qualification_timeout"}),504
+    except Exception as exc:
+        logger.warning("Media qualification failed for %s",provider_id,exc_info=True)
+        return jsonify({"error":"media_qualification_failed","message":str(exc),"type":type(exc).__name__}),502
 
 
 @control_panel_bp.route('/api/providers/<provider_id>/readiness/probe', methods=['POST'])

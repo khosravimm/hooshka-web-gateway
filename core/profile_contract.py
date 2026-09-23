@@ -13,6 +13,8 @@ from urllib.parse import urlparse
 
 import yaml
 
+from core.media_qualification import media_qualification_policy
+
 from core.media_contract import media_manifest_from_capabilities
 
 CONTRACT_VERSION = "1.0.0"

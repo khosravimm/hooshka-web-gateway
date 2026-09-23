@@ -1,6 +1,7 @@
 from typing import AsyncIterator, Optional
 
 from adapters.deepseek_browser_transport import DeepSeekBrowserUITransport
+from core.media_qualification import qualification_result
 from core.providers import (
     Provider,
     ProviderCapabilities,
@@ -53,20 +54,7 @@ class DeepSeekWebProvider(Provider):
 
     @property
     def capabilities(self) -> ProviderCapabilities:
-        return ProviderCapabilities(
-            chat_completion=True,
-            streaming=True,
-            streaming_mode="reconstructed",
-            tools=True,
-            vision=False,
-            embeddings=False,
-            max_context_tokens=128_000,
-            supported_models=["deepseek-web"],
-            search=True,
-            reasoning=True,
-            files=False,
-            transport_mode="browser_ui",
-        )
+        return self._capabilities
 
     def supports_model(self, model: str) -> bool:
         return model == "deepseek-web" or model.startswith("deepseek:")
@@ -117,6 +105,18 @@ class DeepSeekWebProvider(Provider):
                 parts.append(str(content))
         return "\n\n".join(parts).strip()
 
+    async def qualify_media(self, media_kind: str, file_path: str, prompt: str, expected_marker: str) -> dict:
+        await self._require_authenticated_session()
+        pieces=[]
+        async for event in self._browser.stream_text(
+            prompt, new_chat=True, thinking=False, search=False, file_paths=[file_path]
+        ):
+            pieces.append(event.get("text") or "")
+        response="".join(pieces)
+        result=qualification_result(self.provider_id, media_kind, file_path, response, expected_marker)
+        result["response_preview"]=response[:500]
+        return result
+
     async def health_check(self) -> bool:
         try:
             await self._require_authenticated_session()
@@ -132,11 +132,16 @@ class DeepSeekWebProvider(Provider):
         pieces = []
         conversation_id = ""
         options = request.provider_options or {}
+        stream_kwargs = {
+            "new_chat": True,
+            "thinking": bool(options.get("thinking", False)),
+            "search": bool(options.get("search", False)),
+        }
+        if options.get("file_paths"):
+            stream_kwargs["file_paths"] = list(options.get("file_paths") or [])
         async for event in self._browser.stream_text(
             self._request_text(request),
-            new_chat=True,
-            thinking=bool(options.get("thinking", False)),
-            search=bool(options.get("search", False)),
+            **stream_kwargs,
         ):
             pieces.append(event.get("text") or "")
             conversation_id = event.get("conversation_id") or conversation_id

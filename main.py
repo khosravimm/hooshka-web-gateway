@@ -472,6 +472,12 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             )
 
         if provisioned is not None:
+            try:
+                from core.profile_store import load_ng_inventory
+                from core.media_qualification import apply_persisted_media_certification
+                apply_persisted_media_certification(provisioned, load_ng_inventory(config_path))
+            except Exception as exc:
+                logger.debug("No persisted media certification applied for %s: %s", provisioned.provider_id, type(exc).__name__)
             provider_registry.register(provisioned)
             rate_limiter.set_rate(provisioned.provider_id, _provider_rpm(provisioned.provider_id))
 

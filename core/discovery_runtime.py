@@ -56,6 +56,8 @@ async def explore_cdp(provider_id: str, cdp_url: str, home_url: str) -> tuple[di
         if not pages:
             raise RuntimeError("owned runtime has no page")
         report = await discover_page(pages[0], provider_id)
+        from core.media_qualification import observe_file_upload_surface
+        media_surface = await observe_file_upload_surface(pages[0])
 
     findings = {
         "page_url": report.page_url,
@@ -64,6 +66,7 @@ async def explore_cdp(provider_id: str, cdp_url: str, home_url: str) -> tuple[di
         "frontend": report.frontend,
         "backend": report.backend,
         "capabilities": report.capabilities,
+        "media_upload_surface": media_surface,
     }
     old = _flatten(_latest_discovery(provider_id))
     drift = diff_drift(old, _flatten(findings))

@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import re
+from pathlib import Path
 import time
 from typing import AsyncIterator, Optional
 
@@ -228,6 +229,23 @@ class DeepSeekBrowserUITransport:
         await page.wait_for_timeout(200)
         await textarea.press("Enter")
 
+    async def _upload_files(self, page: Page, file_paths: list[str]) -> dict:
+        if not file_paths:
+            return {"uploaded": 0, "files": []}
+        resolved=[]
+        for value in file_paths:
+            path=Path(value).expanduser().resolve()
+            if not path.is_file():
+                raise ProviderError(f"File not found: {path}", "file_not_found", self.provider_id)
+            resolved.append(str(path))
+        control=page.locator("input[type=file]").first
+        if await control.count() == 0:
+            raise ProviderError("DeepSeek file input not found", "upload_not_supported", self.provider_id)
+        accept=await control.get_attribute("accept") or ""
+        await control.set_input_files(resolved)
+        await page.wait_for_timeout(1200)
+        return {"uploaded": len(resolved), "files": [Path(x).name for x in resolved], "accept": accept}
+
     async def _apply_feature_controls(self, page: Page, *, thinking: bool, search: bool) -> dict:
         """Toggle DeepSeek Web Chat DeepThink/Search and verify visible state."""
         async def set_control(pattern: str, requested: bool, feature: str) -> bool:
@@ -316,6 +334,7 @@ class DeepSeekBrowserUITransport:
         new_chat: bool = True,
         thinking: bool = False,
         search: bool = False,
+        file_paths: list[str] | None = None,
     ) -> AsyncIterator[dict]:
         if not prompt.strip():
             raise ProviderError("DeepSeek prompt is empty", "invalid_request", self.provider_id)
@@ -331,6 +350,8 @@ class DeepSeekBrowserUITransport:
                 thinking=thinking,
                 search=search,
             )
+            if file_paths:
+                await self._upload_files(page, list(file_paths))
             before = await self._assistant_messages(page)
             before_count = len(before)
             commitment = CommitmentTracker(f"{self.provider_id}:{time.time_ns()}")

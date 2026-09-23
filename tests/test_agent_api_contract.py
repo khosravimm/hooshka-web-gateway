@@ -81,20 +81,22 @@ def test_capabilities_publish_versioned_media_contract(client):
     media = provider["capabilities"]["media"]
     assert media["contract_version"] == "1.0.0"
     assert media["support"]["text"] is True
-    assert media["support"]["image_input"] is False
+    assert isinstance(media["support"]["image_input"], bool)
+    assert isinstance(media["support"]["file_upload"], bool)
+    assert media["support"]["audio_input"] is False
     for key in ("mime_types", "max_bytes", "max_duration_seconds", "max_resolution", "lifecycle", "privacy"):
         assert key in media["constraints"]["image_input"]
 
-def test_uncertified_image_input_fails_explicitly_before_provider_execution(client):
+def test_uncertified_audio_input_fails_explicitly_before_provider_execution(client):
     r = client.post("/v1/chat/completions", json={
         "model": "deepseek-web",
         "messages": [{"role": "user", "content": [
-            {"type": "text", "text": "describe"},
-            {"type": "input_image", "image_url": "data:image/png;base64,AA=="},
+            {"type": "text", "text": "transcribe"},
+            {"type": "input_audio", "audio_url": "data:audio/wav;base64,AA=="},
         ]}],
     })
     assert r.status_code == 400
     err = r.get_json()["error"]
     assert err["code"] == "unsupported_media_type"
     assert err["provider"] == "deepseek-web"
-    assert "image_input" in err["details"]["unsupported"]
+    assert "audio_input" in err["details"]["unsupported"]

@@ -209,6 +209,14 @@ class Provider(ABC):
     async def list_models(self) -> list[ModelInfo]:
         pass
 
+    async def qualify_media(self, media_kind: str, file_path: str, prompt: str, expected_marker: str) -> dict:
+        """Provider-specific E2 media qualification hook. Default is unsupported."""
+        return {
+            "provider_id": self.provider_id, "media_kind": media_kind,
+            "tested": False, "supported": False, "certified": {},
+            "reason": "provider_media_qualification_not_implemented", "evidence_level": "E0",
+        }
+
     async def cancel_active_generation(self, reason: str = "client_cancelled") -> dict:
         """Best-effort cancellation hook for Web-chat transports.
 
