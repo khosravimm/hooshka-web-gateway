@@ -820,3 +820,5 @@ All notable changes to Hooshka Web Gateway are recorded here. `mcp-web-bridge` i
 
 The repository did not maintain a formal VERSION/CHANGELOG contract before 0.3.0. Earlier commits remain the source of truth for pre-0.3.0 history.
 
+
+- DeepSeek E2 media matrix: DOCX/PDF/XLSX/CSV/PNG/PY/PPTX certified; class-level certification persisted in Provider Profile; audio/video remain uncertified.

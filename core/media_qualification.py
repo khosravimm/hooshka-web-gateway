@@ -76,17 +76,28 @@ def apply_persisted_media_certification(provider, inventory: dict[str, Any]) -> 
     return certified
 
 
+def media_class_for_path(file_path: str) -> str:
+    ext=Path(file_path).suffix.lower()
+    for name,reps in REPRESENTATIVE_EXTENSIONS.items():
+        if ext in reps:
+            return name
+    return "other"
+
+
 def qualification_result(provider_id: str, media_kind: str, file_path: str, response: str, expected_marker: str, *, advertised: dict | None = None) -> dict[str, Any]:
     matched=bool(expected_marker and expected_marker in (response or ""))
+    media_class=media_class_for_path(file_path)
     return {
         "schema_version": QUALIFICATION_VERSION,
         "provider_id": provider_id,
         "media_kind": media_kind,
         "file_name": Path(file_path).name,
+        "media_class": media_class,
         "tested": True,
         "response_received": bool(response),
         "marker_match": matched,
         "certified": {"file_upload": matched, "image_input": matched if media_kind=="image_input" else False},
+        "certified_classes": {media_class: matched},
         "advertised": advertised or {},
         "evidence_level": "E2" if matched else "E1",
         "status": "certified" if matched else "failed",

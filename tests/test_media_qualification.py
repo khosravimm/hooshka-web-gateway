@@ -51,3 +51,18 @@ def test_policy_applies_to_all_current_and_future_providers():
     assert policy["scope"]=="all_current_and_future_providers"
     assert policy["promotion_rule"]=="E2_required_for_certified"
     assert {"text","document","spreadsheet","image","code","presentation","audio","video"} <= set(policy["classes"])
+
+
+def test_qualification_records_media_class():
+    x=qualification_result('p','file_upload','sheet.xlsx','HWG_X','HWG_X')
+    assert x['media_class']=='spreadsheet'
+    assert x['certified_classes']=={'spreadsheet':True}
+
+
+def test_profile_persistence_merges_certified_classes(tmp_path):
+    root=tmp_path/'store'; d=root/'provider_profiles'; d.mkdir(parents=True)
+    path=d/'p.json'; path.write_text(json.dumps({'provider_id':'p','profile_id':'p:default','change_log':[]}),encoding='utf-8')
+    update_provider_media_qualification('p',{'certified':{'file_upload':True},'certified_classes':{'document':True},'evidence_level':'E2'},root)
+    out=update_provider_media_qualification('p',{'certified':{'file_upload':True},'certified_classes':{'spreadsheet':True},'evidence_level':'E2'},root)
+    classes=out['media_qualification']['latest']['certified_classes']
+    assert classes=={'document':True,'spreadsheet':True}

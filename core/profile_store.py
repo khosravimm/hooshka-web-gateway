@@ -302,8 +302,12 @@ def update_provider_media_qualification(provider_id: str, result: dict[str, Any]
     previous=dict((current.get("latest") or {}).get("certified") or {})
     incoming=dict(result.get("certified") or {})
     merged={k: bool(previous.get(k) or incoming.get(k)) for k in set(previous)|set(incoming)}
+    previous_classes=dict((current.get("latest") or {}).get("certified_classes") or {})
+    incoming_classes=dict(result.get("certified_classes") or {})
+    merged_classes={k: bool(previous_classes.get(k) or incoming_classes.get(k)) for k in set(previous_classes)|set(incoming_classes)}
     safe=dict(result)
     safe["certified"]=merged
+    safe["certified_classes"]=merged_classes
     now=_now()
     history=list(current.get("history") or []); history.append(dict(result))
     payload["media_qualification"]={"schema_version":"1.0.0","latest":safe,"history":history[-50:],"updated_at":now}
