@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:hwg:schema:event:1.0.0",
+  "title": "HWG Event",
+  "type": "object",
+  "required": [
+    "event_type",
+    "timestamp"
+  ],
+  "properties": {
+    "event_type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": [
+        "integer",
+        "string"
+      ]
+    },
+    "provider_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "account_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "conversation_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

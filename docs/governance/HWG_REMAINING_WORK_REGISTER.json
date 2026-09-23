@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.27.0",
-  "updated_at": "2026-09-23T12:17:00+03:30",
+  "version": "1.28.0",
+  "updated_at": "2026-09-23T12:35:00+03:30",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -284,7 +284,7 @@
       "id": "HWG-WORK-008",
       "title": "OpenAPI and JSON Schema contract completion",
       "area": "sdk",
-      "status": "OPEN",
+      "status": "DONE",
       "priority": "P1",
       "source": [
         "NG-SDK-002",
@@ -302,7 +302,17 @@
         "Versioned OpenAPI covers management and agent APIs",
         "Schemas cover profiles/accounts/capabilities/errors/events",
         "Compatibility manifest classifies support modes"
-      ]
+      ],
+      "latest_evidence": {
+        "date": "2026-09-23",
+        "type": "E1 machine-readable contract completion",
+        "result": "OpenAPI 3.1 now covers live management and agent routes from Flask route registry; JSON Schema bundle covers Provider Profile, Account Instance, Capabilities, Error, Event and Compatibility Manifest; compatibility classifications are explicit.",
+        "record": "docs/evidence/HWG_OPENAPI_JSON_SCHEMA_CONTRACT_E1_20260923.md"
+      },
+      "evidence": [
+        "docs/evidence/HWG_OPENAPI_JSON_SCHEMA_CONTRACT_E1_20260923.md"
+      ],
+      "completed_at": "2026-09-23T12:35:00+03:30"
     },
     {
       "id": "HWG-WORK-009",

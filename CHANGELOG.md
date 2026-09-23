@@ -1,3 +1,9 @@
+## 1.0.0-dev.7 - 2026-09-23 - WIP continuation (Machine-readable API contract)
+- Added OpenAPI 3.1 generation from the live Flask route registry for management and agent APIs.
+- Added versioned JSON Schema bundle for profiles, accounts, capabilities, errors, events and compatibility manifest.
+- Added `/v1/contracts/openapi.json`, `/v1/contracts/schemas` and `/v1/compatibility`.
+- Closed `HWG-WORK-008` at E1; no uncertified capability was promoted.
+
 ## 1.0.0-dev.7 - 2026-09-23 - WIP continuation (Multimodal canonical contract)
 - Added versioned canonical media capability/constraint contract across API and Provider Profile projection.
 - Added explicit `unsupported_media_type` rejection before provider execution for uncertified image/file/audio/video input.

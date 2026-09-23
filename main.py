@@ -30,6 +30,7 @@ from core.agent_boundary import boundary_is_active_for_request, enforce_response
 from core.functional_readiness import load_readiness
 from core.agent_tools import AgentToolRegistry, agent_tool_definitions
 from core.agent_execution import AgentLoopPolicy, execute_tool_call, remaining_loop_seconds, summarize_terminal_state
+from core.contract_bundle import build_openapi, load_schema_bundle, compatibility_manifest
 from core.media_contract import MediaContractError, provider_media_manifest, validate_media_request
 from core.feature_settings import (
     apply_feature_defaults,
@@ -818,6 +819,18 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             "default": provider_registry.get_default().provider_id if provider_registry.get_default() else None,
         })
 
+    @app.route("/v1/contracts/openapi.json", methods=["GET"])
+    def v1_contract_openapi():
+        return jsonify(build_openapi(app))
+
+    @app.route("/v1/contracts/schemas", methods=["GET"])
+    def v1_contract_schemas():
+        return jsonify(load_schema_bundle())
+
+    @app.route("/v1/compatibility", methods=["GET"])
+    def v1_compatibility_manifest():
+        return jsonify(compatibility_manifest())
+
     @app.route("/v1/capabilities", methods=["GET"])
     def v1_capabilities():
         """
@@ -981,9 +994,6 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             }}), 404
 
         g.selected_provider_id = provider.provider_id
-        rate_response = enforce_provider_rate_limit(provider.provider_id)
-        if rate_response is not None:
-            return rate_response
         apply_feature_defaults(req, provider)
         drop_optional_tools_for_text_only_provider(req, provider)
         try:
@@ -995,6 +1005,9 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             }}), 400
         req.provider_options = req.provider_options or {}
         req.provider_options["media_contract"] = media_state
+        rate_response = enforce_provider_rate_limit(provider.provider_id)
+        if rate_response is not None:
+            return rate_response
 
         if not _try_acquire_provider_slot("chat_completions", provider.provider_id):
             return _provider_busy_response("chat_completions", provider.provider_id)
@@ -1424,9 +1437,6 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             }}), 400
 
         g.selected_provider_id = provider.provider_id
-        rate_response = enforce_provider_rate_limit(provider.provider_id)
-        if rate_response is not None:
-            return rate_response
         apply_feature_defaults(req, provider)
         drop_optional_tools_for_text_only_provider(req, provider)
         try:
@@ -1438,6 +1448,9 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             }}), 400
         req.provider_options = req.provider_options or {}
         req.provider_options["media_contract"] = media_state
+        rate_response = enforce_provider_rate_limit(provider.provider_id)
+        if rate_response is not None:
+            return rate_response
 
         if not _try_acquire_provider_slot("conversation_chat", provider.provider_id):
             return _provider_busy_response("conversation_chat", provider.provider_id)

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:hwg:schema:capabilities:1.0.0",
+  "title": "HWG Capabilities",
+  "type": "object",
+  "required": [
+    "manifest_version",
+    "providers"
+  ],
+  "properties": {
+    "manifest_version": {
+      "type": "string"
+    },
+    "providers": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "media_contract": {
+      "type": "object"
+    },
+    "access": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

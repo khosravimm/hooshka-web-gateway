@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:hwg:schema:compatibility-manifest:1.0.0",
+  "title": "HWG Compatibility Manifest",
+  "type": "object",
+  "required": [
+    "manifest_version",
+    "baseline",
+    "classification_values",
+    "features"
+  ],
+  "properties": {
+    "manifest_version": {
+      "const": "1.0.0"
+    },
+    "baseline": {
+      "type": "string",
+      "minLength": 1
+    },
+    "classification_values": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "native",
+          "normalized",
+          "reconstructed",
+          "emulated",
+          "unsupported",
+          "uncertified"
+        ]
+      }
+    },
+    "features": {
+      "type": "object",
+      "additionalProperties": {
+        "enum": [
+          "native",
+          "normalized",
+          "reconstructed",
+          "emulated",
+          "unsupported",
+          "uncertified"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false
+}
