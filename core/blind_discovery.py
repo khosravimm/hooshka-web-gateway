@@ -111,6 +111,18 @@ def compare_blind_to_known(blind: dict, known: dict) -> dict:
     }
 
 
+def matching_provider_pages(pages, home_url: str):
+    """Return only pages whose host matches the provider home host.
+
+    Shared CDP runtimes must never fall back to another provider's page;
+    absence of a matching page is evidence of no_provider_page.
+    """
+    host = (urlparse(home_url).hostname or "").lower()
+    if not host:
+        return list(pages)
+    return [p for p in pages if host == (urlparse(getattr(p, "url", "") or "").hostname or "").lower()]
+
+
 async def probe_auth_cdp(cdp_url: str, home_url: str) -> dict:
     """Classify access/auth state from an owned live browser without prior provider profile knowledge."""
     from playwright.async_api import async_playwright
@@ -120,7 +132,7 @@ async def probe_auth_cdp(cdp_url: str, home_url: str) -> dict:
         if not browser.contexts:
             return asdict(AuthState('UNKNOWN','low',['no_browser_context'],None))
         pages = [p for c in browser.contexts for p in c.pages]
-        pages = [p for p in pages if host and host == (urlparse(p.url).hostname or '').lower()] or pages
+        pages = matching_provider_pages(pages, home_url)
         if not pages:
             return asdict(AuthState('UNKNOWN','low',['no_provider_page'],None))
         states=[]

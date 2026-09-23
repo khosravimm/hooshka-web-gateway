@@ -1,4 +1,4 @@
-from core.blind_discovery import identify_provider, classify_auth_snapshot, compare_blind_to_known
+from core.blind_discovery import identify_provider, classify_auth_snapshot, compare_blind_to_known, matching_provider_pages
 
 
 def test_provider_identity_from_host_without_profile():
@@ -38,3 +38,11 @@ def test_compare_blind_to_known_reports_match_missed_new():
     assert c['endpoints']['match']==['/api/chat']
     assert c['endpoints']['missed']==['/api/old']
     assert c['endpoints']['new']==['/api/new']
+
+
+def test_shared_cdp_does_not_fall_back_to_other_provider_page():
+    class Page:
+        def __init__(self, url): self.url=url
+    pages=[Page('https://chat.deepseek.com/a/chat/s/1')]
+    assert matching_provider_pages(pages,'https://chatgpt.com/') == []
+    assert matching_provider_pages(pages,'https://chat.deepseek.com/') == pages

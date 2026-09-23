@@ -822,3 +822,5 @@ The repository did not maintain a formal VERSION/CHANGELOG contract before 0.3.0
 
 
 - DeepSeek E2 media matrix: DOCX/PDF/XLSX/CSV/PNG/PY/PPTX certified; class-level certification persisted in Provider Profile; audio/video remain uncertified.
+
+- Z.ai media qualification: TXT/PNG/PDF/PPTX/PY E2 certified; XLSX failed and CSV timed out without promotion. Hardened shared-CDP session host binding so provider session probes cannot inherit another provider's page.

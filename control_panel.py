@@ -2010,8 +2010,11 @@ def _evaluate_provider_session(provider_id):
             logger.warning("Account access probe failed for %s", provider_id, exc_info=True)
 
     terminal = {"BLOCKED", "LOGIN_REQUIRED", "USER_INTERACTION_REQUIRED"}
+    structural_evidence = set(access.get("evidence") or [])
     body = {}
-    if str(access.get("state") or "UNKNOWN").upper() not in terminal:
+    if "no_provider_page" in structural_evidence:
+        body = {"authenticated": False, "session_probe": "no_provider_page", "reason": "no_provider_page"}
+    elif str(access.get("state") or "UNKNOWN").upper() not in terminal:
         check = _provider_session_checker(provider)
         if check is not None:
             try:

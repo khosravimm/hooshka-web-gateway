@@ -485,6 +485,7 @@ class ZaiBrowserControllerTransport:
         upstream_model: Optional[str] = None,
         thinking: bool = False,
         search: bool = False,
+        file_paths: Optional[list[str]] = None,
     ) -> AsyncIterator[dict]:
         if not prompt.strip():
             raise ProviderError("Z.ai prompt is empty", "invalid_request", self.provider_id)
@@ -497,6 +498,19 @@ class ZaiBrowserControllerTransport:
             status = await self.session_status()
             if not status.get("authenticated"):
                 raise ProviderError("Z.ai Web requires an authenticated browser session", "auth_required", self.provider_id)
+
+            if file_paths:
+                file_input = page.locator("input[type=file]").first
+                if await file_input.count() == 0:
+                    raise ProviderError("Z.ai file input not found", "upload_failed", self.provider_id)
+                try:
+                    await file_input.set_input_files(list(file_paths))
+                    await page.wait_for_timeout(1800)
+                except Exception as exc:
+                    raise ProviderError(
+                        "Z.ai file upload failed", "upload_failed", self.provider_id,
+                        {"exception": type(exc).__name__},
+                    ) from exc
 
             self.last_requested_model = upstream_model
             # Evidence must reflect an observed backend request, not the requested

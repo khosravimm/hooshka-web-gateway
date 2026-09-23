@@ -2,6 +2,7 @@ import re
 from typing import AsyncIterator, Optional
 
 from adapters.zai_browser_transport import ZaiBrowserControllerTransport
+from core.media_qualification import qualification_result
 from core.browser_observability import BrowserEvidenceMismatch, BrowserModelEvidence
 from core.tool_protocol import serialize_messages, parse_tool_envelope, strong_auto_tool_signal
 from core.providers import (
@@ -105,20 +106,7 @@ class ZaiWebProvider(Provider):
 
     @property
     def capabilities(self) -> ProviderCapabilities:
-        return ProviderCapabilities(
-            chat_completion=True,
-            streaming=True,
-            streaming_mode="reconstructed",
-            tools=True,
-            vision=False,
-            embeddings=False,
-            max_context_tokens=200_000,
-            supported_models=["zai-web"],
-            search=True,
-            reasoning=True,
-            files=False,
-            transport_mode="browser_backend_controller",
-        )
+        return self._capabilities
 
     @staticmethod
     def _has_tool_result(request: ChatCompletionRequest) -> bool:
@@ -162,6 +150,24 @@ class ZaiWebProvider(Provider):
                 self.provider_id,
                 {"session_mode": "guest_disabled"},
             )
+
+    async def qualify_media(self, media_kind: str, file_path: str, prompt: str, expected_marker: str) -> dict:
+        await self._require_authenticated_session()
+        pieces=[]
+        upstream_model=self._default_upstream_model
+        available=await self._browser.model_ids()
+        if upstream_model not in available and available:
+            upstream_model=available[0]
+        async for event in self._browser.stream_text(
+            prompt, upstream_model=upstream_model, thinking=False, search=False, file_paths=[file_path]
+        ):
+            if event.get("type") == "text_delta":
+                pieces.append(event.get("text") or "")
+        response="".join(pieces)
+        result=qualification_result(self.provider_id, media_kind, file_path, response, expected_marker)
+        result["response_preview"]=response[:500]
+        result["upstream_model"]=getattr(self._browser,"last_backend_request_model",None) or upstream_model
+        return result
 
     async def health_check(self) -> bool:
         try:
@@ -223,11 +229,16 @@ class ZaiWebProvider(Provider):
         chat_id = ""
         requested_upstream_model = await self._resolve_and_validate_upstream_model(request)
         upstream_model = ""
+        stream_kwargs = {
+            "upstream_model": requested_upstream_model,
+            "thinking": bool((request.provider_options or {}).get("thinking", False)),
+            "search": bool((request.provider_options or {}).get("search", False)),
+        }
+        if (request.provider_options or {}).get("file_paths"):
+            stream_kwargs["file_paths"] = list((request.provider_options or {}).get("file_paths") or [])
         async for event in self._browser.stream_text(
             self._request_text(request),
-            upstream_model=requested_upstream_model,
-            thinking=bool((request.provider_options or {}).get("thinking", False)),
-            search=bool((request.provider_options or {}).get("search", False)),
+            **stream_kwargs,
         ):
             if event.get("type") == "text_delta":
                 pieces.append(event.get("text") or "")

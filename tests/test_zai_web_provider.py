@@ -38,9 +38,9 @@ class FakeZaiTransport:
     async def model_catalog(self):
         return list(self._catalog)
 
-    async def stream_text(self, prompt, *, upstream_model=None, thinking=False, search=False):
+    async def stream_text(self, prompt, *, upstream_model=None, thinking=False, search=False, file_paths=None):
         self.prompts.append(prompt)
-        self.last_features = {"thinking": thinking, "search": search}
+        self.last_features = {"thinking": thinking, "search": search}; self.last_file_paths = list(file_paths or [])
         self.last_selected_model_label = "GLM-5.3" if upstream_model == "glm-5.3" else None
         self.last_backend_request_model = upstream_model
         model = upstream_model
@@ -269,3 +269,20 @@ def test_zai_auto_tool_prompt_does_not_force_after_tool_result():
     prompt = provider._request_text(req)
 
     assert "You MUST call the function named 'edit'" not in prompt
+
+
+@pytest.mark.asyncio
+async def test_zai_media_qualification_passes_file_path_to_transport():
+    provider = create_zai_web_provider(provider_id="zai-web", default_upstream_model="glm-5.3")
+    provider._browser = FakeZaiTransport(text="HWG_ZAI_TEST_MARKER")
+    result = await provider.qualify_media("file_upload", "C:/tmp/sample.txt", "read marker", "HWG_ZAI_TEST_MARKER")
+    assert result["status"] == "certified"
+    assert result["marker_match"] is True
+    assert provider._browser.last_file_paths == ["C:/tmp/sample.txt"]
+
+def test_zai_capabilities_object_is_persistent_for_runtime_certification():
+    provider = create_zai_web_provider(provider_id="zai-web")
+    first = provider.capabilities
+    first.files = True
+    assert provider.capabilities is first
+    assert provider.capabilities.files is True

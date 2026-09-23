@@ -65,3 +65,12 @@ def test_session_store_drops_secret_like_fields(tmp_path):
     stored=json.loads(path.read_text(encoding="utf-8"))["session"]
     assert "token" not in stored and "cookie" not in stored and "api_key" not in stored
     assert "raw_cookie" not in stored["evidence"]
+
+
+def test_session_evaluation_does_not_override_missing_provider_page():
+    text=Path('control_panel.py').read_text(encoding='utf-8-sig')
+    start=text.index('def _evaluate_provider_session')
+    end=text.index('def api_provider_session', start)
+    block=text[start:end]
+    assert 'no_provider_page' in block
+    assert 'session_probe": "no_provider_page"' in block
