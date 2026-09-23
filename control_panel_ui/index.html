@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>هوشکا وب گیت‌وی - کنترل پنل</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="/panel/assets/panel.css?b=20260924-0310">
+<link rel="stylesheet" href="/panel/assets/panel.css?b=20260924-0335">
 </head>
 <body>
 <div class="app-shell">
@@ -184,12 +184,13 @@
           <div id="pf-proposal" class="relationship-preview"></div>
           <label class="field">Runtime پیشنهادی<select id="pf-runtime" class="ctrl ltr"></select></label>
           <p class="hint">در حالت عادی همان پیشنهاد HWG را بپذیرید. فقط اگر دلیل مشخصی دارید Runtime دیگری انتخاب کنید.</p>
-          <div class="btn-row mt"><button id="pf-observe" class="btn primary" type="button">باز کردن و مشاهده از دید کاربر</button></div>
+          <div class="dependency-note mt"><b>چرا صفحه وب‌چت باز می‌شود؟</b><br>HWG باید وضعیت واقعی ورود، شرایط استفاده، CAPTCHA/Verification و آماده‌بودن صفحه چت را همان‌طور که کاربر می‌بیند بررسی کند. اگر صفحه از شما Login یا تأییدی خواست، فقط همان را انجام دهید؛ لازم نیست پیام آزمایشی بفرستید.</div>
+          <div class="btn-row mt"><button id="pf-observe" class="btn primary" type="button">باز کردن صفحه وب‌چت و شروع بررسی</button></div>
         </div>
-        <div class="card provision-step wizard-hidden" id="pf-observation-card"><span class="step-no">۳</span><h3 class="card-title">نتیجه مشاهده و گام بعد</h3>
+        <div class="card provision-step wizard-hidden" id="pf-observation-card"><span class="step-no">۳</span><h3 class="card-title">نتیجه بررسی و اقدام بعدی شما</h3>
           <div id="pf-observation" class="relationship-preview"></div>
           <div class="dependency-note mt" id="pf-next-action"></div>
-          <div class="btn-row mt"><button id="pf-reobserve" class="btn ghost" type="button">دوباره بررسی کن</button><button id="pf-save" class="btn primary" type="button" disabled>ثبت با پیشنهاد HWG</button></div>
+          <div class="btn-row mt"><button id="pf-reobserve" class="btn ghost" type="button">انجام شد؛ ادامه بررسی</button><button id="pf-save" class="btn primary" type="button" disabled>ثبت با پیشنهاد HWG</button></div>
         </div>
       </div>
     </section>
@@ -438,8 +439,8 @@
 
 <div id="toast-region" class="toast-region" aria-live="polite"></div>
 
-<script src="/panel/assets/markdown.js?b=20260924-0310"></script>
-<script src="/panel/assets/panel.js?b=20260924-0310"></script>
-<script src="/panel/assets/chat.js?b=20260924-0310"></script>
+<script src="/panel/assets/markdown.js?b=20260924-0335"></script>
+<script src="/panel/assets/panel.js?b=20260924-0335"></script>
+<script src="/panel/assets/chat.js?b=20260924-0335"></script>
 </body>
 </html>

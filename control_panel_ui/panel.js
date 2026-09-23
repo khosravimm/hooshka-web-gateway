@@ -1268,7 +1268,7 @@ function initNav() {
       const status=$('#provider-form-status'); const a=providerWizard.analysis;
       if (!a) { setStatus(status,'ابتدا URL را بررسی کنید.','err'); return; }
       const runtimeKey=$('#pf-runtime').value || a.recommended_runtime_key;
-      setStatus(status,'در حال باز کردن وب‌چت و مشاهده از دید کاربر...','working');
+      setStatus(status,'صفحه وب‌چت در مرورگر باز می‌شود. اگر Login، شرایط استفاده یا CAPTCHA دیدید همان را کامل کنید؛ سپس به این Wizard برگردید.','working');
       $('#pf-observe').disabled=true; $('#pf-reobserve').disabled=true;
       try {
         const r=await api('/provider-wizard/observe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:a.url,runtime_key:runtimeKey})});
@@ -1282,13 +1282,13 @@ function initNav() {
         else save.textContent='Candidate ثبت شد';
         const state=c.state||'unknown';
         let nextAction='';
-        if (state==='login_required') nextAction='صفحه در Browser باز است. ورود/شرایط استفاده را کامل کنید و سپس «دوباره بررسی کن» را بزنید.';
-        else if (state==='challenge') nextAction='صفحه نیازمند Verification/CAPTCHA است. آن را در Browser کامل کنید و سپس دوباره بررسی کنید.';
+        if (state==='login_required') nextAction='اکنون به صفحه وب‌چتی که HWG باز کرده بروید، وارد حساب شوید یا شرایط استفاده را تأیید کنید. وقتی صفحه آماده چت شد، به این پنل برگردید و روی «انجام شد؛ ادامه بررسی» بزنید.';
+        else if (state==='challenge') nextAction='صفحه وب‌چت نیازمند Verification/CAPTCHA است. آن را در همان صفحه بازشده کامل کنید، سپس به این پنل برگردید و «انجام شد؛ ادامه بررسی» را بزنید.';
         else if (state==='region_blocked') nextAction='دسترسی از این محیط به‌صورت منطقه‌ای مسدود است؛ Candidate ثبت می‌شود اما کاوش عملیاتی تا رفع این شرط ادامه پیدا نمی‌کند.';
         else if (r.analysis?.register_new_provider===false) nextAction='این Origin از قبل ثبت شده است. Provider جدید ساخته نمی‌شود؛ برای Session یا هویت دوم به Workspace حساب‌ها و Session بروید.';
         else if (known) nextAction='Adapter موجود با URL تطبیق دارد. HWG می‌تواند Provider را با تنظیمات پیشنهادی ثبت کند؛ سپس Login/Discovery/Readiness ادامه می‌یابد.';
         else nextAction='این URL یک Provider جدید است. Candidate کاوش ذخیره شد؛ HWG آن را به‌عنوان Provider قابل اجرا ثبت نمی‌کند تا Adapter و Evidence لازم ساخته شوند.';
-        $('#pf-next-action').innerHTML=nextAction;
+        $('#pf-next-action').innerHTML=nextAction; $('#pf-reobserve').textContent=(state==='login_required'||state==='challenge')?'انجام شد؛ ادامه بررسی':'بررسی مجدد';
         $('#pf-observation-card').classList.remove('wizard-hidden');
         setStatus(status, known?'مشاهده کامل شد؛ پیشنهاد قابل ثبت است.':'مشاهده کامل شد؛ Candidate کاوش ثبت شد.','ok');
       } catch(e) { setStatus(status,'مشاهده صفحه شکست خورد: '+e.message,'err'); }
