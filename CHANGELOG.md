@@ -1,3 +1,11 @@
+## 1.0.0-dev.7 - 2026-09-23 - WIP continuation (Multimodal canonical contract)
+- Added versioned canonical media capability/constraint contract across API and Provider Profile projection.
+- Added explicit `unsupported_media_type` rejection before provider execution for uncertified image/file/audio/video input.
+- No provider media capability was promoted without evidence; WORK-007 remains PARTIAL pending E2.
+
+### Evidence
+- `docs/evidence/HWG_MULTIMODAL_CANONICAL_CONTRACT_E1_20260923.md` ? E1 only.
+
 ## 1.0.0-dev.7 - 2026-09-23 - Development authorization gate mode
 - Preserved the Agent Authorization Gate implementation but made enforcement explicitly configurable.
 - Set `agent_tools.authorization_gate_enabled: false` in the HWG Next development configuration so development/tool testing is not blocked by an external approval subsystem.

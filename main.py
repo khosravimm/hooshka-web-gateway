@@ -30,6 +30,7 @@ from core.agent_boundary import boundary_is_active_for_request, enforce_response
 from core.functional_readiness import load_readiness
 from core.agent_tools import AgentToolRegistry, agent_tool_definitions
 from core.agent_execution import AgentLoopPolicy, execute_tool_call, remaining_loop_seconds, summarize_terminal_state
+from core.media_contract import MediaContractError, provider_media_manifest, validate_media_request
 from core.feature_settings import (
     apply_feature_defaults,
     persist_provider_feature_defaults,
@@ -398,6 +399,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                     "search": p.capabilities.search,
                     "reasoning": p.capabilities.reasoning,
                     "files": p.capabilities.files,
+                    "media": provider_media_manifest(p),
                     "transport_mode": p.capabilities.transport_mode,
                 },
                 "features": provider_feature_state(p),
@@ -984,6 +986,15 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             return rate_response
         apply_feature_defaults(req, provider)
         drop_optional_tools_for_text_only_provider(req, provider)
+        try:
+            media_state = validate_media_request(provider, data)
+        except MediaContractError as exc:
+            return jsonify({"error": {
+                "message": str(exc), "type": "invalid_request_error", "code": exc.code,
+                "provider": provider.provider_id, "details": exc.details,
+            }}), 400
+        req.provider_options = req.provider_options or {}
+        req.provider_options["media_contract"] = media_state
 
         if not _try_acquire_provider_slot("chat_completions", provider.provider_id):
             return _provider_busy_response("chat_completions", provider.provider_id)
@@ -1418,6 +1429,15 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             return rate_response
         apply_feature_defaults(req, provider)
         drop_optional_tools_for_text_only_provider(req, provider)
+        try:
+            media_state = validate_media_request(provider, data)
+        except MediaContractError as exc:
+            return jsonify({"error": {
+                "message": str(exc), "type": "invalid_request_error", "code": exc.code,
+                "provider": provider.provider_id, "details": exc.details,
+            }}), 400
+        req.provider_options = req.provider_options or {}
+        req.provider_options["media_contract"] = media_state
 
         if not _try_acquire_provider_slot("conversation_chat", provider.provider_id):
             return _provider_busy_response("conversation_chat", provider.provider_id)

@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.26.0",
-  "updated_at": "2026-09-23T11:17:00+03:30",
+  "version": "1.27.0",
+  "updated_at": "2026-09-23T12:17:00+03:30",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -251,7 +251,7 @@
       "id": "HWG-WORK-007",
       "title": "Multimodal canonical contract",
       "area": "api",
-      "status": "OPEN",
+      "status": "PARTIAL",
       "priority": "P1",
       "source": [
         "Multimodal §8",
@@ -269,6 +269,15 @@
         "Capabilities describe media constraints",
         "Unsupported media fails explicitly",
         "Chat enables only certified media capabilities"
+      ],
+      "latest_evidence": {
+        "date": "2026-09-23",
+        "type": "E1 canonical multimodal contract",
+        "result": "Versioned media capability/constraint contract is exposed in API and Provider Profiles; uncertified media fails explicitly before provider execution. E2 provider/media certification remains open.",
+        "record": "docs/evidence/HWG_MULTIMODAL_CANONICAL_CONTRACT_E1_20260923.md"
+      },
+      "evidence": [
+        "docs/evidence/HWG_MULTIMODAL_CANONICAL_CONTRACT_E1_20260923.md"
       ]
     },
     {

@@ -13,6 +13,8 @@ from urllib.parse import urlparse
 
 import yaml
 
+from core.media_contract import media_manifest_from_capabilities
+
 CONTRACT_VERSION = "1.0.0"
 LEGACY_PROFILE_VERSION = "0.legacy-projected"
 
@@ -76,6 +78,7 @@ def project_ng_inventory(config_path: str | Path) -> dict[str, Any]:
             "profile_version": LEGACY_PROFILE_VERSION,
             "transport": {"kind": transport_kind, "provenance": "legacy_config_projection"},
             "readiness": {"policy": "functional", "probe_required": True},
+            "media": media_manifest_from_capabilities(item.get("capabilities") or {}),
             "evidence": {"level": "E0", "record": None},
             "source": "config.yaml",
         })

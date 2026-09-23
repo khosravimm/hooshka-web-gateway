@@ -74,3 +74,27 @@ def test_chat_completions_missing_messages_is_400(client):
     r = client.post("/v1/chat/completions", json={"model": "chatgpt-web"})
     assert r.status_code == 400
     assert r.get_json()["error"]["type"] == "invalid_request_error"
+
+def test_capabilities_publish_versioned_media_contract(client):
+    body = client.get("/v1/capabilities").get_json()
+    provider = next(p for p in body["providers"] if p["id"] == "deepseek-web")
+    media = provider["capabilities"]["media"]
+    assert media["contract_version"] == "1.0.0"
+    assert media["support"]["text"] is True
+    assert media["support"]["image_input"] is False
+    for key in ("mime_types", "max_bytes", "max_duration_seconds", "max_resolution", "lifecycle", "privacy"):
+        assert key in media["constraints"]["image_input"]
+
+def test_uncertified_image_input_fails_explicitly_before_provider_execution(client):
+    r = client.post("/v1/chat/completions", json={
+        "model": "deepseek-web",
+        "messages": [{"role": "user", "content": [
+            {"type": "text", "text": "describe"},
+            {"type": "input_image", "image_url": "data:image/png;base64,AA=="},
+        ]}],
+    })
+    assert r.status_code == 400
+    err = r.get_json()["error"]
+    assert err["code"] == "unsupported_media_type"
+    assert err["provider"] == "deepseek-web"
+    assert "image_input" in err["details"]["unsupported"]

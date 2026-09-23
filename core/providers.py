@@ -30,6 +30,7 @@ class ProviderCapabilities:
     search: bool = False
     reasoning: bool = False
     files: bool = False
+    media: dict[str, Any] = field(default_factory=dict)
     transport_mode: str = "unknown"
 
 

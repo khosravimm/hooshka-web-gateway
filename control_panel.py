@@ -45,6 +45,7 @@ from core.discovery_ai_service import execute_ai_assistance
 from core.blind_discovery import probe_auth_cdp as discovery_probe_auth_cdp
 from core.account_session import normalize_session
 from core.functional_readiness import run_functional_probe, save_readiness, load_readiness, invalidate_readiness
+from core.media_contract import provider_media_manifest
 
 control_panel_bp = Blueprint('control_panel', __name__, url_prefix='/panel')
 
@@ -256,6 +257,7 @@ def _provider_payload(provider):
             "embeddings": provider.capabilities.embeddings,
             "max_context_tokens": provider.capabilities.max_context_tokens,
             "supported_models": provider.capabilities.supported_models,
+            "media": provider_media_manifest(provider),
         },
         "features": provider_feature_state(provider),
         "runtime": _check_cdp(provider.config.config.get("cdp_url")),
