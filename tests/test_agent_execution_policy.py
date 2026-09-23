@@ -128,3 +128,13 @@ def test_tool_without_descriptor_fails_closed():
     assert registry.executions == 0
     assert ev['execution_state'] == 'authorization_blocked'
     assert ev['authorization_state'] == 'tool_descriptor_required'
+
+
+def test_authorization_gate_can_be_disabled_for_development():
+    registry=GuardedRegistry(mode='cag', risk='EXECUTION')
+    _msg, ev, _dup=execute_tool_call(
+        registry, call('run_command'), AgentLoopPolicy(), {}, 1, enforce_authorization=False
+    )
+    assert registry.executions == 1
+    assert ev['execution_state'] == 'ok'
+    assert ev['authorization_state'] == 'disabled_by_configuration'

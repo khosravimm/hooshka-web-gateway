@@ -99,6 +99,7 @@ def execute_tool_call(
     seen: dict[str, int],
     step: int,
     authorization: ToolAuthorizationContext | None = None,
+    enforce_authorization: bool = True,
 ):
     fn = call.get("function") or {}
     name = str(fn.get("name") or "")
@@ -112,7 +113,10 @@ def execute_tool_call(
         args = dict(raw_args)
 
     descriptor = registry.describe(name) if hasattr(registry, "describe") else None
-    allowed, authorization_state = authorize_tool_execution(descriptor, name, authorization)
+    if enforce_authorization:
+        allowed, authorization_state = authorize_tool_execution(descriptor, name, authorization)
+    else:
+        allowed, authorization_state = True, "disabled_by_configuration"
     fingerprint = tool_call_fingerprint(name, args)
     seen[fingerprint] = seen.get(fingerprint, 0) + 1
     duplicate = seen[fingerprint] > policy.duplicate_call_limit

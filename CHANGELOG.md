@@ -1,3 +1,9 @@
+## 1.0.0-dev.7 - 2026-09-23 - Development authorization gate mode
+- Preserved the Agent Authorization Gate implementation but made enforcement explicitly configurable.
+- Set `agent_tools.authorization_gate_enabled: false` in the HWG Next development configuration so development/tool testing is not blocked by an external approval subsystem.
+- Disabled enforcement is auditable as `authorization_state=disabled_by_configuration`.
+- Evidence: `docs/evidence/HWG_AGENT_AUTHORIZATION_GATE_DEV_DISABLED_E1_20260923.md`.
+
 ## 1.0.0-dev.7 - 2026-09-23 - WIP continuation (Agent authorization gate)
 - Enforced ToolDescriptor risk and authorization mode before Agent Tool registry dispatch.
 - Added trusted, scoped policy/human-approval/CAG authorization context; raw model/client requests are not authorization evidence.

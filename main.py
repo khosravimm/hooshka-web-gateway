@@ -1342,7 +1342,10 @@ def create_app(config_path: str = "config.yaml") -> Flask:
     def _agent_tool_result_messages(tool_calls, registry, policy, seen, step):
         messages=[]; evidence=[]; duplicate_blocked=False
         for call in tool_calls or []:
-            message, record, duplicate = execute_tool_call(registry, call, policy, seen, step)
+            enforce_auth = bool((config.get("agent_tools") or {}).get("authorization_gate_enabled", True))
+            message, record, duplicate = execute_tool_call(
+                registry, call, policy, seen, step, enforce_authorization=enforce_auth
+            )
             messages.append(message); evidence.append(record)
             duplicate_blocked = duplicate_blocked or duplicate
         return messages, evidence, duplicate_blocked
