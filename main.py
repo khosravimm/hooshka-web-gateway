@@ -32,6 +32,7 @@ from core.agent_tools import AgentToolRegistry, agent_tool_definitions
 from core.agent_execution import AgentLoopPolicy, execute_tool_call, remaining_loop_seconds, summarize_terminal_state
 from core.contract_bundle import build_openapi, load_schema_bundle, compatibility_manifest
 from core.media_contract import MediaContractError, provider_media_manifest, validate_media_request
+from core.upload_store import UploadStoreError, save_upload, resolve_upload_ids, delete_upload
 from core.feature_settings import (
     apply_feature_defaults,
     persist_provider_feature_defaults,
@@ -114,6 +115,7 @@ SWAGGER_TEMPLATE = {
                 "user": {"type": "string", "example": "user-123"},
                 "conversation_id": {"type": "string", "example": "conv-abc123"},
                 "file_paths": {"type": "array", "items": {"type": "string"}, "example": ["/path/to/file.txt"]},
+                "upload_ids": {"type": "array", "items": {"type": "string"}, "description": "Opaque IDs returned by /v1/uploads"},
                 "file_path": {"type": "string", "example": "/path/to/file.txt"},
                 "long_text": {"type": "boolean", "example": True, "default": True},
             },
@@ -503,6 +505,26 @@ def create_app(config_path: str = "config.yaml") -> Flask:
     server_config = config["server"]
     from core.security_gate import assert_release_security_config
     assert_release_security_config(config)
+
+    def _hydrate_upload_ids(data: dict) -> dict:
+        hydrated = dict(data or {})
+        upload_ids = hydrated.get("upload_ids") or []
+        if isinstance(upload_ids, str):
+            upload_ids = [upload_ids]
+        if not isinstance(upload_ids, list):
+            raise UploadStoreError("upload_ids must be an array", "invalid_upload_ids", 400)
+        if len(upload_ids) > 8:
+            raise UploadStoreError("Too many uploads in one request", "too_many_uploads", 400)
+        if not upload_ids:
+            return hydrated
+        paths, metadata = resolve_upload_ids(upload_ids)
+        existing = list(hydrated.get("file_paths") or [])
+        if hydrated.get("file_path"):
+            existing.append(hydrated.get("file_path"))
+        hydrated["file_paths"] = existing + paths
+        hydrated.pop("file_path", None)
+        hydrated["resolved_uploads"] = metadata
+        return hydrated
 
     def _build_request(data: dict) -> ChatCompletionRequest:
         def _content_to_text(content) -> str:
@@ -912,6 +934,37 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             "persisted": True,
         })
 
+    @app.route("/v1/uploads", methods=["POST"])
+    def create_uploads():
+        files = request.files.getlist("files") or request.files.getlist("file")
+        files = [f for f in files if getattr(f, "filename", "")]
+        if not files:
+            return jsonify({"error":{"message":"No upload files supplied","type":"invalid_request_error","code":"upload_required"}}), 400
+        if len(files) > 8:
+            return jsonify({"error":{"message":"At most 8 files may be uploaded per request","type":"invalid_request_error","code":"too_many_uploads"}}), 400
+        provider_id = str(request.form.get("provider") or "").strip()
+        provider = provider_registry.get(provider_id) if provider_id else None
+        if provider_id and provider is None:
+            return jsonify({"error":{"message":f"Unknown provider: {provider_id}","type":"invalid_request_error","code":"unknown_provider"}}), 404
+        saved = []
+        try:
+            for item in files:
+                saved.append(save_upload(item.stream, item.filename, item.mimetype or "application/octet-stream"))
+            if provider is not None:
+                paths, _ = resolve_upload_ids([x["id"] for x in saved])
+                validate_media_request(provider, {"file_paths": paths})
+            return jsonify({"object":"list","data":saved}), 201
+        except MediaContractError as exc:
+            for item in saved: delete_upload(item.get("id"))
+            return jsonify({"error":{"message":str(exc),"type":"invalid_request_error","code":exc.code,"provider":provider_id,"details":exc.details}}), 400
+        except UploadStoreError as exc:
+            for item in saved: delete_upload(item.get("id"))
+            return jsonify({"error":{"message":str(exc),"type":"invalid_request_error","code":exc.code}}), exc.status
+
+    @app.route("/v1/uploads/<upload_id>", methods=["DELETE"])
+    def delete_uploaded_file(upload_id: str):
+        return jsonify({"deleted": bool(delete_upload(upload_id)), "id": upload_id})
+
     @app.route("/v1/models", methods=["GET"])
     def list_models():
         """
@@ -968,7 +1021,10 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             schema:
               $ref: '#/definitions/Error'
         """
-        data = request.get_json(force=True)
+        try:
+            data = _hydrate_upload_ids(request.get_json(force=True) or {})
+        except UploadStoreError as exc:
+            return jsonify({"error":{"message":str(exc),"type":"invalid_request_error","code":exc.code}}), exc.status
         req = _build_request(data)
 
         valid, error_msg = _validate_request(req)
@@ -1414,7 +1470,10 @@ def create_app(config_path: str = "config.yaml") -> Flask:
             schema:
               $ref: '#/definitions/Error'
         """
-        data = request.get_json(force=True)
+        try:
+            data = _hydrate_upload_ids(request.get_json(force=True) or {})
+        except UploadStoreError as exc:
+            return jsonify({"error":{"message":str(exc),"type":"invalid_request_error","code":exc.code}}), exc.status
         req = _build_request(data)
         req.conversation_id = data.get("conversation_id") or uuid.uuid4().hex
         agent_mode = bool(data.get("agent_mode"))

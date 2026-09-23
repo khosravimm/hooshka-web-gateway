@@ -50,3 +50,13 @@ def test_schema_and_compatibility_endpoints_are_machine_readable():
     assert compat['manifest_version']=='1.0.0'
     assert compat['features']['multimodal_inputs']=='uncertified'
 
+def test_upload_openapi_contract_is_multipart_and_created_status():
+    app=_fresh_app()
+    doc=app.test_client().get('/v1/contracts/openapi.json').get_json()
+    post=doc['paths']['/v1/uploads']['post']
+    assert 'multipart/form-data' in post['requestBody']['content']
+    schema=post['requestBody']['content']['multipart/form-data']['schema']
+    assert schema['properties']['files']['items']['format']=='binary'
+    assert schema['properties']['files']['maxItems']==8
+    assert '201' in post['responses']
+    assert '/v1/uploads/{upload_id}' in doc['paths']

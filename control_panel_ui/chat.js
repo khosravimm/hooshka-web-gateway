@@ -9,6 +9,7 @@
   const history = [];
   let activeController = null;
   let sendInFlight = false;
+  let attachedUploads = [];
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -32,6 +33,67 @@
       throw new Error((data && (data.error || data.message)) || ('HTTP ' + resp.status));
     }
     return data;
+  }
+
+  function selectedMediaSupport() {
+    const p = providerById($('#chat-provider')?.value || '');
+    return (((p || {}).capabilities || {}).media || {}).support || {};
+  }
+
+  function providerAcceptsAttachments() {
+    const s = selectedMediaSupport();
+    return s.file_upload === true || s.document_upload === true || s.image_input === true || s.video_input === true || s.audio_input === true;
+  }
+
+  function formatBytes(n) {
+    n = Number(n || 0);
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    return (n / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function renderAttachments() {
+    const box = $('#chat-attachments');
+    const hint = $('#chat-attach-hint');
+    const btn = $('#chat-attach');
+    const supported = providerAcceptsAttachments();
+    if (btn) btn.disabled = !supported || sendInFlight;
+    if (hint) hint.textContent = supported ? (attachedUploads.length ? (attachedUploads.length + ' فایل آماده') : 'فایل/تصویر مجاز') : 'برای این Provider گواهی نشده';
+    if (!box) return;
+    box.innerHTML = attachedUploads.map(function (u) {
+      return '<span class="attachment-chip"><span>'+esc(u.name)+'</span><small>'+esc(formatBytes(u.size))+'</small><button type="button" data-upload-remove="'+esc(u.id)+'" aria-label="حذف '+esc(u.name)+'">×</button></span>';
+    }).join('');
+    box.querySelectorAll('[data-upload-remove]').forEach(function (b) {
+      b.addEventListener('click', function () { removeUpload(b.dataset.uploadRemove); });
+    });
+  }
+
+  async function removeUpload(id) {
+    attachedUploads = attachedUploads.filter(function (u) { return u.id !== id; });
+    renderAttachments();
+    try { await fetch('/v1/uploads/' + encodeURIComponent(id), { method: 'DELETE' }); } catch (e) { /* TTL cleanup remains */ }
+  }
+
+  async function clearUploads(deleteRemote) {
+    const ids = attachedUploads.map(function (u) { return u.id; });
+    attachedUploads = [];
+    renderAttachments();
+    if (deleteRemote) await Promise.all(ids.map(function (id) { return fetch('/v1/uploads/' + encodeURIComponent(id), { method: 'DELETE' }).catch(function () {}); }));
+  }
+
+  async function uploadFiles(files) {
+    if (!files || !files.length) return;
+    if (!providerAcceptsAttachments()) { toast('آپلود برای Provider انتخاب‌شده گواهی نشده است', 'warn'); return; }
+    const fd = new FormData();
+    Array.from(files).forEach(function (f) { fd.append('files', f); });
+    fd.append('provider', $('#chat-provider').value || '');
+    setStatus('در حال بارگذاری فایل در HWG...', 'working');
+    const resp = await fetch('/v1/uploads', { method: 'POST', body: fd });
+    const data = await resp.json().catch(function () { return {}; });
+    if (!resp.ok) throw new Error((data.error && (data.error.message || data.error.code)) || ('HTTP ' + resp.status));
+    attachedUploads = attachedUploads.concat(data.data || []);
+    renderAttachments();
+    setStatus('فایل آماده ارسال به Provider است.', 'ok');
   }
 
   function providerById(id) {
@@ -66,7 +128,7 @@
       if (previous && list.some(function(p){return p.id === previous;})) target = list.find(function(p){return p.id === previous;});
       if (!target) target = list[0];
       if (target) sel.value = target.id;
-      renderIndicators(); refreshModelList(); renderChatReadiness();
+      renderIndicators(); refreshModelList(); renderChatReadiness(); renderAttachments();
       if (target && target.readiness && target.readiness.ready === true && target.readiness.current === true) setStatus('آماده. انتخاب مدل: ' + (msel.options.length ? msel.options[msel.selectedIndex].text : '-'), 'ok');
     } catch (e) {
       setStatus('بارگیری پراوایدر ناموفق: ' + e.message, 'err');
@@ -97,7 +159,7 @@
     const state=current ? 'READY جاری' : (stale ? 'STALE' : (r.state || 'UNKNOWN')); const why=current ? 'ارسال مجاز است.' : (failed ? ('توقف در '+failed.stage) : (stale ? 'Evidence منقضی شده است.' : 'Evidence جاری وجود ندارد.'));
     const account=r.account_id || 'حساب مسیر فعلی نامشخص', model=r.model || ($('#chat-model')?.value || '-');
     box.className='dependency-banner '+(current?'ok':(r.state==='BLOCKED'?'bad':'warn')); box.innerHTML='<b>'+state+'</b><span class="ltr">'+esc(account)+' / '+esc(model)+'</span><span>'+esc(why)+'</span>'+(current?'':'<button id="chat-readiness-probe" class="btn primary btn-xs" type="button">اجرای Readiness Probe</button>');
-    if (send && !sendInFlight) send.disabled=!current; const probe=$('#chat-readiness-probe'); if (probe) probe.onclick=async function(){ probe.disabled=true; probe.textContent='در حال Probe...'; try { await api('/providers/'+encodeURIComponent(id)+'/readiness/probe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({execution_authority:'automated_validation',ttl_seconds:300})}); await populateProviders(); } catch(e){ toast('Readiness: '+e.message,'err'); } }; if (!current) setStatus(state+' — '+why,'warn');
+    if (send && !sendInFlight) send.disabled=!current; renderAttachments(); const probe=$('#chat-readiness-probe'); if (probe) probe.onclick=async function(){ probe.disabled=true; probe.textContent='در حال Probe...'; try { await api('/providers/'+encodeURIComponent(id)+'/readiness/probe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({execution_authority:'automated_validation',ttl_seconds:300})}); await populateProviders(); } catch(e){ toast('Readiness: '+e.message,'err'); } }; if (!current) setStatus(state+' — '+why,'warn');
   }
 
   function setStatus(msg, kind) {
@@ -190,6 +252,7 @@
     const meta = a.meta;
     let acc = '';
     let renderScheduled = false;
+    let completedSuccessfully = false;
 
     function renderNow() {
       renderScheduled = false;
@@ -229,6 +292,7 @@
           thinking: thinking,
           search: search,
           conversation_id: currentConversationId,
+          upload_ids: attachedUploads.map(function (u) { return u.id; }),
         }),
         signal: controller.signal,
       });
@@ -310,9 +374,11 @@
         toast('پاسخ ناموفق بود', 'err');
       } else if (acc.trim() || !finished) {
         history.push({ role: 'assistant', content: acc });
+        completedSuccessfully = true;
         setStatus('استریم کامل شد.', 'ok');
       } else {
         history.push({ role: 'assistant', content: acc || '' });
+        completedSuccessfully = true;
         setStatus('ناتمام (بدون محتوا).', 'warn');
       }
       if (!acc.trim() && !errored && finished) body.textContent = '(پاسخ خالی)';
@@ -328,6 +394,7 @@
         setStatus('خطا: ' + e.message, 'err');
       }
     } finally {
+      if (completedSuccessfully) await clearUploads(true);
       activeController = null;
       sendInFlight = false;
       $('#chat-stop').disabled = true;
@@ -346,6 +413,7 @@
     currentConversationId = null;
     const t = $('#chat-transcript');
     t.innerHTML = '';
+    clearUploads(true);
     setStatus('گفتگوی جدید.', '');
   }
 
@@ -382,18 +450,25 @@
   function init() {
     const input = $('#chat-input');
     $('#chat-provider').addEventListener('change', function () {
+      if (attachedUploads.length) clearUploads(true);
       refreshModelList();
       renderIndicators();
       renderChatReadiness();
+      renderAttachments();
     });
     $('#chat-send').addEventListener('click', sendMessage);
     $('#chat-stop').addEventListener('click', stopStream);
     $('#chat-new').addEventListener('click', newConversation);
     $('#chat-attach').addEventListener('click', function () {
-      toast('آپلود فایل هنوز در دسترس نیست (بدون endpoint آپلود در Runtime API)', 'warn');
+      if (!providerAcceptsAttachments()) { toast('آپلود برای Provider انتخاب‌شده گواهی نشده است', 'warn'); return; }
+      $('#chat-file-input').click();
     });
-    const hint = $('#chat-attach-hint');
-    if (hint) hint.textContent = 'غیرفعال — بدون endpoint آپلود';
+    $('#chat-file-input').addEventListener('change', async function (ev) {
+      const files = Array.from(ev.target.files || []);
+      ev.target.value = '';
+      try { await uploadFiles(files); } catch (e) { toast('آپلود ناموفق: ' + e.message, 'err'); setStatus('آپلود ناموفق: ' + e.message, 'err'); }
+    });
+    renderAttachments();
     input.addEventListener('keydown', function (ev) {
       if (ev.key === 'Enter' && !ev.shiftKey) {
         ev.preventDefault();

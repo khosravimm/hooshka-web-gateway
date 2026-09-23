@@ -68,6 +68,26 @@ def build_openapi(app) -> dict:
                 entry["parameters"] = params
             if method in {"POST","PUT","PATCH"}:
                 entry["requestBody"] = {"required": False, "content": {"application/json": {"schema": {"type":"object","additionalProperties":True}}}}
+            if path == "/v1/uploads" and method == "POST":
+                entry["summary"] = "Create temporary media uploads"
+                entry["requestBody"] = {
+                    "required": True,
+                    "content": {"multipart/form-data": {"schema": {
+                        "type": "object", "required": ["files"],
+                        "properties": {
+                            "files": {"type": "array", "items": {"type": "string", "format": "binary"}, "maxItems": 8},
+                            "provider": {"type": "string"},
+                        },
+                    }}},
+                }
+                entry["responses"] = {
+                    "201": {"description": "Upload IDs created"},
+                    "400": {"description": "Invalid or uncertified media", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
+                    "413": {"description": "Upload exceeds configured size limit"},
+                }
+            elif path == "/v1/uploads/{upload_id}" and method == "DELETE":
+                entry["summary"] = "Delete a temporary upload"
+                entry["responses"] = {"200": {"description": "Deletion result"}}
             item[method.lower()] = entry
     return {
         "openapi": OPENAPI_VERSION,

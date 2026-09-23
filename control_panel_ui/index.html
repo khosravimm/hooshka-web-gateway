@@ -270,8 +270,10 @@
             <button class="btn ghost btn-xs" data-ins="[$1](https://...)" data-sel="2,1" title="پیوند">LNK</button>
             <span class="composer-spacer"></span>
             <button id="chat-attach" class="btn ghost btn-xs" type="button" title="آپلود فایل/عکس">ATTACH</button>
+            <input id="chat-file-input" type="file" multiple hidden>
             <span class="hint-inline" id="chat-attach-hint"></span>
           </div>
+          <div id="chat-attachments" class="chat-attachments" aria-live="polite"></div>
           <div class="composer-row">
             <textarea id="chat-input" rows="3" placeholder="پیام خود را بنویسید (Markdown پشتیبانی می‌شود)..."></textarea>
             <div class="composer-actions">

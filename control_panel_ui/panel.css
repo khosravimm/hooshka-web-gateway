@@ -327,3 +327,5 @@ input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent);
 .relationship-preview { margin-top:10px; padding:12px; border:1px dashed var(--border); border-radius:10px; background:var(--panel-2); min-height:52px; }
 .relationship-chain { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
 @media (max-width: 1100px) { .provider-provision-flow { grid-template-columns:1fr; } }
+
+.chat-attachments{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}.attachment-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;font-size:12px}.attachment-chip button{border:0;background:transparent;cursor:pointer;font-size:14px}

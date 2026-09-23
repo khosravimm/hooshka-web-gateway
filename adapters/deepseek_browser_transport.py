@@ -9,6 +9,7 @@ from playwright.async_api import Browser, BrowserContext, Page, Playwright, asyn
 
 from core.commitment import Commitment, CommitmentTracker, annotate_error_details
 from core.providers import ProviderAuthError, ProviderError, ProviderTimeoutError
+from core.visual_discovery import wait_for_upload_settled
 
 logger = logging.getLogger(__name__)
 
@@ -222,12 +223,64 @@ class DeepSeekBrowserUITransport:
         except Exception:
             return []
 
-    async def _submit(self, page: Page, prompt: str) -> None:
+    async def _composer_root(self, page: Page):
         textarea = page.locator("textarea").first
         await textarea.wait_for(state="visible", timeout=self.launch_timeout * 1000)
+        root = textarea.locator("xpath=../../..")
+        if await root.count() == 0:
+            raise ProviderError("DeepSeek composer root not found", "composer_not_found", self.provider_id)
+        return textarea, root
+
+    async def _clear_stale_composer(self, page: Page) -> dict:
+        textarea, root = await self._composer_root(page)
+        if (await textarea.input_value()).strip():
+            await textarea.fill("")
+        removed = 0
+        for _ in range(12):
+            candidates = root.locator('[tabindex="0"]')
+            found = None
+            for i in range(await candidates.count()):
+                node = candidates.nth(i)
+                try:
+                    if not await node.is_visible():
+                        continue
+                    text = (await node.inner_text()).strip()
+                    parent_text = (await node.locator("xpath=..").inner_text()).strip()
+                    has_svg = await node.locator("svg").count() > 0
+                    if not text and has_svg and re.search(r"\.[A-Za-z0-9]{1,12}\s+(?:[A-Z0-9]+)\s+\d+(?:\.\d+)?(?:B|KB|MB|GB)\b", parent_text, re.I):
+                        found = node
+                        break
+                except Exception:
+                    continue
+            if found is None:
+                break
+            await found.click(timeout=3000)
+            removed += 1
+            await page.wait_for_timeout(150)
+        remaining_text = (await root.inner_text()).strip()
+        stale = bool(re.search(r"\.[A-Za-z0-9]{1,12}\s+(?:[A-Z0-9]+)\s+\d+(?:\.\d+)?(?:B|KB|MB|GB)\b", remaining_text, re.I))
+        if stale:
+            raise ProviderError("DeepSeek composer still contains stale attachments", "composer_not_clean", self.provider_id)
+        return {"removed_attachments": removed, "prompt_cleared": True}
+
+    async def _submit(self, page: Page, prompt: str, *, has_files: bool = False) -> None:
+        textarea, root = await self._composer_root(page)
         await textarea.fill(prompt)
         await page.wait_for_timeout(200)
-        await textarea.press("Enter")
+        if not has_files:
+            await textarea.press("Enter")
+            return
+        send = root.locator('.ds-button--primary.ds-button--filled.ds-button--circle').last
+        deadline = time.monotonic() + 15.0
+        while time.monotonic() < deadline:
+            try:
+                if await send.count() and await send.is_visible():
+                    await send.click(timeout=5000)
+                    return
+            except Exception:
+                pass
+            await page.wait_for_timeout(150)
+        raise ProviderError("DeepSeek send control is unavailable for attached-file submission", "send_button_unavailable", self.provider_id)
 
     async def _upload_files(self, page: Page, file_paths: list[str]) -> dict:
         if not file_paths:
@@ -243,8 +296,18 @@ class DeepSeekBrowserUITransport:
             raise ProviderError("DeepSeek file input not found", "upload_not_supported", self.provider_id)
         accept=await control.get_attribute("accept") or ""
         await control.set_input_files(resolved)
-        await page.wait_for_timeout(1200)
-        return {"uploaded": len(resolved), "files": [Path(x).name for x in resolved], "accept": accept}
+        evidence = []
+        for value in resolved:
+            file_name = Path(value).name
+            lifecycle = await wait_for_upload_settled(page, self.provider_id, file_name, timeout_seconds=60.0)
+            evidence.append({"file": file_name, "ready": bool(lifecycle.get("ready")), "final": lifecycle.get("final")})
+            if not lifecycle.get("ready"):
+                raise ProviderError(
+                    "DeepSeek file upload did not reach a user-visible ready state",
+                    "upload_not_ready", self.provider_id,
+                    {"file_name": file_name, "visual_evidence": lifecycle.get("trace", [])[-3:]},
+                )
+        return {"uploaded": len(resolved), "files": [Path(x).name for x in resolved], "accept": accept, "evidence": evidence}
 
     async def _apply_feature_controls(self, page: Page, *, thinking: bool, search: bool) -> dict:
         """Toggle DeepSeek Web Chat DeepThink/Search and verify visible state."""
@@ -345,6 +408,7 @@ class DeepSeekBrowserUITransport:
                 raise ProviderAuthError(self.provider_id, "DeepSeek Web Chat requires an authenticated browser session")
             if new_chat:
                 await self._start_new_chat(page)
+            self.last_composer_reset = await self._clear_stale_composer(page)
             self.last_feature_state = await self._apply_feature_controls(
                 page,
                 thinking=thinking,
@@ -358,7 +422,7 @@ class DeepSeekBrowserUITransport:
             self.last_commitment_state = commitment.state.value
             commitment.advance(Commitment.MAYBE_SENT)
             self.last_commitment_state = commitment.state.value
-            await self._submit(page, prompt)
+            await self._submit(page, prompt, has_files=bool(file_paths))
             commitment.advance(Commitment.COMMITTED)
             self.last_commitment_state = commitment.state.value
             start = time.monotonic()

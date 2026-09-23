@@ -1,3 +1,7 @@
+- Added canonical temporary media uploads with opaque `upload_ids`, TTL cleanup, bounded multipart ingestion, media-certification enforcement, and OpenAPI 3.1 multipart contract.
+- Embedded Chat now supports certified file/image attachment lifecycle through `/v1/uploads`; live DeepSeek E2 returned exact marker `HWG_EMBEDDED_UI_UPLOAD_E2_T4K7` with zero browser console errors.
+- Hardened DeepSeek attached-file submission using user-visible upload settlement, stale-composer cleanup and real send-control click; fixed Markdown intraword underscore rendering without breaking normal `_italic_` syntax.
+
 ## 1.0.0-dev.7 - 2026-09-23 - WIP continuation (Machine-readable API contract)
 - Explorer visual media recovery: stable upload readiness, provider-validated submit commitment, Z.ai visible-response fallback, XLSX and MP4 E2 certification; Qwen screenshot capture is fail-soft under region block.
 
