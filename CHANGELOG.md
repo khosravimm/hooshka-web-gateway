@@ -1,4 +1,5 @@
 ## 1.0.0-dev.7 - 2026-09-23 - WIP continuation (Machine-readable API contract)
+- Explorer visual media recovery: stable upload readiness, provider-validated submit commitment, Z.ai visible-response fallback, XLSX and MP4 E2 certification; Qwen screenshot capture is fail-soft under region block.
 
 - Discovery visual observation now captures viewport screenshots and user-visible upload lifecycle state. ChatGPT media upload waits for provider-visible upload completion before submit; bounded E2 TXT and PNG qualifications passed.
 - Added OpenAPI 3.1 generation from the live Flask route registry for management and agent APIs.

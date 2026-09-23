@@ -10,6 +10,7 @@ from playwright.async_api import Browser, BrowserContext, Page, Playwright, asyn
 from core.commitment import Commitment, CommitmentTracker, annotate_error_details
 from core.providers import ProviderError, ProviderTimeoutError
 from core.model_liveness import classify_model_liveness
+from core.visual_discovery import wait_for_upload_settled, capture_user_view, visible_page_state
 
 logger = logging.getLogger(__name__)
 
@@ -377,7 +378,27 @@ class ZaiBrowserControllerTransport:
                     except Exception:
                         pass
                     await self._bootstrap_runtime(page)
-                return await page.evaluate(script, prompt)
+                snap = await page.evaluate(script, prompt)
+                if snap.get("matched"):
+                    snap["source"] = "history_store"
+                    return snap
+                visible = await page.evaluate(
+                    """(prompt) => {
+                      const path = location.pathname.split('/').filter(Boolean);
+                      const chatId = path[0] === 'c' && path[1] ? path[1] : '';
+                      if (!chatId) return {matched:false, source:'visible_dom', chatId:''};
+                      const body = document.body?.innerText || '';
+                      if (!body.includes(prompt)) return {matched:false, source:'visible_dom', chatId};
+                      const nodes = Array.from(document.querySelectorAll('.chat-assistant, #response-content-container'));
+                      const visible = nodes.filter((el) => {
+                        const r = el.getBoundingClientRect(); const cs = getComputedStyle(el);
+                        return r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden';
+                      });
+                      const text = visible.length ? (visible[visible.length - 1].innerText || visible[visible.length - 1].textContent || '').trim() : '';
+                      return {ready:true, matched:!!text, text, reasoning:'', done:false, phase:'visible', error:null, model:'', chatId, source:'visible_dom'};
+                    }""", prompt
+                )
+                return visible
             except Exception as exc:
                 last_exc = exc
                 msg = str(exc).lower()
@@ -478,6 +499,72 @@ class ZaiBrowserControllerTransport:
                 {"model": upstream_model, "selected": selected[:80]},
             )
 
+    async def _submit_file_prompt_via_ui(self, page: Page, prompt: str) -> dict:
+        composer = page.locator("#chat-input").first
+        if await composer.count() == 0:
+            composer = page.locator("textarea").first
+        if await composer.count() == 0:
+            raise ProviderError("Z.ai visible composer not found", "composer_not_found", self.provider_id)
+        await composer.fill(prompt)
+        actual = await composer.input_value()
+        if actual.strip() != prompt.strip():
+            raise ProviderError(
+                "Z.ai composer verification failed", "composer_verification_failed", self.provider_id,
+                {"expected_length": len(prompt), "actual_length": len(actual)},
+            )
+        send = page.locator("#send-message-button").first
+        if await send.count() == 0:
+            raise ProviderError("Z.ai visible send control not found", "send_button_unavailable", self.provider_id)
+
+        ready_deadline = time.monotonic() + 20.0
+        while time.monotonic() < ready_deadline:
+            if await send.is_visible() and await send.is_enabled():
+                break
+            await page.wait_for_timeout(200)
+        else:
+            evidence = await capture_user_view(page, self.provider_id, "file-prompt-send-disabled")
+            raise ProviderError(
+                "Z.ai send control did not become enabled", "send_button_unavailable", self.provider_id,
+                {"visual_evidence": evidence},
+            )
+
+        evidence = await capture_user_view(page, self.provider_id, "file-prompt-ready")
+        before_url = page.url
+        submit_deadline = time.monotonic() + 60.0
+        rejected_for_upload = 0
+        nonbusy_failures = 0
+        while time.monotonic() < submit_deadline:
+            await send.click(timeout=5000)
+            transition_deadline = time.monotonic() + 2.0
+            while time.monotonic() < transition_deadline:
+                current = ""
+                try:
+                    current = await composer.input_value()
+                except Exception:
+                    current = ""
+                if not current.strip() or page.url != before_url or self.last_backend_request_model:
+                    return evidence
+                await page.wait_for_timeout(150)
+
+            state = await visible_page_state(page)
+            if state.get("upload_busy"):
+                rejected_for_upload += 1
+                await capture_user_view(page, self.provider_id, "file-prompt-upload-busy")
+                await page.wait_for_timeout(2000)
+                continue
+            nonbusy_failures += 1
+            if nonbusy_failures <= 1:
+                await page.wait_for_timeout(750)
+                continue
+            break
+
+        failed = await capture_user_view(page, self.provider_id, "file-prompt-submit-unconfirmed")
+        raise ProviderError(
+            "Z.ai send click did not produce a visible/backend transition",
+            "submit_not_confirmed", self.provider_id,
+            {"visual_evidence": failed, "upload_rejections": rejected_for_upload},
+        )
+
     async def stream_text(
         self,
         prompt: str,
@@ -505,7 +592,17 @@ class ZaiBrowserControllerTransport:
                     raise ProviderError("Z.ai file input not found", "upload_failed", self.provider_id)
                 try:
                     await file_input.set_input_files(list(file_paths))
-                    await page.wait_for_timeout(1800)
+                    for file_path in file_paths:
+                        file_name = str(file_path).replace("\\", "/").rsplit("/", 1)[-1]
+                        lifecycle = await wait_for_upload_settled(
+                            page, self.provider_id, file_name, timeout_seconds=60.0
+                        )
+                        if not lifecycle.get("ready"):
+                            raise ProviderError(
+                                "Z.ai file upload did not reach a user-visible ready state",
+                                "upload_not_ready", self.provider_id,
+                                {"file_name": file_name, "visual_evidence": lifecycle.get("trace", [])[-3:]},
+                            )
                 except Exception as exc:
                     raise ProviderError(
                         "Z.ai file upload failed", "upload_failed", self.provider_id,
@@ -524,6 +621,8 @@ class ZaiBrowserControllerTransport:
             last_meaningful = start
             emitted = ""
             reasoning_emitted = ""
+            visible_dom_last_text = ""
+            visible_dom_stable_since = None
             committed = False
             feature_route_installed = False
             feature_verified = False
@@ -563,15 +662,18 @@ class ZaiBrowserControllerTransport:
                 self.last_commitment_state = commitment.state.value
                 commitment.advance(Commitment.MAYBE_SENT)
                 self.last_commitment_state = commitment.state.value
-                await page.evaluate(
-                    """(prompt) => {
-                      window.postMessage(
-                        {type:'input:prompt:submit', text:prompt},
-                        window.origin
-                      );
-                    }""",
-                    prompt,
-                )
+                if file_paths:
+                    self.last_visual_submit_evidence = await self._submit_file_prompt_via_ui(page, prompt)
+                else:
+                    await page.evaluate(
+                        """(prompt) => {
+                          window.postMessage(
+                            {type:'input:prompt:submit', text:prompt},
+                            window.origin
+                          );
+                        }""",
+                        prompt,
+                    )
                 committed = True
                 commitment.advance(Commitment.COMMITTED)
                 self.last_commitment_state = commitment.state.value
@@ -671,6 +773,22 @@ class ZaiBrowserControllerTransport:
                                 self.provider_id,
                                 {"message": message[:240]},
                             )
+
+                        if snap.get("source") == "visible_dom" and text:
+                            if text != visible_dom_last_text:
+                                visible_dom_last_text = text
+                                visible_dom_stable_since = now
+                            elif visible_dom_stable_since is not None and now - visible_dom_stable_since >= 2.0:
+                                if not feature_verified:
+                                    raise ProviderError(
+                                        "Z.ai visible completion stabilized without feature-control evidence",
+                                        "feature_control_failed", self.provider_id,
+                                        {"thinking": thinking, "search": search},
+                                    )
+                                if commitment.state != Commitment.TERMINAL:
+                                    commitment.advance(Commitment.TERMINAL)
+                                    self.last_commitment_state = commitment.state.value
+                                return
 
                         if snap.get("done") and snap.get("phase") == "done":
                             if not feature_verified:

@@ -21,7 +21,7 @@ async def visible_page_state(page, file_name: str | None = None) -> dict[str, An
       };
       const nodes = [...document.querySelectorAll('button,[role="button"],[aria-label],[data-testid]')]
         .filter(visible).slice(0, 180).map(e => ({
-          tag:e.tagName, label:e.getAttribute('aria-label')||'', testid:e.getAttribute('data-testid')||'',
+          tag:e.tagName, id:e.id||'', label:e.getAttribute('aria-label')||'', testid:e.getAttribute('data-testid')||'',
           text:(e.innerText||e.textContent||'').trim().slice(0,160), disabled:!!e.disabled,
           aria_disabled:e.getAttribute('aria-disabled'), cls:String(e.className||'').slice(0,180)
         }));
@@ -30,7 +30,12 @@ async def visible_page_state(page, file_name: str | None = None) -> dict[str, An
     }""")
     body = str(state.get("body") or "")
     controls = list(state.get("controls") or [])
-    send = [c for c in controls if re.search(r"\bsend\b", " ".join(map(str,[c.get('label'),c.get('testid'),c.get('text')])), re.I)]
+    preferred = [c for c in controls if (
+        str(c.get("testid") or "").lower() in {"send-button", "send-message-button"}
+        or str(c.get("id") or "").lower() in {"send-message-button"}
+        or str(c.get("label") or "").strip().lower() in {"send", "send message"}
+    )]
+    send = preferred or [c for c in controls if re.search(r"\bsend\b", " ".join(map(str,[c.get('label'),c.get('testid'),c.get('text')])), re.I)]
     control_text = "\n".join(" ".join(map(str,[c.get("label"),c.get("testid"),c.get("text")])) for c in controls)
     file_key = str(file_name or "").lower()
     stem_key = Path(file_key).stem.lower() if file_key else ""
@@ -70,13 +75,14 @@ async def capture_user_view(page, provider_id: str, stage: str, *, root: Path | 
     return state
 
 
-async def wait_for_upload_settled(page, provider_id: str, file_name: str, *, timeout_seconds: float = 60.0) -> dict[str, Any]:
-    """Observe what a user sees and wait until an attachment is visible and upload busy state clears."""
+async def wait_for_upload_settled(page, provider_id: str, file_name: str, *, timeout_seconds: float = 60.0, settle_seconds: float = 1.5) -> dict[str, Any]:
+    """Observe rendered UI until attachment readiness is stable, not merely momentarily visible."""
     import asyncio
     loop = asyncio.get_running_loop()
     deadline = loop.time() + timeout_seconds
     trace = [await capture_user_view(page, provider_id, "upload-selected", file_name=file_name)]
     last_signature = None
+    ready_since = None
     while loop.time() < deadline:
         state = await visible_page_state(page, file_name=file_name)
         signature = (state["attachment_visible"], state["upload_busy"], state["send_present"], state["send_enabled"])
@@ -84,8 +90,14 @@ async def wait_for_upload_settled(page, provider_id: str, file_name: str, *, tim
             label = f"upload-state-{int(state['attachment_visible'])}{int(state['upload_busy'])}{int(state['send_enabled'])}"
             trace.append(await capture_user_view(page, provider_id, label, file_name=file_name))
             last_signature = signature
-        if state["attachment_visible"] and not state["upload_busy"]:
-            return {"ready": True, "file_name": file_name, "final": state, "trace": trace}
+        candidate_ready = state["attachment_visible"] and not state["upload_busy"]
+        if candidate_ready:
+            if ready_since is None:
+                ready_since = loop.time()
+            elif loop.time() - ready_since >= settle_seconds:
+                return {"ready": True, "file_name": file_name, "final": state, "trace": trace, "settle_seconds": settle_seconds}
+        else:
+            ready_since = None
         await page.wait_for_timeout(250)
     final = await visible_page_state(page, file_name=file_name)
     trace.append(await capture_user_view(page, provider_id, "upload-timeout", file_name=file_name))
