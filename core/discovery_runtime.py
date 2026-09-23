@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 from playwright.async_api import async_playwright
 
 from core.discovery_engine import discover_page, diff_drift
+from core.visual_discovery import capture_user_view, classify_user_view_state
 from core.visual_discovery import capture_user_view
 
 PROFILE_ROOT = Path(__file__).resolve().parents[1] / "docs" / "profiles"
@@ -60,6 +61,8 @@ async def explore_cdp(provider_id: str, cdp_url: str, home_url: str) -> tuple[di
         report = await discover_page(pages[0], provider_id)
         from core.media_qualification import observe_file_upload_surface
         media_surface = await observe_file_upload_surface(pages[0])
+        user_view = await capture_user_view(pages[0], provider_id, "discovery-user-view")
+        user_view["classification"] = classify_user_view_state(user_view)
         visual_observation = await capture_user_view(pages[0], provider_id, "discovery-read-only")
 
     findings = {
@@ -70,6 +73,7 @@ async def explore_cdp(provider_id: str, cdp_url: str, home_url: str) -> tuple[di
         "backend": report.backend,
         "capabilities": report.capabilities,
         "media_upload_surface": media_surface,
+        "user_view": user_view,
         "visual_observation": visual_observation,
     }
     old = _flatten(_latest_discovery(provider_id))

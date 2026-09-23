@@ -56,6 +56,41 @@ async def visible_page_state(page, file_name: str | None = None) -> dict[str, An
     }
 
 
+USER_VIEW_PATTERNS = [
+    ("region_blocked", re.compile(r"not available in your region|unavailable in your region|region (?:is )?not supported", re.I)),
+    ("login_required", re.compile(r"\b(log in|sign in|continue with google|continue with apple)\b", re.I)),
+    ("challenge", re.compile(r"captcha|verify you are human|security check|challenge", re.I)),
+    ("rate_limited", re.compile(r"too many requests|rate limit|try again later", re.I)),
+    ("service_error", re.compile(r"something went wrong|service unavailable|internal server error|temporarily unavailable", re.I)),
+    ("loading", re.compile(r"\b(loading|initializing|connecting)\b", re.I)),
+]
+
+def classify_user_view_state(state: dict[str, Any]) -> dict[str, Any]:
+    text = str(state.get("body_tail") or "")
+    if state.get("upload_busy"):
+        return {"state":"upload_busy","evidence":"visible upload progress"}
+    for name, pattern in USER_VIEW_PATTERNS:
+        match = pattern.search(text)
+        if match:
+            return {"state":name,"evidence":match.group(0)[:160]}
+    if state.get("send_present") and state.get("send_enabled"):
+        return {"state":"ready","evidence":"visible enabled send control"}
+    if state.get("send_present"):
+        return {"state":"interactive_not_ready","evidence":"visible send control disabled"}
+    return {"state":"unknown","evidence":"no known visible state matched"}
+
+
+def user_view_access_state(classification: dict[str, Any]) -> str:
+    state=str((classification or {}).get("state") or "unknown")
+    if state in {"region_blocked","challenge","rate_limited","service_error"}:
+        return "BLOCKED"
+    if state == "login_required":
+        return "LOGIN_REQUIRED"
+    if state in {"ready","interactive_not_ready","upload_busy","loading"}:
+        return "AUTHENTICATED"
+    return "UNKNOWN"
+
+
 async def capture_user_view(page, provider_id: str, stage: str, *, root: Path | None = None,
                             file_name: str | None = None) -> dict[str, Any]:
     root = root or (Path(__file__).resolve().parents[1] / ".runtime-dev" / "discovery-visual")
@@ -70,6 +105,16 @@ async def capture_user_view(page, provider_id: str, stage: str, *, root: Path | 
         screenshot = str(path)
     except Exception as exc:
         screenshot_error = type(exc).__name__
+        try:
+            session = await page.context.new_cdp_session(page)
+            raw = await session.send("Page.captureScreenshot", {"format":"png","fromSurface":True})
+            import base64
+            path.write_bytes(base64.b64decode(raw.get("data") or ""))
+            if path.exists() and path.stat().st_size:
+                screenshot = str(path)
+                screenshot_error = None
+        except Exception as fallback_exc:
+            screenshot_error = f"{screenshot_error}+{type(fallback_exc).__name__}"
     state = await visible_page_state(page, file_name=file_name)
     state.update({"stage": stage, "screenshot": screenshot, "screenshot_error": screenshot_error, "captured_at": stamp})
     return state

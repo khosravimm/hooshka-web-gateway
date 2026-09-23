@@ -1,6 +1,6 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.35.0",
+  "version": "1.36.0",
   "updated_at": "2026-09-23T23:10:00+03:30",
   "status_vocabulary": [
     "OPEN",
@@ -272,9 +272,9 @@
       ],
       "latest_evidence": {
         "date": "2026-09-23",
-        "type": "E1+E2 Explorer-assisted visual media qualification",
-        "result": "DeepSeek E2 covers text/document/spreadsheet/image/code/presentation. ChatGPT E2 covers text/file and image. Z.ai E2 now covers text/document/spreadsheet/image/code/presentation/video; audio remains E1 advertised but E2 unqualified. Qwen is region-blocked and media-unverified.",
-        "record": "docs/evidence/HWG_EXPLORER_VISUAL_MEDIA_RECOVERY_E2_20260923.md"
+        "type": "E1 user-view access classification",
+        "result": "Qwen media remains unverified because the live rendered provider page is region-blocked; Explorer now records this state separately from capability absence.",
+        "record": "docs/evidence/HWG_USER_VIEW_STATE_DISCOVERY_QWEN_E1_20260923.md"
       },
       "evidence": [
         "docs/evidence/HWG_MULTIMODAL_CANONICAL_CONTRACT_E1_20260923.md",
@@ -286,7 +286,10 @@
         "docs/evidence/HWG_EXPLORER_VISUAL_MEDIA_RECOVERY_E2_20260923.md"
       ],
       "updated_at": "2026-09-23",
-      "result": "Explorer-assisted media qualification is operational across current providers. Remaining gaps are ChatGPT extended document classes, Z.ai audio, and Qwen media qualification under the current region block."
+      "result": "Explorer-assisted media qualification is operational across current providers. Remaining gaps are ChatGPT extended document classes, Z.ai audio, and Qwen media qualification under the current region block.",
+      "evidence_paths": [
+        "docs/evidence/HWG_USER_VIEW_STATE_DISCOVERY_QWEN_E1_20260923.md"
+      ]
     },
     {
       "id": "HWG-WORK-008",
@@ -587,8 +590,9 @@
           "E1",
           "live_read_only"
         ],
-        "provider": "deepseek-web",
-        "result": "composer + DeepThink + Search detected generically; 21 targeted tests passed; no provider-specific selector patch"
+        "provider": "qwen-web",
+        "result": "Explorer User-View State classified rendered Qwen page as region_blocked/BLOCKED, preventing false inference that missing upload controls means unsupported media. CDP screenshot fallback captured visual evidence.",
+        "record": "docs/evidence/HWG_USER_VIEW_STATE_DISCOVERY_QWEN_E1_20260923.md"
       }
     },
     {
