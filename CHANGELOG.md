@@ -1,3 +1,13 @@
+### 1.0.0-dev.7 (WIP - Explorer visual AI and capability matrix)
+- Connected User-View screenshot evidence to vision-capable Discovery AI routing; visual evidence is attached as governed file evidence, not described by hand.
+- Hardened image-upload readiness detection to recognize visible thumbnail/media previews in addition to rendered file names.
+- Live semantic visual isolation passed with DeepSeek correctly identifying a red circle and blue square from image-only evidence.
+- Exact OCR isolation remained non-authoritative after `HWG` was read as `HW G`; exact visual text stays a documented limitation and AI output remains `E0/CANDIDATE`.
+- Added deterministic AI hypothesis partitioning: `inspect/hover/focus` are auto-safe, while `click` stays explicit-approval gated; verification evidence never directly promotes AI semantics.
+- Added `HWG_EXPLORER_CAPABILITY_TEST_MATRIX_V1.json` covering 35 Explorer capabilities with implementation, tests, live evidence, guarded states, partials and limitations.
+- Work Register advanced to `1.46.0`; `HWG-WORK-018` remains DONE with stronger E2 evidence.
+- Evidence: `docs/evidence/HWG_EXPLORER_VISUAL_AI_E2_20260924.md`.
+
 ### 1.0.0-dev.7 (WIP - AI-assisted Explorer verification)
 - Added structured AI hypotheses with bounded provenance and verification queues; findings remain `E0/CANDIDATE`.
 - Added provider-onboarding AI-assist and deterministic verification endpoints with explicit approval and target-provider avoidance.

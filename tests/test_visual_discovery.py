@@ -66,3 +66,12 @@ async def test_visible_interaction_map_contract():
     assert result["horizontal_overflow"] is False
     assert result["controls"][0]["id"] == "send"
     assert result["headings"][0]["text"] == "Chat"
+
+
+@pytest.mark.asyncio
+async def test_visible_state_recognizes_image_preview_alt_as_attachment():
+    page=FakePage([{"url":"https://x","title":"x","viewport":{},"body":"","controls":[],"composers":[],
+                    "media":[{"tag":"IMG","alt":"visual-proof.png","label":"","title":"","src":"blob:https://x/1","rect":{"x":10,"y":10,"w":64,"h":64}}]}])
+    state=await visible_page_state(page,"visual-proof.png")
+    assert state["attachment_visible"] is True
+    assert state["media_previews"][0]["alt"] == "visual-proof.png"

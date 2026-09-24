@@ -255,3 +255,15 @@ def test_provider_wizard_ai_assist_missing_candidate(monkeypatch):
     resp=_client().post('/panel/api/provider-wizard/ai-assist/missing',json={'confirmed_by_user':True})
     assert resp.status_code==404
     assert resp.get_json()['error']=='candidate_not_found'
+
+
+def test_provider_wizard_visual_ai_fails_closed_without_trusted_screenshot(monkeypatch):
+    record={
+        'candidate_id':'future-web',
+        'technical_candidate':{'unresolved_controls':[{'control_id':'u1','selector':'#u1'}]},
+        'observation':{'exploration_trace':[]},
+    }
+    monkeypatch.setattr(control_panel,'load_candidate',lambda root,cid:record)
+    resp=_client().post('/panel/api/provider-wizard/ai-assist/future-web',json={'confirmed_by_user':True,'include_visual_evidence':True})
+    assert resp.status_code==409
+    assert resp.get_json()['error']=='visual_evidence_unavailable'

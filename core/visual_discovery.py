@@ -26,8 +26,9 @@ async def visible_page_state(page, file_name: str | None = None) -> dict[str, An
           aria_disabled:e.getAttribute('aria-disabled'), cls:String(e.className||'').slice(0,180)
         }));
       const composers=[...document.querySelectorAll('textarea,[contenteditable="true"]')].filter(visible).map(e=>{const r=e.getBoundingClientRect(); return {tag:e.tagName,id:e.id||'',label:e.getAttribute('aria-label')||'',placeholder:e.getAttribute('placeholder')||'',disabled:!!e.disabled||e.getAttribute('aria-disabled')==='true',rect:{x:r.x,y:r.y,w:r.width,h:r.height}};}).filter(x=>x.rect.w>=160&&x.rect.h>=24).slice(0,12);
+      const media=[...document.querySelectorAll('img,[role="img"]')].filter(visible).map(e=>{const r=e.getBoundingClientRect(); return {tag:e.tagName,alt:e.getAttribute('alt')||'',label:e.getAttribute('aria-label')||'',title:e.getAttribute('title')||'',src:(e.getAttribute('src')||'').slice(0,220),rect:{x:r.x,y:r.y,w:r.width,h:r.height}};}).filter(x=>x.rect.w>=24&&x.rect.h>=24).slice(0,40);
       return {url:location.href,title:document.title,viewport:{width:innerWidth,height:innerHeight},
-        body:(document.body?.innerText||'').slice(-4000),controls:nodes,composers};
+        body:(document.body?.innerText||'').slice(-4000),controls:nodes,composers,media};
     }""")
     body = str(state.get("body") or "")
     controls = list(state.get("controls") or [])
@@ -38,6 +39,8 @@ async def visible_page_state(page, file_name: str | None = None) -> dict[str, An
     )]
     send = preferred or [c for c in controls if re.search(r"\bsend\b", " ".join(map(str,[c.get('label'),c.get('testid'),c.get('text')])), re.I)]
     control_text = "\n".join(" ".join(map(str,[c.get("label"),c.get("testid"),c.get("text")])) for c in controls)
+    media = list(state.get("media") or [])
+    media_text = "\n".join(" ".join(map(str,[m.get("alt"),m.get("label"),m.get("title"),m.get("src")])) for m in media)
     file_key = str(file_name or "").lower()
     stem_key = Path(file_key).stem.lower() if file_key else ""
     attached = bool(file_key and (
@@ -45,6 +48,8 @@ async def visible_page_state(page, file_name: str | None = None) -> dict[str, An
         or file_key in control_text.lower()
         or (stem_key and stem_key in body.lower())
         or (stem_key and stem_key in control_text.lower())
+        or file_key in media_text.lower()
+        or (stem_key and stem_key in media_text.lower())
     ))
     send_enabled = any(not bool(c.get("disabled")) and str(c.get("aria_disabled") or "").lower() != "true" for c in send)
     composers = list(state.get("composers") or [])
@@ -57,6 +62,7 @@ async def visible_page_state(page, file_name: str | None = None) -> dict[str, An
         "send_present": bool(send), "send_enabled": send_enabled,
         "send_controls": send[:8], "composer_present": bool(composers),
         "composer_enabled": composer_enabled, "composer_controls": composers[:8],
+        "media_previews": media[:20],
     }
 
 

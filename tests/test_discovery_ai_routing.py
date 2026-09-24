@@ -45,10 +45,10 @@ def test_router_rejects_unsupported_policy():
 
 
 class _FakeProvider:
-    def __init__(self, provider_id, model, healthy=True):
+    def __init__(self, provider_id, model, healthy=True, vision=False):
         self.provider_id=provider_id
         self._healthy=healthy
-        self.capabilities=SimpleNamespace(supported_models=[model])
+        self.capabilities=SimpleNamespace(supported_models=[model], vision=vision)
         self.config=SimpleNamespace(config={"default_model":model})
         self.calls=[]
     async def health_check(self):
@@ -126,3 +126,44 @@ def test_structured_ai_parser_falls_back_without_promotion():
     out=_parse_structured_analysis('plain analysis')
     assert out['hypotheses']==[]
     assert out['summary']=='plain analysis'
+
+
+def test_ai_hypothesis_partition_keeps_click_out_of_auto_safe():
+    from core.discovery_ai_service import _normalize_hypotheses
+    rows=[
+        {'target':'u1','meaning':'inspect me','confidence':'medium','evidence_refs':['control:u1'],'next_probe':'inspect','rationale':'safe'},
+        {'target':'u2','meaning':'open menu','confidence':'high','evidence_refs':['control:u2'],'next_probe':'click','rationale':'needs action'},
+    ]
+    all_rows, safe, approval=_normalize_hypotheses(rows)
+    assert len(all_rows)==2
+    assert [x['target'] for x in safe]==['u1']
+    assert [x['target'] for x in approval]==['u2']
+    assert all(x['status']=='CANDIDATE' and x['evidence_level']=='E0' for x in all_rows)
+
+
+def test_attach_verification_never_promotes_ai_semantics():
+    from core.discovery_ai_verification import attach_verification_results
+    finding={'finding':{'hypotheses':[{'target':'u1','meaning':'search','status':'CANDIDATE','evidence_level':'E0'}]}}
+    out=attach_verification_results(finding,[{'target':'u1','probe':'inspect','status':'probe_completed','evidence_level':'E1'}])
+    h=out['finding']['hypotheses'][0]
+    assert h['status']=='VERIFICATION_OBSERVED'
+    assert h['evidence_level']=='E0'
+    assert h['semantic_promotion']=='blocked_pending_deterministic_classification'
+
+
+def test_ai_service_requires_vision_capable_route_for_visual_evidence(tmp_path):
+    image=tmp_path/'evidence.png'; image.write_bytes(b'not-an-image-but-present')
+    target=_FakeProvider('target','target-model')
+    text_only=_FakeProvider('text','text-model',vision=False)
+    with pytest.raises(LookupError):
+        asyncio.run(execute_ai_assistance(_FakeRegistry([target,text_only]),'target','run-v1',['inspect image'],{},user_approved=True,allow_target_provider=False,visual_evidence_paths=[str(image)],require_vision=True))
+
+
+def test_ai_service_passes_visual_file_to_vision_provider(tmp_path):
+    image=tmp_path/'evidence.png'; image.write_bytes(b'present')
+    target=_FakeProvider('target','target-model')
+    vision=_FakeProvider('vision','vision-model',vision=True)
+    finding=asyncio.run(execute_ai_assistance(_FakeRegistry([target,vision]),'target','run-v2',['inspect image'],{},user_approved=True,allow_target_provider=False,visual_evidence_paths=[str(image)],require_vision=True))
+    assert finding['provider']=='vision'
+    assert finding['visual_evidence']=={'attached':True,'count':1,'vision_required':True}
+    assert vision.calls[0].provider_options['file_paths']==[str(image.resolve())]

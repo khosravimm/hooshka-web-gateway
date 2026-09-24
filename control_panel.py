@@ -42,7 +42,7 @@ from core.self_use_roundtrip_probe import controlled_roundtrip as controlled_sel
 from core.provider_tool_probe import probe_provider_tool_call
 from core.browser_behavior_probe import BehaviorAction, ProbePolicy
 from core.discovery_ai_service import execute_ai_assistance
-from core.discovery_ai_verification import verify_ai_queue
+from core.discovery_ai_verification import verify_ai_queue, attach_verification_results
 from core.blind_discovery import probe_auth_cdp as discovery_probe_auth_cdp
 from core.account_session import normalize_session
 from core.functional_readiness import run_functional_probe, save_readiness, load_readiness, invalidate_readiness
@@ -1224,14 +1224,29 @@ def api_provider_wizard_ai_assist(candidate_id):
         return jsonify({"error":"deterministic_work_complete"}),409
     questions=[f"Identify likely meaning and safest verification probe for unresolved control {i+1}: {x.get('selector')}" for i,x in enumerate(unresolved[:12])]
     evidence={"controls":unresolved[:12],"behavior_evidence":technical.get("behavior_evidence") or [],"user_view":(record.get("observation") or {}).get("user_view") or {}}
+    visual_paths=[]
+    if payload.get("include_visual_evidence") is True:
+        trace=(record.get("observation") or {}).get("exploration_trace") or []
+        raw=str((trace[-1] if trace else {}).get("screenshot") or "").strip()
+        if raw:
+            candidate_path=Path(raw).resolve()
+            allowed=(Path(__file__).parent/".runtime-dev"/"discovery-visual").resolve()
+            if candidate_path.is_file() and (candidate_path==allowed or allowed in candidate_path.parents):
+                visual_paths.append(str(candidate_path))
+        if not visual_paths:
+            return jsonify({"error":"visual_evidence_unavailable","message":"Candidate has no trusted screenshot evidence available for AI vision analysis"}),409
     loop=current_app.config.get("HWG_ASYNC_LOOP")
     if loop is None or not loop.is_running(): return jsonify({"error":"async_runtime_unavailable"}),503
     try:
-        fut=asyncio.run_coroutine_threadsafe(execute_ai_assistance(provider_registry,candidate_id,f"onboarding-{candidate_id}",questions,evidence,user_approved=True,routing_policy=str(payload.get("routing_policy") or "least_loaded"),allow_target_provider=payload.get("allow_target_provider") is True),loop)
+        fut=asyncio.run_coroutine_threadsafe(execute_ai_assistance(provider_registry,candidate_id,f"onboarding-{candidate_id}",questions,evidence,user_approved=True,routing_policy=str(payload.get("routing_policy") or "least_loaded"),allow_target_provider=payload.get("allow_target_provider") is True,visual_evidence_paths=visual_paths,require_vision=payload.get("include_visual_evidence") is True),loop)
         finding=fut.result(timeout=120)
     except concurrent.futures.TimeoutError: return jsonify({"error":"ai_assistance_timeout"}),504
     except PermissionError as exc: return jsonify({"error":"ai_assistance_denied","message":str(exc)}),403
+    except FileNotFoundError as exc: return jsonify({"error":"visual_evidence_unavailable","message":str(exc)}),409
     except LookupError as exc: return jsonify({"error":"no_ai_route","message":str(exc)}),409
+    except Exception as exc:
+        logger.warning("Provider Wizard AI assistance failed for %s",candidate_id,exc_info=True)
+        return jsonify({"error":"ai_assistance_failed","message":type(exc).__name__}),502
     history=record.setdefault("ai_assistance_history",[])
     history.append(finding); record["ai_assistance"]=finding
     persist_candidate(root,record)
@@ -1256,8 +1271,10 @@ def api_provider_wizard_ai_verify(candidate_id):
         results=fut.result(timeout=120)
     except concurrent.futures.TimeoutError: return jsonify({"error":"ai_verification_timeout"}),504
     history=record.setdefault("ai_verification_history",[]); history.append({"results":results})
-    record["ai_verification"]={"results":results}; persist_candidate(root,record)
-    return jsonify({"candidate_id":candidate_id,"results":results})
+    record["ai_verification"]={"results":results}
+    record["ai_assistance"]=attach_verification_results(finding,results)
+    persist_candidate(root,record)
+    return jsonify({"candidate_id":candidate_id,"results":results,"finding":record["ai_assistance"]})
 
 
 @control_panel_bp.route('/api/provider-wizard/register/<candidate_id>', methods=['POST'])

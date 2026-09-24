@@ -1,6 +1,6 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.45.0",
+  "version": "1.46.0",
   "updated_at": "2026-09-24T11:05:00Z",
   "status_vocabulary": [
     "OPEN",
@@ -627,13 +627,15 @@
       ],
       "latest_evidence": {
         "date": "2026-09-24",
-        "type": "E1+E2 AI-assisted discovery live verification",
-        "result": "GapGPT deterministic discovery left six unresolved controls; DeepSeek produced six E0 structured hypotheses under explicit approval and target avoidance; six queued probes were independently verified, with no direct AI promotion.",
-        "record": "docs/evidence/HWG_AI_ASSISTED_DISCOVERY_GAPGPT_E2_20260924.md"
+        "type": "E2 visual AI-assisted discovery + capability matrix",
+        "result": "GapGPT visual evidence was routed to a vision-capable DeepSeek analyst; semantic image isolation passed, exact OCR remained explicitly non-authoritative, AI hypotheses stayed E0 candidates, safe probes were independently verified, and click probes remained approval-gated.",
+        "record": "docs/evidence/HWG_EXPLORER_VISUAL_AI_E2_20260924.md"
       },
       "evidence": [
         "docs/evidence/HWG_DISCOVERY_VISUAL_UPLOAD_CHATGPT_E2_20260923.md",
-        "docs/evidence/HWG_AI_ASSISTED_DISCOVERY_GAPGPT_E2_20260924.md"
+        "docs/evidence/HWG_AI_ASSISTED_DISCOVERY_GAPGPT_E2_20260924.md",
+        "docs/evidence/HWG_EXPLORER_VISUAL_AI_E2_20260924.md",
+        "docs/governance/HWG_EXPLORER_CAPABILITY_TEST_MATRIX_V1.json"
       ],
       "updated_at": "2026-09-24",
       "completed_at": "2026-09-24"

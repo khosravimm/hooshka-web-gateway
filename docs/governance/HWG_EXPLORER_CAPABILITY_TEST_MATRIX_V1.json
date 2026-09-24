@@ -1,0 +1,509 @@
+{
+  "matrix_id": "HWG-EXPLORER-CAPABILITY-TEST-MATRIX-V1",
+  "schema_version": "1.0.0",
+  "updated_at": "2026-09-24",
+  "status_vocabulary": [
+    "E2_LIVE",
+    "E1_TESTED",
+    "GUARDED",
+    "PARTIAL",
+    "LIMITATION"
+  ],
+  "policy": {
+    "deterministic_first": true,
+    "ai_output_default": "E0/CANDIDATE",
+    "no_pass_without_test_or_evidence": true,
+    "click_requires_explicit_approval": true
+  },
+  "capabilities": [
+    {
+      "id": "url_onboarding",
+      "name": "URL-first guided onboarding",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/provider_onboarding.py"
+      ],
+      "tests": [
+        "tests/test_provider_provisioning.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_DISCOVERED_PROVIDER_GAPGPT_E2_20260924.md"
+      ]
+    },
+    {
+      "id": "page_identity",
+      "name": "CDP page identity and same-origin re-observation",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/provider_onboarding.py"
+      ],
+      "tests": [
+        "tests/test_provider_onboarding_synthesis.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_EXPLORER_PAGE_IDENTITY_AND_DEEP_DISCOVERY_E2_20260924.md"
+      ]
+    },
+    {
+      "id": "user_view_state",
+      "name": "Rendered user-view state classification",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/visual_discovery.py"
+      ],
+      "tests": [
+        "tests/test_visual_discovery_states.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_EXPLORER_AUTONOMY_GAPGPT_E2_20260924.md"
+      ]
+    },
+    {
+      "id": "visual_capture",
+      "name": "Screenshot evidence with CDP fallback",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/visual_discovery.py"
+      ],
+      "tests": [
+        "tests/test_visual_discovery.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_EXPLORER_PAGE_IDENTITY_AND_DEEP_DISCOVERY_E2_20260924.md"
+      ]
+    },
+    {
+      "id": "interaction_map",
+      "name": "Visible controls/headings/clipping map",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/visual_discovery.py"
+      ],
+      "tests": [
+        "tests/test_visual_discovery.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_CONTROL_PLANE_DYNAMIC_VISUAL_AUDIT_E2_20260924.md"
+      ]
+    },
+    {
+      "id": "dynamic_settle",
+      "name": "Dynamic page/upload settle observer",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/visual_discovery.py"
+      ],
+      "tests": [
+        "tests/test_visual_discovery.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_EXPLORER_VISUAL_MEDIA_RECOVERY_E2_20260923.md"
+      ]
+    },
+    {
+      "id": "multilingual_state",
+      "name": "Multilingual login/block/challenge state recognition",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/visual_discovery.py"
+      ],
+      "tests": [
+        "tests/test_visual_discovery_states.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_EXPLORER_AUTONOMY_GAPGPT_E2_20260924.md"
+      ]
+    },
+    {
+      "id": "deterministic_controls",
+      "name": "Deterministic composer/model/upload/control discovery",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/discovery_engine.py"
+      ],
+      "tests": [
+        "tests/test_discovery_engine.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_EXPLORER_PAGE_IDENTITY_AND_DEEP_DISCOVERY_E2_20260924.md"
+      ]
+    },
+    {
+      "id": "behavior_hover_focus",
+      "name": "Bounded hover/focus behavior probes",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/browser_behavior_probe.py"
+      ],
+      "tests": [
+        "tests/test_browser_behavior_probe.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_EXPLORER_PAGE_IDENTITY_AND_DEEP_DISCOVERY_E2_20260924.md"
+      ]
+    },
+    {
+      "id": "behavior_click_guard",
+      "name": "Click probes require explicit approval and safety guard",
+      "status": "GUARDED",
+      "implementation": [
+        "core/browser_behavior_probe.py"
+      ],
+      "tests": [
+        "tests/test_browser_behavior_probe.py"
+      ]
+    },
+    {
+      "id": "network_behavior",
+      "name": "Bounded network/WebSocket/SSE behavior evidence",
+      "status": "E1_TESTED",
+      "implementation": [
+        "core/browser_behavior_probe.py"
+      ],
+      "tests": [
+        "tests/test_browser_behavior_probe.py"
+      ]
+    },
+    {
+      "id": "backend_hints",
+      "name": "Backend endpoint/storage/transport hint discovery",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/control_discovery.py"
+      ],
+      "tests": [
+        "tests/test_control_discovery.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_EXPLORER_PAGE_IDENTITY_AND_DEEP_DISCOVERY_E2_20260924.md"
+      ]
+    },
+    {
+      "id": "upload_surface",
+      "name": "File input and advertised media surface discovery",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/media_qualification.py"
+      ],
+      "tests": [
+        "tests/test_media_qualification.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_EXPLORER_PAGE_IDENTITY_AND_DEEP_DISCOVERY_E2_20260924.md"
+      ]
+    },
+    {
+      "id": "upload_text_lifecycle",
+      "name": "Text/file attachment lifecycle observation",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/visual_discovery.py"
+      ],
+      "tests": [
+        "tests/test_visual_discovery.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_DISCOVERY_VISUAL_UPLOAD_CHATGPT_E2_20260923.md"
+      ]
+    },
+    {
+      "id": "upload_media_preview",
+      "name": "Image thumbnail/preview attachment lifecycle",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/visual_discovery.py"
+      ],
+      "tests": [
+        "tests/test_visual_discovery.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_EXPLORER_VISUAL_AI_E2_20260924.md"
+      ]
+    },
+    {
+      "id": "dynamic_submit",
+      "name": "Dynamic send control discovery after composer fill",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/provider_onboarding.py"
+      ],
+      "tests": [
+        "tests/test_provider_onboarding_synthesis.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_DISCOVERED_PROVIDER_GAPGPT_E2_20260924.md"
+      ]
+    },
+    {
+      "id": "selector_rediscovery",
+      "name": "Live selector re-discovery before qualification",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/provider_onboarding.py"
+      ],
+      "tests": [
+        "tests/test_provider_onboarding_synthesis.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_DISCOVERED_PROVIDER_GAPGPT_E2_20260924.md"
+      ]
+    },
+    {
+      "id": "response_surface",
+      "name": "Marker-anchored response surface discovery",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/provider_onboarding.py"
+      ],
+      "tests": [
+        "tests/test_provider_onboarding_synthesis.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_DISCOVERED_PROVIDER_GAPGPT_E2_20260924.md"
+      ]
+    },
+    {
+      "id": "roundtrip_qualification",
+      "name": "Controlled E2 round-trip qualification with no replay",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/provider_onboarding.py"
+      ],
+      "tests": [
+        "tests/test_provider_onboarding_synthesis.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_DISCOVERED_PROVIDER_GAPGPT_E2_20260924.md"
+      ]
+    },
+    {
+      "id": "adapter_synthesis",
+      "name": "Discovered adapter synthesis/materialization",
+      "status": "E2_LIVE",
+      "implementation": [
+        "adapters/discovered_web_provider.py",
+        "core/provider_onboarding.py"
+      ],
+      "tests": [
+        "tests/test_provider_onboarding_synthesis.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_DISCOVERED_PROVIDER_GAPGPT_E2_20260924.md"
+      ]
+    },
+    {
+      "id": "readiness_reconcile",
+      "name": "Disabled registration, readiness and stale evidence reconciliation",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/functional_readiness.py",
+        "control_panel.py"
+      ],
+      "tests": [
+        "tests/test_functional_readiness.py",
+        "tests/test_provider_provisioning.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_DISCOVERED_PROVIDER_GAPGPT_E2_20260924.md"
+      ]
+    },
+    {
+      "id": "drift_detection",
+      "name": "Discovery/profile drift comparison",
+      "status": "E1_TESTED",
+      "implementation": [
+        "core/discovery_engine.py"
+      ],
+      "tests": [
+        "tests/test_discovery_engine.py"
+      ]
+    },
+    {
+      "id": "self_use_gate",
+      "name": "Target-provider self-use transport gate",
+      "status": "E1_TESTED",
+      "implementation": [
+        "core/provider_self_use_gate.py"
+      ],
+      "tests": [
+        "tests/test_provider_self_use_gate.py",
+        "tests/test_self_use_roundtrip_probe.py"
+      ]
+    },
+    {
+      "id": "ai_routing",
+      "name": "AI analyst routing by health/capability/load",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/discovery_model_router.py",
+        "core/discovery_ai_service.py"
+      ],
+      "tests": [
+        "tests/test_discovery_ai_routing.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_AI_ASSISTED_DISCOVERY_GAPGPT_E2_20260924.md"
+      ]
+    },
+    {
+      "id": "ai_hypotheses",
+      "name": "Structured E0 AI hypotheses with provenance",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/discovery_ai_service.py"
+      ],
+      "tests": [
+        "tests/test_discovery_ai_routing.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_AI_ASSISTED_DISCOVERY_GAPGPT_E2_20260924.md"
+      ]
+    },
+    {
+      "id": "ai_queue_partition",
+      "name": "Safe auto probes separated from approval-required click",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/discovery_ai_service.py"
+      ],
+      "tests": [
+        "tests/test_discovery_ai_routing.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_EXPLORER_VISUAL_AI_E2_20260924.md"
+      ]
+    },
+    {
+      "id": "ai_verification",
+      "name": "Deterministic verification of AI hypotheses",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/discovery_ai_verification.py"
+      ],
+      "tests": [
+        "tests/test_discovery_ai_routing.py",
+        "tests/test_provider_provisioning.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_AI_ASSISTED_DISCOVERY_GAPGPT_E2_20260924.md"
+      ]
+    },
+    {
+      "id": "ai_nonpromotion",
+      "name": "AI semantics never promoted directly to provider truth",
+      "status": "GUARDED",
+      "implementation": [
+        "core/discovery_ai_verification.py"
+      ],
+      "tests": [
+        "tests/test_discovery_ai_routing.py"
+      ]
+    },
+    {
+      "id": "ai_visual_semantics",
+      "name": "Vision-capable analyst receives governed screenshot evidence",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/discovery_ai_service.py",
+        "core/visual_discovery.py"
+      ],
+      "tests": [
+        "tests/test_discovery_ai_routing.py",
+        "tests/test_visual_discovery.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_EXPLORER_VISUAL_AI_E2_20260924.md"
+      ]
+    },
+    {
+      "id": "ai_exact_ocr",
+      "name": "Exact text extraction from screenshot by AI vision",
+      "status": "LIMITATION",
+      "implementation": [
+        "core/discovery_ai_service.py"
+      ],
+      "tests": [
+        "tests/test_discovery_ai_routing.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_EXPLORER_VISUAL_AI_E2_20260924.md"
+      ],
+      "limitation": "Vision model inserted whitespace in an exact marker; exact OCR is not authoritative. Prefer DOM/accessibility/deterministic evidence."
+    },
+    {
+      "id": "media_class_certification",
+      "name": "E2 qualification across text/document/spreadsheet/image/code/presentation/audio/video",
+      "status": "PARTIAL",
+      "implementation": [
+        "core/media_qualification.py"
+      ],
+      "tests": [
+        "tests/test_media_qualification.py",
+        "tests/test_chatgpt_media_qualification.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_MEDIA_QUALIFICATION_ZAI_E2_20260923.md"
+      ],
+      "limitation": "Per-provider classes remain uncertified until an actual round trip succeeds; audio remains incomplete for some providers."
+    },
+    {
+      "id": "human_gates",
+      "name": "Login/CAPTCHA/Terms/Enable remain explicit human gates",
+      "status": "GUARDED",
+      "implementation": [
+        "core/provider_onboarding.py",
+        "control_panel.py"
+      ],
+      "tests": [
+        "tests/test_provider_provisioning.py"
+      ]
+    },
+    {
+      "id": "unicode_persistence",
+      "name": "UTF-8/Persian evidence persistence",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/provider_onboarding.py"
+      ],
+      "tests": [
+        "tests/test_provider_onboarding_synthesis.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_EXPLORER_PAGE_IDENTITY_AND_DEEP_DISCOVERY_E2_20260924.md"
+      ]
+    },
+    {
+      "id": "evidence_provenance",
+      "name": "Durable candidate/history/provenance persistence",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/provider_onboarding.py",
+        "core/discovery_orchestrator.py"
+      ],
+      "tests": [
+        "tests/test_provider_onboarding_synthesis.py",
+        "tests/test_discovery_orchestrator.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_DISCOVERED_PROVIDER_GAPGPT_E2_20260924.md",
+        "docs/evidence/HWG_AI_ASSISTED_DISCOVERY_GAPGPT_E2_20260924.md"
+      ]
+    },
+    {
+      "id": "runtime_page_presence",
+      "name": "Distinguish CDP runtime alive from provider page present",
+      "status": "E2_LIVE",
+      "implementation": [
+        "desktop_runtime_agent.py",
+        "core/blind_discovery.py"
+      ],
+      "tests": [
+        "tests/test_blind_discovery.py",
+        "tests/test_runtime_inventory.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_DISCOVERED_PROVIDER_GAPGPT_E2_20260924.md"
+      ]
+    }
+  ]
+}
