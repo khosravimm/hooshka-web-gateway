@@ -648,13 +648,39 @@ async def qualify_submit_candidate(cdp_url: str, record: dict[str, Any], timeout
         before_signature = {(str(x.get("text") or ""), str(x.get("aria") or ""), str(x.get("title") or ""), str(x.get("role") or ""), str(x.get("tag") or ""), int((x.get("rect") or {}).get("x") or 0), int((x.get("rect") or {}).get("y") or 0)) for x in before_controls}
         before_by_selector = {str(x.get("selector") or ""): x for x in before_controls if str(x.get("selector") or "")}
         requests = []
+        responses = []
+        response_tasks = []
         def on_request(req):
             if len(requests) >= 80 or req.resource_type not in {"xhr","fetch","websocket"}:
                 return
             endpoint = _safe_endpoint(req.url)
             if endpoint:
                 requests.append({"method":req.method,"endpoint":endpoint,"resource_type":req.resource_type})
+        async def collect_response(resp):
+            try:
+                req=resp.request
+                if len(responses) >= 30 or req.resource_type not in {"xhr","fetch"}:
+                    return
+                parsed=urlparse(resp.url)
+                if parsed.netloc != urlparse(started_url).netloc:
+                    return
+                path=parsed.path.lower()
+                if not any(token in path for token in ("/chat/","/ai-chat","/agent-stream")):
+                    return
+                ctype=str((await resp.all_headers()).get("content-type") or "").lower()
+                body=b""
+                if any(token in ctype for token in ("json","text","event-stream")):
+                    try: body=await resp.body()
+                    except Exception: body=b""
+                text=body.decode("utf-8",errors="ignore")[:4096] if body else ""
+                responses.append({"status":resp.status,"endpoint":_safe_endpoint(resp.url),"resource_type":req.resource_type,"content_type":ctype[:160],"body_snippet":text,"expected_marker_found":bool(expected and expected in text)})
+            except Exception:
+                return
+        def on_response(resp):
+            try: response_tasks.append(asyncio.create_task(collect_response(resp)))
+            except Exception: pass
         page.on("request", on_request)
+        page.on("response", on_response)
         submitted = False
         started_url = page.url
         try:
@@ -737,6 +763,8 @@ async def qualify_submit_candidate(cdp_url: str, record: dict[str, Any], timeout
                 if expected in body:
                     verified = True
                     break
+            if response_tasks:
+                await asyncio.gather(*response_tasks,return_exceptions=True)
             final_state = await visible_page_state(page)
             response_surface = await discover_response_surface_from_marker(page, expected) if verified else {"status":"blocked","reason":"response_not_verified"}
             unique_endpoints=[]; seen=set()
@@ -754,11 +782,14 @@ async def qualify_submit_candidate(cdp_url: str, record: dict[str, Any], timeout
                 "live_selector_rediscovered":refreshed, "composer_selector":composer_selector,
                 "started_url":started_url, "final_url":page.url,
                 "network_endpoints":unique_endpoints[-30:],
+                "network_responses":responses[-20:],
+                "transport_marker_found":any(bool(x.get("expected_marker_found")) for x in responses),
                 "response_surface":response_surface,
                 "final_user_view_classification":classify_user_view_state(final_state),
             }
         finally:
             page.remove_listener("request", on_request)
+            page.remove_listener("response", on_response)
             if not submitted:
                 try:
                     await composer.fill("")
@@ -1026,7 +1057,12 @@ def save_candidate(root: Path, analysis: dict[str, Any], observation: dict[str, 
         "observation": observation,
         "technical_candidate": synthesize_technical_candidate(analysis, observation),
         "qualification_history": list(previous.get("qualification_history") or []),
+        "ai_assistance_history": list(previous.get("ai_assistance_history") or []),
+        "ai_verification_history": list(previous.get("ai_verification_history") or []),
+        "ai_blocker_diagnosis_history": list(previous.get("ai_blocker_diagnosis_history") or []),
     }
+    # Preserve AI audit history across re-observation, but do not blindly reuse an
+    # active diagnosis/verification against newly observed evidence.
     prior = previous.get("submit_qualification") or {}
     if prior:
         history = record["qualification_history"]

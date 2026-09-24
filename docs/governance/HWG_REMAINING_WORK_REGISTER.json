@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.51.0",
-  "updated_at": "2026-09-24T22:15:46.526270Z",
+  "version": "1.52.0",
+  "updated_at": "2026-09-24T22:49:40.449010Z",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -873,11 +873,11 @@
       ],
       "latest_evidence": {
         "date": "2026-09-25",
-        "type": "E2 compact shell + integrated CDP screencast workspace",
-        "result": "Sidebar metadata reduced to product version plus branch/short commit; evidence dump removed. Integrated Wizard upgraded from screenshot polling to Page.startScreencast-derived frames and Wizard-owned target cleanup was E2 verified on NoteGPT.",
-        "record": "docs/evidence/HWG_INTEGRATED_EXPLORER_WORKSPACE_E2_20260924.md"
+        "type": "E2 AI-assisted blocker-resolution loop on NoteGPT",
+        "result": "Wizard blocker states now invoke AI diagnosis automatically, deterministically verify auto-safe proposals, and terminate at either recovered evidence or an explicit Human Gate. Live NoteGPT used DeepSeek as non-target analyst; safe verification ran without resend and ended at approve_new_instrumented_probe.",
+        "record": "docs/evidence/HWG_EXPLORER_AI_BLOCKER_DIAGNOSIS_NOTEGPT_E2_20260924.md"
       },
-      "updated_at": "2026-09-24",
+      "updated_at": "2026-09-25",
       "evidence": [
         "docs/evidence/HWG_EMBEDDED_CHAT_UPLOAD_E2_20260923.md",
         "docs/evidence/HWG_CONTROL_PLANE_DYNAMIC_VISUAL_AUDIT_E2_20260924.md",
@@ -886,7 +886,8 @@
         "docs/evidence/HWG_EXPLORER_PAGE_IDENTITY_AND_DEEP_DISCOVERY_E2_20260924.md",
         "docs/evidence/HWG_DISCOVERED_PROVIDER_GAPGPT_E2_20260924.md",
         "docs/evidence/HWG_WIZARD_ACTIVITY_AND_NONRETRYABLE_E2_20260924.md",
-        "docs/evidence/HWG_INTEGRATED_EXPLORER_WORKSPACE_E2_20260924.md"
+        "docs/evidence/HWG_INTEGRATED_EXPLORER_WORKSPACE_E2_20260924.md",
+        "docs/evidence/HWG_EXPLORER_AI_BLOCKER_DIAGNOSIS_NOTEGPT_E2_20260924.md"
       ],
       "evidence_paths": [
         "docs/evidence/HWG_EMBEDDED_CHAT_UPLOAD_E2_20260923.md",
@@ -896,7 +897,8 @@
         "docs/evidence/HWG_EXPLORER_PAGE_IDENTITY_AND_DEEP_DISCOVERY_E2_20260924.md",
         "docs/evidence/HWG_DISCOVERED_PROVIDER_GAPGPT_E2_20260924.md",
         "docs/evidence/HWG_WIZARD_ACTIVITY_AND_NONRETRYABLE_E2_20260924.md",
-        "docs/evidence/HWG_INTEGRATED_EXPLORER_WORKSPACE_E2_20260924.md"
+        "docs/evidence/HWG_INTEGRATED_EXPLORER_WORKSPACE_E2_20260924.md",
+        "docs/evidence/HWG_EXPLORER_AI_BLOCKER_DIAGNOSIS_NOTEGPT_E2_20260924.md"
       ]
     },
     {

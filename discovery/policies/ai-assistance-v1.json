@@ -1,6 +1,6 @@
 {
   "policy_id": "HWG-DISC-AI-POLICY-001",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "default_mode": "explicit",
   "deterministic_first": true,
   "max_ai_requests_per_run": 3,
@@ -25,5 +25,12 @@
     "transport_fingerprint_must_match": true,
     "qualification_schema": "urn:hwg:schema:provider-self-use-qualification:1.0.0",
     "fail_closed": true
-  }
+  },
+  "automatic_readonly_diagnosis": true,
+  "automatic_readonly_diagnosis_scope": [
+    "ACCESS_DIAGNOSTIC_REQUIRED",
+    "QUALIFICATION_FAILED_AFTER_COMMIT",
+    "QUALIFICATION_DIAGNOSIS_COMPLETE",
+    "EXPLORER_DEEPENING"
+  ]
 }

@@ -318,7 +318,7 @@ def test_provider_wizard_qualification_domain_failure_returns_http_200(monkeypat
 def test_provider_wizard_ui_explains_failed_after_commit_without_http_code():
     js = open('control_panel_ui/panel.js', encoding='utf-8').read()
     assert "qr.status==='E2_FAILED_AFTER_COMMIT'" in js
-    assert 'retry خودکار انجام نمی‌دهد' in js
+    assert 'resend قفل می‌ماند' in js
 
 
 def test_provider_wizard_ui_surfaces_nonretryable_qualification_lock():
@@ -420,3 +420,34 @@ def test_integrated_workspace_prefers_cdp_screencast():
     assert '/provider-wizard/screencast/frame' in js
     assert '/provider-wizard/screencast/stop' in js
     assert 'setInterval(pollProviderLiveView,250)' in js
+
+
+def test_provider_wizard_ai_blocker_diagnosis_is_auto_wired_but_actions_remain_gated():
+    js=open('control_panel_ui/panel.js',encoding='utf-8').read()
+    src=open('control_panel.py',encoding='utf-8-sig').read()
+    assert '/provider-wizard/ai-diagnose/' in js
+    assert 'runAIBlockerDiagnosis' in js
+    assert 'QUALIFICATION_DIAGNOSIS_COMPLETE' in js
+    assert 'ACCESS_DIAGNOSTIC_REQUIRED' in js
+    assert 'execute_ai_blocker_diagnosis' in src
+
+
+def test_provider_wizard_ai_blocker_diagnosis_missing_candidate(monkeypatch):
+    monkeypatch.setattr(control_panel,'load_candidate',lambda root,cid: (_ for _ in ()).throw(FileNotFoundError()))
+    resp=_client().post('/panel/api/provider-wizard/ai-diagnose/missing',json={})
+    assert resp.status_code==404
+    assert resp.get_json()['error']=='candidate_not_found'
+
+
+def test_approved_probe_requires_explicit_user_confirmation():
+    resp=_client().post('/panel/api/provider-wizard/approved-probe/x',json={})
+    assert resp.status_code==400
+    assert resp.get_json()['error']=='user_approval_required'
+
+
+def test_ai_verify_blocker_requires_diagnosis(monkeypatch):
+    record={'candidate_id':'x','analysis':{},'technical_candidate':{}}
+    monkeypatch.setattr(control_panel,'load_candidate',lambda root,cid:record)
+    resp=_client().post('/panel/api/provider-wizard/ai-verify-blocker/x',json={})
+    assert resp.status_code==409
+    assert resp.get_json()['error']=='ai_blocker_diagnosis_missing'

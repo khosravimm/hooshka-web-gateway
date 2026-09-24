@@ -11,6 +11,8 @@ def test_ai_assistance_policy_is_deterministic_first_and_candidate_only():
     assert p['deterministic_first'] is True
     assert p['default_mode']=='explicit'
     assert p['output_status']=='CANDIDATE'
+    assert p['automatic_readonly_diagnosis'] is True
+    assert 'QUALIFICATION_DIAGNOSIS_COMPLETE' in p['automatic_readonly_diagnosis_scope']
     assert p['output_evidence_level']=='E0'
     assert p['direct_profile_mutation'] is False
     assert p['direct_certification'] is False
@@ -45,7 +47,7 @@ def test_work_register_tracks_assisted_discovery_and_routing():
     doc=_json('docs/governance/HWG_REMAINING_WORK_REGISTER.json')
     ids={x['id'] for x in doc['items']}
     assert {'HWG-WORK-018','HWG-WORK-019','HWG-WORK-020','HWG-WORK-021','HWG-WORK-022'}.issubset(ids)
-    assert doc['version']=='1.51.0'
+    assert doc['version']=='1.52.0'
 
 
 def test_target_provider_self_use_policy_requires_deterministic_transport_qualification():

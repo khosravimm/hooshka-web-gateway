@@ -1301,16 +1301,67 @@ function initNav() {
       finally { endWizardActivity(); }
     });
 
+    function renderAIProbeHumanGate(candidate,status,runtimeKey){
+      const cid=(candidate||{}).candidate_id;
+      $('#pf-next-action').innerHTML='<b>نیاز به تصمیم شما</b><br>AI و verifier قطعی همه بررسی‌های read-only موجود را انجام داده‌اند، اما Evidence فعلی برای نتیجه قطعی کافی نیست.<br><span class="hint">ارسال مجدد خودکار ممنوع است. در صورت تأیید شما فقط یک probe مصنوعی جدید با capture کامل transport اجرا می‌شود.</span><div class="btn-row mt"><button id="pf-ai-approved-probe" class="btn primary" type="button">تأیید یک آزمون جدید با ثبت کامل شواهد</button></div>';
+      setStatus(status,'فرایند متوقف نشده است؛ منتظر تصمیم شما برای یک آزمون جدیدِ کنترل‌شده است.','working');
+      const btn=$('#pf-ai-approved-probe'); if(btn)btn.onclick=async()=>{
+        btn.disabled=true; beginWizardActivity('Human Gate — probe جدید','با تأیید شما یک پیام مصنوعی جدید با capture کامل transport ارسال می‌شود.');
+        try{ const pr=await api('/provider-wizard/approved-probe/'+encodeURIComponent(cid),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed_by_user:true,runtime_key:runtimeKey||providerWizard.liveRuntimeKey||''})}); providerWizard.candidate=pr.candidate||candidate; await autoQualifyWizardCandidate(providerWizard.candidate,runtimeKey||providerWizard.liveRuntimeKey||'',status); }
+        catch(e){setStatus(status,'Probe تأییدشده اجرا نشد: '+e.message,'err');} finally{endWizardActivity();}
+      };
+      return candidate;
+    }
+
+    async function runAIBlockerDiagnosis(candidate,status){
+      const cid=(candidate||{}).candidate_id;
+      if(!cid)return candidate;
+      updateWizardActivity('AI-assisted diagnosis — تحلیل Blocker','مسیر قطعی به نتیجه نرسیده است. یک مدل دیگر Evidence موجود را تحلیل می‌کند؛ هیچ click، resend یا Login خودکاری انجام نمی‌شود.');
+      setStatus(status,'هوش مصنوعی در حال تحلیل Evidence و ساخت مسیر بعدی قابل‌راستی‌آزمایی است...','working');
+      try{
+        const r=await api('/provider-wizard/ai-diagnose/'+encodeURIComponent(cid),{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+        providerWizard.candidate=r.candidate||candidate;
+        const d=r.diagnosis||{}, safe=d.auto_safe_steps||[], gated=d.approval_required_steps||[];
+        const analyst=[d.provider,d.model].filter(Boolean).join(' / ');
+        let next='AI blocker diagnosis انجام شد';
+        if(d.terminal_recommendation==='continue_readonly' && safe.length) next='AI یک مسیر read-only پیشنهاد داده که باید با ابزار قطعی Explorer راستی‌آزمایی شود.';
+        else if((d.terminal_recommendation==='human_gate'||d.terminal_recommendation==='new_probe_requires_approval') && gated.length) next='AI به اقدامی رسیده که side effect دارد؛ Explorer بدون تأیید کاربر آن را اجرا نمی‌کند.';
+        else if(d.terminal_recommendation==='cannot_resolve') next='AI نیز از Evidence فعلی نتیجه کافی نگرفت؛ Evidence بیشتری لازم است.';
+        $('#pf-next-action').innerHTML=`<b>AI-assisted diagnosis</b><br>${esc(d.summary||'تحلیل بدون خلاصه برگشت.')}<br><span class="hint">Analyst: ${esc(analyst||'-')} · نتیجه AI فقط E0/CANDIDATE است.</span><br>${esc(next)}`;
+        setStatus(status,'AI diagnosis ثبت شد؛ Explorer در حال verification قطعی پیشنهادهای read-only است.','working');
+        if(safe.length){
+          const v=await api('/provider-wizard/ai-verify-blocker/'+encodeURIComponent(cid),{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+          providerWizard.candidate=v.candidate||providerWizard.candidate; const vr=v.verification||{};
+          if(vr.status==='E2_RECOVERED'){
+            $('#pf-next-action').textContent='AI مسیر read-only پیشنهاد داد و verifier قطعی همان Evidence قبلی را بازیابی کرد؛ هیچ resend انجام نشد.';
+            setStatus(status,'Blocker بدون ارسال مجدد رفع شد و E2 بازیابی شد.','ok'); return providerWizard.candidate;
+          }
+          if(vr.status==='E2_TRANSPORT_MARKER_VERIFIED'){
+            $('#pf-next-action').textContent='Verifier قطعی marker را در transport تأیید کرد؛ مشکل فقط mapping سطح پاسخ UI است و Explorer باید بدون resend همان سطح را تکمیل کند.';
+            setStatus(status,'Transport response تأیید شد؛ تکمیل response-surface ادامه دارد.','working'); return providerWizard.candidate;
+          }
+          if(vr.status==='HUMAN_GATE_REQUIRED'){
+            return renderAIProbeHumanGate(providerWizard.candidate,status,providerWizard.liveRuntimeKey||'');
+          }
+        }
+        setStatus(status,'AI diagnosis و verification read-only کامل شد، اما Evidence کافی نیست.','err');
+        return providerWizard.candidate;
+      }catch(e){
+        $('#pf-next-action').textContent='مسیر قطعی متوقف شد و AI diagnosis نیز در دسترس نبود: '+e.message;
+        setStatus(status,'AI diagnosis اجرا نشد: '+e.message,'err');
+        return candidate;
+      }
+    }
+
     async function autoQualifyWizardCandidate(candidate, runtimeKey, status) {
       const tc=(candidate||{}).technical_candidate||{};
       const cid=(candidate||{}).candidate_id;
       if (tc.workflow_state==='ROUNDTRIP_QUALIFIED') { setStatus(status,'Evidence E2 رفت‌وبرگشت معتبر است؛ آزمون تکرار نمی‌شود.','ok'); return candidate; }
+      if (tc.workflow_state==='AI_DIAGNOSIS_HUMAN_GATE') { return renderAIProbeHumanGate(candidate,status,runtimeKey); }
       if (tc.user_action_required===true) { setStatus(status,'کاوشگر به یک گام انسانی واقعی رسیده است؛ دستور دقیق در همین صفحه نمایش داده شده است.','ok'); return candidate; }
       if (tc.workflow_state==='EXPLORER_DEEPENING') { setStatus(status,'کاوشگر در حال تکمیل Evidence است؛ اقدامی از شما لازم نیست.','working'); return candidate; }
       if (tc.workflow_state==='ACCESS_DIAGNOSTIC_REQUIRED') {
-        $('#pf-next-action').textContent='تشخیص خودکار وضعیت دسترسی به نتیجه قطعی نرسید. این مرحله موفق نشده و در حال حاضر متوقف است؛ «بررسی مجدد» یک مشاهده read-only تازه انجام می‌دهد.';
-        setStatus(status,'وضعیت دسترسی هنوز نامشخص است؛ فرایند موفق نشده است.','err');
-        return candidate;
+        return await runAIBlockerDiagnosis(candidate,status);
       }
       if (tc.workflow_state==='QUALIFICATION_FAILED_AFTER_COMMIT') {
         if (!cid) { setStatus(status,'Qualification قبلی commit شده اما Candidate ID برای تشخیص موجود نیست.','err'); return candidate; }
@@ -1324,8 +1375,9 @@ function initNav() {
             $('#pf-next-action').textContent='پاسخ دیررس همان probe قبلی در DOM پیدا شد و response surface با Evidence E2 بازیابی شد. هیچ پیام جدیدی ارسال نشد.';
             setStatus(status,'Evidence قبلی بازیابی شد؛ Qualification به E2 ارتقا یافت.','ok');
           } else {
-            $('#pf-next-action').textContent='تشخیص read-only انجام شد. marker پاسخ قبلی در DOM فعلی پیدا نشد؛ ارسال مجدد همچنان ممنوع است. وضعیت به «تحلیل transport/response بدون resend» منتقل شد.';
-            setStatus(status,'تشخیص failure کامل شد؛ پاسخ قطعی پیدا نشد و retry قفل باقی می‌ماند.','err');
+            $('#pf-next-action').textContent='تشخیص قطعی read-only پاسخ را بازیابی نکرد. Explorer اکنون AI-assisted blocker diagnosis را روی همین Evidence اجرا می‌کند؛ resend همچنان ممنوع است.';
+            setStatus(status,'تشخیص قطعی کافی نبود؛ انتقال به AI diagnosis...','working');
+            return await runAIBlockerDiagnosis(providerWizard.candidate,status);
           }
           return providerWizard.candidate;
         } catch(e) {
@@ -1335,9 +1387,7 @@ function initNav() {
         }
       }
       if (tc.workflow_state==='QUALIFICATION_DIAGNOSIS_COMPLETE') {
-        $('#pf-next-action').textContent='تشخیص read-only قبلاً انجام شده است: پاسخ قطعی marker در DOM بازیابی نشد و retry خودکار به‌دلیل commit قبلی ممنوع است. مرحله بعد تحلیل transport/response بدون resend است.';
-        setStatus(status,'تشخیص پس از commit ثبت شده؛ ارسال مجدد انجام نمی‌شود.','err');
-        return candidate;
+        return await runAIBlockerDiagnosis(candidate,status);
       }
       if (tc.workflow_state!=='TECHNICAL_CANDIDATE_READY') { setStatus(status,'مشاهده ثبت شد، اما این وضعیت موفقیت نهایی نیست. مرحله بعد باید از workflow_state تعیین شود.','working'); return candidate; }
       if (!cid) return candidate;
@@ -1352,8 +1402,9 @@ function initNav() {
           $('#pf-next-action').textContent='کاوشگر مسیر ارسال و دریافت پاسخ را با Evidence سطح E2 تأیید کرد. مرحله بعد ساخت Adapter Candidate است و فعلاً اقدامی از شما لازم نیست.';
           setStatus(status,qr.reused_evidence?'Evidence معتبر قبلی reuse شد؛ آزمون تکرار نشد.':'آزمون رفت‌وبرگشت E2 با موفقیت تأیید شد.','ok');
         } else if (qr.status==='E2_FAILED_AFTER_COMMIT' || qr.retry_allowed===false) {
-          $('#pf-next-action').textContent='درخواست آزمون به Provider ارسال شد، اما پاسخ قطعی مورد انتظار تأیید نشد. چون ارسال commit شده است، کاوشگر برای جلوگیری از ارسال تکراری retry خودکار انجام نمی‌دهد. Evidence failure ثبت شده و باید در ادامه توسط خود Explorer تحلیل شود.';
-          setStatus(status,'Qualification پس از ارسال کامل نشد؛ retry خودکار ممنوع است.','err');
+          $('#pf-next-action').textContent='Probe commit شده ولی پاسخ قطعی تأیید نشده است. resend قفل می‌ماند و Explorer اکنون ابتدا diagnosis قطعی و سپس در صورت نیاز AI-assisted diagnosis را اجرا می‌کند.';
+          setStatus(status,'Qualification پس از commit کامل نشد؛ ورود به diagnosis بدون resend.','working');
+          return await autoQualifyWizardCandidate(providerWizard.candidate,runtimeKey,status);
         } else if (qr.status==='E2_PRECOMMIT_TRANSITION') {
           $('#pf-next-action').textContent='پیش از commit شدن پیام، صفحه به وضعیت دیگری منتقل شد. هیچ پیام آزمایشی قطعی ارسال نشده است؛ Explorer باید وضعیت جدید صفحه را دوباره به‌صورت تصویری مشاهده کند.';
           setStatus(status,'تغییر وضعیت صفحه پیش از ارسال تشخیص داده شد؛ نیاز به مشاهده مجدد دارد.','working');

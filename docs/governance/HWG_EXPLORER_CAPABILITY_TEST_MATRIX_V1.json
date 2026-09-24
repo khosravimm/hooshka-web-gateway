@@ -548,6 +548,24 @@
         "docs/evidence/HWG_INTEGRATED_EXPLORER_WORKSPACE_E2_20260924.md"
       ],
       "limitation": "E2 is scoped to NoteGPT live view/input/screencast. Password managers, WebAuthn, native file chooser, and non-relayable challenges intentionally fall back to the real browser tab."
+    },
+    {
+      "id": "ai_blocker_resolution",
+      "name": "AI-assisted blocker diagnosis with deterministic safe-plan verification",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/discovery_ai_blocker.py",
+        "control_panel.py",
+        "control_panel_ui/panel.js"
+      ],
+      "tests": [
+        "tests/test_discovery_ai_blocker.py",
+        "tests/test_provider_provisioning.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_EXPLORER_AI_BLOCKER_DIAGNOSIS_NOTEGPT_E2_20260924.md"
+      ],
+      "limitation": "AI output remains E0/CANDIDATE. Side-effect actions require explicit Human Gate. Bounded response-body transport capture is implemented but remains E1 until an approved live probe exercises it."
     }
   ]
 }

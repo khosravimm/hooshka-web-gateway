@@ -42,6 +42,7 @@ from core.self_use_roundtrip_probe import controlled_roundtrip as controlled_sel
 from core.provider_tool_probe import probe_provider_tool_call
 from core.browser_behavior_probe import BehaviorAction, ProbePolicy
 from core.discovery_ai_service import execute_ai_assistance
+from core.discovery_ai_blocker import execute_ai_blocker_diagnosis, verify_ai_blocker_plan
 from core.discovery_ai_verification import verify_ai_queue, attach_verification_results
 from core.blind_discovery import probe_auth_cdp as discovery_probe_auth_cdp
 from core.account_session import normalize_session
@@ -1367,6 +1368,77 @@ def api_provider_wizard_ai_assist(candidate_id):
     history.append(finding); record["ai_assistance"]=finding
     persist_candidate(root,record)
     return jsonify({"candidate_id":candidate_id,"finding":finding,"verification_queue":((finding.get("finding") or {}).get("verification_queue") or [])})
+
+
+@control_panel_bp.route('/api/provider-wizard/ai-diagnose/<candidate_id>', methods=['POST'])
+def api_provider_wizard_ai_diagnose(candidate_id):
+    import asyncio, concurrent.futures
+    root=Path(__file__).parent.resolve()
+    try: record=load_candidate(root,candidate_id)
+    except FileNotFoundError: return jsonify({'error':'candidate_not_found'}),404
+    technical=record.get('technical_candidate') or {}
+    state=str(technical.get('workflow_state') or '')
+    allowed_states={'ACCESS_DIAGNOSTIC_REQUIRED','QUALIFICATION_FAILED_AFTER_COMMIT','QUALIFICATION_DIAGNOSIS_COMPLETE','EXPLORER_DEEPENING'}
+    if state not in allowed_states:
+        return jsonify({'error':'ai_blocker_diagnosis_not_applicable','workflow_state':state}),409
+    loop=current_app.config.get('HWG_ASYNC_LOOP')
+    if loop is None or not loop.is_running(): return jsonify({'error':'async_runtime_unavailable'}),503
+    try:
+        fut=asyncio.run_coroutine_threadsafe(execute_ai_blocker_diagnosis(provider_registry,candidate_id,record),loop)
+        finding=fut.result(timeout=120)
+    except concurrent.futures.TimeoutError: return jsonify({'error':'ai_blocker_diagnosis_timeout'}),504
+    except LookupError as exc: return jsonify({'error':'no_ai_route','message':str(exc)}),409
+    except Exception as exc:
+        logger.warning('AI blocker diagnosis failed for %s',candidate_id,exc_info=True)
+        return jsonify({'error':'ai_blocker_diagnosis_failed','message':type(exc).__name__}),502
+    history=record.setdefault('ai_blocker_diagnosis_history',[]); history.append(finding)
+    record['ai_blocker_diagnosis']=finding
+    persist_candidate(root,record)
+    return jsonify({'candidate_id':candidate_id,'workflow_state':state,'diagnosis':finding,'candidate':record})
+
+
+@control_panel_bp.route('/api/provider-wizard/ai-verify-blocker/<candidate_id>', methods=['POST'])
+def api_provider_wizard_ai_verify_blocker(candidate_id):
+    root=Path(__file__).parent.resolve()
+    try: record=load_candidate(root,candidate_id)
+    except FileNotFoundError: return jsonify({'error':'candidate_not_found'}),404
+    diagnosis=record.get('ai_blocker_diagnosis') or {}
+    if not diagnosis: return jsonify({'error':'ai_blocker_diagnosis_missing'}),409
+    analysis=record.get('analysis') or {}; runtime_key=str(analysis.get('recommended_runtime_key') or '').strip()
+    runtime=_browser_runtime_by_key(runtime_key) if runtime_key else None
+    if runtime is None or not runtime.get('ready'): return jsonify({'error':'browser_runtime_not_ready'}),409
+    verification=verify_ai_blocker_plan(runtime['cdp_url'],record,diagnosis)
+    technical=record.setdefault('technical_candidate',{})
+    if verification.get('status')=='E2_RECOVERED':
+        apply_submit_qualification(record,verification.get('qualification') or {})
+    elif verification.get('status')=='E2_TRANSPORT_MARKER_VERIFIED':
+        technical['workflow_state']='RESPONSE_TRANSPORT_VERIFIED_UI_UNRESOLVED'; technical['next_required']='response_surface_mapping_without_resend'; technical['user_action_required']=False
+    elif verification.get('status')=='HUMAN_GATE_REQUIRED':
+        technical['workflow_state']='AI_DIAGNOSIS_HUMAN_GATE'; technical['next_required']='approve_new_instrumented_probe'; technical['user_action_required']=True
+    else:
+        technical['workflow_state']='AI_DIAGNOSIS_UNRESOLVED'; technical['next_required']=verification.get('next_required') or 'more_evidence_required'; technical['user_action_required']=False
+    record['ai_blocker_verification']=verification
+    persist_candidate(root,record)
+    return jsonify({'candidate_id':candidate_id,'verification':verification,'candidate':record})
+
+
+@control_panel_bp.route('/api/provider-wizard/approved-probe/<candidate_id>', methods=['POST'])
+def api_provider_wizard_approved_probe(candidate_id):
+    root=Path(__file__).parent.resolve(); payload=request.get_json(silent=True) or {}
+    if payload.get('confirmed_by_user') is not True: return jsonify({'error':'user_approval_required'}),400
+    try: record=load_candidate(root,candidate_id)
+    except FileNotFoundError: return jsonify({'error':'candidate_not_found'}),404
+    technical=record.setdefault('technical_candidate',{})
+    if technical.get('workflow_state')!='AI_DIAGNOSIS_HUMAN_GATE' or technical.get('next_required')!='approve_new_instrumented_probe':
+        return jsonify({'error':'approved_probe_not_applicable','workflow_state':technical.get('workflow_state')}),409
+    analysis=record.get('analysis') or {}; runtime_key=str(payload.get('runtime_key') or analysis.get('recommended_runtime_key') or '').strip()
+    runtime=_browser_runtime_by_key(runtime_key) if runtime_key else None
+    if runtime is None or not runtime.get('ready'): return jsonify({'error':'browser_runtime_not_ready'}),409
+    technical['workflow_state']='TECHNICAL_CANDIDATE_READY'; technical['next_required']='human_approved_instrumented_probe'; technical['user_action_required']=False
+    record['approved_probe_authorization']={'confirmed_by_user':True,'purpose':'instrumented_roundtrip_after_ai_diagnosis'}
+    result=qualify_submit_candidate_sync(runtime['cdp_url'],record)
+    apply_submit_qualification(record,result); persist_candidate(root,record)
+    return jsonify({'candidate_id':candidate_id,'qualification':result,'candidate':record})
 
 
 @control_panel_bp.route('/api/provider-wizard/ai-verify/<candidate_id>', methods=['POST'])
