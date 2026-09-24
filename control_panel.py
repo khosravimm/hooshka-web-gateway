@@ -12,7 +12,7 @@ import urllib.request
 import urllib.parse
 from datetime import datetime
 from pathlib import Path
-from flask import Blueprint, render_template_string, jsonify, request, current_app
+from flask import Blueprint, render_template_string, jsonify, request, current_app, Response
 from core.provider_registry import provider_registry
 from core.mcp import mcp_session_manager
 from core.governance import auth_manager, rate_limiter
@@ -47,8 +47,9 @@ from core.blind_discovery import probe_auth_cdp as discovery_probe_auth_cdp
 from core.account_session import normalize_session
 from core.functional_readiness import run_functional_probe, save_readiness, load_readiness, invalidate_readiness
 from core.media_contract import provider_media_manifest
-from core.provider_onboarding import analyze_url as analyze_provider_url, observe_url_sync, save_candidate, load_candidate, persist_candidate, qualify_submit_candidate_sync, apply_submit_qualification, generate_adapter_candidate, qualify_materialized_adapter_sync, materialize_adapter_profile, refine_adapter_from_existing_conformance_sync
+from core.provider_onboarding import analyze_url as analyze_provider_url, observe_url_sync, save_candidate, load_candidate, persist_candidate, qualify_submit_candidate_sync, apply_submit_qualification, generate_adapter_candidate, qualify_materialized_adapter_sync, materialize_adapter_profile, refine_adapter_from_existing_conformance_sync, diagnose_committed_qualification_sync
 from adapters.discovered_web_provider import create_discovered_web_provider
+from core.provider_live_view import open_target_sync, capture_live_view_sync, dispatch_live_input_sync
 
 control_panel_bp = Blueprint('control_panel', __name__, url_prefix='/panel')
 
@@ -1037,6 +1038,47 @@ def api_provider_wizard_analyze():
         return jsonify({"error":"invalid_url","message":str(exc)}), 400
 
 
+@control_panel_bp.route('/api/provider-wizard/open-target', methods=['POST'])
+def api_provider_wizard_open_target():
+    data=request.get_json(silent=True) or {}
+    runtime=_browser_runtime_by_key(str(data.get('runtime_key') or '').strip())
+    if runtime is None or not runtime.get('ready'):
+        return jsonify({'error':'browser_runtime_not_ready'}),409
+    try:
+        result=open_target_sync(runtime['cdp_url'],str(data.get('url') or '').strip())
+        return jsonify(result)
+    except Exception as exc:
+        logger.warning('Provider live target open failed',exc_info=True)
+        return jsonify({'error':'provider_live_target_open_failed','message':type(exc).__name__}),502
+
+
+@control_panel_bp.route('/api/provider-wizard/live-view', methods=['GET'])
+def api_provider_wizard_live_view():
+    runtime=_browser_runtime_by_key(str(request.args.get('runtime_key') or '').strip())
+    if runtime is None or not runtime.get('ready'):
+        return jsonify({'error':'browser_runtime_not_ready'}),409
+    result=capture_live_view_sync(runtime['cdp_url'],target_id=str(request.args.get('target_id') or ''),url=str(request.args.get('url') or ''))
+    if result.get('status') != 'ok':
+        return jsonify(result),404
+    resp=Response(result['image'],mimetype='image/jpeg')
+    resp.headers['Cache-Control']='no-store'
+    resp.headers['X-HWG-Target-ID']=result.get('target_id') or ''
+    vp=result.get('viewport') or {}
+    resp.headers['X-HWG-Viewport-Width']=str(vp.get('width') or '')
+    resp.headers['X-HWG-Viewport-Height']=str(vp.get('height') or '')
+    return resp
+
+
+@control_panel_bp.route('/api/provider-wizard/live-input', methods=['POST'])
+def api_provider_wizard_live_input():
+    data=request.get_json(silent=True) or {}
+    runtime=_browser_runtime_by_key(str(data.get('runtime_key') or '').strip())
+    if runtime is None or not runtime.get('ready'):
+        return jsonify({'error':'browser_runtime_not_ready'}),409
+    result=dispatch_live_input_sync(runtime['cdp_url'],data)
+    return jsonify(result), (200 if result.get('status')=='ok' else 409)
+
+
 @control_panel_bp.route('/api/provider-wizard/observe', methods=['POST'])
 def api_provider_wizard_observe():
     data = request.get_json(silent=True) or {}
@@ -1087,6 +1129,37 @@ def api_provider_wizard_qualify(candidate_id):
     except Exception as exc:
         logger.warning("Provider onboarding submit qualification failed", exc_info=True)
         return jsonify({"error":"submit_qualification_failed","message":type(exc).__name__,"candidate_id":candidate_id}), 502
+
+
+@control_panel_bp.route('/api/provider-wizard/diagnose/<candidate_id>', methods=['POST'])
+def api_provider_wizard_diagnose(candidate_id):
+    root=Path(__file__).parent
+    try:
+        record=load_candidate(root,candidate_id)
+    except FileNotFoundError:
+        return jsonify({"error":"candidate_not_found","candidate_id":candidate_id}),404
+    analysis=record.get("analysis") or {}
+    runtime_key=str((request.get_json(silent=True) or {}).get("runtime_key") or analysis.get("recommended_runtime_key") or "").strip()
+    runtime=_browser_runtime_by_key(runtime_key) if runtime_key else None
+    if runtime is None or not runtime.get("ready"):
+        return jsonify({"error":"browser_runtime_not_ready","candidate_id":candidate_id}),409
+    try:
+        diagnosis=diagnose_committed_qualification_sync(runtime["cdp_url"],record)
+        if diagnosis.get("status") == "E2_RECOVERED":
+            recovered=diagnosis.get("qualification") or {}
+            apply_submit_qualification(record,recovered)
+            record["qualification_diagnosis"]=diagnosis
+        else:
+            technical=record.setdefault("technical_candidate",{})
+            technical["workflow_state"]="QUALIFICATION_DIAGNOSIS_COMPLETE"
+            technical["next_required"]="response_transport_analysis_without_resend"
+            technical["user_action_required"]=False
+            record["qualification_diagnosis"]=diagnosis
+        path=persist_candidate(root,record)
+        return jsonify({"candidate":record,"diagnosis":diagnosis,"record":str(path)})
+    except Exception as exc:
+        logger.warning("Provider onboarding committed-failure diagnosis failed",exc_info=True)
+        return jsonify({"error":"qualification_diagnosis_failed","message":type(exc).__name__,"candidate_id":candidate_id}),502
 
 
 def _live_register_discovered_provider(candidate_id, provider_doc, artifact, runtime):

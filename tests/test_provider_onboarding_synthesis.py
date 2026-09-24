@@ -339,3 +339,16 @@ def test_reobserve_preserves_nonretryable_committed_failure_for_same_target(tmp_
     moved = save_candidate(tmp_path, analysis, changed)["candidate"]
     assert moved["submit_qualification"]["status"] == "E2_FAILED_AFTER_COMMIT"
     assert moved["technical_candidate"]["workflow_state"] == "QUALIFICATION_FAILED_AFTER_COMMIT"
+
+
+def test_auth_ambiguous_with_access_available_continues_autonomously():
+    from core.provider_onboarding import synthesize_technical_candidate
+    out=synthesize_technical_candidate(_analysis(), {
+      "classification":{"state":"auth_ambiguous","evidence":"visible login control with interactive composer"},
+      "access_semantics":{"state":"ACCESS_AVAILABLE","confidence":"medium","evidence":["endpoint:/api/v2/userinfo","http_status:200"]},
+      "discovery_completed":True,"target_id":"T1",
+      "deterministic_discovery":{"frontend":{"composer_selector":"div[contenteditable='true']","controls":[],"upload_surface":{}},"backend":{},"capabilities":[],"behavior_evidence":[],"composer_submit_probe":{"candidates":[{"selector":"#send","status":"candidate_unverified"}]}}
+    })
+    assert out["workflow_state"]=="TECHNICAL_CANDIDATE_READY"
+    assert out["next_required"]=="transport_and_behavior_qualification"
+    assert out["user_action_required"] is False

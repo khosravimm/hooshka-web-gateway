@@ -64,3 +64,10 @@ def test_access_semantics_remains_unknown_without_auth_failure():
         "endpoint":"/api/v2/user/quota-usage","http_status":200,"code":100000,"message":"success"
     }])
     assert s.state=="UNKNOWN"
+
+
+def test_access_semantics_accepts_safe_session_endpoint_without_auth_failure():
+    from core.blind_discovery import classify_access_semantic_observations
+    out=classify_access_semantic_observations([{"endpoint":"/api/v2/userinfo","http_status":200,"message":""}])
+    assert out.state=="ACCESS_AVAILABLE"
+    assert out.confidence=="medium"

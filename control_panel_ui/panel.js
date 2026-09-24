@@ -704,7 +704,7 @@ function initNav() {
     }
   };
 
-  let providerWizard = { analysis:null, observation:null, candidate:null, runtimes:[] };
+  let providerWizard = { analysis:null, observation:null, candidate:null, runtimes:[], liveTargetId:'', liveRuntimeKey:'', liveUrl:'', liveViewport:{width:0,height:0} };
   let wizardActivityTimer=null, wizardActivityStarted=0;
   function formatWizardElapsed(ms){ const sec=Math.max(0,Math.floor(ms/1000)); return String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0'); }
   function setWizardControlsBusy(busy){
@@ -715,9 +715,28 @@ function initNav() {
   function beginWizardActivity(stage,message){ wizardActivityStarted=Date.now(); updateWizardActivity(stage,message); setWizardControlsBusy(true); if(wizardActivityTimer)clearInterval(wizardActivityTimer); $('#pf-activity-elapsed').textContent='00:00'; wizardActivityTimer=setInterval(()=>{ const el=$('#pf-activity-elapsed'); if(el)el.textContent=formatWizardElapsed(Date.now()-wizardActivityStarted); },500); $('#pf-activity').scrollIntoView({block:'nearest',behavior:'smooth'}); }
   function endWizardActivity(){ if(wizardActivityTimer){clearInterval(wizardActivityTimer);wizardActivityTimer=null;} setWizardControlsBusy(false); const box=$('#pf-activity'); if(box)box.classList.add('wizard-hidden'); }
 
+  let providerLiveTimer=null, providerLiveBusy=false, providerLiveObjectUrl='';
+  function stopProviderLiveView(){ if(providerLiveTimer){clearInterval(providerLiveTimer);providerLiveTimer=null;} providerLiveBusy=false; if(providerLiveObjectUrl){URL.revokeObjectURL(providerLiveObjectUrl);providerLiveObjectUrl='';} const pane=$('#pf-live-pane'); if(pane){pane.classList.add('wizard-hidden');pane.classList.remove('live-connected');} }
+  async function pollProviderLiveView(){
+    if(providerLiveBusy || !providerWizard.liveRuntimeKey || !providerWizard.liveUrl) return;
+    providerLiveBusy=true;
+    try {
+      const q=new URLSearchParams({runtime_key:providerWizard.liveRuntimeKey,url:providerWizard.liveUrl}); if(providerWizard.liveTargetId) q.set('target_id',providerWizard.liveTargetId);
+      const resp=await fetch('/panel/api/provider-wizard/live-view?'+q.toString(),{cache:'no-store'}); if(!resp.ok) throw new Error('HTTP '+resp.status);
+      providerWizard.liveTargetId=resp.headers.get('X-HWG-Target-ID')||providerWizard.liveTargetId;
+      providerWizard.liveViewport={width:Number(resp.headers.get('X-HWG-Viewport-Width')||0),height:Number(resp.headers.get('X-HWG-Viewport-Height')||0)};
+      const blob=await resp.blob(); const next=URL.createObjectURL(blob); const img=$('#pf-live-image'); if(providerLiveObjectUrl)URL.revokeObjectURL(providerLiveObjectUrl); providerLiveObjectUrl=next; img.src=next;
+      $('#pf-live-pane').classList.add('live-connected'); $('#pf-live-status').textContent='متصل به همان Target واقعی Provider · '+(providerWizard.liveTargetId||'target?');
+    } catch(e) { $('#pf-live-status').textContent='در انتظار Target واقعی Provider...'; }
+    finally { providerLiveBusy=false; }
+  }
+  function startProviderLiveView(runtimeKey,url,targetId){ providerWizard.liveRuntimeKey=runtimeKey||''; providerWizard.liveUrl=url||''; if(targetId)providerWizard.liveTargetId=targetId; $('#pf-live-pane').classList.remove('wizard-hidden'); pollProviderLiveView(); if(providerLiveTimer)clearInterval(providerLiveTimer); providerLiveTimer=setInterval(pollProviderLiveView,850); }
+  async function sendProviderLiveInput(kind,payload={}){ if(!providerWizard.liveRuntimeKey)return; const body={kind,runtime_key:providerWizard.liveRuntimeKey,target_id:providerWizard.liveTargetId,url:providerWizard.liveUrl,...payload}; const resp=await fetch('/panel/api/provider-wizard/live-input',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); const data=await resp.json().catch(()=>({})); if(!resp.ok){ if(data.reason==='sensitive_input_requires_native_tab') setStatus($('#provider-form-status'),'برای Password یا ورودی حساس، از «نمایش تب واقعی» استفاده کنید.','err'); return data; } if(data.target_id)providerWizard.liveTargetId=data.target_id; setTimeout(pollProviderLiveView,120); return data; }
+
   function resetProviderWizard() {
     endWizardActivity();
-    providerWizard = { analysis:null, observation:null, candidate:null, runtimes:[] };
+    stopProviderLiveView();
+    providerWizard = { analysis:null, observation:null, candidate:null, runtimes:[], liveTargetId:'', liveRuntimeKey:'', liveUrl:'', liveViewport:{width:0,height:0} };
     $('#pf-url').value='';
     $('#pf-proposal-card').classList.add('wizard-hidden');
     $('#pf-observation-card').classList.add('wizard-hidden');
@@ -1278,16 +1297,43 @@ function initNav() {
 
     async function autoQualifyWizardCandidate(candidate, runtimeKey, status) {
       const tc=(candidate||{}).technical_candidate||{};
+      const cid=(candidate||{}).candidate_id;
       if (tc.workflow_state==='ROUNDTRIP_QUALIFIED') { setStatus(status,'Evidence E2 رفت‌وبرگشت معتبر است؛ آزمون تکرار نمی‌شود.','ok'); return candidate; }
       if (tc.user_action_required===true) { setStatus(status,'کاوشگر به یک گام انسانی واقعی رسیده است؛ دستور دقیق در همین صفحه نمایش داده شده است.','ok'); return candidate; }
       if (tc.workflow_state==='EXPLORER_DEEPENING') { setStatus(status,'کاوشگر در حال تکمیل Evidence است؛ اقدامی از شما لازم نیست.','working'); return candidate; }
-      if (tc.workflow_state==='QUALIFICATION_FAILED_AFTER_COMMIT') {
-        $('#pf-next-action').textContent='یک probe قبلی به Provider commit شده اما پاسخ قطعی تأیید نشده است. برای جلوگیری از duplicate، retry خودکار این Candidate قفل است و Explorer باید Evidence failure را تحلیل کند.';
-        setStatus(status,'Qualification قبلی پس از commit کامل نشد؛ retry خودکار قفل است.','err');
+      if (tc.workflow_state==='ACCESS_DIAGNOSTIC_REQUIRED') {
+        $('#pf-next-action').textContent='تشخیص خودکار وضعیت دسترسی به نتیجه قطعی نرسید. این مرحله موفق نشده و در حال حاضر متوقف است؛ «بررسی مجدد» یک مشاهده read-only تازه انجام می‌دهد.';
+        setStatus(status,'وضعیت دسترسی هنوز نامشخص است؛ فرایند موفق نشده است.','err');
         return candidate;
       }
-      if (tc.workflow_state!=='TECHNICAL_CANDIDATE_READY') { setStatus(status,'مشاهده ثبت شد و ادامه مسیر بر عهده کاوشگر است.','ok'); return candidate; }
-      const cid=(candidate||{}).candidate_id;
+      if (tc.workflow_state==='QUALIFICATION_FAILED_AFTER_COMMIT') {
+        if (!cid) { setStatus(status,'Qualification قبلی commit شده اما Candidate ID برای تشخیص موجود نیست.','err'); return candidate; }
+        updateWizardActivity('تشخیص پس از commit — بدون ارسال مجدد','Explorer اکنون فقط Evidence موجود و DOM فعلی را بررسی می‌کند؛ هیچ پیام جدیدی ارسال نخواهد شد.');
+        setStatus(status,'در حال تحلیل خودکار failure قبلی بدون retry...','working');
+        try {
+          const d=await api('/provider-wizard/diagnose/'+encodeURIComponent(cid),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runtime_key:runtimeKey})});
+          providerWizard.candidate=d.candidate||candidate;
+          const dg=d.diagnosis||{};
+          if (dg.status==='E2_RECOVERED') {
+            $('#pf-next-action').textContent='پاسخ دیررس همان probe قبلی در DOM پیدا شد و response surface با Evidence E2 بازیابی شد. هیچ پیام جدیدی ارسال نشد.';
+            setStatus(status,'Evidence قبلی بازیابی شد؛ Qualification به E2 ارتقا یافت.','ok');
+          } else {
+            $('#pf-next-action').textContent='تشخیص read-only انجام شد. marker پاسخ قبلی در DOM فعلی پیدا نشد؛ ارسال مجدد همچنان ممنوع است. وضعیت به «تحلیل transport/response بدون resend» منتقل شد.';
+            setStatus(status,'تشخیص failure کامل شد؛ پاسخ قطعی پیدا نشد و retry قفل باقی می‌ماند.','err');
+          }
+          return providerWizard.candidate;
+        } catch(e) {
+          $('#pf-next-action').textContent='تشخیص خودکار failure قبلی نیز کامل نشد. هیچ retry یا ارسال مجدد انجام نشد.';
+          setStatus(status,'تشخیص failure شکست خورد: '+e.message,'err');
+          return candidate;
+        }
+      }
+      if (tc.workflow_state==='QUALIFICATION_DIAGNOSIS_COMPLETE') {
+        $('#pf-next-action').textContent='تشخیص read-only قبلاً انجام شده است: پاسخ قطعی marker در DOM بازیابی نشد و retry خودکار به‌دلیل commit قبلی ممنوع است. مرحله بعد تحلیل transport/response بدون resend است.';
+        setStatus(status,'تشخیص پس از commit ثبت شده؛ ارسال مجدد انجام نمی‌شود.','err');
+        return candidate;
+      }
+      if (tc.workflow_state!=='TECHNICAL_CANDIDATE_READY') { setStatus(status,'مشاهده ثبت شد، اما این وضعیت موفقیت نهایی نیست. مرحله بعد باید از workflow_state تعیین شود.','working'); return candidate; }
       if (!cid) return candidate;
       updateWizardActivity('مرحله ۳ از ۳ — Qualification رفتاری E2','مشاهده اولیه تمام شد. کاوشگر اکنون مسیر ارسال و دریافت پاسخ را با یک آزمون کنترل‌شده بررسی می‌کند؛ هنوز منتظر بمانید.');
       $('#pf-next-action').textContent='Candidate فنی E1 آماده است. کاوشگر اکنون آزمون رفت‌وبرگشت کنترل‌شده را خودش اجرا می‌کند؛ فعلاً اقدامی از شما لازم نیست.';
@@ -1321,11 +1367,20 @@ function initNav() {
       const status=$('#provider-form-status'); const a=providerWizard.analysis;
       if (!a) { setStatus(status,'ابتدا URL را بررسی کنید.','err'); return; }
       const runtimeKey=$('#pf-runtime').value || a.recommended_runtime_key;
-      beginWizardActivity('مرحله ۲ از ۳ — مشاهده واقعی صفحه','HWG صفحه وب‌چت را باز می‌کند و ابتدا آنچه کاربر واقعاً می‌بیند بررسی می‌شود. این مرحله ممکن است چند ثانیه طول بکشد.');
-      setStatus(status,'صفحه وب‌چت در مرورگر باز می‌شود. اگر Login، شرایط استفاده یا CAPTCHA دیدید همان را کامل کنید؛ سپس به این Wizard برگردید.','working');
+      beginWizardActivity('مرحله ۲ از ۳ — مشاهده واقعی صفحه','HWG همان Target واقعی Provider را داخل Workspace نمایش می‌دهد و Explorer هم‌زمان آن را بررسی می‌کند.');
+      setStatus(status,'نمای زنده Provider در سمت چپ باز می‌شود. در صورت نیاز می‌توانید همان‌جا با صفحه تعامل کنید.','working');
       $('#pf-observe').disabled=true; $('#pf-reobserve').disabled=true;
       try {
-        const r=await api('/provider-wizard/observe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:a.url,runtime_key:runtimeKey,preferred_target_id:(providerWizard.observation||{}).target_id||null})});
+        let preferred=(providerWizard.observation||{}).target_id||providerWizard.liveTargetId||null;
+        $('#pf-live-pane').classList.remove('wizard-hidden');
+        $('#pf-live-pane').classList.remove('live-connected');
+        $('#pf-live-status').textContent=preferred?'در حال اتصال به Target موجود...':'در حال ساخت Target واقعی Provider...';
+        if(!preferred){
+          const opened=await api('/provider-wizard/open-target',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:a.url,runtime_key:runtimeKey})});
+          preferred=opened.target_id||null; providerWizard.liveTargetId=preferred||'';
+        }
+        startProviderLiveView(runtimeKey,a.url,preferred);
+        const r=await api('/provider-wizard/observe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:a.url,runtime_key:runtimeKey,preferred_target_id:preferred})});
         providerWizard.observation=r.observation; providerWizard.candidate=r.candidate;
         const o=r.observation||{}, c=o.classification||{}, m=o.interaction_summary||{};
         $('#pf-observation').innerHTML=`<div class="kv"><span>وضعیت قابل مشاهده</span><b>${esc(c.state||'unknown')}</b><span>شاهد</span><b>${esc(c.evidence||'-')}</b><span>عنوان صفحه</span><b>${esc(o.title||'-')}</b><span>کنترل‌های قابل مشاهده</span><b>${m.controls??'-'}</b><span>ورودی فایل</span><b>${m.file_inputs??'-'}</b><span>ورودی پیام/متن</span><b>${m.editable_inputs??'-'}</b></div>`;
@@ -1341,7 +1396,8 @@ function initNav() {
         else if (state==='region_blocked') nextAction='دسترسی از این محیط به‌صورت منطقه‌ای مسدود است؛ Candidate ثبت می‌شود اما کاوش عملیاتی تا رفع این شرط ادامه پیدا نمی‌کند.';
         else if (r.analysis?.register_new_provider===false) nextAction='این Origin از قبل ثبت شده است. Provider جدید ساخته نمی‌شود؛ برای Session یا هویت دوم به Workspace حساب‌ها و Session بروید.';
         else if (known) nextAction='Adapter موجود با URL تطبیق دارد. HWG می‌تواند Provider را با تنظیمات پیشنهادی ثبت کند؛ سپس Login/Discovery/Readiness ادامه می‌یابد.';
-        else if (o.needs_deeper_exploration) nextAction='کاوشگر هنوز نتوانسته وضعیت صفحه را با Evidence کافی تشخیص دهد. فعلاً اقدامی از شما لازم نیست؛ این Candidate باید وارد کاوش عمیق‌تر خودکار شود.';
+        else if ((r.candidate?.technical_candidate||{}).workflow_state==='ACCESS_DIAGNOSTIC_REQUIRED') nextAction='وضعیت دسترسی هنوز نامشخص است. این نتیجه موفقیت محسوب نمی‌شود. کاوشگر دورهای تشخیص خودکار را انجام داده اما Evidence کافی پیدا نکرده است؛ «بررسی مجدد» یک مشاهده read-only تازه اجرا می‌کند.';
+        else if (o.needs_deeper_exploration) nextAction='کاوشگر هنوز نتوانسته وضعیت صفحه را با Evidence کافی تشخیص دهد. این نتیجه موفقیت نیست؛ Candidate برای کاوش عمیق‌تر علامت‌گذاری شده است.';
         else if ((r.candidate?.technical_candidate||{}).workflow_state==='ROUNDTRIP_QUALIFIED') nextAction='کاوشگر مسیر ارسال/پاسخ را قبلاً با E2 تأیید کرده است و مرحله بعد ساخت Adapter Candidate است؛ اقدامی از شما لازم نیست.';
         else if ((r.candidate?.technical_candidate||{}).workflow_state==='TECHNICAL_CANDIDATE_READY') nextAction='Candidate فنی E1 آماده است و کاوشگر مرحله Qualification رفتاری را خودش ادامه می‌دهد؛ اقدامی از شما لازم نیست.';
         else nextAction='Candidate کاوش ذخیره شد و ادامه تکمیل فنی آن بر عهده خود کاوشگر است؛ فعلاً اقدامی از شما لازم نیست.';
@@ -1354,6 +1410,10 @@ function initNav() {
     }
     $('#pf-observe').addEventListener('click', observeWizardPage);
     $('#pf-reobserve').addEventListener('click', observeWizardPage);
+    $('#pf-live-image').addEventListener('click', async (e)=>{ const img=e.currentTarget; const vp=providerWizard.liveViewport||{}; const x=(e.offsetX/Math.max(1,img.clientWidth))*Number(vp.width||img.naturalWidth||1); const y=(e.offsetY/Math.max(1,img.clientHeight))*Number(vp.height||img.naturalHeight||1); img.focus(); await sendProviderLiveInput('click',{x,y}); });
+    $('#pf-live-frame').addEventListener('wheel', async (e)=>{ e.preventDefault(); await sendProviderLiveInput('scroll',{dx:e.deltaX,dy:e.deltaY}); },{passive:false});
+    $('#pf-live-image').addEventListener('keydown', async (e)=>{ if(e.ctrlKey||e.metaKey||e.altKey)return; if(e.key.length===1){e.preventDefault(); await sendProviderLiveInput('text',{text:e.key}); return;} const allowed=['Enter','Tab','Escape','Backspace','Delete','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Home','End','PageUp','PageDown']; if(allowed.includes(e.key)){e.preventDefault(); await sendProviderLiveInput('key',{key:e.key});} });
+    $('#pf-live-focus').addEventListener('click', async ()=>{ await sendProviderLiveInput('focus'); });
 
     $('#pf-save').addEventListener('click', async () => {
       const a=providerWizard.analysis; const status=$('#provider-form-status');

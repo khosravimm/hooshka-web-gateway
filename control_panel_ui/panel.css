@@ -384,3 +384,16 @@ input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent);
 .wizard-progress { height:5px; overflow:hidden; border-radius:999px; background:var(--panel-3); margin-top:12px; }
 .wizard-progress span { display:block; width:35%; height:100%; background:var(--accent); animation:wizard-progress 1.4s ease-in-out infinite; }
 @keyframes wizard-spin { to { transform:rotate(360deg); } } @keyframes wizard-progress { 0%{transform:translateX(-120%)} 100%{transform:translateX(320%)} }
+
+/* Integrated Explorer workspace: real Provider target + Wizard side by side */
+.provider-explorer-workspace { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(380px,.85fr); gap:14px; align-items:start; direction:ltr; }
+.provider-wizard-pane { min-width:0; direction:rtl; }
+.provider-live-pane { min-width:0; position:sticky; top:12px; direction:rtl; background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:10px; box-shadow:var(--shadow); }
+.provider-live-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
+.provider-live-frame { position:relative; min-height:460px; max-height:72vh; overflow:auto; background:#111827; border:1px solid var(--border); border-radius:10px; display:flex; align-items:flex-start; justify-content:center; }
+#pf-live-image { display:block; width:100%; height:auto; min-height:280px; object-fit:contain; outline:none; cursor:default; user-select:none; }
+#pf-live-image:focus { box-shadow:inset 0 0 0 2px var(--accent); }
+.provider-live-placeholder { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; padding:24px; color:#cbd5e1; background:#111827; }
+.provider-live-note { margin-top:8px; font-size:12px; color:var(--text-3); line-height:1.7; }
+.provider-live-pane.live-connected .provider-live-placeholder { display:none; }
+@media (max-width:1100px) { .provider-explorer-workspace { grid-template-columns:1fr; } .provider-live-pane { position:relative; top:auto; } }

@@ -324,4 +324,56 @@ def test_provider_wizard_ui_explains_failed_after_commit_without_http_code():
 def test_provider_wizard_ui_surfaces_nonretryable_qualification_lock():
     js = open('control_panel_ui/panel.js', encoding='utf-8').read()
     assert "tc.workflow_state==='QUALIFICATION_FAILED_AFTER_COMMIT'" in js
-    assert 'retry خودکار این Candidate قفل است' in js
+    assert 'تشخیص پس از commit — بدون ارسال مجدد' in js
+
+
+def test_provider_wizard_diagnoses_committed_failure_without_retry(monkeypatch, tmp_path):
+    runtime=_runtime(); runtime['ready']=True
+    record={'candidate_id':'future-web','analysis':{'recommended_runtime_key':runtime['runtime_key']},'technical_candidate':{'workflow_state':'QUALIFICATION_FAILED_AFTER_COMMIT'},'submit_qualification':{'status':'E2_FAILED_AFTER_COMMIT','submitted':True,'retry_allowed':False}}
+    monkeypatch.setattr(control_panel,'load_candidate',lambda root,cid:record)
+    monkeypatch.setattr(control_panel,'_browser_runtime_by_key',lambda key:runtime)
+    monkeypatch.setattr(control_panel,'diagnose_committed_qualification_sync',lambda *a,**k:{'status':'E2_DIAGNOSED','marker_found':False,'retry_allowed':False,'result':'marker_not_present_in_current_dom'})
+    monkeypatch.setattr(control_panel,'persist_candidate',lambda root,rec:tmp_path/'candidate.json')
+    resp=_client().post('/panel/api/provider-wizard/diagnose/future-web',json={'runtime_key':runtime['runtime_key']})
+    assert resp.status_code==200
+    body=resp.get_json()
+    assert body['diagnosis']['status']=='E2_DIAGNOSED'
+    assert body['candidate']['technical_candidate']['workflow_state']=='QUALIFICATION_DIAGNOSIS_COMPLETE'
+    assert body['candidate']['technical_candidate']['next_required']=='response_transport_analysis_without_resend'
+
+
+def test_provider_wizard_ui_has_real_committed_failure_diagnosis_step():
+    js=open('control_panel_ui/panel.js',encoding='utf-8').read()
+    assert "/provider-wizard/diagnose/" in js
+    assert 'تشخیص پس از commit — بدون ارسال مجدد' in js
+    assert 'QUALIFICATION_DIAGNOSIS_COMPLETE' in js
+
+
+def test_provider_wizard_integrated_live_view_contract():
+    html=open('control_panel_ui/index.html',encoding='utf-8').read()
+    css=open('control_panel_ui/panel.css',encoding='utf-8').read()
+    js=open('control_panel_ui/panel.js',encoding='utf-8').read()
+    assert 'id="pf-live-pane"' in html and 'id="pf-live-image"' in html
+    assert 'provider-explorer-workspace' in css
+    assert "/provider-wizard/open-target" in js
+    assert "/provider-wizard/live-view" in js
+    assert "/provider-wizard/live-input" in js
+    assert 'startProviderLiveView' in js
+
+
+def test_provider_wizard_open_target_uses_selected_runtime(monkeypatch):
+    runtime=_runtime(); runtime['ready']=True
+    monkeypatch.setattr(control_panel,'_browser_runtime_by_key',lambda key:runtime)
+    monkeypatch.setattr(control_panel,'open_target_sync',lambda cdp,url:{'target_id':'T-LIVE','url':url,'title':'Live'})
+    resp=_client().post('/panel/api/provider-wizard/open-target',json={'runtime_key':runtime['runtime_key'],'url':'https://future.example/chat'})
+    assert resp.status_code==200
+    assert resp.get_json()['target_id']=='T-LIVE'
+
+
+def test_provider_wizard_live_input_blocks_sensitive_result(monkeypatch):
+    runtime=_runtime(); runtime['ready']=True
+    monkeypatch.setattr(control_panel,'_browser_runtime_by_key',lambda key:runtime)
+    monkeypatch.setattr(control_panel,'dispatch_live_input_sync',lambda cdp,data:{'status':'blocked','reason':'sensitive_input_requires_native_tab'})
+    resp=_client().post('/panel/api/provider-wizard/live-input',json={'runtime_key':runtime['runtime_key'],'kind':'text','text':'secret'})
+    assert resp.status_code==409
+    assert resp.get_json()['reason']=='sensitive_input_requires_native_tab'

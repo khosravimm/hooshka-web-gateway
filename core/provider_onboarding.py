@@ -151,7 +151,7 @@ def candidate_path(root: Path, candidate_id: str) -> Path:
     return folder / f"{safe}.json"
 
 
-async def probe_composer_submit_candidates(page, discovery: dict[str, Any]) -> dict[str, Any]:
+async def probe_composer_submit_candidates(page, discovery: dict[str, Any], access_semantics: dict[str, Any] | None = None) -> dict[str, Any]:
     frontend = discovery.get("frontend") or {}
     selector = str(frontend.get("composer_selector") or "").strip()
     if not selector:
@@ -269,9 +269,23 @@ async def observe_url(url: str, cdp_url: str, preferred_target_id: str | None = 
             report = await discover_page(page, candidate_id or _slug_host(urlparse(url).hostname or "candidate"))
             deterministic_discovery = report.__dict__
             access_semantics = await probe_observed_access_semantics(page, (report.backend or {}).get("candidate_endpoints") or [])
+            if classification.get("state") == "auth_ambiguous" and str(access_semantics.get("state") or "UNKNOWN").upper() == "UNKNOWN":
+                diagnostic_attempts=[]
+                for attempt in range(1, 3):
+                    await page.wait_for_timeout(1500)
+                    state = await visible_page_state(page)
+                    classification = classify_user_view_state(state)
+                    report = await discover_page(page, candidate_id or _slug_host(urlparse(url).hostname or "candidate"))
+                    deterministic_discovery = report.__dict__
+                    access_semantics = await probe_observed_access_semantics(page, (report.backend or {}).get("candidate_endpoints") or [])
+                    diagnostic_attempts.append({"attempt":attempt,"visual_state":classification.get("state"),"access_state":access_semantics.get("state"),"evidence":access_semantics.get("evidence")})
+                    if classification.get("state") != "auth_ambiguous" or str(access_semantics.get("state") or "UNKNOWN").upper() != "UNKNOWN":
+                        break
+                deterministic_discovery["access_diagnostic_attempts"] = diagnostic_attempts
             unknown_controls = [c for c in (report.frontend.get("controls") or []) if c.get("kind") == "unclassified"][:6]
             behavior_evidence = []
-            interaction_allowed = classification.get("state") == "ready" and str(access_semantics.get("state") or "UNKNOWN").upper() != "LOGIN_REQUIRED"
+            access_state = str(access_semantics.get("state") or "UNKNOWN").upper()
+            interaction_allowed = classification.get("state") == "ready" or (classification.get("state") == "auth_ambiguous" and access_state == "ACCESS_AVAILABLE")
             if interaction_allowed and unknown_controls:
                 from core.browser_behavior_probe import run_behavior_probe, BehaviorAction, ProbePolicy
                 from core.control_discovery import classify
@@ -290,7 +304,7 @@ async def observe_url(url: str, cdp_url: str, preferred_target_id: str | None = 
                     except Exception as exc:
                         behavior_evidence.append({"selector":selector,"action":"hover","error":type(exc).__name__})
             deterministic_discovery["behavior_evidence"] = behavior_evidence
-            deterministic_discovery["composer_submit_probe"] = (await probe_composer_submit_candidates(page, deterministic_discovery)) if interaction_allowed else {"status":"blocked","reason":"access_gate","marker_sent":False,"candidates":[]}
+            deterministic_discovery["composer_submit_probe"] = (await probe_composer_submit_candidates(page, deterministic_discovery, access_semantics)) if interaction_allowed else {"status":"blocked","reason":"access_gate","marker_sent":False,"candidates":[]}
         file_inputs = await page.locator('input[type="file"]').count()
         editable = await page.locator('textarea:visible,[contenteditable="true"]:visible,input[type="text"]:visible').count()
         selects = await page.locator('select:visible,[role="combobox"]:visible').count()
@@ -326,6 +340,10 @@ def synthesize_technical_candidate(analysis: dict[str, Any], observation: dict[s
         workflow_state = "WAITING_FOR_USER_GATE"
         next_required = "user_complete_login_or_verification"
         user_action_required = True
+    elif state == "auth_ambiguous" and access_state == "ACCESS_AVAILABLE":
+        workflow_state = "TECHNICAL_CANDIDATE_READY"
+        next_required = "transport_and_behavior_qualification"
+        user_action_required = False
     elif state == "auth_ambiguous" and access_state == "UNKNOWN":
         workflow_state = "ACCESS_DIAGNOSTIC_REQUIRED"
         next_required = "resolve_authentication_state"
@@ -600,7 +618,7 @@ async def qualify_submit_candidate(cdp_url: str, record: dict[str, Any], timeout
             composer = page.locator(fresh_selector).first
             if await composer.count() == 0 or not await composer.is_visible():
                 return {"status":"blocked","reason":"composer_not_visible_after_rediscovery","submitted":False}
-            submit_probe = await probe_composer_submit_candidates(page, fresh)
+            submit_probe = await probe_composer_submit_candidates(page, fresh, technical.get("access_semantics") or {})
             fresh_candidates = list(submit_probe.get("candidates") or [])
             if not fresh_candidates:
                 return {"status":"blocked","reason":"submit_candidate_missing_after_rediscovery","submitted":False}
@@ -618,7 +636,9 @@ async def qualify_submit_candidate(cdp_url: str, record: dict[str, Any], timeout
             return {"status":"blocked","reason":"composer_not_empty","submitted":False}
         from core.visual_discovery import visual_action_gate
         preflight = await visual_action_gate(page, "certification_probe")
-        if not preflight.get("allowed"):
+        access_state = str((technical.get("access_semantics") or {}).get("state") or "UNKNOWN").upper()
+        auth_resolved = str((preflight.get("classification") or {}).get("state") or "") == "auth_ambiguous" and access_state == "ACCESS_AVAILABLE"
+        if not preflight.get("allowed") and not auth_resolved:
             return {"status":"blocked","reason":"provider_visual_state","submitted":False,"commitment_state":"not_sent","classification":preflight.get("classification") or {}}
         digits = str(100000 + secrets.randbelow(900000))
         expected = "HWGQ" + digits[::-1]
@@ -779,6 +799,51 @@ def apply_submit_qualification(record: dict[str, Any], result: dict[str, Any]) -
 
 def qualify_submit_candidate_sync(cdp_url: str, record: dict[str, Any], timeout_seconds: float = 45.0) -> dict[str, Any]:
     return asyncio.run(qualify_submit_candidate(cdp_url, record, timeout_seconds=timeout_seconds))
+
+
+async def diagnose_committed_qualification(cdp_url: str, record: dict[str, Any]) -> dict[str, Any]:
+    existing=dict(record.get("submit_qualification") or {})
+    if existing.get("status") != "E2_FAILED_AFTER_COMMIT" or existing.get("retry_allowed") is not False:
+        return {"status":"blocked","reason":"nonretryable_committed_failure_required"}
+    marker=str(existing.get("expected_marker") or "").strip()
+    if not marker:
+        return {"status":"blocked","reason":"expected_marker_missing"}
+    target_id=str(existing.get("target_id") or "").strip()
+    origin=urlparse(str((record.get("analysis") or {}).get("url") or (record.get("technical_candidate") or {}).get("home_url") or ""))
+    wanted=f"{origin.scheme}://{origin.netloc}" if origin.scheme and origin.netloc else ""
+    from playwright.async_api import async_playwright
+    pw=await async_playwright().start()
+    try:
+        browser=await pw.chromium.connect_over_cdp(cdp_url)
+        context=browser.contexts[0] if browser.contexts else None
+        if context is None:
+            return {"status":"blocked","reason":"browser_context_missing"}
+        page=None
+        for current in context.pages:
+            try:
+                session=await context.new_cdp_session(current); info=await session.send("Target.getTargetInfo"); await session.detach()
+                if target_id and ((info.get("targetInfo") or {}).get("targetId") == target_id): page=current; break
+            except Exception:
+                continue
+        if page is None and wanted:
+            pages=[x for x in context.pages if x.url.startswith(wanted)]
+            if pages: page=pages[-1]
+        if page is None:
+            return {"status":"E2_DIAGNOSED","evidence_level":"E2","result":"target_unavailable","marker_found":False,"retry_allowed":False}
+        await page.wait_for_timeout(500)
+        view=await visible_page_state(page); classification=classify_user_view_state(view)
+        surface=await discover_response_surface_from_marker(page,marker)
+        if surface.get("status") == "E2_VERIFIED":
+            recovered={**existing,"status":"E2_VERIFIED","response_verified":True,"response_surface":surface,"retry_allowed":False,"diagnosis":{"status":"RECOVERED_DELAYED_RESPONSE","visual_state":classification}}
+            return {"status":"E2_RECOVERED","evidence_level":"E2","marker_found":True,"retry_allowed":False,"qualification":recovered,"visual_state":classification}
+        meaningful=meaningful_commitment_requests(list(existing.get("network_endpoints") or []))
+        return {"status":"E2_DIAGNOSED","evidence_level":"E2","result":"marker_not_present_in_current_dom","marker_found":False,"retry_allowed":False,"visual_state":classification,"response_surface":surface,"meaningful_commitment_requests":meaningful[-12:]}
+    finally:
+        await pw.stop()
+
+
+def diagnose_committed_qualification_sync(cdp_url: str, record: dict[str, Any]) -> dict[str, Any]:
+    return asyncio.run(diagnose_committed_qualification(cdp_url, record))
 
 async def _refine_adapter_response_surface(cdp_url: str, adapter: dict[str, Any], marker: str) -> dict[str, Any]:
     from playwright.async_api import async_playwright

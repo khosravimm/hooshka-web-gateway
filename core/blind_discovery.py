@@ -105,6 +105,11 @@ def classify_access_semantic_observations(rows: list[dict]) -> AuthState:
             if message:
                 evidence.append(f"message:{message}")
             return AuthState('LOGIN_REQUIRED','high',evidence,'login')
+    for row in rows or []:
+        endpoint=str(row.get('endpoint') or '')
+        status=int(row.get('http_status') or 0)
+        if 200 <= status < 300 and re.search(r'(?:^|/)(?:userinfo|session|me)(?:$|[/?-])', endpoint, re.I):
+            return AuthState('ACCESS_AVAILABLE','medium',[f'endpoint:{endpoint}',f'http_status:{status}'],None)
     return AuthState('UNKNOWN','low',['no_auth_failure_semantics'],None)
 
 

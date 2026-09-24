@@ -530,6 +530,24 @@
       "live_evidence": [
         "docs/evidence/HWG_EXPLORER_VISUAL_ACTION_GATE_GAPGPT_E2_20260924.md"
       ]
+    },
+    {
+      "id": "integrated_live_workspace",
+      "name": "Integrated live Provider target beside Explorer Wizard",
+      "status": "PARTIAL",
+      "implementation": [
+        "core/provider_live_view.py",
+        "control_panel.py",
+        "control_panel_ui/panel.js",
+        "control_panel_ui/index.html"
+      ],
+      "tests": [
+        "tests/test_provider_provisioning.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_INTEGRATED_EXPLORER_WORKSPACE_E2_20260924.md"
+      ],
+      "limitation": "Live target-bound view and bounded input are E2 on NoteGPT; image transport is screenshot polling pending Page.startScreencast evaluation."
     }
   ]
 }
