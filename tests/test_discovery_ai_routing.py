@@ -111,3 +111,18 @@ def test_ai_service_uses_target_only_after_transport_gate(monkeypatch):
     assert finding['target_provider_avoided'] is False
     assert finding['self_use_transport_gate']['qualified'] is True
     assert len(target.calls)==1
+
+
+def test_structured_ai_parser_accepts_fenced_json():
+    from core.discovery_ai_service import _parse_structured_analysis
+    text='''```json\n{"summary":"x","hypotheses":[{"target":"#a","meaning":"menu","confidence":"low","evidence_refs":[],"next_probe":"focus","rationale":"safe"}]}\n```'''
+    out=_parse_structured_analysis(text)
+    assert out['summary']=='x'
+    assert out['hypotheses'][0]['next_probe']=='focus'
+
+
+def test_structured_ai_parser_falls_back_without_promotion():
+    from core.discovery_ai_service import _parse_structured_analysis
+    out=_parse_structured_analysis('plain analysis')
+    assert out['hypotheses']==[]
+    assert out['summary']=='plain analysis'

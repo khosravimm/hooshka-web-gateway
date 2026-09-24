@@ -34,6 +34,26 @@ def _bounded_evidence(evidence: dict[str, Any], max_chars: int = 12000) -> str:
     return raw[:max_chars]
 
 
+def _parse_structured_analysis(text: str) -> dict[str, Any]:
+    raw = str(text or "").strip()
+    candidates = [raw]
+    if "```" in raw:
+        for part in raw.split("```"):
+            part = part.strip()
+            if part.lower().startswith("json"):
+                part = part[4:].strip()
+            if part.startswith("{"):
+                candidates.append(part)
+    for item in candidates:
+        try:
+            obj = json.loads(item)
+            if isinstance(obj, dict):
+                return obj
+        except Exception:
+            pass
+    return {"summary": raw[:4000], "hypotheses": []}
+
+
 async def execute_ai_assistance(
     registry,
     target_provider_id: str,
@@ -91,7 +111,7 @@ async def execute_ai_assistance(
 
     prompt = (
         "Analyze this governed Web Chat discovery evidence. Do not invent observations. "
-        "Identify ambiguities, likely explanations, and the smallest next deterministic or browser-behavior probes needed. "
+        "Identify ambiguities, likely explanations, and the smallest next deterministic or browser-behavior probes needed. Return strict JSON only with keys summary and hypotheses. Each hypothesis must contain target (the control_id only, never a selector), meaning, confidence (low|medium|high), evidence_refs (array of short IDs such as control:unclassified-1 or behavior:1; never copy raw evidence text), next_probe (inspect|hover|focus|click), and rationale. Do not put unescaped quotes inside string values. "
         "Do not recommend bypassing CAPTCHA, access controls, rate limits, suspension, or provider safeguards.\n\n"
         f"Target provider: {target_provider_id}\n"
         f"Unresolved questions: {json.dumps(unresolved_questions, ensure_ascii=False)}\n"
@@ -107,9 +127,14 @@ async def execute_ai_assistance(
     text = ""
     if response.choices:
         text = response.choices[0].message.content or ""
+    structured = _parse_structured_analysis(text)
+    hypotheses = structured.get("hypotheses") if isinstance(structured.get("hypotheses"), list) else []
     finding = normalize_ai_finding(selected.model, selected.provider_id, {
         "target_provider": target_provider_id,
         "analysis": text,
+        "structured": structured,
+        "hypotheses": hypotheses,
+        "verification_queue": [h for h in hypotheses if str(h.get("next_probe") or "") in {"inspect","hover","focus","click"}],
         "unresolved_questions": unresolved_questions,
     })
     finding["routing_policy"] = routing_policy

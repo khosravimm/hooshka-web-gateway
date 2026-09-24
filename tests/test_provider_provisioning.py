@@ -242,3 +242,16 @@ def test_advance_reconciles_stale_readiness_before_enable(monkeypatch,tmp_path):
 def test_readiness_sync_requires_current_evidence():
     source=open('control_panel.py',encoding='utf-8').read()
     assert 'current_record.get("current") is True' in source
+
+
+def test_provider_wizard_ai_assist_requires_explicit_approval():
+    resp=_client().post('/panel/api/provider-wizard/ai-assist/future-web',json={})
+    assert resp.status_code==400
+    assert resp.get_json()['error']=='user_approval_required'
+
+
+def test_provider_wizard_ai_assist_missing_candidate(monkeypatch):
+    monkeypatch.setattr(control_panel,'load_candidate',lambda root,cid: (_ for _ in ()).throw(FileNotFoundError(cid)))
+    resp=_client().post('/panel/api/provider-wizard/ai-assist/missing',json={'confirmed_by_user':True})
+    assert resp.status_code==404
+    assert resp.get_json()['error']=='candidate_not_found'

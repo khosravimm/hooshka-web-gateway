@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.44.0",
-  "updated_at": "2026-09-24",
+  "version": "1.45.0",
+  "updated_at": "2026-09-24T11:05:00Z",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -604,7 +604,7 @@
       "id": "HWG-WORK-018",
       "title": "AI-assisted Discovery with explicit approval and provenance",
       "area": "discovery",
-      "status": "PARTIAL",
+      "status": "DONE",
       "priority": "P1",
       "source": [
         "NG-DISC-001..005",
@@ -626,15 +626,17 @@
         "AI findings remain candidates until deterministic/evidence validation"
       ],
       "latest_evidence": {
-        "date": "2026-09-23",
-        "type": "E1+E2 Explorer Engine live media diagnostics",
-        "result": "Explorer Engine 1.1.0 identified provider upload surfaces, media-class drift, ChatGPT UI drift, Z.ai MP4 upload completion and /api/v1/files/ runtime evidence, while preserving unverified status when provider round-trip did not complete.",
-        "record": "docs/evidence/HWG_MEDIA_QUALIFICATION_ZAI_E2_20260923.md"
+        "date": "2026-09-24",
+        "type": "E1+E2 AI-assisted discovery live verification",
+        "result": "GapGPT deterministic discovery left six unresolved controls; DeepSeek produced six E0 structured hypotheses under explicit approval and target avoidance; six queued probes were independently verified, with no direct AI promotion.",
+        "record": "docs/evidence/HWG_AI_ASSISTED_DISCOVERY_GAPGPT_E2_20260924.md"
       },
       "evidence": [
-        "docs/evidence/HWG_DISCOVERY_VISUAL_UPLOAD_CHATGPT_E2_20260923.md"
+        "docs/evidence/HWG_DISCOVERY_VISUAL_UPLOAD_CHATGPT_E2_20260923.md",
+        "docs/evidence/HWG_AI_ASSISTED_DISCOVERY_GAPGPT_E2_20260924.md"
       ],
-      "updated_at": "2026-09-23"
+      "updated_at": "2026-09-24",
+      "completed_at": "2026-09-24"
     },
     {
       "id": "HWG-WORK-019",

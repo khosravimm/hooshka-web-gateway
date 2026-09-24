@@ -1,3 +1,11 @@
+### 1.0.0-dev.7 (WIP - AI-assisted Explorer verification)
+- Added structured AI hypotheses with bounded provenance and verification queues; findings remain `E0/CANDIDATE`.
+- Added provider-onboarding AI-assist and deterministic verification endpoints with explicit approval and target-provider avoidance.
+- Safe `inspect`/`hover`/`focus` probes can verify AI suggestions; click remains confirmation-gated.
+- Live GapGPT E2 used DeepSeek as analyst: 6 hypotheses were produced, then independently probed without direct AI promotion.
+- Closed `HWG-WORK-018`; Work Register advanced to `1.45.0`.
+- Evidence: `docs/evidence/HWG_AI_ASSISTED_DISCOVERY_GAPGPT_E2_20260924.md`.
+
 ### 1.0.0-dev.7 (WIP - autonomous Explorer continuation)
 - Preserved onboarding page identity with CDP `targetId` and same-tab re-observation.
 - User-View readiness now recognizes an enabled chat composer even when Send is lazy-rendered.

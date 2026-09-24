@@ -42,6 +42,7 @@ from core.self_use_roundtrip_probe import controlled_roundtrip as controlled_sel
 from core.provider_tool_probe import probe_provider_tool_call
 from core.browser_behavior_probe import BehaviorAction, ProbePolicy
 from core.discovery_ai_service import execute_ai_assistance
+from core.discovery_ai_verification import verify_ai_queue
 from core.blind_discovery import probe_auth_cdp as discovery_probe_auth_cdp
 from core.account_session import normalize_session
 from core.functional_readiness import run_functional_probe, save_readiness, load_readiness, invalidate_readiness
@@ -1206,6 +1207,57 @@ def api_provider_wizard_advance_candidate(candidate_id):
         break
     persist_candidate(root,record)
     return jsonify({"candidate":record,"trace":trace,"workflow_state":record.get("technical_candidate",{}).get("workflow_state"),"next_required":record.get("technical_candidate",{}).get("next_required")})
+
+
+@control_panel_bp.route('/api/provider-wizard/ai-assist/<candidate_id>', methods=['POST'])
+def api_provider_wizard_ai_assist(candidate_id):
+    import asyncio, concurrent.futures
+    payload=request.get_json(silent=True) or {}
+    if payload.get("confirmed_by_user") is not True:
+        return jsonify({"error":"user_approval_required"}),400
+    root=Path(__file__).parent.resolve()
+    try: record=load_candidate(root,candidate_id)
+    except FileNotFoundError: return jsonify({"error":"candidate_not_found"}),404
+    technical=record.get("technical_candidate") or {}
+    unresolved=list(technical.get("unresolved_controls") or [])
+    if not unresolved:
+        return jsonify({"error":"deterministic_work_complete"}),409
+    questions=[f"Identify likely meaning and safest verification probe for unresolved control {i+1}: {x.get('selector')}" for i,x in enumerate(unresolved[:12])]
+    evidence={"controls":unresolved[:12],"behavior_evidence":technical.get("behavior_evidence") or [],"user_view":(record.get("observation") or {}).get("user_view") or {}}
+    loop=current_app.config.get("HWG_ASYNC_LOOP")
+    if loop is None or not loop.is_running(): return jsonify({"error":"async_runtime_unavailable"}),503
+    try:
+        fut=asyncio.run_coroutine_threadsafe(execute_ai_assistance(provider_registry,candidate_id,f"onboarding-{candidate_id}",questions,evidence,user_approved=True,routing_policy=str(payload.get("routing_policy") or "least_loaded"),allow_target_provider=payload.get("allow_target_provider") is True),loop)
+        finding=fut.result(timeout=120)
+    except concurrent.futures.TimeoutError: return jsonify({"error":"ai_assistance_timeout"}),504
+    except PermissionError as exc: return jsonify({"error":"ai_assistance_denied","message":str(exc)}),403
+    except LookupError as exc: return jsonify({"error":"no_ai_route","message":str(exc)}),409
+    history=record.setdefault("ai_assistance_history",[])
+    history.append(finding); record["ai_assistance"]=finding
+    persist_candidate(root,record)
+    return jsonify({"candidate_id":candidate_id,"finding":finding,"verification_queue":((finding.get("finding") or {}).get("verification_queue") or [])})
+
+
+@control_panel_bp.route('/api/provider-wizard/ai-verify/<candidate_id>', methods=['POST'])
+def api_provider_wizard_ai_verify(candidate_id):
+    import asyncio, concurrent.futures
+    payload=request.get_json(silent=True) or {}; root=Path(__file__).parent.resolve()
+    try: record=load_candidate(root,candidate_id)
+    except FileNotFoundError: return jsonify({"error":"candidate_not_found"}),404
+    finding=record.get("ai_assistance") or {}
+    if not finding: return jsonify({"error":"ai_assistance_missing"}),409
+    analysis=record.get("analysis") or {}; runtime_key=str(analysis.get("recommended_runtime_key") or "")
+    runtime=_browser_runtime_by_key(runtime_key) if runtime_key else None
+    if runtime is None or not runtime.get("ready"): return jsonify({"error":"browser_runtime_not_ready"}),409
+    loop=current_app.config.get("HWG_ASYNC_LOOP")
+    if loop is None or not loop.is_running(): return jsonify({"error":"async_runtime_unavailable"}),503
+    try:
+        fut=asyncio.run_coroutine_threadsafe(verify_ai_queue(runtime["cdp_url"],record,finding,allow_click=payload.get("confirmed_by_user") is True),loop)
+        results=fut.result(timeout=120)
+    except concurrent.futures.TimeoutError: return jsonify({"error":"ai_verification_timeout"}),504
+    history=record.setdefault("ai_verification_history",[]); history.append({"results":results})
+    record["ai_verification"]={"results":results}; persist_candidate(root,record)
+    return jsonify({"candidate_id":candidate_id,"results":results})
 
 
 @control_panel_bp.route('/api/provider-wizard/register/<candidate_id>', methods=['POST'])
