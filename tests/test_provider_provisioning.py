@@ -377,3 +377,46 @@ def test_provider_wizard_live_input_blocks_sensitive_result(monkeypatch):
     resp=_client().post('/panel/api/provider-wizard/live-input',json={'runtime_key':runtime['runtime_key'],'kind':'text','text':'secret'})
     assert resp.status_code==409
     assert resp.get_json()['reason']=='sensitive_input_requires_native_tab'
+
+
+def test_sidebar_meta_is_compact_and_has_no_evidence_dump():
+    html=open('control_panel_ui/index.html',encoding='utf-8').read()
+    js=open('control_panel_ui/panel.js',encoding='utf-8').read()
+    assert 'id="meta-version"' in html
+    assert 'id="meta-build"' in html
+    assert 'id="meta-evidence"' not in html
+    assert 'id="meta-ui"' not in html
+    assert "$('#meta-evidence')" not in js
+    assert "$('#meta-ui')" not in js
+
+
+def test_provider_wizard_close_target_is_owned_only(monkeypatch):
+    runtime=_runtime(); runtime['ready']=True
+    monkeypatch.setattr(control_panel,'_browser_runtime_by_key',lambda key:runtime)
+    monkeypatch.setattr(control_panel,'close_owned_target_sync',lambda cdp,target_id:{'status':'closed','target_id':target_id})
+    resp=_client().post('/panel/api/provider-wizard/close-target',json={'runtime_key':runtime['runtime_key'],'target_id':'T-LIVE'})
+    assert resp.status_code==200
+    assert resp.get_json()['status']=='closed'
+
+
+def test_provider_wizard_screencast_routes(monkeypatch):
+    runtime=_runtime(); runtime['ready']=True
+    monkeypatch.setattr(control_panel,'_browser_runtime_by_key',lambda key:runtime)
+    monkeypatch.setattr(control_panel,'start_screencast_sync',lambda cdp,target_id,url='':{'status':'starting','target_id':target_id})
+    monkeypatch.setattr(control_panel,'get_screencast_frame',lambda cdp,target_id:{'status':'streaming','target_id':target_id,'sequence':7,'frame':b'jpg','metadata':{'deviceWidth':1280,'deviceHeight':720}})
+    monkeypatch.setattr(control_panel,'stop_screencast_sync',lambda cdp,target_id:{'status':'stopped','target_id':target_id,'sequence':7})
+    c=_client(); payload={'runtime_key':runtime['runtime_key'],'target_id':'T-SC','url':'https://future.example/chat'}
+    assert c.post('/panel/api/provider-wizard/screencast/start',json=payload).status_code==200
+    frame=c.get('/panel/api/provider-wizard/screencast/frame',query_string={'runtime_key':runtime['runtime_key'],'target_id':'T-SC'})
+    assert frame.status_code==200 and frame.data==b'jpg'
+    assert frame.headers['X-HWG-Sequence']=='7'
+    assert frame.headers['X-HWG-Viewport-Width']=='1280'
+    assert c.post('/panel/api/provider-wizard/screencast/stop',json=payload).status_code==200
+
+
+def test_integrated_workspace_prefers_cdp_screencast():
+    js=open('control_panel_ui/panel.js',encoding='utf-8').read()
+    assert '/provider-wizard/screencast/start' in js
+    assert '/provider-wizard/screencast/frame' in js
+    assert '/provider-wizard/screencast/stop' in js
+    assert 'setInterval(pollProviderLiveView,250)' in js

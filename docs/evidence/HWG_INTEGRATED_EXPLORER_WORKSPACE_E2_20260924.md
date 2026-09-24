@@ -51,3 +51,10 @@ This checkpoint also removes two passive dead ends found during NoteGPT explorat
 - `compileall`: PASS;
 - `node --check control_panel_ui/panel.js`: PASS;
 - `git diff --check`: PASS.
+
+## 2026-09-25 extension — compact shell, CDP screencast, target lifecycle
+- Sidebar evidence dump removed; UI shows product version `1.0.0-dev.7` and compact build identity `develop · bf79cc5`.
+- Wizard-owned target lifecycle E2: target was opened with `owned_by_wizard=true`, closed through `/provider-wizard/close-target`, and was no longer present in the live CDP page set.
+- CDP screencast E2 on NoteGPT: frame sequences `1`, `2`, `6` were observed from `Page.startScreencast`, with JPEG frame sizes `54122`, `54081`, `54129` bytes.
+- Stream stop returned sequence `8`; the same Wizard-owned target was then closed successfully.
+- Screenshot polling remains only as bounded fallback when screencast transport is unavailable.

@@ -128,16 +128,9 @@ function initNav() {
     try {
       const m = await api('/meta');
       $('#meta-version').textContent = m.version || '-';
-      $('#meta-commit').textContent = m.commit || '-';
-      $('#meta-branch').textContent = m.branch || '-';
-      $('#meta-evidence').textContent = m.evidence || '-';
+      const buildParts=[m.branch && m.branch!=='unknown' ? m.branch : null, m.commit && m.commit!=='unknown' ? m.commit : null].filter(Boolean);
+      $('#meta-build').textContent = buildParts.join(' · ') || '-';
     } catch (e) { /* keep placeholders */ }
-    try {
-      const ui = await fetch('/panel/assets/UI_VERSION.json', { cache: 'no-store' }).then(r => r.json());
-      $('#meta-ui').textContent = (ui.version || '-') + (ui.build ? (' · ' + ui.build) : '');
-    } catch (e) {
-      $('#meta-ui').textContent = '-';
-    }
   }
 
   async function loadServiceBadge() {
@@ -704,7 +697,7 @@ function initNav() {
     }
   };
 
-  let providerWizard = { analysis:null, observation:null, candidate:null, runtimes:[], liveTargetId:'', liveRuntimeKey:'', liveUrl:'', liveViewport:{width:0,height:0} };
+  let providerWizard = { analysis:null, observation:null, candidate:null, runtimes:[], liveTargetId:'', liveRuntimeKey:'', liveUrl:'', liveViewport:{width:0,height:0}, liveOwned:false };
   let wizardActivityTimer=null, wizardActivityStarted=0;
   function formatWizardElapsed(ms){ const sec=Math.max(0,Math.floor(ms/1000)); return String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0'); }
   function setWizardControlsBusy(busy){
@@ -722,7 +715,7 @@ function initNav() {
     providerLiveBusy=true;
     try {
       const q=new URLSearchParams({runtime_key:providerWizard.liveRuntimeKey,url:providerWizard.liveUrl}); if(providerWizard.liveTargetId) q.set('target_id',providerWizard.liveTargetId);
-      const resp=await fetch('/panel/api/provider-wizard/live-view?'+q.toString(),{cache:'no-store'}); if(!resp.ok) throw new Error('HTTP '+resp.status);
+      let resp=await fetch('/panel/api/provider-wizard/screencast/frame?'+q.toString(),{cache:'no-store'}); if(resp.status===425){ $('#pf-live-status').textContent='در حال شروع Screencast واقعی Provider...'; return; } if(!resp.ok){ resp=await fetch('/panel/api/provider-wizard/live-view?'+q.toString(),{cache:'no-store'}); if(!resp.ok) throw new Error('HTTP '+resp.status); }
       providerWizard.liveTargetId=resp.headers.get('X-HWG-Target-ID')||providerWizard.liveTargetId;
       providerWizard.liveViewport={width:Number(resp.headers.get('X-HWG-Viewport-Width')||0),height:Number(resp.headers.get('X-HWG-Viewport-Height')||0)};
       const blob=await resp.blob(); const next=URL.createObjectURL(blob); const img=$('#pf-live-image'); if(providerLiveObjectUrl)URL.revokeObjectURL(providerLiveObjectUrl); providerLiveObjectUrl=next; img.src=next;
@@ -730,13 +723,25 @@ function initNav() {
     } catch(e) { $('#pf-live-status').textContent='در انتظار Target واقعی Provider...'; }
     finally { providerLiveBusy=false; }
   }
-  function startProviderLiveView(runtimeKey,url,targetId){ providerWizard.liveRuntimeKey=runtimeKey||''; providerWizard.liveUrl=url||''; if(targetId)providerWizard.liveTargetId=targetId; $('#pf-live-pane').classList.remove('wizard-hidden'); pollProviderLiveView(); if(providerLiveTimer)clearInterval(providerLiveTimer); providerLiveTimer=setInterval(pollProviderLiveView,850); }
+  function startProviderLiveView(runtimeKey,url,targetId){ providerWizard.liveRuntimeKey=runtimeKey||''; providerWizard.liveUrl=url||''; if(targetId)providerWizard.liveTargetId=targetId; $('#pf-live-pane').classList.remove('wizard-hidden'); api('/provider-wizard/screencast/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runtime_key:providerWizard.liveRuntimeKey,target_id:providerWizard.liveTargetId,url:providerWizard.liveUrl})}).catch(()=>{}); pollProviderLiveView(); if(providerLiveTimer)clearInterval(providerLiveTimer); providerLiveTimer=setInterval(pollProviderLiveView,250); }
+  async function cleanupWizardOwnedTarget(){
+    const runtimeKey=providerWizard.liveRuntimeKey, targetId=providerWizard.liveTargetId, owned=providerWizard.liveOwned===true;
+    stopProviderLiveView();
+    if(runtimeKey && targetId){ try { await api('/provider-wizard/screencast/stop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runtime_key:runtimeKey,target_id:targetId})}); } catch(e) {} }
+    if(!owned || !runtimeKey || !targetId) return {status:'not_owned'};
+    try {
+      const result=await api('/provider-wizard/close-target',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runtime_key:runtimeKey,target_id:targetId})});
+      providerWizard.liveOwned=false; providerWizard.liveTargetId='';
+      return result;
+    } catch(e) { console.warn('Wizard-owned target cleanup failed',e); return {status:'cleanup_failed'}; }
+  }
+
   async function sendProviderLiveInput(kind,payload={}){ if(!providerWizard.liveRuntimeKey)return; const body={kind,runtime_key:providerWizard.liveRuntimeKey,target_id:providerWizard.liveTargetId,url:providerWizard.liveUrl,...payload}; const resp=await fetch('/panel/api/provider-wizard/live-input',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); const data=await resp.json().catch(()=>({})); if(!resp.ok){ if(data.reason==='sensitive_input_requires_native_tab') setStatus($('#provider-form-status'),'برای Password یا ورودی حساس، از «نمایش تب واقعی» استفاده کنید.','err'); return data; } if(data.target_id)providerWizard.liveTargetId=data.target_id; setTimeout(pollProviderLiveView,120); return data; }
 
   function resetProviderWizard() {
     endWizardActivity();
     stopProviderLiveView();
-    providerWizard = { analysis:null, observation:null, candidate:null, runtimes:[], liveTargetId:'', liveRuntimeKey:'', liveUrl:'', liveViewport:{width:0,height:0} };
+    providerWizard = { analysis:null, observation:null, candidate:null, runtimes:[], liveTargetId:'', liveRuntimeKey:'', liveUrl:'', liveViewport:{width:0,height:0}, liveOwned:false };
     $('#pf-url').value='';
     $('#pf-proposal-card').classList.add('wizard-hidden');
     $('#pf-observation-card').classList.add('wizard-hidden');
@@ -745,6 +750,7 @@ function initNav() {
   }
 
   async function loadProviderForm() {
+    await cleanupWizardOwnedTarget();
     resetProviderWizard();
     try {
       const data=await api('/browser-runtimes'); providerWizard.runtimes=data.browser_runtimes||[];
@@ -1279,8 +1285,8 @@ function initNav() {
 
     // URL-driven Provider onboarding wizard
     $('#btn-add-provider').addEventListener('click', async () => { showPanel('provider-form'); await loadProviderForm(); });
-    $('#btn-close-provider-form').addEventListener('click', () => showPanel('providers'));
-    $('#pf-cancel').addEventListener('click', () => showPanel('providers'));
+    $('#btn-close-provider-form').addEventListener('click', async () => { await cleanupWizardOwnedTarget(); resetProviderWizard(); showPanel('providers'); });
+    $('#pf-cancel').addEventListener('click', async () => { await cleanupWizardOwnedTarget(); resetProviderWizard(); showPanel('providers'); });
 
     $('#pf-analyze').addEventListener('click', async () => {
       const url=($('#pf-url').value||'').trim(); const status=$('#provider-form-status');
@@ -1377,7 +1383,7 @@ function initNav() {
         $('#pf-live-status').textContent=preferred?'در حال اتصال به Target موجود...':'در حال ساخت Target واقعی Provider...';
         if(!preferred){
           const opened=await api('/provider-wizard/open-target',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:a.url,runtime_key:runtimeKey})});
-          preferred=opened.target_id||null; providerWizard.liveTargetId=preferred||'';
+          preferred=opened.target_id||null; providerWizard.liveTargetId=preferred||''; providerWizard.liveOwned=opened.owned_by_wizard===true;
         }
         startProviderLiveView(runtimeKey,a.url,preferred);
         const r=await api('/provider-wizard/observe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:a.url,runtime_key:runtimeKey,preferred_target_id:preferred})});

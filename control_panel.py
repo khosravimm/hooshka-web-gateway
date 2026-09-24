@@ -49,7 +49,7 @@ from core.functional_readiness import run_functional_probe, save_readiness, load
 from core.media_contract import provider_media_manifest
 from core.provider_onboarding import analyze_url as analyze_provider_url, observe_url_sync, save_candidate, load_candidate, persist_candidate, qualify_submit_candidate_sync, apply_submit_qualification, generate_adapter_candidate, qualify_materialized_adapter_sync, materialize_adapter_profile, refine_adapter_from_existing_conformance_sync, diagnose_committed_qualification_sync
 from adapters.discovered_web_provider import create_discovered_web_provider
-from core.provider_live_view import open_target_sync, capture_live_view_sync, dispatch_live_input_sync
+from core.provider_live_view import open_target_sync, capture_live_view_sync, dispatch_live_input_sync, close_owned_target_sync, start_screencast_sync, get_screencast_frame, stop_screencast_sync
 
 control_panel_bp = Blueprint('control_panel', __name__, url_prefix='/panel')
 
@@ -1052,6 +1052,25 @@ def api_provider_wizard_open_target():
         return jsonify({'error':'provider_live_target_open_failed','message':type(exc).__name__}),502
 
 
+@control_panel_bp.route('/api/provider-wizard/screencast/start', methods=['POST'])
+def api_provider_wizard_screencast_start():
+    data=request.get_json(silent=True) or {}
+    runtime=_browser_runtime_by_key(str(data.get('runtime_key') or '').strip())
+    if runtime is None or not runtime.get('ready'):
+        return jsonify({'error':'browser_runtime_not_ready'}),409
+    result=start_screencast_sync(runtime['cdp_url'],str(data.get('target_id') or '').strip(),str(data.get('url') or '').strip())
+    return jsonify(result)
+
+@control_panel_bp.route('/api/provider-wizard/screencast/frame', methods=['GET'])
+def api_provider_wizard_screencast_frame():
+    runtime=_browser_runtime_by_key(str(request.args.get('runtime_key') or '').strip())
+    if runtime is None or not runtime.get('ready'):
+        return jsonify({'error':'browser_runtime_not_ready'}),409
+    result=get_screencast_frame(runtime['cdp_url'],str(request.args.get('target_id') or '').strip())
+    if result.get('status') not in {'streaming','starting'} or not result.get('frame'):
+        return jsonify({k:v for k,v in result.items() if k!='frame'}),425
+    resp=Response(result['frame'],mimetype='image/jpeg'); resp.headers['Cache-Control']='no-store'; resp.headers['X-HWG-Sequence']=str(result.get('sequence') or 0); meta=result.get('metadata') or {}; resp.headers['X-HWG-Viewport-Width']=str(meta.get('deviceWidth') or ''); resp.headers['X-HWG-Viewport-Height']=str(meta.get('deviceHeight') or ''); return resp
+
 @control_panel_bp.route('/api/provider-wizard/live-view', methods=['GET'])
 def api_provider_wizard_live_view():
     runtime=_browser_runtime_by_key(str(request.args.get('runtime_key') or '').strip())
@@ -1077,6 +1096,25 @@ def api_provider_wizard_live_input():
         return jsonify({'error':'browser_runtime_not_ready'}),409
     result=dispatch_live_input_sync(runtime['cdp_url'],data)
     return jsonify(result), (200 if result.get('status')=='ok' else 409)
+
+
+@control_panel_bp.route('/api/provider-wizard/screencast/stop', methods=['POST'])
+def api_provider_wizard_screencast_stop():
+    data=request.get_json(silent=True) or {}
+    runtime=_browser_runtime_by_key(str(data.get('runtime_key') or '').strip())
+    if runtime is None or not runtime.get('ready'):
+        return jsonify({'error':'browser_runtime_not_ready'}),409
+    result=stop_screencast_sync(runtime['cdp_url'],str(data.get('target_id') or '').strip())
+    return jsonify(result)
+
+@control_panel_bp.route('/api/provider-wizard/close-target', methods=['POST'])
+def api_provider_wizard_close_target():
+    data=request.get_json(silent=True) or {}
+    runtime=_browser_runtime_by_key(str(data.get('runtime_key') or '').strip())
+    if runtime is None or not runtime.get('ready'):
+        return jsonify({'error':'browser_runtime_not_ready'}),409
+    result=close_owned_target_sync(runtime['cdp_url'],str(data.get('target_id') or '').strip())
+    return jsonify(result), (200 if result.get('status') in {'closed','gone'} else 409)
 
 
 @control_panel_bp.route('/api/provider-wizard/observe', methods=['POST'])
