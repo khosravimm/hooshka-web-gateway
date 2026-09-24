@@ -75,3 +75,41 @@ async def test_visible_state_recognizes_image_preview_alt_as_attachment():
     state=await visible_page_state(page,"visual-proof.png")
     assert state["attachment_visible"] is True
     assert state["media_previews"][0]["alt"] == "visual-proof.png"
+
+
+@pytest.mark.asyncio
+async def test_visual_action_gate_blocks_quota_before_media_action():
+    from core.visual_discovery import visual_action_gate
+    page=FakePage([{"url":"https://x","title":"x","viewport":{},"body":"Processing limit reached. Try after quota resets.","controls":[],"composers":[]}])
+    result=await visual_action_gate(page,"media_qualification")
+    assert result["allowed"] is False
+    assert result["classification"]["state"] == "quota_limited"
+    assert result["reason"] == "blocked_by_provider_state"
+
+@pytest.mark.asyncio
+async def test_visual_action_gate_allows_clear_media_page():
+    from core.visual_discovery import visual_action_gate
+    page=FakePage([{"url":"https://x","title":"x","viewport":{},"body":"Chat ready","controls":[],"composers":[{"disabled":False}]}])
+    result=await visual_action_gate(page,"media_qualification")
+    assert result["allowed"] is True
+    assert result["reason"] == "visual_preflight_clear"
+
+
+@pytest.mark.asyncio
+async def test_visual_action_gate_scopes_file_quota_to_media_only():
+    from core.visual_discovery import visual_action_gate
+    state={"url":"https://x","title":"x","viewport":{},"body":"File processing limit reached for the free plan.","controls":[],"composers":[]}
+    media=await visual_action_gate(FakePage([state]),"media_qualification")
+    send=await visual_action_gate(FakePage([state]),"send")
+    assert media["allowed"] is False
+    assert media["classification"]["state"] == "quota_limited"
+    assert media["classification"]["scope"] == "media"
+    assert send["allowed"] is True
+
+@pytest.mark.asyncio
+async def test_visual_action_gate_blocks_general_quota_for_send():
+    from core.visual_discovery import visual_action_gate
+    state={"url":"https://x","title":"x","viewport":{},"body":"Usage limit reached. Try again later.","controls":[],"composers":[]}
+    send=await visual_action_gate(FakePage([state]),"send")
+    assert send["allowed"] is False
+    assert send["classification"]["scope"] == "general"

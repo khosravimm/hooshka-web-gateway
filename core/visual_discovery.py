@@ -82,12 +82,17 @@ USER_VIEW_PATTERNS = [
 
 def classify_user_view_state(state: dict[str, Any]) -> dict[str, Any]:
     text = str(state.get("body_tail") or "")
-    if state.get("upload_busy"):
-        return {"state":"upload_busy","evidence":"visible upload progress"}
     for name, pattern in USER_VIEW_PATTERNS:
         match = pattern.search(text)
         if match:
-            return {"state":name,"evidence":match.group(0)[:160]}
+            result={"state":name,"evidence":match.group(0)[:160]}
+            if name=="quota_limited":
+                lower=text.lower()
+                media_hint=bool(re.search(r"file|upload|attachment|processing file|فایل|پردازش\s+فایل", lower, re.I))
+                result["scope"]="media" if media_hint else "general"
+            return result
+    if state.get("upload_busy"):
+        return {"state":"upload_busy","evidence":"visible upload progress"}
     if state.get("send_present") and state.get("send_enabled"):
         return {"state":"ready","evidence":"visible enabled send control"}
     if state.get("composer_present") and state.get("composer_enabled"):
@@ -95,6 +100,31 @@ def classify_user_view_state(state: dict[str, Any]) -> dict[str, Any]:
     if state.get("send_present") or state.get("composer_present"):
         return {"state":"interactive_not_ready","evidence":"visible chat composer/send control is disabled"}
     return {"state":"unknown","evidence":"no known visible state matched"}
+
+
+VISUAL_ACTION_BLOCKING_STATES = {
+    "media_qualification": {"region_blocked","login_required","challenge","quota_limited","rate_limited","service_error"},
+    "send": {"region_blocked","login_required","challenge","quota_limited","rate_limited","service_error"},
+    "probe": {"region_blocked","login_required","challenge","rate_limited","service_error"},
+}
+
+async def visual_action_gate(page, action: str) -> dict[str, Any]:
+    state = await visible_page_state(page)
+    classification = classify_user_view_state(state)
+    name = str(classification.get("state") or "unknown")
+    blocked = name in VISUAL_ACTION_BLOCKING_STATES.get(action, set())
+    if name=="quota_limited" and str(classification.get("scope") or "general")=="media" and action!="media_qualification":
+        blocked=False
+    return {
+        "action": action,
+        "allowed": not blocked,
+        "classification": classification,
+        "state": state,
+        "reason": ("blocked_by_provider_state" if blocked else "visual_preflight_clear"),
+    }
+
+async def media_qualification_preflight(page) -> dict[str, Any]:
+    return await visual_action_gate(page, "media_qualification")
 
 
 def user_view_access_state(classification: dict[str, Any]) -> str:

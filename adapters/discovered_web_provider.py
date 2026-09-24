@@ -174,7 +174,7 @@ class DiscoveredWebProvider(Provider):
 
     async def qualify_media(self, media_kind: str, file_path: str, prompt: str, expected_marker: str) -> dict:
         from core.media_qualification import observe_file_upload_surface, qualification_result
-        from core.visual_discovery import wait_for_upload_settled, resolve_safe_upload_dialog
+        from core.visual_discovery import wait_for_upload_settled, resolve_safe_upload_dialog, media_qualification_preflight
         path=Path(file_path).expanduser().resolve()
         if not path.is_file():
             raise ProviderError(f"File not found: {path}", "file_not_found", self.provider_id)
@@ -184,6 +184,19 @@ class DiscoveredWebProvider(Provider):
         if not response_selector:
             raise ProviderError("Certified response selector missing", "response_surface_missing", self.provider_id)
         surface=await observe_file_upload_surface(page)
+        preflight=await media_qualification_preflight(page)
+        if not preflight.get("allowed"):
+            result=qualification_result(self.provider_id,media_kind,str(path),"",expected_marker,advertised=surface)
+            result.update({
+                "status":"blocked",
+                "tested":False,
+                "reason":str(preflight.get("reason") or "blocked_by_provider_state"),
+                "classification":preflight.get("classification") or {},
+                "preflight":preflight,
+                "commitment_state":"not_sent",
+                "retry_allowed":True,
+            })
+            return result
         file_input=page.locator("input[type=file]").first
         if await file_input.count()==0:
             raise ProviderError("File input unavailable", "upload_not_supported", self.provider_id)
@@ -221,6 +234,15 @@ class DiscoveredWebProvider(Provider):
         response_selector = str((((self._candidate.get("transport") or {}).get("response") or {}).get("selector") or "")).strip()
         if not response_selector:
             raise ProviderError("Certified response selector missing", "response_surface_missing", self.provider_id)
+        from core.visual_discovery import visual_action_gate
+        gate = await visual_action_gate(page, "send")
+        if not gate.get("allowed"):
+            raise ProviderError(
+                "Provider UI blocks message submission",
+                "blocked_by_visual_state",
+                self.provider_id,
+                {"classification": gate.get("classification") or {}, "commitment_state":"not_sent", "retry_allowed":True},
+            )
         before_texts = [str(x).strip() for x in await page.locator(response_selector).all_inner_texts() if str(x).strip()]
         before_controls = await page.evaluate(ENUMERATE_JS)
         self._commitment_state = "not_sent"

@@ -10,7 +10,7 @@ def test_explorer_capability_matrix_is_complete_and_grounded():
     allowed=set(doc['status_vocabulary'])
     rows=doc['capabilities']
     ids={x['id'] for x in rows}
-    required={'user_view_state','visual_capture','interaction_map','behavior_click_guard','upload_surface','selector_rediscovery','roundtrip_qualification','adapter_synthesis','readiness_reconcile','ai_routing','ai_hypotheses','ai_queue_partition','ai_verification','ai_visual_semantics','ai_exact_ocr','evidence_provenance'}
+    required={'user_view_state','visual_capture','interaction_map','behavior_click_guard','upload_surface','selector_rediscovery','roundtrip_qualification','adapter_synthesis','readiness_reconcile','ai_routing','ai_hypotheses','ai_queue_partition','ai_verification','ai_visual_semantics','ai_exact_ocr','evidence_provenance','visual_action_preflight'}
     assert required.issubset(ids)
     assert len(ids)==len(rows)
     for item in rows:

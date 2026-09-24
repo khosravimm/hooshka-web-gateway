@@ -45,6 +45,12 @@ async def verify_ai_queue(cdp_url:str, record:dict[str,Any], finding:dict[str,An
             if probe not in SAFE_PROBES|{"click"}:
                 out.append({"index":idx,"target":target,"probe":probe,"status":"unsupported_probe"}); continue
             try:
+                if probe=="click":
+                    from core.visual_discovery import visual_action_gate
+                    gate=await visual_action_gate(page,"probe")
+                    if not gate.get("allowed"):
+                        out.append({"index":idx,"target":target,"probe":probe,"status":"blocked_by_visual_state","verification_state":"BLOCKED","promotion":"not_promoted","meaning":str(h.get("meaning") or ""),"classification":gate.get("classification") or {}})
+                        continue
                 if probe=="inspect":
                     meta=await page.evaluate("""(s)=>{const e=document.querySelector(s); if(!e)return null; const r=e.getBoundingClientRect(); return {tag:e.tagName,text:(e.innerText||'').trim().slice(0,160),aria:e.getAttribute('aria-label')||'',title:e.getAttribute('title')||'',role:e.getAttribute('role')||'',type:e.getAttribute('type')||'',disabled:e.disabled===true||e.getAttribute('aria-disabled')==='true',visible:r.width>0&&r.height>0};}""",selector)
                     out.append({"index":idx,"target":target,"probe":probe,"status":"probe_completed","verification_state":"OBSERVED_E1","evidence_level":"E1","promotion":"not_promoted","meaning":str(h.get("meaning") or ""),"observation":meta})

@@ -1,3 +1,11 @@
+### 1.0.0-dev.7 (WIP - visual-first action gating)
+- Added a reusable Visual Action Gate before side-effecting Explorer actions.
+- Media qualification now stops before file attachment when rendered UI shows quota/login/challenge/blocking states.
+- Quota classification is action/scope-aware: a file-processing quota blocks media qualification without incorrectly blocking normal text Send.
+- Approved AI click probes also re-check the current user-visible state before clicking.
+- Live GapGPT evidence: file quota produced `blocked`, `tested=false`, `commitment_state=not_sent`; no false media certification was created.
+- Evidence: `docs/evidence/HWG_EXPLORER_VISUAL_ACTION_GATE_GAPGPT_E2_20260924.md`.
+
 ### 1.0.0-dev.7 (WIP - discovered-provider media qualification)
 - Added generic E2 media qualification to materialized discovered-web providers.
 - Added user-view blocking upload-dialog detection with narrowly scoped safe dismissal.

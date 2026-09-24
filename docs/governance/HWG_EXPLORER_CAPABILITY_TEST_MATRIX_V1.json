@@ -510,6 +510,22 @@
       "live_evidence": [
         "docs/evidence/HWG_DISCOVERED_PROVIDER_GAPGPT_E2_20260924.md"
       ]
+    },
+    {
+      "id": "visual_action_preflight",
+      "name": "Visual-first action preflight with action/scope-aware blocking",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/visual_discovery.py",
+        "adapters/discovered_web_provider.py",
+        "core/discovery_ai_verification.py"
+      ],
+      "tests": [
+        "tests/test_visual_discovery.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_EXPLORER_VISUAL_ACTION_GATE_GAPGPT_E2_20260924.md"
+      ]
     }
   ]
 }
