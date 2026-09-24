@@ -1287,7 +1287,7 @@ function initNav() {
         else if (state==='region_blocked') nextAction='دسترسی از این محیط به‌صورت منطقه‌ای مسدود است؛ Candidate ثبت می‌شود اما کاوش عملیاتی تا رفع این شرط ادامه پیدا نمی‌کند.';
         else if (r.analysis?.register_new_provider===false) nextAction='این Origin از قبل ثبت شده است. Provider جدید ساخته نمی‌شود؛ برای Session یا هویت دوم به Workspace حساب‌ها و Session بروید.';
         else if (known) nextAction='Adapter موجود با URL تطبیق دارد. HWG می‌تواند Provider را با تنظیمات پیشنهادی ثبت کند؛ سپس Login/Discovery/Readiness ادامه می‌یابد.';
-        else nextAction='این URL یک Provider جدید است. Candidate کاوش ذخیره شد؛ HWG آن را به‌عنوان Provider قابل اجرا ثبت نمی‌کند تا Adapter و Evidence لازم ساخته شوند.';
+        else if (o.needs_deeper_exploration) nextAction='کاوشگر هنوز نتوانسته وضعیت صفحه را با Evidence کافی تشخیص دهد. فعلاً اقدامی از شما لازم نیست؛ این Candidate باید وارد کاوش عمیق‌تر خودکار شود.'; else nextAction='این URL یک Provider جدید است. Candidate کاوش ذخیره شد؛ HWG آن را به‌عنوان Provider قابل اجرا ثبت نمی‌کند تا Adapter و Evidence لازم ساخته شوند.';
         $('#pf-next-action').innerHTML=nextAction; $('#pf-reobserve').textContent=(state==='login_required'||state==='challenge')?'انجام شد؛ ادامه بررسی':'بررسی مجدد';
         $('#pf-observation-card').classList.remove('wizard-hidden');
         setStatus(status, known?'مشاهده کامل شد؛ پیشنهاد قابل ثبت است.':'مشاهده کامل شد؛ Candidate کاوش ثبت شد.','ok');

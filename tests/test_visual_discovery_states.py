@@ -31,3 +31,9 @@ def test_access_mapping_for_authenticated_view():
     from core.visual_discovery import user_view_access_state
     assert user_view_access_state({"state":"ready"})=="AUTHENTICATED"
     assert user_view_access_state({"state":"upload_busy"})=="AUTHENTICATED"
+
+
+def test_login_required_state_persian_visible_text():
+    out=classify_user_view_state({"body_tail":"ورود\nبا ورود به سامانه قوانین استفاده را می‌پذیرید.","upload_busy":False,"send_present":False,"send_enabled":False})
+    assert out["state"]=="login_required"
+    assert out["evidence"]=="ورود"

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse, urlunparse
 
-from core.visual_discovery import visible_page_state, visible_interaction_map, classify_user_view_state
+from core.visual_discovery import visible_page_state, visible_interaction_map, classify_user_view_state, capture_user_view
 
 SCHEMA_VERSION = "1.0.0"
 KNOWN_ORIGINS = {
@@ -95,36 +95,38 @@ async def observe_url(url: str, cdp_url: str) -> dict[str, Any]:
     context = browser.contexts[0]
     page = await context.new_page()
     try:
-        await page.goto(url, wait_until="domcontentloaded", timeout=30000)
-    except Exception:
-        pass
-    try:
-        await page.wait_for_timeout(3500)
-        state = await visible_page_state(page)
-        interaction_map = await visible_interaction_map(page)
-        classification = classify_user_view_state(state)
+        try:
+            await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+        except Exception:
+            pass
+        host = urlparse(url).hostname or "candidate"
+        trace = []
+        state = {}; interaction_map = {}; classification = {"state":"unknown","evidence":"not observed"}
+        for idx, ratio in enumerate((0.0, 0.5, 1.0, 0.0), start=1):
+            await page.wait_for_timeout(1500 if idx > 1 else 3500)
+            try:
+                await page.evaluate("r => scrollTo(0, Math.max(0,(document.documentElement.scrollHeight-innerHeight)*r))", ratio)
+                await page.wait_for_timeout(500)
+            except Exception:
+                pass
+            state = await visible_page_state(page)
+            interaction_map = await visible_interaction_map(page)
+            classification = classify_user_view_state(state)
+            shot = await capture_user_view(page, host, f"onboarding-pass-{idx}")
+            trace.append({"pass":idx,"scroll_ratio":ratio,"classification":classification,"url":page.url,"title":await page.title(),"controls":len(interaction_map.get("controls") or []),"screenshot":shot.get("screenshot")})
+            if classification.get("state") != "unknown":
+                break
         file_inputs = await page.locator('input[type="file"]').count()
         editable = await page.locator('textarea:visible,[contenteditable="true"]:visible,input[type="text"]:visible').count()
         selects = await page.locator('select:visible,[role="combobox"]:visible').count()
         return {
-            "schema_version": SCHEMA_VERSION,
-            "final_url": page.url,
-            "title": await page.title(),
-            "classification": classification,
-            "user_view": state,
-            "interaction_summary": {
-                "controls": len(interaction_map.get("controls") or []),
-                "headings": len(interaction_map.get("headings") or []),
-                "horizontal_overflow": bool(interaction_map.get("horizontal_overflow")),
-                "clipped": len(interaction_map.get("clipped") or []),
-                "file_inputs": file_inputs,
-                "editable_inputs": editable,
-                "selectors": selects,
-            },
-            "page_left_open": True,
+            "schema_version": SCHEMA_VERSION, "final_url": page.url, "title": await page.title(),
+            "classification": classification, "user_view": state, "exploration_trace": trace,
+            "interaction_summary": {"controls":len(interaction_map.get("controls") or []),"headings":len(interaction_map.get("headings") or []),"horizontal_overflow":bool(interaction_map.get("horizontal_overflow")),"clipped":len(interaction_map.get("clipped") or []),"file_inputs":file_inputs,"editable_inputs":editable,"selectors":selects},
+            "page_left_open": True, "autonomous_passes": len(trace),
+            "needs_deeper_exploration": classification.get("state") == "unknown",
         }
     finally:
-        # Stop the Playwright client only. The remote Chrome and opened tab remain available to the user.
         await pw.stop()
 
 

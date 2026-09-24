@@ -111,3 +111,10 @@ def test_provider_wizard_suggests_meaningful_name_from_chat_subdomain(monkeypatc
     body=_client().post('/panel/api/provider-wizard/analyze',json={'url':'https://chat.mistral.ai/chat'}).get_json()
     assert body['suggested_name']=='Mistral'
     assert body['suggested_provider_id']=='mistral-web'
+
+
+def test_provider_wizard_unknown_is_owned_by_explorer_not_user():
+    src=open('core/provider_onboarding.py',encoding='utf-8').read()
+    ui=open('control_panel_ui/panel.js',encoding='utf-8').read()
+    assert 'needs_deeper_exploration' in src
+    assert 'فعلاً اقدامی از شما لازم نیست' in ui

@@ -58,8 +58,8 @@ async def visible_page_state(page, file_name: str | None = None) -> dict[str, An
 
 USER_VIEW_PATTERNS = [
     ("region_blocked", re.compile(r"not available in your region|unavailable in your region|region (?:is )?not supported", re.I)),
-    ("login_required", re.compile(r"\b(log in|sign in|continue with google|continue with apple)\b", re.I)),
-    ("challenge", re.compile(r"captcha|verify you are human|security check|challenge", re.I)),
+    ("login_required", re.compile(r"(?:\b(?:log in|sign in|continue with google|continue with apple)\b|ورود|ثبت[‌ ]?نام|ادامه با گوگل)", re.I)),
+    ("challenge", re.compile(r"captcha|verify you are human|security check|challenge|تأیید.*انسان|کپچا|احراز.*انسان", re.I)),
     ("rate_limited", re.compile(r"too many requests|rate limit|try again later", re.I)),
     ("service_error", re.compile(r"something went wrong|service unavailable|internal server error|temporarily unavailable", re.I)),
     ("loading", re.compile(r"\b(loading|initializing|connecting)\b", re.I)),

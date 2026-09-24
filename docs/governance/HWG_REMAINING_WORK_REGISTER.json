@@ -1,6 +1,6 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.41.0",
+  "version": "1.42.0",
   "updated_at": "2026-09-24",
   "status_vocabulary": [
     "OPEN",
@@ -867,20 +867,22 @@
       ],
       "latest_evidence": {
         "date": "2026-09-24",
-        "type": "E2 URL-driven provider onboarding",
-        "result": "Add Provider was replaced by a URL-first guided discovery wizard. Live Mistral observation reached login_required and persisted a discovery candidate; existing DeepSeek origin was detected and duplicate provider creation was prevented. Human acceptance remains pending.",
-        "record": "docs/evidence/HWG_URL_DRIVEN_PROVIDER_WIZARD_E2_20260924.md"
+        "type": "E2 Explorer autonomy remediation",
+        "result": "A real unknown GapGPT onboarding candidate exposed English-only user-view classification and one-shot observation. Explorer was made multilingual and bounded multi-pass; the same candidate then self-classified login_required from visible Persian UI without manual hints.",
+        "record": "docs/evidence/HWG_EXPLORER_AUTONOMY_GAPGPT_E2_20260924.md"
       },
       "updated_at": "2026-09-24",
       "evidence": [
         "docs/evidence/HWG_EMBEDDED_CHAT_UPLOAD_E2_20260923.md",
         "docs/evidence/HWG_CONTROL_PLANE_DYNAMIC_VISUAL_AUDIT_E2_20260924.md",
-        "docs/evidence/HWG_URL_DRIVEN_PROVIDER_WIZARD_E2_20260924.md"
+        "docs/evidence/HWG_URL_DRIVEN_PROVIDER_WIZARD_E2_20260924.md",
+        "docs/evidence/HWG_EXPLORER_AUTONOMY_GAPGPT_E2_20260924.md"
       ],
       "evidence_paths": [
         "docs/evidence/HWG_EMBEDDED_CHAT_UPLOAD_E2_20260923.md",
         "docs/evidence/HWG_CONTROL_PLANE_DYNAMIC_VISUAL_AUDIT_E2_20260924.md",
-        "docs/evidence/HWG_URL_DRIVEN_PROVIDER_WIZARD_E2_20260924.md"
+        "docs/evidence/HWG_URL_DRIVEN_PROVIDER_WIZARD_E2_20260924.md",
+        "docs/evidence/HWG_EXPLORER_AUTONOMY_GAPGPT_E2_20260924.md"
       ]
     },
     {
