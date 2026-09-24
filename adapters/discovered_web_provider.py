@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from typing import AsyncIterator, Optional, Any
 from urllib.parse import urlparse
 
@@ -170,6 +171,42 @@ class DiscoveredWebProvider(Provider):
 
     async def list_models(self) -> list[ModelInfo]:
         return [ModelInfo(id=self.provider_id, owned_by="discovered-web", provider=self.provider_id)]
+
+    async def qualify_media(self, media_kind: str, file_path: str, prompt: str, expected_marker: str) -> dict:
+        from core.media_qualification import observe_file_upload_surface, qualification_result
+        from core.visual_discovery import wait_for_upload_settled, resolve_safe_upload_dialog
+        path=Path(file_path).expanduser().resolve()
+        if not path.is_file():
+            raise ProviderError(f"File not found: {path}", "file_not_found", self.provider_id)
+        page=await self._resolve_page()
+        composer, composer_selector, rediscovered=await self._resolve_composer(page)
+        response_selector=str((((self._candidate.get("transport") or {}).get("response") or {}).get("selector") or "")).strip()
+        if not response_selector:
+            raise ProviderError("Certified response selector missing", "response_surface_missing", self.provider_id)
+        surface=await observe_file_upload_surface(page)
+        file_input=page.locator("input[type=file]").first
+        if await file_input.count()==0:
+            raise ProviderError("File input unavailable", "upload_not_supported", self.provider_id)
+        before_texts=[str(x).strip() for x in await page.locator(response_selector).all_inner_texts() if str(x).strip()]
+        before_controls=await page.evaluate(ENUMERATE_JS)
+        await file_input.set_input_files(str(path))
+        await page.wait_for_timeout(1200)
+        dialog_resolution=await resolve_safe_upload_dialog(page)
+        lifecycle=await wait_for_upload_settled(page,self.provider_id,path.name,timeout_seconds=self._timeout)
+        if not lifecycle.get("ready"):
+            result=qualification_result(self.provider_id,media_kind,str(path),"",expected_marker,advertised=surface)
+            result.update({"reason":str(lifecycle.get("reason") or "upload_not_ready"),"classification":lifecycle.get("classification") or {},"visual_evidence":lifecycle.get("trace",[])[-3:],"dialog_resolution":dialog_resolution})
+            return result
+        self._commitment_state="not_sent"
+        await composer.fill(prompt)
+        submit, submit_selector=await self._resolve_submit(page,composer,before_controls)
+        await submit.click(timeout=5000,no_wait_after=True)
+        self._commitment_state="committed"
+        response=await self._wait_response(page,before_texts)
+        self._commitment_state="terminal"
+        result=qualification_result(self.provider_id,media_kind,str(path),response,expected_marker,advertised=surface)
+        result.update({"composer_selector":composer_selector,"composer_rediscovered":rediscovered,"submit_selector":submit_selector,"response_selector":response_selector,"upload_ready":True,"dialog_resolution":dialog_resolution})
+        return result
 
     async def chat_completion(self, request: ChatCompletionRequest, session: Optional[SessionContext] = None) -> ChatCompletionResponse:
         if request.stream:

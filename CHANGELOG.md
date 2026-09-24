@@ -1,3 +1,11 @@
+### 1.0.0-dev.7 (WIP - discovered-provider media qualification)
+- Added generic E2 media qualification to materialized discovered-web providers.
+- Added user-view blocking upload-dialog detection with narrowly scoped safe dismissal.
+- Added incremental Provider Profile/Account synchronization without overwriting persistent evidence.
+- Added multilingual `quota_limited` classification and fail-fast media qualification on provider quota exhaustion.
+- GapGPT TXT reached exact-marker E2 before a real provider file-processing quota blocked further classes; no failed class was promoted.
+- Evidence: `docs/evidence/HWG_DISCOVERED_PROVIDER_MEDIA_GAPGPT_E2_20260924.md`.
+
 ### 1.0.0-dev.7 (WIP - Explorer visual AI and capability matrix)
 - Connected User-View screenshot evidence to vision-capable Discovery AI routing; visual evidence is attached as governed file evidence, not described by hand.
 - Hardened image-upload readiness detection to recognize visible thumbnail/media previews in addition to rendered file names.

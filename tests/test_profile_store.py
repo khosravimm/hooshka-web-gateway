@@ -131,3 +131,25 @@ def test_control_plane_has_guarded_isolation_reconciliation_route():
     src=Path('control_panel.py').read_text(encoding='utf-8-sig')
     assert '/api/ng/reconcile-isolation' in src
     assert 'Isolation metadata reconciliation requires confirm=true' in src
+
+
+def test_incremental_sync_adds_missing_provider_without_overwriting_existing(tmp_path):
+    from core.profile_store import sync_projected_inventory
+    cfg=tmp_path/'config.yaml'; root=tmp_path/'store'
+    _config(cfg,[_provider('deepseek-web','.runtime-dev/deepseek-profile','https://chat.deepseek.com/')])
+    migrate_legacy_inventory(cfg,root)
+    existing=next((root/'provider_profiles').glob('deepseek-web__default.json'))
+    data=json.loads(existing.read_text(encoding='utf-8'))
+    data['evidence']={'level':'E2','record':'keep-me'}
+    existing.write_text(json.dumps(data),encoding='utf-8')
+    _config(cfg,[
+        _provider('deepseek-web','.runtime-dev/deepseek-profile','https://chat.deepseek.com/'),
+        _provider('future-web','.runtime-dev/shared-profile','https://future.example/chat'),
+    ])
+    out=sync_projected_inventory(cfg,root)
+    assert out['created_profiles']==['future-web:default']
+    assert out['created_accounts']==['future-web:default-account']
+    preserved=json.loads(existing.read_text(encoding='utf-8'))
+    assert preserved['evidence']=={'level':'E2','record':'keep-me'}
+    added=next(x for x in out['provider_profiles'] if x['provider_id']=='future-web')
+    assert added['change_log'][-1]['change']=='projected_incremental_sync'

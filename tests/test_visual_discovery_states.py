@@ -50,3 +50,10 @@ def test_enabled_composer_counts_as_ready_without_send_button():
     })
     assert out["state"] == "ready"
     assert out["evidence"] == "visible enabled chat composer"
+
+
+def test_quota_limited_state_persian_visible_text():
+    from core.visual_discovery import user_view_access_state
+    out=classify_user_view_state({"body_tail":"محدودیت پردازش فایل در بسته‌ی رایگان. پس از آزادسازی سهمیه دوباره تلاش کنید.","upload_busy":False,"send_present":False,"send_enabled":False})
+    assert out["state"]=="quota_limited"
+    assert user_view_access_state(out)=="BLOCKED"

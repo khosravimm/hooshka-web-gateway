@@ -190,6 +190,33 @@ def reconcile_isolation_metadata(config_path: str | Path, root: str | Path | Non
     return result
 
 
+def sync_projected_inventory(config_path: str | Path, root: str | Path | None = None) -> dict[str, Any]:
+    """Add projected Provider/Account artifacts that are missing without overwriting persistent evidence."""
+    config_path=Path(config_path)
+    root=Path(root) if root else DEFAULT_ROOT
+    profiles_dir,accounts_dir=_dirs(root)
+    projected=project_ng_inventory(config_path)
+    source=_source_record(config_path); now=_now()
+    existing_profiles={str(x.get("profile_id")) for x in _load_json_files(profiles_dir)}
+    existing_accounts={str(x.get("account_id")) for x in _load_json_files(accounts_dir)}
+    created_profiles=[]; created_accounts=[]
+    for item in projected.get("provider_profiles",[]):
+        pid=str(item.get("profile_id") or "")
+        if not pid or pid in existing_profiles: continue
+        payload=dict(item); payload["artifact_version"]=ARTIFACT_VERSION; payload["updated_at"]=now; payload["source"]=source
+        payload["change_log"]=[{"at":now,"change":"projected_incremental_sync","evidence_level":"E0"}]
+        path=profiles_dir/(_safe_id(pid)+".json"); _atomic_json(path,payload); created_profiles.append(pid)
+    for item in projected.get("account_instances",[]):
+        aid=str(item.get("account_id") or "")
+        if not aid or aid in existing_accounts: continue
+        payload=dict(item); payload["artifact_version"]=ARTIFACT_VERSION; payload["updated_at"]=now; payload["source"]=source
+        payload["change_log"]=[{"at":now,"change":"projected_incremental_sync","evidence_level":"E0"}]
+        path=accounts_dir/(_safe_id(aid)+".json"); _atomic_json(path,payload); created_accounts.append(aid)
+    result=load_persistent_inventory(root)
+    result["created_profiles"]=created_profiles; result["created_accounts"]=created_accounts
+    return result
+
+
 def load_ng_inventory(config_path: str | Path, root: str | Path | None = None) -> dict[str, Any]:
     try:
         return load_persistent_inventory(root)

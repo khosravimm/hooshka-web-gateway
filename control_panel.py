@@ -20,7 +20,7 @@ from core.config import load_config, deep_merge, get_default_config
 from core.feature_settings import persist_provider_feature_defaults, provider_feature_state
 from core.runtime_inventory import inventory_by_id, load_orchestration_settings
 from core.profile_contract import project_ng_inventory
-from core.profile_store import load_ng_inventory, migrate_legacy_inventory, rollback_legacy_migration, update_account_session, update_provider_tool_capabilities, update_provider_media_qualification, reconcile_isolation_metadata, provision_account_instance, account_runtime, deprovision_account_instance
+from core.profile_store import load_ng_inventory, migrate_legacy_inventory, rollback_legacy_migration, update_account_session, update_provider_tool_capabilities, update_provider_media_qualification, reconcile_isolation_metadata, sync_projected_inventory, provision_account_instance, account_runtime, deprovision_account_instance
 from core.work_register import load_register, summarize_register, validate_register
 from core.discovery_orchestrator import (
     attach_baseline as discovery_attach_baseline,
@@ -1140,6 +1140,7 @@ def _register_discovered_candidate_disabled(root, record):
             "feature_defaults":{"thinking":False,"search":False},"feature_controls":{"thinking":False,"search":False},
         }
         providers.append(item); _save_config_file(cfg); _sync_auth_keys()
+        sync_projected_inventory(CONFIG_PATH)
     _live_register_discovered_provider(candidate_id,item,artifact,runtime)
     record["registered_provider"]={"status":"DISABLED_REGISTERED","provider_id":candidate_id,"config_type":"custom","enabled":False,"adapter_profile_path":(item.get("config") or {}).get("adapter_profile_path")}
     technical["workflow_state"]="DISABLED_PROVIDER_REGISTERED"; technical["next_required"]="readiness_probe_before_enable"; technical["user_action_required"]=False
@@ -1320,6 +1321,7 @@ def api_provider_wizard_register_candidate(candidate_id):
         "feature_defaults": {"thinking":False,"search":False}, "feature_controls": {"thinking":False,"search":False},
     }
     providers.append(new_provider); _save_config_file(cfg); _sync_auth_keys()
+    sync_projected_inventory(CONFIG_PATH)
     record["registered_provider"] = {"status":"DISABLED_REGISTERED","provider_id":candidate_id,"config_type":"custom","enabled":False,"adapter_profile_path":relative_profile}
     technical["workflow_state"] = "DISABLED_PROVIDER_REGISTERED"; technical["next_required"] = "readiness_probe_before_enable"; technical["user_action_required"] = False
     persist_candidate(root, record)

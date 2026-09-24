@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.46.0",
-  "updated_at": "2026-09-24T11:05:00Z",
+  "version": "1.47.0",
+  "updated_at": "2026-09-24T12:35:00Z",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -271,10 +271,10 @@
         "Chat enables only certified media capabilities"
       ],
       "latest_evidence": {
-        "date": "2026-09-23",
-        "type": "E2 canonical upload + Embedded Chat user-view proof",
-        "result": "Canonical opaque upload IDs and certified-capability gating are operational. Embedded Chat uploaded a TXT artifact through /v1/uploads and displayed the exact DeepSeek-returned marker. Remaining provider/media qualification gaps keep this work PARTIAL.",
-        "record": "docs/evidence/HWG_EMBEDDED_CHAT_UPLOAD_E2_20260923.md"
+        "date": "2026-09-24",
+        "type": "E1+E2 future-provider media qualification",
+        "result": "GapGPT generic discovered-adapter TXT qualification returned an exact hidden marker at E2. Explorer learned a blocking upload-dialog state, canonical profile sync was added, and a later real provider file-processing quota was persisted fail-closed without capability promotion. Remaining classes keep the work PARTIAL.",
+        "record": "docs/evidence/HWG_DISCOVERED_PROVIDER_MEDIA_GAPGPT_E2_20260924.md"
       },
       "evidence": [
         "docs/evidence/HWG_MULTIMODAL_CANONICAL_CONTRACT_E1_20260923.md",
@@ -284,9 +284,10 @@
         "docs/evidence/HWG_MEDIA_QUALIFICATION_CHATGPT_E2_20260923.md",
         "docs/evidence/HWG_DISCOVERY_VISUAL_UPLOAD_CHATGPT_E2_20260923.md",
         "docs/evidence/HWG_EXPLORER_VISUAL_MEDIA_RECOVERY_E2_20260923.md",
-        "docs/evidence/HWG_EMBEDDED_CHAT_UPLOAD_E2_20260923.md"
+        "docs/evidence/HWG_EMBEDDED_CHAT_UPLOAD_E2_20260923.md",
+        "docs/evidence/HWG_DISCOVERED_PROVIDER_MEDIA_GAPGPT_E2_20260924.md"
       ],
-      "updated_at": "2026-09-23",
+      "updated_at": "2026-09-24",
       "result": "Explorer-assisted media qualification is operational across current providers. Remaining gaps are ChatGPT extended document classes, Z.ai audio, and Qwen media qualification under the current region block.",
       "evidence_paths": [
         "docs/evidence/HWG_USER_VIEW_STATE_DISCOVERY_QWEN_E1_20260923.md",

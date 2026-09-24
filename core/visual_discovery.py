@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 VISUAL_VERSION = "1.0.0"
-UPLOAD_BUSY_RE = re.compile(r"\b(uploading|processing|attaching|preparing)\b", re.I)
+UPLOAD_BUSY_RE = re.compile(r"\b(uploading|processing|attaching|preparing)\b|در حال آپلود|در حال بارگذاری|آپلود فایل", re.I)
 
 
 def _slug(value: str) -> str:
@@ -54,11 +54,15 @@ async def visible_page_state(page, file_name: str | None = None) -> dict[str, An
     send_enabled = any(not bool(c.get("disabled")) and str(c.get("aria_disabled") or "").lower() != "true" for c in send)
     composers = list(state.get("composers") or [])
     composer_enabled = any(not bool(c.get("disabled")) for c in composers)
+    dialogs_raw = await visible_blocking_dialogs(page)
+    dialogs = dialogs_raw if isinstance(dialogs_raw, list) else []
+    upload_dialog = any(re.search(r"upload|آپلود", str(d.get("text") or ""), re.I) for d in dialogs if isinstance(d, dict))
     return {
         "schema_version": VISUAL_VERSION,
         "url": state.get("url"), "title": state.get("title"), "viewport": state.get("viewport"),
         "body_tail": body, "attachment_visible": attached,
-        "upload_busy": bool(UPLOAD_BUSY_RE.search(body)),
+        "upload_busy": bool(UPLOAD_BUSY_RE.search(body)) or upload_dialog,
+        "blocking_dialogs": dialogs[:8],
         "send_present": bool(send), "send_enabled": send_enabled,
         "send_controls": send[:8], "composer_present": bool(composers),
         "composer_enabled": composer_enabled, "composer_controls": composers[:8],
@@ -70,7 +74,8 @@ USER_VIEW_PATTERNS = [
     ("region_blocked", re.compile(r"not available in your region|unavailable in your region|region (?:is )?not supported", re.I)),
     ("login_required", re.compile(r"(?:\b(?:log in|sign in|continue with google|continue with apple)\b|ورود|ثبت[‌ ]?نام|ادامه با گوگل)", re.I)),
     ("challenge", re.compile(r"captcha|verify you are human|security check|challenge|تأیید.*انسان|کپچا|احراز.*انسان", re.I)),
-    ("rate_limited", re.compile(r"too many requests|rate limit|try again later", re.I)),
+    ("quota_limited", re.compile(r"quota|usage limit|limit reached|processing limit|محدودیت پردازش|سهمیه|پس از آزادسازی سهمیه", re.I)),
+    ("rate_limited", re.compile(r"too many requests|rate limit|try again later|تعداد درخواست|بعداً دوباره", re.I)),
     ("service_error", re.compile(r"something went wrong|service unavailable|internal server error|temporarily unavailable", re.I)),
     ("loading", re.compile(r"\b(loading|initializing|connecting)\b", re.I)),
 ]
@@ -94,13 +99,43 @@ def classify_user_view_state(state: dict[str, Any]) -> dict[str, Any]:
 
 def user_view_access_state(classification: dict[str, Any]) -> str:
     state=str((classification or {}).get("state") or "unknown")
-    if state in {"region_blocked","challenge","rate_limited","service_error"}:
+    if state in {"region_blocked","challenge","quota_limited","rate_limited","service_error"}:
         return "BLOCKED"
     if state == "login_required":
         return "LOGIN_REQUIRED"
     if state in {"ready","interactive_not_ready","upload_busy","loading"}:
         return "AUTHENTICATED"
     return "UNKNOWN"
+
+
+async def visible_blocking_dialogs(page) -> list[dict[str, Any]]:
+    return await page.evaluate(r"""() => {
+      const vis=e=>{const r=e.getBoundingClientRect(),s=getComputedStyle(e);return r.width>0&&r.height>0&&s.display!=='none'&&s.visibility!=='hidden'};
+      return [...document.querySelectorAll('[role=dialog],.q-dialog')].filter(vis).map((d,i)=>({
+        index:i,text:(d.innerText||d.textContent||'').trim().slice(0,2000),
+        buttons:[...d.querySelectorAll('button,[role=button]')].filter(vis).map(b=>({text:(b.innerText||b.textContent||'').trim().slice(0,200),label:b.getAttribute('aria-label')||'',disabled:!!b.disabled||b.getAttribute('aria-disabled')==='true'}))
+      }));
+    }""")
+
+async def resolve_safe_upload_dialog(page) -> dict[str, Any]:
+    dialogs_raw=await visible_blocking_dialogs(page)
+    dialogs=dialogs_raw if isinstance(dialogs_raw,list) else []
+    for d in dialogs:
+        if not isinstance(d,dict):
+            continue
+        text=str(d.get('text') or '')
+        buttons=list(d.get('buttons') or [])
+        if not re.search(r'upload|آپلود',text,re.I) or len(buttons)!=1:
+            continue
+        btn=buttons[0]; label=' '.join([str(btn.get('text') or ''),str(btn.get('label') or '')]).strip()
+        if btn.get('disabled') or not re.fullmatch(r'(?i)(ok|okay|accept|close|قبول|باشه|تایید|تأیید)',label):
+            continue
+        idx=int(d.get('index') or 0)
+        loc=page.locator('[role=dialog],.q-dialog').nth(idx).locator('button,[role=button]').first
+        await loc.click(timeout=5000)
+        await page.wait_for_timeout(250)
+        return {'resolved':True,'kind':'upload_dialog','message':text[:300],'action':label}
+    return {'resolved':False,'dialogs':dialogs}
 
 
 async def capture_user_view(page, provider_id: str, stage: str, *, root: Path | None = None,
@@ -142,6 +177,10 @@ async def wait_for_upload_settled(page, provider_id: str, file_name: str, *, tim
     ready_since = None
     while loop.time() < deadline:
         state = await visible_page_state(page, file_name=file_name)
+        classification = classify_user_view_state(state)
+        if classification.get("state") == "quota_limited":
+            trace.append(await capture_user_view(page, provider_id, "upload-quota-limited", file_name=file_name))
+            return {"ready":False,"file_name":file_name,"final":state,"trace":trace,"classification":classification,"reason":"provider_quota_limited"}
         signature = (state["attachment_visible"], state["upload_busy"], state["send_present"], state["send_enabled"])
         if signature != last_signature:
             label = f"upload-state-{int(state['attachment_visible'])}{int(state['upload_busy'])}{int(state['send_enabled'])}"
@@ -157,9 +196,11 @@ async def wait_for_upload_settled(page, provider_id: str, file_name: str, *, tim
             ready_since = None
         await page.wait_for_timeout(250)
     final = await visible_page_state(page, file_name=file_name)
+    classification = classify_user_view_state(final)
     trace.append(await capture_user_view(page, provider_id, "upload-timeout", file_name=file_name))
+    reason = "provider_quota_limited" if classification.get("state")=="quota_limited" else "upload_not_settled_before_timeout"
     return {"ready": False, "file_name": file_name, "final": final, "trace": trace,
-            "reason": "upload_not_settled_before_timeout"}
+            "classification": classification, "reason": reason}
 
 
 async def visible_interaction_map(page) -> dict[str, Any]:
