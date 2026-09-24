@@ -96,6 +96,12 @@ async def run_behavior_probe(page, action: BehaviorAction, policy: ProbePolicy |
     if action.kind == "focus" and not policy.allow_focus:
         raise PermissionError("focus_not_approved")
 
+    from core.visual_discovery import visual_action_gate
+    gate = await visual_action_gate(page, "probe")
+    if not gate.get("allowed"):
+        state = str((gate.get("classification") or {}).get("state") or "unknown")
+        raise PermissionError(f"visual_preflight_blocked:{state}")
+
     before = await _snapshot(page, action.selector)
     if not before.get("found") or not before.get("visible"):
         raise ValueError("target_not_visible")

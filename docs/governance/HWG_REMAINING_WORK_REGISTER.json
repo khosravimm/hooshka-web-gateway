@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.47.0",
-  "updated_at": "2026-09-24T12:45:00Z",
+  "version": "1.48.0",
+  "updated_at": "2026-09-24T13:21:20Z",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -628,8 +628,8 @@
       ],
       "latest_evidence": {
         "date": "2026-09-24",
-        "type": "E2 visual-first action preflight",
-        "result": "GapGPT media qualification was blocked before file attachment by a user-visible free-plan file-processing quota; the gate was action/scope-aware and did not incorrectly block text Send.",
+        "type": "E2 visual-first action preflight rollout",
+        "result": "Visual preflight now gates media qualification, discovered-provider Send, governed behavior probes, composer/submit discovery interactions, and E2 submit certification. Live GapGPT revalidation preserved media-scoped quota semantics: media action blocked while safe read-only hover completed from a recorded Explorer control.",
         "record": "docs/evidence/HWG_EXPLORER_VISUAL_ACTION_GATE_GAPGPT_E2_20260924.md"
       },
       "evidence": [

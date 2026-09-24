@@ -51,3 +51,30 @@ Verification after test coverage was extended for login-required, challenge/CAPT
 - `git diff --check`: PASS
 
 Note: invoking the system/global Python produced two dependency-lock failures because that interpreter has environment drift. The canonical repository `.venv` matched `requirements.lock` with zero dependency-integrity mismatches; therefore project verification was executed with `.venv`.
+
+## Rollout revalidation — 2026-09-24 16:51 +03:30
+Visual preflight was extended beyond media qualification to governed behavior probes, provider-interaction probes, and E2 submit certification.
+
+Implementation scope:
+- `run_behavior_probe()` gates hover/focus/click before target interaction.
+- composer/submit discovery gates before temporary composer fill.
+- E2 submit qualification gates before prompt construction/fill and returns `commitment_state=not_sent` when blocked.
+- general quota now blocks functional probes; media-scoped quota remains action-aware.
+
+Live GapGPT revalidation used only a selector already recorded in the Explorer Candidate. No selector or provider fact was injected manually.
+Observed while the visible Persian file-processing quota banner remained present:
+- `media_qualification`: blocked, `quota_limited`, scope `media`.
+- `probe`: allowed because the quota was media-scoped.
+- `provider_interaction`: allowed for the same reason.
+- `certification_probe`: allowed for the same reason.
+- one read-only `hover` on a recorded unresolved control completed successfully with zero network events.
+- screenshot: `.runtime-dev/discovery-visual/gapgpt-web/20260924T131923804344Z-visual-gate-rollout-revalidation.png`.
+
+Evidence interpretation: media preflight blocking remains E2 live. The generalized blocking paths for login/challenge/general quota are E1 tested; the scope-aware safe-probe continuation is E2 live. No claim is made that every blocking state has been observed live.
+
+Final verification for this rollout:
+- targeted visual/behavior/onboarding/provisioning/matrix suite: `66 passed`.
+- canonical `.venv` full suite: `545 passed`.
+- `python -m compileall -q .`: PASS.
+- `node --check control_panel_ui/panel.js`: PASS.
+- `git diff --check`: PASS.

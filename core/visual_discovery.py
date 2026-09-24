@@ -105,7 +105,9 @@ def classify_user_view_state(state: dict[str, Any]) -> dict[str, Any]:
 VISUAL_ACTION_BLOCKING_STATES = {
     "media_qualification": {"region_blocked","login_required","challenge","quota_limited","rate_limited","service_error"},
     "send": {"region_blocked","login_required","challenge","quota_limited","rate_limited","service_error"},
-    "probe": {"region_blocked","login_required","challenge","rate_limited","service_error"},
+    "probe": {"region_blocked","login_required","challenge","quota_limited","rate_limited","service_error"},
+    "provider_interaction": {"region_blocked","login_required","challenge","quota_limited","rate_limited","service_error"},
+    "certification_probe": {"region_blocked","login_required","challenge","quota_limited","rate_limited","service_error"},
 }
 
 async def visual_action_gate(page, action: str) -> dict[str, Any]:

@@ -1,3 +1,11 @@
+### 1.0.0-dev.7 (WIP - visual preflight rollout)
+- Extended Visual Action Gate to governed hover/focus/click behavior probes, composer/submit discovery interaction, and E2 submit certification.
+- Blocking semantic states are checked before target interaction or prompt fill; blocked certification remains `commitment_state=not_sent`.
+- Media-scoped quota stays action-aware: GapGPT still blocked media qualification while one read-only hover from a recorded Explorer control completed with zero network events.
+- Added deterministic coverage for login, challenge/CAPTCHA, general quota and pre-interaction blocking.
+- Work Register advanced to `1.48.0`; evidence remains scoped by E1/E2 observation level.
+- Evidence: `docs/evidence/HWG_EXPLORER_VISUAL_ACTION_GATE_GAPGPT_E2_20260924.md`.
+
 ### 1.0.0-dev.7 (WIP - visual-first action gating)
 - Added a reusable Visual Action Gate before side-effecting Explorer actions.
 - Media qualification now stops before file attachment when rendered UI shows quota/login/challenge/blocking states.

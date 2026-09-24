@@ -518,10 +518,14 @@
       "implementation": [
         "core/visual_discovery.py",
         "adapters/discovered_web_provider.py",
-        "core/discovery_ai_verification.py"
+        "core/discovery_ai_verification.py",
+        "core/browser_behavior_probe.py",
+        "core/provider_onboarding.py"
       ],
       "tests": [
-        "tests/test_visual_discovery.py"
+        "tests/test_visual_discovery.py",
+        "tests/test_browser_behavior_probe.py",
+        "tests/test_provider_onboarding_synthesis.py"
       ],
       "live_evidence": [
         "docs/evidence/HWG_EXPLORER_VISUAL_ACTION_GATE_GAPGPT_E2_20260924.md"

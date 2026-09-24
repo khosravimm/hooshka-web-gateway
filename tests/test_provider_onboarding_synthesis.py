@@ -146,3 +146,81 @@ def test_materialize_adapter_profile_writes_versioned_candidate(tmp_path):
     assert out["status"]=="E2_CONFORMANT_CANDIDATE"
     assert Path(out["path"]).exists()
     assert record["technical_candidate"]["workflow_state"]=="ADAPTER_PROFILE_MATERIALIZED"
+
+
+import pytest
+
+
+class _GateLocator:
+    first = None
+    def __init__(self):
+        self.first = self
+        self.fill_calls=[]
+    async def count(self): return 1
+    async def is_visible(self): return True
+    async def input_value(self): return ""
+    async def fill(self, value): self.fill_calls.append(value)
+
+
+class _GatePage:
+    def __init__(self): self.loc=_GateLocator()
+    def locator(self, _selector): return self.loc
+
+
+@pytest.mark.asyncio
+async def test_composer_probe_stops_before_fill_when_visual_gate_blocks(monkeypatch):
+    from core.provider_onboarding import probe_composer_submit_candidates
+    import core.visual_discovery as visual
+    async def blocked(_page,_action): return {"allowed":False,"classification":{"state":"login_required"}}
+    monkeypatch.setattr(visual,"visual_action_gate",blocked)
+    page=_GatePage()
+    out=await probe_composer_submit_candidates(page,{"frontend":{"composer_selector":"textarea"}})
+    assert out["status"]=="blocked"
+    assert out["marker_sent"] is False
+    assert page.loc.fill_calls==[]
+
+class _GateSession:
+    async def send(self,_cmd): return {"targetInfo":{"targetId":"T1"}}
+    async def detach(self): return None
+
+
+class _GateContext:
+    def __init__(self,page): self.pages=[page]
+    async def new_cdp_session(self,_page): return _GateSession()
+
+
+class _GateBrowser:
+    def __init__(self,page): self.contexts=[_GateContext(page)]
+
+
+class _GateChromium:
+    def __init__(self,page): self.page=page
+    async def connect_over_cdp(self,_url): return _GateBrowser(self.page)
+
+
+class _GatePW:
+    def __init__(self,page): self.chromium=_GateChromium(page)
+    async def stop(self): return None
+
+
+class _GatePWFactory:
+    def __init__(self,page): self.page=page
+    async def start(self): return _GatePW(self.page)
+
+@pytest.mark.asyncio
+async def test_submit_qualification_stops_before_prompt_on_visual_block(monkeypatch):
+    from core.provider_onboarding import qualify_submit_candidate
+    import core.visual_discovery as visual
+    import playwright.async_api as pwa
+    page=_GatePage()
+    async def blocked(_page,_action): return {"allowed":False,"classification":{"state":"challenge"}}
+    monkeypatch.setattr(visual,"visual_action_gate",blocked)
+    monkeypatch.setattr(pwa,"async_playwright",lambda: _GatePWFactory(page))
+    record={"technical_candidate":{"workflow_state":"TECHNICAL_CANDIDATE_READY","target_id":"T1","composer_selector":"textarea","submit_candidates":[{"selector":"#send"}]}}
+    out=await qualify_submit_candidate("http://127.0.0.1:9999",record)
+    assert out["status"]=="blocked"
+    assert out["reason"]=="provider_visual_state"
+    assert out["submitted"] is False
+    assert out["commitment_state"]=="not_sent"
+    assert out["classification"]["state"]=="challenge"
+    assert page.loc.fill_calls==[]

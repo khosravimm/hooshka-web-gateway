@@ -102,6 +102,10 @@ async def probe_composer_submit_candidates(page, discovery: dict[str, Any]) -> d
         original = (await loc.inner_text()).strip()
     if original:
         return {"status":"skipped","reason":"composer_not_empty","candidates":[]}
+    from core.visual_discovery import visual_action_gate
+    gate = await visual_action_gate(page, "provider_interaction")
+    if not gate.get("allowed"):
+        return {"status":"blocked","reason":"provider_visual_state","candidates":[],"marker_sent":False,"classification":gate.get("classification") or {}}
     from core.control_discovery import ENUMERATE_JS
     before = await page.evaluate(ENUMERATE_JS)
     before_selectors = {str(x.get("selector") or "") for x in before}
@@ -506,6 +510,10 @@ async def qualify_submit_candidate(cdp_url: str, record: dict[str, Any], timeout
             current_value = (await composer.inner_text()).strip()
         if current_value:
             return {"status":"blocked","reason":"composer_not_empty","submitted":False}
+        from core.visual_discovery import visual_action_gate
+        preflight = await visual_action_gate(page, "certification_probe")
+        if not preflight.get("allowed"):
+            return {"status":"blocked","reason":"provider_visual_state","submitted":False,"commitment_state":"not_sent","classification":preflight.get("classification") or {}}
         digits = str(100000 + secrets.randbelow(900000))
         expected = "HWGQ" + digits[::-1]
         prompt = f"Reply with prefix HWGQ followed immediately by the reverse of {digits}. Return only that."

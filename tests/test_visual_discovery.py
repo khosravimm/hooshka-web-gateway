@@ -141,3 +141,30 @@ async def test_visual_action_gate_blocks_persian_media_quota():
     assert result["allowed"] is False
     assert result["classification"]["state"] == "quota_limited"
     assert result["classification"]["scope"] == "media"
+
+
+@pytest.mark.asyncio
+async def test_visual_action_gate_blocks_general_quota_for_probe():
+    from core.visual_discovery import visual_action_gate
+    state={"url":"https://x","title":"x","viewport":{},"body":"Usage limit reached. Try again later.","controls":[],"composers":[]}
+    result=await visual_action_gate(FakePage([state]),"probe")
+    assert result["allowed"] is False
+    assert result["classification"]["state"] == "quota_limited"
+
+
+@pytest.mark.asyncio
+async def test_visual_action_gate_blocks_login_for_provider_interaction():
+    from core.visual_discovery import visual_action_gate
+    state={"url":"https://x","title":"x","viewport":{},"body":"Sign in to continue","controls":[],"composers":[]}
+    result=await visual_action_gate(FakePage([state]),"provider_interaction")
+    assert result["allowed"] is False
+    assert result["classification"]["state"] == "login_required"
+
+
+@pytest.mark.asyncio
+async def test_visual_action_gate_blocks_challenge_for_certification_probe():
+    from core.visual_discovery import visual_action_gate
+    state={"url":"https://x","title":"x","viewport":{},"body":"CAPTCHA security check","controls":[],"composers":[]}
+    result=await visual_action_gate(FakePage([state]),"certification_probe")
+    assert result["allowed"] is False
+    assert result["classification"]["state"] == "challenge"
