@@ -1,3 +1,12 @@
+### 1.0.0-dev.7 (WIP - autonomous Explorer continuation)
+- Preserved onboarding page identity with CDP `targetId` and same-tab re-observation.
+- User-View readiness now recognizes an enabled chat composer even when Send is lazy-rendered.
+- Ready candidates automatically enter deterministic Discovery on the same live page.
+- Control discovery now uses role/value/context and unique structural selectors for custom controls.
+- Added bounded read-only hover evidence for unclassified controls without false capability promotion.
+- Live E2 used GapGPT with no manually injected provider facts; Work Register advanced to `1.43.0`.
+- Evidence: `docs/evidence/HWG_EXPLORER_PAGE_IDENTITY_AND_DEEP_DISCOVERY_E2_20260924.md`.
+
 ### 1.0.0-dev.7 (WIP - URL-driven provider onboarding)
 - Replaced the implementation-oriented Add Provider form with a URL-first guided discovery wizard.
 - Initial user input is only the Web Chat URL; HWG proposes provider identity, runtime and adapter strategy.

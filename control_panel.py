@@ -1029,7 +1029,7 @@ def api_provider_wizard_observe():
     if runtime is None or not runtime.get("ready"):
         return jsonify({"error":"browser_runtime_not_ready","message":"A ready Browser Runtime is required for user-view observation","analysis":analysis}), 409
     try:
-        observation = observe_url_sync(analysis["url"], runtime["cdp_url"])
+        observation = observe_url_sync(analysis["url"], runtime["cdp_url"], preferred_target_id=str(data.get("preferred_target_id") or "").strip() or None, candidate_id=analysis.get("suggested_provider_id"))
         if analysis.get("register_new_provider") is False:
             return jsonify({"analysis":analysis,"observation":observation,"candidate":None,"record":None})
         persisted = save_candidate(Path(__file__).parent, analysis, observation)

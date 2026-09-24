@@ -1,6 +1,6 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.42.0",
+  "version": "1.43.0",
   "updated_at": "2026-09-24",
   "status_vocabulary": [
     "OPEN",
@@ -867,22 +867,24 @@
       ],
       "latest_evidence": {
         "date": "2026-09-24",
-        "type": "E2 Explorer autonomy remediation",
-        "result": "A real unknown GapGPT onboarding candidate exposed English-only user-view classification and one-shot observation. Explorer was made multilingual and bounded multi-pass; the same candidate then self-classified login_required from visible Persian UI without manual hints.",
-        "record": "docs/evidence/HWG_EXPLORER_AUTONOMY_GAPGPT_E2_20260924.md"
+        "type": "E2 Explorer page identity and deep discovery",
+        "result": "A live GapGPT onboarding candidate was used without manual hints. Explorer now preserves CDP page identity across re-observation, recognizes ready chat composers without requiring a pre-rendered Send button, automatically runs deterministic discovery on ready pages, classifies model/upload surfaces from generic role/value/context evidence, and records bounded hover evidence for unclassified controls without false promotion.",
+        "record": "docs/evidence/HWG_EXPLORER_PAGE_IDENTITY_AND_DEEP_DISCOVERY_E2_20260924.md"
       },
       "updated_at": "2026-09-24",
       "evidence": [
         "docs/evidence/HWG_EMBEDDED_CHAT_UPLOAD_E2_20260923.md",
         "docs/evidence/HWG_CONTROL_PLANE_DYNAMIC_VISUAL_AUDIT_E2_20260924.md",
         "docs/evidence/HWG_URL_DRIVEN_PROVIDER_WIZARD_E2_20260924.md",
-        "docs/evidence/HWG_EXPLORER_AUTONOMY_GAPGPT_E2_20260924.md"
+        "docs/evidence/HWG_EXPLORER_AUTONOMY_GAPGPT_E2_20260924.md",
+        "docs/evidence/HWG_EXPLORER_PAGE_IDENTITY_AND_DEEP_DISCOVERY_E2_20260924.md"
       ],
       "evidence_paths": [
         "docs/evidence/HWG_EMBEDDED_CHAT_UPLOAD_E2_20260923.md",
         "docs/evidence/HWG_CONTROL_PLANE_DYNAMIC_VISUAL_AUDIT_E2_20260924.md",
         "docs/evidence/HWG_URL_DRIVEN_PROVIDER_WIZARD_E2_20260924.md",
-        "docs/evidence/HWG_EXPLORER_AUTONOMY_GAPGPT_E2_20260924.md"
+        "docs/evidence/HWG_EXPLORER_AUTONOMY_GAPGPT_E2_20260924.md",
+        "docs/evidence/HWG_EXPLORER_PAGE_IDENTITY_AND_DEEP_DISCOVERY_E2_20260924.md"
       ]
     },
     {

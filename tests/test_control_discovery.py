@@ -84,3 +84,20 @@ def test_enumerator_does_not_collapse_same_structure_sibling_controls():
     source = Path("core/control_discovery.py").read_text(encoding="utf-8")
     assert "outerHTML" not in source
     assert "const seen = new Set()" not in source
+
+
+def test_model_selector_uses_combobox_role_and_model_value():
+    controls = classify([_el(tag="INPUT", role="combobox", value="Example 5.6 Lite")])
+    assert controls and controls[0].kind == "model_selector"
+    assert controls[0].confidence == "medium"
+
+
+def test_persian_file_or_tool_label_is_upload_surface():
+    controls = classify([_el(aria="افزودن فایل یا ابزار")])
+    assert controls and controls[0].kind == "file_upload"
+
+
+def test_fallback_selector_prefers_unique_enumerated_selector():
+    controls = classify([_el(selector="main > button:nth-of-type(2)")])
+    assert controls and controls[0].kind == "unclassified"
+    assert controls[0].selector == "main > button:nth-of-type(2)"

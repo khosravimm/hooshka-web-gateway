@@ -1271,7 +1271,7 @@ function initNav() {
       setStatus(status,'صفحه وب‌چت در مرورگر باز می‌شود. اگر Login، شرایط استفاده یا CAPTCHA دیدید همان را کامل کنید؛ سپس به این Wizard برگردید.','working');
       $('#pf-observe').disabled=true; $('#pf-reobserve').disabled=true;
       try {
-        const r=await api('/provider-wizard/observe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:a.url,runtime_key:runtimeKey})});
+        const r=await api('/provider-wizard/observe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:a.url,runtime_key:runtimeKey,preferred_target_id:(providerWizard.observation||{}).target_id||null})});
         providerWizard.observation=r.observation; providerWizard.candidate=r.candidate;
         const o=r.observation||{}, c=o.classification||{}, m=o.interaction_summary||{};
         $('#pf-observation').innerHTML=`<div class="kv"><span>وضعیت قابل مشاهده</span><b>${esc(c.state||'unknown')}</b><span>شاهد</span><b>${esc(c.evidence||'-')}</b><span>عنوان صفحه</span><b>${esc(o.title||'-')}</b><span>کنترل‌های قابل مشاهده</span><b>${m.controls??'-'}</b><span>ورودی فایل</span><b>${m.file_inputs??'-'}</b><span>ورودی پیام/متن</span><b>${m.editable_inputs??'-'}</b></div>`;

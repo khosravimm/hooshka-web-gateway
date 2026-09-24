@@ -85,7 +85,7 @@ def test_provider_wizard_observation_persists_candidate(monkeypatch):
     runtime=_runtime(); runtime['ready']=True
     monkeypatch.setattr(control_panel, '_browser_runtime_groups', lambda:[runtime])
     monkeypatch.setattr(control_panel.provider_registry, 'list_providers', lambda enabled_only=False:[])
-    monkeypatch.setattr(control_panel, 'observe_url_sync', lambda url,cdp:{'title':'Future','classification':{'state':'ready'},'interaction_summary':{'controls':4}})
+    monkeypatch.setattr(control_panel, 'observe_url_sync', lambda url,cdp,preferred_target_id=None,candidate_id=None:{'title':'Future','classification':{'state':'ready'},'interaction_summary':{'controls':4},'target_id':'T1'})
     monkeypatch.setattr(control_panel, 'save_candidate', lambda root,a,o:{'candidate':{'candidate_id':a['suggested_provider_id'],'state':'OBSERVED'},'record':'candidate.json'})
     resp=_client().post('/panel/api/provider-wizard/observe',json={'url':'https://future.example/chat','runtime_key':runtime['runtime_key']})
     assert resp.status_code==200
@@ -118,3 +118,18 @@ def test_provider_wizard_unknown_is_owned_by_explorer_not_user():
     ui=open('control_panel_ui/panel.js',encoding='utf-8').read()
     assert 'needs_deeper_exploration' in src
     assert 'فعلاً اقدامی از شما لازم نیست' in ui
+
+
+def test_provider_wizard_forwards_page_identity(monkeypatch):
+    runtime=_runtime(); runtime['ready']=True
+    monkeypatch.setattr(control_panel, '_browser_runtime_groups', lambda:[runtime])
+    monkeypatch.setattr(control_panel.provider_registry, 'list_providers', lambda enabled_only=False:[])
+    seen={}
+    def observe(url,cdp,preferred_target_id=None,candidate_id=None):
+        seen.update(preferred=preferred_target_id,candidate=candidate_id)
+        return {'classification':{'state':'ready'},'target_id':'T1'}
+    monkeypatch.setattr(control_panel,'observe_url_sync',observe)
+    monkeypatch.setattr(control_panel,'save_candidate',lambda root,a,o:{'candidate':{'state':'OBSERVED'},'record':'x'})
+    resp=_client().post('/panel/api/provider-wizard/observe',json={'url':'https://future.example/chat','runtime_key':runtime['runtime_key'],'preferred_target_id':'ABC'})
+    assert resp.status_code==200
+    assert seen=={'preferred':'ABC','candidate':'future-web'}

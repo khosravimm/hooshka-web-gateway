@@ -37,3 +37,16 @@ def test_login_required_state_persian_visible_text():
     out=classify_user_view_state({"body_tail":"ورود\nبا ورود به سامانه قوانین استفاده را می‌پذیرید.","upload_busy":False,"send_present":False,"send_enabled":False})
     assert out["state"]=="login_required"
     assert out["evidence"]=="ورود"
+
+
+def test_enabled_composer_counts_as_ready_without_send_button():
+    out = classify_user_view_state({
+        "body_tail": "",
+        "upload_busy": False,
+        "send_present": False,
+        "send_enabled": False,
+        "composer_present": True,
+        "composer_enabled": True,
+    })
+    assert out["state"] == "ready"
+    assert out["evidence"] == "visible enabled chat composer"

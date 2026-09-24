@@ -87,16 +87,30 @@ def candidate_path(root: Path, candidate_id: str) -> Path:
     safe = re.sub(r"[^a-zA-Z0-9._-]+", "-", candidate_id).strip("-") or "candidate"
     return folder / f"{safe}.json"
 
-async def observe_url(url: str, cdp_url: str) -> dict[str, Any]:
+async def observe_url(url: str, cdp_url: str, preferred_target_id: str | None = None, candidate_id: str | None = None) -> dict[str, Any]:
     from playwright.async_api import async_playwright
 
     pw = await async_playwright().start()
     browser = await pw.chromium.connect_over_cdp(cdp_url)
     context = browser.contexts[0]
-    page = await context.new_page()
+    page = None
+    target_reused = False
+    if preferred_target_id:
+        for existing in context.pages:
+            try:
+                sess = await context.new_cdp_session(existing)
+                info = await sess.send("Target.getTargetInfo")
+                await sess.detach()
+                if ((info.get("targetInfo") or {}).get("targetId") == preferred_target_id):
+                    page = existing; target_reused = True; break
+            except Exception:
+                continue
+    if page is None:
+        page = await context.new_page()
     try:
         try:
-            await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            if not target_reused:
+                await page.goto(url, wait_until="domcontentloaded", timeout=30000)
         except Exception:
             pass
         host = urlparse(url).hostname or "candidate"
@@ -116,6 +130,35 @@ async def observe_url(url: str, cdp_url: str) -> dict[str, Any]:
             trace.append({"pass":idx,"scroll_ratio":ratio,"classification":classification,"url":page.url,"title":await page.title(),"controls":len(interaction_map.get("controls") or []),"screenshot":shot.get("screenshot")})
             if classification.get("state") != "unknown":
                 break
+        sess = await context.new_cdp_session(page)
+        target_info = await sess.send("Target.getTargetInfo")
+        await sess.detach()
+        target_id = (target_info.get("targetInfo") or {}).get("targetId")
+        deterministic_discovery = None
+        if classification.get("state") == "ready":
+            from core.discovery_engine import discover_page
+            report = await discover_page(page, candidate_id or _slug_host(urlparse(url).hostname or "candidate"))
+            deterministic_discovery = report.__dict__
+            unknown_controls = [c for c in (report.frontend.get("controls") or []) if c.get("kind") == "unclassified"][:6]
+            behavior_evidence = []
+            if unknown_controls:
+                from core.browser_behavior_probe import run_behavior_probe, BehaviorAction, ProbePolicy
+                from core.control_discovery import classify
+                for control in unknown_controls:
+                    selector = str(control.get("selector") or "").strip()
+                    if not selector:
+                        continue
+                    try:
+                        obs = await run_behavior_probe(page, BehaviorAction(kind="hover", selector=selector, purpose="classify unknown control"), ProbePolicy(allow_hover=True, allow_focus=True, allow_click=False, settle_ms=800))
+                        item = obs.to_dict()
+                        before_lines = {x.strip() for x in str((item.get("before") or {}).get("page_text_tail") or "").splitlines() if x.strip()}
+                        after_lines = [x.strip() for x in str((item.get("after") or {}).get("page_text_tail") or "").splitlines() if x.strip()]
+                        added = [x for x in after_lines if x not in before_lines][-20:]
+                        inferred = classify([{"tag":"tooltip","text":" ".join(added),"aria":"","title":"","testid":"","eid":"","cls":"","role":"","value":"","parent":""}]) if added else []
+                        behavior_evidence.append({"selector":selector,"action":"hover","added_visible_text":added,"inferred_controls":[c.__dict__ for c in inferred]})
+                    except Exception as exc:
+                        behavior_evidence.append({"selector":selector,"action":"hover","error":type(exc).__name__})
+            deterministic_discovery["behavior_evidence"] = behavior_evidence
         file_inputs = await page.locator('input[type="file"]').count()
         editable = await page.locator('textarea:visible,[contenteditable="true"]:visible,input[type="text"]:visible').count()
         selects = await page.locator('select:visible,[role="combobox"]:visible').count()
@@ -123,7 +166,12 @@ async def observe_url(url: str, cdp_url: str) -> dict[str, Any]:
             "schema_version": SCHEMA_VERSION, "final_url": page.url, "title": await page.title(),
             "classification": classification, "user_view": state, "exploration_trace": trace,
             "interaction_summary": {"controls":len(interaction_map.get("controls") or []),"headings":len(interaction_map.get("headings") or []),"horizontal_overflow":bool(interaction_map.get("horizontal_overflow")),"clipped":len(interaction_map.get("clipped") or []),"file_inputs":file_inputs,"editable_inputs":editable,"selectors":selects},
-            "page_left_open": True, "autonomous_passes": len(trace),
+            "page_left_open": True,
+            "target_id": target_id,
+            "target_reused": target_reused,
+            "preferred_target_id": preferred_target_id,
+            "deterministic_discovery": deterministic_discovery,
+            "discovery_completed": deterministic_discovery is not None, "autonomous_passes": len(trace),
             "needs_deeper_exploration": classification.get("state") == "unknown",
         }
     finally:
@@ -145,5 +193,5 @@ def save_candidate(root: Path, analysis: dict[str, Any], observation: dict[str, 
     return {"candidate": record, "record": str(path)}
 
 
-def observe_url_sync(url: str, cdp_url: str) -> dict[str, Any]:
-    return asyncio.run(observe_url(url, cdp_url))
+def observe_url_sync(url: str, cdp_url: str, preferred_target_id: str | None = None, candidate_id: str | None = None) -> dict[str, Any]:
+    return asyncio.run(observe_url(url, cdp_url, preferred_target_id=preferred_target_id, candidate_id=candidate_id))

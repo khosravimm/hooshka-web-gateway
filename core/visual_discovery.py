@@ -25,8 +25,9 @@ async def visible_page_state(page, file_name: str | None = None) -> dict[str, An
           text:(e.innerText||e.textContent||'').trim().slice(0,160), disabled:!!e.disabled,
           aria_disabled:e.getAttribute('aria-disabled'), cls:String(e.className||'').slice(0,180)
         }));
+      const composers=[...document.querySelectorAll('textarea,[contenteditable="true"]')].filter(visible).map(e=>{const r=e.getBoundingClientRect(); return {tag:e.tagName,id:e.id||'',label:e.getAttribute('aria-label')||'',placeholder:e.getAttribute('placeholder')||'',disabled:!!e.disabled||e.getAttribute('aria-disabled')==='true',rect:{x:r.x,y:r.y,w:r.width,h:r.height}};}).filter(x=>x.rect.w>=160&&x.rect.h>=24).slice(0,12);
       return {url:location.href,title:document.title,viewport:{width:innerWidth,height:innerHeight},
-        body:(document.body?.innerText||'').slice(-4000),controls:nodes};
+        body:(document.body?.innerText||'').slice(-4000),controls:nodes,composers};
     }""")
     body = str(state.get("body") or "")
     controls = list(state.get("controls") or [])
@@ -46,13 +47,16 @@ async def visible_page_state(page, file_name: str | None = None) -> dict[str, An
         or (stem_key and stem_key in control_text.lower())
     ))
     send_enabled = any(not bool(c.get("disabled")) and str(c.get("aria_disabled") or "").lower() != "true" for c in send)
+    composers = list(state.get("composers") or [])
+    composer_enabled = any(not bool(c.get("disabled")) for c in composers)
     return {
         "schema_version": VISUAL_VERSION,
         "url": state.get("url"), "title": state.get("title"), "viewport": state.get("viewport"),
         "body_tail": body, "attachment_visible": attached,
         "upload_busy": bool(UPLOAD_BUSY_RE.search(body)),
         "send_present": bool(send), "send_enabled": send_enabled,
-        "send_controls": send[:8],
+        "send_controls": send[:8], "composer_present": bool(composers),
+        "composer_enabled": composer_enabled, "composer_controls": composers[:8],
     }
 
 
@@ -75,8 +79,10 @@ def classify_user_view_state(state: dict[str, Any]) -> dict[str, Any]:
             return {"state":name,"evidence":match.group(0)[:160]}
     if state.get("send_present") and state.get("send_enabled"):
         return {"state":"ready","evidence":"visible enabled send control"}
-    if state.get("send_present"):
-        return {"state":"interactive_not_ready","evidence":"visible send control disabled"}
+    if state.get("composer_present") and state.get("composer_enabled"):
+        return {"state":"ready","evidence":"visible enabled chat composer"}
+    if state.get("send_present") or state.get("composer_present"):
+        return {"state":"interactive_not_ready","evidence":"visible chat composer/send control is disabled"}
     return {"state":"unknown","evidence":"no known visible state matched"}
 
 

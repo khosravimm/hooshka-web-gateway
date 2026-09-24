@@ -76,7 +76,9 @@ SNAPSHOT_JS = r"""(selector) => {
     pressed:e.getAttribute('aria-pressed'), expanded:e.getAttribute('aria-expanded'), checked:e.getAttribute('aria-checked'),
     disabled:e.disabled===true || e.getAttribute('aria-disabled')==='true',
     visible:r.width>0 && r.height>0, x:Math.round(r.x), y:Math.round(r.y), width:Math.round(r.width), height:Math.round(r.height),
-    active:document.activeElement===e
+    active:document.activeElement===e,
+    page_text_tail:(document.body?.innerText||'').slice(-5000),
+    page_text_length:(document.body?.innerText||'').length
   };
 }"""
 

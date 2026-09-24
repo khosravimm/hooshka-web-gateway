@@ -58,9 +58,12 @@ PATTERNS: list[tuple[str, list[tuple[str, str, int]]]] = [
         ("testid", r"model.selector", 3),
         ("cls", r"modelSelector", 2),
         ("text", r"^(glm|gpt|deepseek|qwen|qwen\d)[-\w.]*$", 1),
+        ("role", r"^combobox$", 1),
+        ("value", r"(?:gpt|claude|gemini|llama|mistral|qwen|deepseek|glm|model|مدل)|(?:[A-Za-z][A-Za-z0-9 ._-]{1,30}\d(?:\.\d+)?)", 2),
+        ("parent", r"model|مدل", 2),
     ]),
     ("file_upload", [
-        ("aria", r"attach|upload( file)?|آپلود|پیوست", 3),
+        ("aria", r"attach|upload( file)?|add (file|attachment)|آپلود|پیوست|افزودن فایل|فایل یا ابزار", 3),
         ("title", r"attach|upload", 2),
         ("testid", r"attach|upload", 3),
     ]),
@@ -76,6 +79,8 @@ PATTERNS: list[tuple[str, list[tuple[str, str, int]]]] = [
 
 
 def _fallback_selector(el: dict) -> str:
+    if el.get("selector"):
+        return str(el["selector"])
     tokens = (el.get("cls") or "").split()[:3]
     base = el.get("tag", "button").lower()
     if tokens:
@@ -134,7 +139,18 @@ def classify(elements: list[dict]) -> list[Control]:
 
 
 ENUMERATE_JS = r"""() => {
-  const all = [...document.querySelectorAll('button, [role=button], [tabindex="0"], [role=switch], [role=checkbox], [role=combobox], [role=listbox], input[type=checkbox], [aria-pressed], [data-testid]')];
+  const cssSel = (e) => {
+    if (e.id) return '#' + CSS.escape(e.id);
+    const tid=e.getAttribute('data-testid'); if (tid) return `[data-testid='${String(tid).replace(/'/g,"\\'")}']`;
+    const aria=e.getAttribute('aria-label'); if (aria) return `[aria-label='${String(aria).replace(/'/g,"\\'")}']`;
+    const parts=[]; let cur=e; let depth=0;
+    while(cur && cur.nodeType===1 && cur!==document.body && depth<5){
+      const tag=cur.tagName.toLowerCase(); const sib=[...cur.parentElement?.children||[]].filter(x=>x.tagName===cur.tagName);
+      const n=sib.indexOf(cur)+1; parts.unshift(`${tag}:nth-of-type(${Math.max(1,n)})`); cur=cur.parentElement; depth++;
+    }
+    return parts.join(' > ');
+  };
+  const all = [...document.querySelectorAll('button, select, input[type=text], [role=button], [tabindex="0"], [role=switch], [role=checkbox], [role=combobox], [role=listbox], input[type=checkbox], [aria-pressed], [data-testid]')];
   const out = [];
   for (const e of all) {
     const r = e.getBoundingClientRect();
@@ -146,6 +162,11 @@ ENUMERATE_JS = r"""() => {
       text: (e.innerText || '').trim().replace(/\s+/g, ' ').slice(0, 80),
       aria: (e.getAttribute('aria-label') || '').slice(0, 80),
       title: (e.getAttribute('title') || '').slice(0, 80),
+      role: (e.getAttribute('role') || '').slice(0, 40),
+      value: String(e.value || '').slice(0, 120),
+      placeholder: (e.getAttribute('placeholder') || '').slice(0, 120),
+      parent: ((e.parentElement?.innerText || e.parentElement?.textContent || '')).trim().replace(/\s+/g, ' ').slice(0, 160),
+      selector: cssSel(e),
       cls: cls.slice(0, 80),
       pressed: e.getAttribute('aria-pressed'), checked: e.getAttribute('aria-checked'),
       expanded: e.getAttribute('aria-expanded'),
