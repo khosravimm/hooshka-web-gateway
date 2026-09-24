@@ -1,6 +1,6 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.43.0",
+  "version": "1.44.0",
   "updated_at": "2026-09-24",
   "status_vocabulary": [
     "OPEN",
@@ -867,9 +867,9 @@
       ],
       "latest_evidence": {
         "date": "2026-09-24",
-        "type": "E2 Explorer page identity and deep discovery",
-        "result": "A live GapGPT onboarding candidate was used without manual hints. Explorer now preserves CDP page identity across re-observation, recognizes ready chat composers without requiring a pre-rendered Send button, automatically runs deterministic discovery on ready pages, classifies model/upload surfaces from generic role/value/context evidence, and records bounded hover evidence for unclassified controls without false promotion.",
-        "record": "docs/evidence/HWG_EXPLORER_PAGE_IDENTITY_AND_DEEP_DISCOVERY_E2_20260924.md"
+        "type": "E2 autonomous discovered-provider onboarding and readiness reconciliation",
+        "result": "Unknown GapGPT URL progressed through visual login classification, deterministic discovery, autonomous submit discovery, committed exact-marker E2, generated adapter conformance E2, fail-closed materialization, disabled registration, stale-readiness reconciliation, and fresh functional READY evidence. Activation remains explicitly unapproved.",
+        "record": "docs/evidence/HWG_DISCOVERED_PROVIDER_GAPGPT_E2_20260924.md"
       },
       "updated_at": "2026-09-24",
       "evidence": [
@@ -877,14 +877,16 @@
         "docs/evidence/HWG_CONTROL_PLANE_DYNAMIC_VISUAL_AUDIT_E2_20260924.md",
         "docs/evidence/HWG_URL_DRIVEN_PROVIDER_WIZARD_E2_20260924.md",
         "docs/evidence/HWG_EXPLORER_AUTONOMY_GAPGPT_E2_20260924.md",
-        "docs/evidence/HWG_EXPLORER_PAGE_IDENTITY_AND_DEEP_DISCOVERY_E2_20260924.md"
+        "docs/evidence/HWG_EXPLORER_PAGE_IDENTITY_AND_DEEP_DISCOVERY_E2_20260924.md",
+        "docs/evidence/HWG_DISCOVERED_PROVIDER_GAPGPT_E2_20260924.md"
       ],
       "evidence_paths": [
         "docs/evidence/HWG_EMBEDDED_CHAT_UPLOAD_E2_20260923.md",
         "docs/evidence/HWG_CONTROL_PLANE_DYNAMIC_VISUAL_AUDIT_E2_20260924.md",
         "docs/evidence/HWG_URL_DRIVEN_PROVIDER_WIZARD_E2_20260924.md",
         "docs/evidence/HWG_EXPLORER_AUTONOMY_GAPGPT_E2_20260924.md",
-        "docs/evidence/HWG_EXPLORER_PAGE_IDENTITY_AND_DEEP_DISCOVERY_E2_20260924.md"
+        "docs/evidence/HWG_EXPLORER_PAGE_IDENTITY_AND_DEEP_DISCOVERY_E2_20260924.md",
+        "docs/evidence/HWG_DISCOVERED_PROVIDER_GAPGPT_E2_20260924.md"
       ]
     },
     {

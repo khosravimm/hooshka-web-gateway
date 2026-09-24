@@ -46,7 +46,8 @@ from core.blind_discovery import probe_auth_cdp as discovery_probe_auth_cdp
 from core.account_session import normalize_session
 from core.functional_readiness import run_functional_probe, save_readiness, load_readiness, invalidate_readiness
 from core.media_contract import provider_media_manifest
-from core.provider_onboarding import analyze_url as analyze_provider_url, observe_url_sync, save_candidate
+from core.provider_onboarding import analyze_url as analyze_provider_url, observe_url_sync, save_candidate, load_candidate, persist_candidate, qualify_submit_candidate_sync, apply_submit_qualification, generate_adapter_candidate, qualify_materialized_adapter_sync, materialize_adapter_profile, refine_adapter_from_existing_conformance_sync
+from adapters.discovered_web_provider import create_discovered_web_provider
 
 control_panel_bp = Blueprint('control_panel', __name__, url_prefix='/panel')
 
@@ -576,6 +577,25 @@ def api_provider_readiness_probe(provider_id):
     record["page_interactive"] = page_interactive
     record["feature_observation"] = feature_observation
     save_readiness(record)
+    try:
+        cfg_entry, provider_entry = _provider_config_entry(provider_id)
+        pcfg = (provider_entry or {}).get("config", {}) or {}
+        if (provider_entry or {}).get("type") == "custom" and pcfg.get("adapter_kind") == "discovered_web":
+            candidate = load_candidate(Path(__file__).parent, provider_id)
+            technical = candidate.setdefault("technical_candidate", {})
+            current_record = load_readiness(provider_id) or record
+            candidate["readiness"] = {"state":current_record.get("state"),"ready":bool(current_record.get("ready")),"current":bool(current_record.get("current")),"checked_at":current_record.get("checked_at"),"expires_at_epoch":current_record.get("expires_at_epoch")}
+            if current_record.get("ready") and current_record.get("state") == "READY" and current_record.get("current") is True:
+                technical["workflow_state"] = "READY_FOR_ENABLE_CONFIRMATION"
+                technical["next_required"] = "explicit_enable_confirmation"
+                technical["user_action_required"] = True
+            else:
+                technical["workflow_state"] = "READINESS_NOT_READY"
+                technical["next_required"] = "explorer_diagnose_readiness"
+                technical["user_action_required"] = False
+            persist_candidate(Path(__file__).parent, candidate)
+    except Exception as exc:
+        logger.warning("Discovered candidate readiness state sync failed for %s: %s", provider_id, type(exc).__name__)
     audit_logger.log({"event":"functional_readiness_probe","provider":provider_id,
                       "account_id":account_id,"state":record.get("state"),"ready":record.get("ready")})
     return jsonify(record)
@@ -1038,6 +1058,243 @@ def api_provider_wizard_observe():
         logger.warning("Provider onboarding observation failed", exc_info=True)
         return jsonify({"error":"provider_observation_failed","message":str(exc),"analysis":analysis}), 502
 
+@control_panel_bp.route('/api/provider-wizard/qualify/<candidate_id>', methods=['POST'])
+def api_provider_wizard_qualify(candidate_id):
+    root = Path(__file__).parent
+    try:
+        record = load_candidate(root, candidate_id)
+    except FileNotFoundError:
+        return jsonify({"error":"candidate_not_found","candidate_id":candidate_id}), 404
+    existing = record.get("submit_qualification") or {}
+    if existing.get("status") == "E2_VERIFIED":
+        return jsonify({"candidate":record,"qualification":{**existing,"reused_evidence":True}})
+    analysis = record.get("analysis") or {}
+    runtime_key = str((request.get_json(silent=True) or {}).get("runtime_key") or analysis.get("recommended_runtime_key") or "").strip()
+    runtime = _browser_runtime_by_key(runtime_key) if runtime_key else None
+    if runtime is None or not runtime.get("ready"):
+        return jsonify({"error":"browser_runtime_not_ready","candidate_id":candidate_id}), 409
+    try:
+        result = qualify_submit_candidate_sync(runtime["cdp_url"], record)
+        apply_submit_qualification(record, result)
+        path = persist_candidate(root, record)
+        code = 200 if result.get("status") == "E2_VERIFIED" else (409 if result.get("submitted") else 422)
+        return jsonify({"candidate":record,"qualification":result,"record":str(path)}), code
+    except Exception as exc:
+        logger.warning("Provider onboarding submit qualification failed", exc_info=True)
+        return jsonify({"error":"submit_qualification_failed","message":type(exc).__name__,"candidate_id":candidate_id}), 502
+
+
+def _live_register_discovered_provider(candidate_id, provider_doc, artifact, runtime):
+    existing = provider_registry.get(candidate_id)
+    if existing is not None:
+        return existing, False
+    adapter = artifact.get("adapter_candidate") or {}
+    provider = create_discovered_web_provider(
+        candidate_id,
+        cdp_url=str(runtime.get("cdp_url") or ""),
+        home_url=str((provider_doc.get("config") or {}).get("home_url") or adapter.get("home_url") or ""),
+        adapter_candidate=adapter,
+        priority=int(provider_doc.get("priority") or 50),
+        enabled=False,
+        timeout_seconds=float((provider_doc.get("config") or {}).get("timeout_seconds") or 60.0),
+    )
+    provider_registry.register(provider)
+    return provider, True
+
+
+def _register_discovered_candidate_disabled(root, record):
+    candidate_id = str(record.get("candidate_id") or "").strip()
+    technical = record.setdefault("technical_candidate", {})
+    conformance = record.get("adapter_conformance") or {}
+    materialized = record.get("materialized_adapter_profile") or {}
+    if conformance.get("status") != "E2_VERIFIED":
+        return None, {"error":"adapter_conformance_e2_required"}, 409
+    if materialized.get("status") != "E2_CONFORMANT_CANDIDATE":
+        return None, {"error":"materialized_adapter_profile_required"}, 409
+    profile_path = Path(str(materialized.get("path") or ""))
+    try:
+        profile_path = profile_path.resolve()
+        allowed = (root / "docs" / "profiles").resolve()
+        if allowed != profile_path and allowed not in profile_path.parents:
+            raise ValueError("outside")
+        artifact = json.loads(profile_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None, {"error":"materialized_adapter_profile_invalid"}, 409
+    if artifact.get("status") != "E2_CONFORMANT_CANDIDATE" or str(artifact.get("provider_id") or "") != candidate_id:
+        return None, {"error":"materialized_adapter_profile_mismatch"}, 409
+    analysis = record.get("analysis") or {}
+    runtime_key = str(analysis.get("recommended_runtime_key") or "").strip()
+    runtime = _browser_runtime_by_key(runtime_key) if runtime_key else None
+    if runtime is None:
+        return None, {"error":"browser_runtime_missing"}, 409
+    cfg = _load_config_file(); providers = cfg.setdefault("providers", [])
+    item = next((x for x in providers if x.get("id") == candidate_id), None)
+    if item is None:
+        relative_profile = profile_path.relative_to(root).as_posix()
+        home_url = str(analysis.get("url") or artifact.get("adapter_candidate",{}).get("home_url") or "").strip()
+        item = {
+            "id":candidate_id,"type":"custom","enabled":False,"priority":50,
+            "runtime":{"kind":"chrome_cdp","cdp_url":runtime.get("cdp_url"),"profile_dir":runtime.get("profile"),"home_url":home_url,"label":f"HWG-NG-Discovered-{candidate_id}"},
+            "config":{"adapter_kind":"discovered_web","adapter_profile_path":relative_profile,"cdp_url":runtime.get("cdp_url"),"home_url":home_url,"timeout_seconds":60},
+            "feature_defaults":{"thinking":False,"search":False},"feature_controls":{"thinking":False,"search":False},
+        }
+        providers.append(item); _save_config_file(cfg); _sync_auth_keys()
+    _live_register_discovered_provider(candidate_id,item,artifact,runtime)
+    record["registered_provider"]={"status":"DISABLED_REGISTERED","provider_id":candidate_id,"config_type":"custom","enabled":False,"adapter_profile_path":(item.get("config") or {}).get("adapter_profile_path")}
+    technical["workflow_state"]="DISABLED_PROVIDER_REGISTERED"; technical["next_required"]="readiness_probe_before_enable"; technical["user_action_required"]=False
+    persist_candidate(root,record)
+    return item, None, 200
+
+@control_panel_bp.route('/api/provider-wizard/advance/<candidate_id>', methods=['POST'])
+def api_provider_wizard_advance_candidate(candidate_id):
+    root = Path(__file__).parent.resolve()
+    try:
+        record = load_candidate(root, candidate_id)
+    except FileNotFoundError:
+        return jsonify({"error":"candidate_not_found","candidate_id":candidate_id}), 404
+    analysis = record.get("analysis") or {}
+    runtime_key = str((request.get_json(silent=True) or {}).get("runtime_key") or analysis.get("recommended_runtime_key") or "").strip()
+    runtime = _browser_runtime_by_key(runtime_key) if runtime_key else None
+    if runtime is None or not runtime.get("ready"):
+        return jsonify({"error":"browser_runtime_not_ready","candidate_id":candidate_id}), 409
+    technical = record.setdefault("technical_candidate", {})
+    if str(technical.get("workflow_state") or "") == "READY_FOR_ENABLE_CONFIRMATION":
+        readiness = load_readiness(candidate_id) or {}
+        if not (readiness.get("ready") and readiness.get("current") and readiness.get("state") == "READY"):
+            record["readiness"] = {"state":readiness.get("state"),"ready":bool(readiness.get("ready")),"current":bool(readiness.get("current")),"checked_at":readiness.get("checked_at"),"expires_at_epoch":readiness.get("expires_at_epoch")}
+            technical["workflow_state"] = "DISABLED_PROVIDER_REGISTERED"
+            technical["next_required"] = "readiness_probe_before_enable"
+            technical["user_action_required"] = False
+            persist_candidate(root, record)
+    trace=[]
+    for _ in range(8):
+        technical = record.setdefault("technical_candidate", {})
+        state = str(technical.get("workflow_state") or "")
+        trace.append({"state":state,"next_required":technical.get("next_required")})
+        if technical.get("user_action_required") is True or state in {"WAITING_FOR_USER_GATE","READY_FOR_ENABLE_CONFIRMATION","ENABLED_PENDING_RESTART"}:
+            break
+        if state == "TECHNICAL_CANDIDATE_READY":
+            result = qualify_submit_candidate_sync(runtime["cdp_url"], record)
+            apply_submit_qualification(record, result); persist_candidate(root,record)
+            if result.get("status") != "E2_VERIFIED":
+                break
+            continue
+        if state == "ROUNDTRIP_QUALIFIED":
+            generate_adapter_candidate(record); persist_candidate(root,record); continue
+        if state == "ADAPTER_CANDIDATE_GENERATED":
+            result = qualify_materialized_adapter_sync(runtime["cdp_url"], record)
+            persist_candidate(root,record)
+            if result.get("status") == "E2_REFINEMENT_REQUIRED":
+                refine_adapter_from_existing_conformance_sync(runtime["cdp_url"],record); persist_candidate(root,record); continue
+            if result.get("status") != "E2_VERIFIED":
+                break
+            continue
+        if state == "ADAPTER_CONFORMANCE_RETEST_REQUIRED":
+            result = qualify_materialized_adapter_sync(runtime["cdp_url"], record)
+            persist_candidate(root,record)
+            if result.get("status") != "E2_VERIFIED":
+                break
+            continue
+        if state == "ADAPTER_CONFORMANCE_VERIFIED":
+            materialize_adapter_profile(root,record); persist_candidate(root,record); continue
+        if state == "ADAPTER_PROFILE_MATERIALIZED":
+            item,error,code = _register_discovered_candidate_disabled(root,record)
+            if error:
+                return jsonify({"error":error.get("error"),"candidate":record,"trace":trace}), code
+            trace.append({"state":"DISABLED_PROVIDER_REGISTERED","provider":item.get("id"),"enabled":False})
+            break
+        break
+    persist_candidate(root,record)
+    return jsonify({"candidate":record,"trace":trace,"workflow_state":record.get("technical_candidate",{}).get("workflow_state"),"next_required":record.get("technical_candidate",{}).get("next_required")})
+
+
+@control_panel_bp.route('/api/provider-wizard/register/<candidate_id>', methods=['POST'])
+def api_provider_wizard_register_candidate(candidate_id):
+    root = Path(__file__).parent.resolve()
+    try:
+        record = load_candidate(root, candidate_id)
+    except FileNotFoundError:
+        return jsonify({"error":"candidate_not_found","candidate_id":candidate_id}), 404
+    technical = record.setdefault("technical_candidate", {})
+    conformance = record.get("adapter_conformance") or {}
+    materialized = record.get("materialized_adapter_profile") or {}
+    if conformance.get("status") != "E2_VERIFIED":
+        return jsonify({"error":"adapter_conformance_e2_required","candidate_id":candidate_id}), 409
+    if materialized.get("status") != "E2_CONFORMANT_CANDIDATE":
+        return jsonify({"error":"materialized_adapter_profile_required","candidate_id":candidate_id}), 409
+    profile_path = Path(str(materialized.get("path") or ""))
+    try:
+        profile_path = profile_path.resolve()
+        allowed = (root / "docs" / "profiles").resolve()
+        if allowed != profile_path and allowed not in profile_path.parents:
+            raise ValueError("profile path outside docs/profiles")
+        artifact = json.loads(profile_path.read_text(encoding="utf-8"))
+    except Exception:
+        return jsonify({"error":"materialized_adapter_profile_invalid","candidate_id":candidate_id}), 409
+    if artifact.get("status") != "E2_CONFORMANT_CANDIDATE" or str(artifact.get("provider_id") or "") != candidate_id:
+        return jsonify({"error":"materialized_adapter_profile_mismatch","candidate_id":candidate_id}), 409
+    analysis = record.get("analysis") or {}
+    runtime_key = str(analysis.get("recommended_runtime_key") or "").strip()
+    runtime = _browser_runtime_by_key(runtime_key) if runtime_key else None
+    if runtime is None:
+        return jsonify({"error":"browser_runtime_missing","candidate_id":candidate_id}), 409
+    cfg = _load_config_file(); providers = cfg.setdefault("providers", [])
+    existing = next((p for p in providers if p.get("id") == candidate_id), None)
+    if existing is not None:
+        return jsonify({"success":True,"provider":existing,"already_registered":True,"next_required":"readiness_before_enable"})
+    relative_profile = profile_path.relative_to(root).as_posix()
+    home_url = str(analysis.get("url") or artifact.get("adapter_candidate",{}).get("home_url") or "").strip()
+    new_provider = {
+        "id": candidate_id, "type": "custom", "enabled": False, "priority": 50,
+        "runtime": {"kind":"chrome_cdp","cdp_url":runtime.get("cdp_url"),"profile_dir":runtime.get("profile"),"home_url":home_url,"label":f"HWG-NG-Discovered-{candidate_id}"},
+        "config": {"adapter_kind":"discovered_web","adapter_profile_path":relative_profile,"cdp_url":runtime.get("cdp_url"),"home_url":home_url,"timeout_seconds":60},
+        "feature_defaults": {"thinking":False,"search":False}, "feature_controls": {"thinking":False,"search":False},
+    }
+    providers.append(new_provider); _save_config_file(cfg); _sync_auth_keys()
+    record["registered_provider"] = {"status":"DISABLED_REGISTERED","provider_id":candidate_id,"config_type":"custom","enabled":False,"adapter_profile_path":relative_profile}
+    technical["workflow_state"] = "DISABLED_PROVIDER_REGISTERED"; technical["next_required"] = "readiness_probe_before_enable"; technical["user_action_required"] = False
+    persist_candidate(root, record)
+    try:
+        restart = _schedule_restart_all(f"discovered-provider-registered:{candidate_id}")
+    except Exception as exc:
+        restart = {"scheduled":False,"error":str(exc),"warning":"Config saved but restart not scheduled"}
+    return jsonify({"success":True,"provider":new_provider,"restart":restart,"next_required":"readiness_before_enable"}), 201
+
+
+@control_panel_bp.route('/api/provider-wizard/activate/<candidate_id>', methods=['POST'])
+def api_provider_wizard_activate_candidate(candidate_id):
+    root = Path(__file__).parent.resolve()
+    try:
+        candidate = load_candidate(root, candidate_id)
+    except FileNotFoundError:
+        return jsonify({"error":"candidate_not_found","candidate_id":candidate_id}), 404
+    technical = candidate.setdefault("technical_candidate", {})
+    if technical.get("workflow_state") != "READY_FOR_ENABLE_CONFIRMATION":
+        return jsonify({"error":"candidate_not_ready_for_activation","workflow_state":technical.get("workflow_state")}), 409
+    readiness = load_readiness(candidate_id) or {}
+    if not (readiness.get("ready") and readiness.get("current") and readiness.get("state") == "READY"):
+        return jsonify({"error":"current_ready_evidence_required","readiness":readiness}), 409
+    cfg, item = _provider_config_entry(candidate_id)
+    if item is None:
+        return jsonify({"error":"provider_not_registered"}), 409
+    pcfg = item.get("config", {}) or {}
+    if item.get("type") != "custom" or pcfg.get("adapter_kind") != "discovered_web":
+        return jsonify({"error":"provider_not_discovered_web"}), 409
+    item["enabled"] = True
+    _save_config_file(cfg); _sync_auth_keys()
+    live = provider_registry.get(candidate_id)
+    if live is not None:
+        live.config.enabled = True
+    candidate["activation"] = {"status":"ENABLED_WITH_CURRENT_READINESS","provider_id":candidate_id,"readiness_checked_at":readiness.get("checked_at")}
+    technical["workflow_state"] = "ENABLED_PENDING_RESTART"; technical["next_required"] = "post_enable_routing_verification"; technical["user_action_required"] = False
+    persist_candidate(root, candidate)
+    try:
+        restart = _schedule_restart_all(f"discovered-provider-enabled:{candidate_id}")
+    except Exception as exc:
+        restart = {"scheduled":False,"warning":str(exc)}
+    return jsonify({"success":True,"provider":candidate_id,"enabled":True,"restart":restart,"next_required":"post_enable_routing_verification"})
+
+
 @control_panel_bp.route('/api/runtimes')
 def api_runtimes():
     # Backward-compatible provider-centric view.
@@ -1388,7 +1645,11 @@ def api_provider_settings(provider_id):
     if item is None:
         return jsonify({"error": "Provider not found"}), 404
     if "enabled" in data:
-        item["enabled"] = bool(data["enabled"])
+        requested_enabled = bool(data["enabled"])
+        pcfg = item.get("config", {}) or {}
+        if requested_enabled and item.get("type") == "custom" and pcfg.get("adapter_kind") == "discovered_web":
+            return jsonify({"error":"discovered_provider_enable_requires_readiness_gate","provider":provider_id}), 409
+        item["enabled"] = requested_enabled
     if "priority" in data:
         priority = int(data["priority"])
         if priority < 1 or priority > 100:

@@ -37,3 +37,36 @@ def test_runtime_inventory_rejects_duplicate_cdp_ports(tmp_path):
         assert "Duplicate CDP port" in str(exc)
     else:
         raise AssertionError("duplicate CDP port was accepted")
+
+
+def test_shared_runtime_accepts_relative_and_absolute_same_profile(tmp_path):
+    root = tmp_path
+    shared = root / '.runtime-dev' / 'shared-profile'
+    config = {
+        'runtime_orchestration': {'shared_browser': {'enabled': True, 'cdp_url': 'http://127.0.0.1:9330', 'profile_dir': '.runtime-dev\\shared-profile'}},
+        'providers': [
+            {'id':'one','type':'custom','enabled':False,'runtime':{'kind':'chrome_cdp','cdp_url':'http://127.0.0.1:9330','profile_dir':'.runtime-dev\\shared-profile','home_url':'https://one.example/'}},
+            {'id':'two','type':'custom','enabled':False,'runtime':{'kind':'chrome_cdp','cdp_url':'http://127.0.0.1:9330','profile_dir':str(shared),'home_url':'https://two.example/'}},
+        ]
+    }
+    path=root/'config.yaml'; path.write_text(yaml.safe_dump(config,sort_keys=False),encoding='utf-8')
+    rows=load_runtime_inventory(path)
+    assert [r['id'] for r in rows]==['one','two']
+    assert rows[0]['profile']==rows[1]['profile']
+
+
+def test_shared_runtime_still_rejects_same_port_different_profile(tmp_path):
+    config = {
+        'runtime_orchestration': {'shared_browser': {'enabled': True, 'cdp_url': 'http://127.0.0.1:9330', 'profile_dir': '.runtime-dev\\shared-profile'}},
+        'providers': [
+            {'id':'one','runtime':{'kind':'chrome_cdp','cdp_url':'http://127.0.0.1:9330','profile_dir':'.runtime-dev\\shared-profile','home_url':'https://one.example/'}},
+            {'id':'two','runtime':{'kind':'chrome_cdp','cdp_url':'http://127.0.0.1:9330','profile_dir':'.runtime-dev\\other-profile','home_url':'https://two.example/'}},
+        ]
+    }
+    path=tmp_path/'config.yaml'; path.write_text(yaml.safe_dump(config,sort_keys=False),encoding='utf-8')
+    try:
+        load_runtime_inventory(path)
+    except ValueError as exc:
+        assert 'Duplicate CDP port' in str(exc)
+    else:
+        raise AssertionError('same-port different-profile conflict was accepted')

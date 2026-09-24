@@ -140,9 +140,12 @@ def classify(elements: list[dict]) -> list[Control]:
 
 ENUMERATE_JS = r"""() => {
   const cssSel = (e) => {
-    if (e.id) return '#' + CSS.escape(e.id);
+    const ephemeralId = v => /^f_[0-9a-f-]{20,}$/i.test(v||'') || /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(v||'');
+    if (e.id && !ephemeralId(e.id)) return '#' + CSS.escape(e.id);
     const tid=e.getAttribute('data-testid'); if (tid) return `[data-testid='${String(tid).replace(/'/g,"\\'")}']`;
     const aria=e.getAttribute('aria-label'); if (aria) return `[aria-label='${String(aria).replace(/'/g,"\\'")}']`;
+    const role=e.getAttribute('role'); const name=e.getAttribute('name');
+    if (role && name) return `${e.tagName.toLowerCase()}[role='${String(role).replace(/'/g,"\\'")}'][name='${String(name).replace(/'/g,"\\'")}']`;
     const parts=[]; let cur=e; let depth=0;
     while(cur && cur.nodeType===1 && cur!==document.body && depth<5){
       const tag=cur.tagName.toLowerCase(); const sib=[...cur.parentElement?.children||[]].filter(x=>x.tagName===cur.tagName);
@@ -167,6 +170,7 @@ ENUMERATE_JS = r"""() => {
       placeholder: (e.getAttribute('placeholder') || '').slice(0, 120),
       parent: ((e.parentElement?.innerText || e.parentElement?.textContent || '')).trim().replace(/\s+/g, ' ').slice(0, 160),
       selector: cssSel(e),
+      rect: {x:Math.round(r.x), y:Math.round(r.y), w:Math.round(r.width), h:Math.round(r.height)},
       cls: cls.slice(0, 80),
       pressed: e.getAttribute('aria-pressed'), checked: e.getAttribute('aria-checked'),
       expanded: e.getAttribute('aria-expanded'),

@@ -43,6 +43,7 @@ from adapters.chatgpt_web_provider import create_chatgpt_web_provider
 from adapters.qwen_web_provider import create_qwen_web_provider
 from adapters.zai_web_provider import create_zai_web_provider
 from adapters.deepseek_web_provider import create_deepseek_web_provider
+from adapters.discovered_web_provider import create_discovered_web_provider
 from control_panel import control_panel_bp
 
 
@@ -476,6 +477,35 @@ def create_app(config_path: str = "config.yaml") -> Flask:
                 enabled=pconfig.enabled,
                 **pconfig.config,
             )
+        elif pconfig.provider_type == ProviderType.CUSTOM and pconfig.config.get("adapter_kind") == "discovered_web":
+            root = Path(__file__).resolve().parent
+            allowed_root = (root / "docs" / "profiles").resolve()
+            raw_profile = str(pconfig.config.get("adapter_profile_path") or "").strip()
+            try:
+                profile_path = Path(raw_profile)
+                if not profile_path.is_absolute():
+                    profile_path = root / profile_path
+                profile_path = profile_path.resolve()
+                if allowed_root != profile_path and allowed_root not in profile_path.parents:
+                    raise ValueError("adapter profile path outside docs/profiles")
+                artifact = json.loads(profile_path.read_text(encoding="utf-8"))
+                if artifact.get("status") != "E2_CONFORMANT_CANDIDATE":
+                    raise ValueError("adapter profile is not E2 conformant")
+                if str(artifact.get("provider_id") or "") != pconfig.provider_id:
+                    raise ValueError("adapter profile provider id mismatch")
+                candidate = artifact.get("adapter_candidate") or {}
+                provisioned = create_discovered_web_provider(
+                    provider_id=pconfig.provider_id,
+                    cdp_url=str(pconfig.config.get("cdp_url") or ""),
+                    home_url=str(pconfig.config.get("home_url") or candidate.get("home_url") or ""),
+                    adapter_candidate=candidate,
+                    priority=pconfig.priority,
+                    enabled=pconfig.enabled,
+                    timeout_seconds=float(pconfig.config.get("timeout_seconds") or 60.0),
+                )
+            except Exception as exc:
+                logger.error("Discovered provider %s rejected fail-closed: %s", pconfig.provider_id, exc)
+                provisioned = None
 
         if provisioned is not None:
             try:

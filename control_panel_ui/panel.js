@@ -1264,6 +1264,35 @@ function initNav() {
       } catch(e) { setStatus(status,'تحلیل URL شکست خورد: '+e.message,'err'); }
     });
 
+    async function autoQualifyWizardCandidate(candidate, runtimeKey, status) {
+      const tc=(candidate||{}).technical_candidate||{};
+      if (tc.workflow_state==='ROUNDTRIP_QUALIFIED') { setStatus(status,'Evidence E2 رفت‌وبرگشت معتبر است؛ آزمون تکرار نمی‌شود.','ok'); return candidate; }
+      if (tc.user_action_required===true) { setStatus(status,'کاوشگر به یک گام انسانی واقعی رسیده است؛ دستور دقیق در همین صفحه نمایش داده شده است.','ok'); return candidate; }
+      if (tc.workflow_state==='EXPLORER_DEEPENING') { setStatus(status,'کاوشگر در حال تکمیل Evidence است؛ اقدامی از شما لازم نیست.','working'); return candidate; }
+      if (tc.workflow_state!=='TECHNICAL_CANDIDATE_READY') { setStatus(status,'مشاهده ثبت شد و ادامه مسیر بر عهده کاوشگر است.','ok'); return candidate; }
+      const cid=(candidate||{}).candidate_id;
+      if (!cid) return candidate;
+      $('#pf-next-action').textContent='Candidate فنی E1 آماده است. کاوشگر اکنون آزمون رفت‌وبرگشت کنترل‌شده را خودش اجرا می‌کند؛ فعلاً اقدامی از شما لازم نیست.';
+      setStatus(status,'کاوشگر در حال آزمون رفتاری E2 است؛ یک پیام مصنوعی کوتاه ممکن است ارسال شود.','working');
+      try {
+        const q=await api('/provider-wizard/qualify/'+encodeURIComponent(cid),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runtime_key:runtimeKey})});
+        providerWizard.candidate=q.candidate||candidate;
+        const qr=q.qualification||{}; const nt=(providerWizard.candidate||{}).technical_candidate||{};
+        if (qr.status==='E2_VERIFIED') {
+          $('#pf-next-action').textContent='کاوشگر مسیر ارسال و دریافت پاسخ را با Evidence سطح E2 تأیید کرد. مرحله بعد ساخت Adapter Candidate است و فعلاً اقدامی از شما لازم نیست.';
+          setStatus(status,qr.reused_evidence?'Evidence معتبر قبلی reuse شد؛ آزمون تکرار نشد.':'آزمون رفت‌وبرگشت E2 با موفقیت تأیید شد.','ok');
+        } else {
+          $('#pf-next-action').textContent='آزمون رفتاری هنوز تأیید نشده است. ادامه تشخیص بر عهده کاوشگر است و فعلاً اقدامی از شما لازم نیست.';
+          setStatus(status,'کاوشگر برای ادامه Qualification به Evidence بیشتری نیاز دارد.','working');
+        }
+        return providerWizard.candidate;
+      } catch(e) {
+        $('#pf-next-action').textContent='کاوشگر نتوانست آزمون رفتاری را تأیید کند. این failure برای تشخیص بعدی ثبت می‌شود؛ فعلاً اقدامی از شما لازم نیست.';
+        setStatus(status,'Qualification خودکار کامل نشد: '+e.message,'err');
+        return candidate;
+      }
+    }
+
     async function observeWizardPage() {
       const status=$('#provider-form-status'); const a=providerWizard.analysis;
       if (!a) { setStatus(status,'ابتدا URL را بررسی کنید.','err'); return; }
@@ -1287,10 +1316,14 @@ function initNav() {
         else if (state==='region_blocked') nextAction='دسترسی از این محیط به‌صورت منطقه‌ای مسدود است؛ Candidate ثبت می‌شود اما کاوش عملیاتی تا رفع این شرط ادامه پیدا نمی‌کند.';
         else if (r.analysis?.register_new_provider===false) nextAction='این Origin از قبل ثبت شده است. Provider جدید ساخته نمی‌شود؛ برای Session یا هویت دوم به Workspace حساب‌ها و Session بروید.';
         else if (known) nextAction='Adapter موجود با URL تطبیق دارد. HWG می‌تواند Provider را با تنظیمات پیشنهادی ثبت کند؛ سپس Login/Discovery/Readiness ادامه می‌یابد.';
-        else if (o.needs_deeper_exploration) nextAction='کاوشگر هنوز نتوانسته وضعیت صفحه را با Evidence کافی تشخیص دهد. فعلاً اقدامی از شما لازم نیست؛ این Candidate باید وارد کاوش عمیق‌تر خودکار شود.'; else nextAction='این URL یک Provider جدید است. Candidate کاوش ذخیره شد؛ HWG آن را به‌عنوان Provider قابل اجرا ثبت نمی‌کند تا Adapter و Evidence لازم ساخته شوند.';
+        else if (o.needs_deeper_exploration) nextAction='کاوشگر هنوز نتوانسته وضعیت صفحه را با Evidence کافی تشخیص دهد. فعلاً اقدامی از شما لازم نیست؛ این Candidate باید وارد کاوش عمیق‌تر خودکار شود.';
+        else if ((r.candidate?.technical_candidate||{}).workflow_state==='ROUNDTRIP_QUALIFIED') nextAction='کاوشگر مسیر ارسال/پاسخ را قبلاً با E2 تأیید کرده است و مرحله بعد ساخت Adapter Candidate است؛ اقدامی از شما لازم نیست.';
+        else if ((r.candidate?.technical_candidate||{}).workflow_state==='TECHNICAL_CANDIDATE_READY') nextAction='Candidate فنی E1 آماده است و کاوشگر مرحله Qualification رفتاری را خودش ادامه می‌دهد؛ اقدامی از شما لازم نیست.';
+        else nextAction='Candidate کاوش ذخیره شد و ادامه تکمیل فنی آن بر عهده خود کاوشگر است؛ فعلاً اقدامی از شما لازم نیست.';
         $('#pf-next-action').innerHTML=nextAction; $('#pf-reobserve').textContent=(state==='login_required'||state==='challenge')?'انجام شد؛ ادامه بررسی':'بررسی مجدد';
         $('#pf-observation-card').classList.remove('wizard-hidden');
-        setStatus(status, known?'مشاهده کامل شد؛ پیشنهاد قابل ثبت است.':'مشاهده کامل شد؛ Candidate کاوش ثبت شد.','ok');
+        if (!known && r.candidate) await autoQualifyWizardCandidate(r.candidate, runtimeKey, status);
+        else setStatus(status, known?'مشاهده کامل شد؛ پیشنهاد قابل ثبت است.':'مشاهده کامل شد؛ Candidate کاوش ثبت شد.','ok');
       } catch(e) { setStatus(status,'مشاهده صفحه شکست خورد: '+e.message,'err'); }
       finally { $('#pf-observe').disabled=false; $('#pf-reobserve').disabled=false; }
     }

@@ -199,9 +199,15 @@ FRONTEND_JS = r"""() => {
   const esc = (v) => String(v || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   let selector = null;
   if (comp) {
-    if (comp.id) selector = '#' + CSS.escape(comp.id);
-    else if (comp.getAttribute('aria-label')) selector = `[aria-label='${esc(comp.getAttribute('aria-label'))}']`;
-    else if (comp.getAttribute('role')) selector = `${comp.tagName.toLowerCase()}[role='${esc(comp.getAttribute('role'))}'][contenteditable='true']`;
+    const ephemeralId = (v) => /^f_[0-9a-f-]{20,}$/i.test(v||'') || /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(v||'');
+    const aria = comp.getAttribute('aria-label');
+    const placeholder = comp.getAttribute('placeholder');
+    const name = comp.getAttribute('name');
+    if (comp.id && !ephemeralId(comp.id)) selector = '#' + CSS.escape(comp.id);
+    else if (aria) selector = `${comp.tagName.toLowerCase()}[aria-label='${esc(aria)}']`;
+    else if (placeholder) selector = `${comp.tagName.toLowerCase()}[placeholder='${esc(placeholder)}']`;
+    else if (name) selector = `${comp.tagName.toLowerCase()}[name='${esc(name)}']`;
+    else if (comp.getAttribute('role')) selector = `${comp.tagName.toLowerCase()}[role='${esc(comp.getAttribute('role'))}']`;
     else selector = comp.tagName.toLowerCase();
   }
   const assistantSelectors = [

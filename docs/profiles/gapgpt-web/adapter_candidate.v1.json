@@ -1,0 +1,320 @@
+{
+  "schema_version": "1.0.0",
+  "provider_id": "gapgpt-web",
+  "status": "E2_CONFORMANT_CANDIDATE",
+  "generated_at": "2026-09-24T09:48:03.006598+00:00",
+  "adapter_candidate": {
+    "schema_version": "1.0.0",
+    "kind": "browser_ui_adapter_candidate",
+    "status": "GENERATED_UNCERTIFIED",
+    "provider_id": "gapgpt-web",
+    "origin": "https://gapgpt.app",
+    "home_url": "https://gapgpt.app/",
+    "runtime_key": "http://127.0.0.1:9330|D:\\Code\\hooshka-web-gateway\\.runtime-dev\\shared-profile",
+    "transport": {
+      "mode": "browser_ui_candidate",
+      "target_strategy": "same_origin_live_page",
+      "composer": {
+        "selector": "textarea[placeholder='سوال خود را بپرسید...']",
+        "evidence_level": "E1"
+      },
+      "submit": {
+        "strategy": "dynamic_after_fill_near_composer",
+        "evidence_level": "E2",
+        "last_verified_selector": "div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > button:nth-of-type(2)"
+      },
+      "response": {
+        "selector": "div.markdown-container",
+        "strategy": "smallest_stable_marker_anchored_surface",
+        "evidence_level": "E2"
+      }
+    },
+    "capabilities": {
+      "observed_supported": [
+        {
+          "name": "chat",
+          "supported": true,
+          "evidence_level": "E1",
+          "confidence": "high"
+        },
+        {
+          "name": "model_selection",
+          "supported": true,
+          "evidence_level": "E1",
+          "confidence": "medium"
+        },
+        {
+          "name": "file_upload",
+          "supported": true,
+          "evidence_level": "E1",
+          "confidence": "high"
+        },
+        {
+          "name": "backend_api",
+          "supported": true,
+          "evidence_level": "E1",
+          "confidence": "medium"
+        }
+      ],
+      "unresolved_or_unsupported": [
+        {
+          "name": "thinking_control",
+          "supported": false,
+          "evidence_level": "E0",
+          "confidence": "low"
+        },
+        {
+          "name": "web_search",
+          "supported": false,
+          "evidence_level": "E0",
+          "confidence": "low"
+        },
+        {
+          "name": "streaming",
+          "supported": false,
+          "evidence_level": "E0",
+          "confidence": "low"
+        }
+      ]
+    },
+    "upload_surface": {
+      "schema_version": "1.0.0",
+      "qualification_policy": {
+        "version": "1.0.0",
+        "required": true,
+        "scope": "all_current_and_future_providers",
+        "classes": [
+          "text",
+          "document",
+          "spreadsheet",
+          "image",
+          "code",
+          "presentation",
+          "audio",
+          "video"
+        ],
+        "representatives": {
+          "text": [
+            ".txt",
+            ".md"
+          ],
+          "document": [
+            ".pdf",
+            ".docx"
+          ],
+          "spreadsheet": [
+            ".csv",
+            ".xlsx"
+          ],
+          "image": [
+            ".png",
+            ".jpg",
+            ".jpeg"
+          ],
+          "code": [
+            ".py",
+            ".js",
+            ".ts"
+          ],
+          "presentation": [
+            ".ppt",
+            ".pptx"
+          ],
+          "audio": [
+            ".mp3",
+            ".wav",
+            ".m4a"
+          ],
+          "video": [
+            ".mp4",
+            ".webm",
+            ".mov"
+          ]
+        },
+        "promotion_rule": "E2_required_for_certified"
+      },
+      "input_present": true,
+      "input_count": 1,
+      "multiple_supported": true,
+      "advertised_extensions": [],
+      "advertised_classes": {
+        "text": false,
+        "document": false,
+        "spreadsheet": false,
+        "image": false,
+        "code": false,
+        "presentation": false,
+        "audio": false,
+        "video": false
+      },
+      "inputs": [
+        {
+          "index": 0,
+          "accept": "",
+          "multiple": true,
+          "disabled": false,
+          "parsed": {
+            "tokens": [],
+            "extensions": [],
+            "mime_types": [],
+            "classes": {
+              "text": false,
+              "document": false,
+              "spreadsheet": false,
+              "image": false,
+              "code": false,
+              "presentation": false,
+              "audio": false,
+              "video": false
+            }
+          }
+        }
+      ],
+      "evidence_level": "E1",
+      "status": "advertised_unverified"
+    },
+    "backend_hints": {
+      "candidate_endpoints": [
+        {
+          "path": "/api/v1/logs/events",
+          "hits": 3,
+          "methods": []
+        },
+        {
+          "path": "/api/v1/profile",
+          "hits": 2,
+          "methods": []
+        },
+        {
+          "path": "/api/v1/developer/access",
+          "hits": 2,
+          "methods": []
+        },
+        {
+          "path": "/api/v1/auth/session",
+          "hits": 1,
+          "methods": []
+        },
+        {
+          "path": "/api/v1/token/refresh",
+          "hits": 1,
+          "methods": []
+        },
+        {
+          "path": "/api/v1/chat_list",
+          "hits": 1,
+          "methods": []
+        },
+        {
+          "path": "/api/v1/projects",
+          "hits": 1,
+          "methods": []
+        },
+        {
+          "path": "/api/v1/mcp/status/",
+          "hits": 1,
+          "methods": []
+        },
+        {
+          "path": "/api/v1/product_announcement/claim",
+          "hits": 1,
+          "methods": []
+        },
+        {
+          "path": "/api/v1/payment/first_purchase_recovery_offer/",
+          "hits": 1,
+          "methods": []
+        },
+        {
+          "path": "/api/v1/get_chat/token/e6866491-87b0-47ab-a6b3-51ae1ffbc85c",
+          "hits": 1,
+          "methods": []
+        },
+        {
+          "path": "/api/v1/chat_messages/token/e6866491-87b0-47ab-a6b3-51ae1ffbc85c",
+          "hits": 1,
+          "methods": []
+        }
+      ],
+      "stream_transports": []
+    },
+    "unresolved_controls": [
+      {
+        "control_id": "unclassified-1",
+        "kind": "unclassified",
+        "selector": "div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > button:nth-of-type(1)",
+        "text": "",
+        "state": {},
+        "confidence": "low",
+        "evidence": "icon-only clickable without labels; needs hover/menu probing"
+      },
+      {
+        "control_id": "unclassified-2",
+        "kind": "unclassified",
+        "selector": "div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > button:nth-of-type(2)",
+        "text": "",
+        "state": {},
+        "confidence": "low",
+        "evidence": "icon-only clickable without labels; needs hover/menu probing"
+      },
+      {
+        "control_id": "unclassified-3",
+        "kind": "unclassified",
+        "selector": "div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > button:nth-of-type(2)",
+        "text": "",
+        "state": {},
+        "confidence": "low",
+        "evidence": "icon-only clickable without labels; needs hover/menu probing"
+      },
+      {
+        "control_id": "unclassified-4",
+        "kind": "unclassified",
+        "selector": "div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > button:nth-of-type(2)",
+        "text": "",
+        "state": {},
+        "confidence": "low",
+        "evidence": "icon-only clickable without labels; needs hover/menu probing"
+      },
+      {
+        "control_id": "unclassified-5",
+        "kind": "unclassified",
+        "selector": "div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > button:nth-of-type(3)",
+        "text": "",
+        "state": {},
+        "confidence": "low",
+        "evidence": "icon-only clickable without labels; needs hover/menu probing"
+      },
+      {
+        "control_id": "unclassified-6",
+        "kind": "unclassified",
+        "selector": "div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > button:nth-of-type(4)",
+        "text": "",
+        "state": {},
+        "confidence": "low",
+        "evidence": "icon-only clickable without labels; needs hover/menu probing"
+      }
+    ],
+    "evidence_refs": {
+      "submit_marker": "HWGQ509339",
+      "target_id": "5ED6B918CFE5F9BACD5929A8EA47FD60",
+      "response_surface_marker": "HWGQ509339"
+    },
+    "next_required": "adapter_materialization_and_conformance"
+  },
+  "conformance": {
+    "status": "E2_VERIFIED",
+    "evidence_level": "E2",
+    "expected_marker": "HWG_DISCOVERED_ADAPTER_E2_3049",
+    "provider_meta": {
+      "provider": "gapgpt-web",
+      "transport_mode": "browser_ui_discovered",
+      "commitment_state": "terminal",
+      "retry_allowed": false,
+      "composer_selector": "textarea[placeholder='سوال خود را بپرسید...']",
+      "composer_rediscovered": false,
+      "submit_selector": "div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > button:nth-of-type(2)",
+      "response_selector": "div.markdown-container"
+    }
+  },
+  "source_candidate_id": "gapgpt-web"
+}

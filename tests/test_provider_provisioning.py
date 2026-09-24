@@ -133,3 +133,112 @@ def test_provider_wizard_forwards_page_identity(monkeypatch):
     resp=_client().post('/panel/api/provider-wizard/observe',json={'url':'https://future.example/chat','runtime_key':runtime['runtime_key'],'preferred_target_id':'ABC'})
     assert resp.status_code==200
     assert seen=={'preferred':'ABC','candidate':'future-web'}
+
+
+def test_provider_wizard_qualification_reuses_existing_e2(monkeypatch):
+    runtime = _runtime(); runtime["ready"] = True
+    record = {"candidate_id": "future-web", "analysis": {"recommended_runtime_key": runtime["runtime_key"]},
+              "submit_qualification": {"status": "E2_VERIFIED", "submit_selector": "#send"}}
+    monkeypatch.setattr(control_panel, "load_candidate", lambda root, cid: record)
+    called = {"qualify": 0}
+    monkeypatch.setattr(control_panel, "qualify_submit_candidate_sync", lambda *a, **k: called.__setitem__("qualify", called["qualify"] + 1))
+    resp = _client().post('/panel/api/provider-wizard/qualify/future-web', json={})
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["qualification"]["status"] == "E2_VERIFIED"
+    assert body["qualification"]["reused_evidence"] is True
+    assert called["qualify"] == 0
+
+
+def test_provider_wizard_qualification_persists_success(monkeypatch, tmp_path):
+    runtime = _runtime(); runtime["ready"] = True
+    record = {"candidate_id": "future-web", "analysis": {"recommended_runtime_key": runtime["runtime_key"]},
+              "technical_candidate": {"workflow_state": "TECHNICAL_CANDIDATE_READY", "submit_candidates": [{"selector": "#send", "status": "candidate_unverified"}]}}
+    monkeypatch.setattr(control_panel, "load_candidate", lambda root, cid: record)
+    monkeypatch.setattr(control_panel, "_browser_runtime_by_key", lambda key: runtime)
+    monkeypatch.setattr(control_panel, "qualify_submit_candidate_sync", lambda *a, **k: {"status": "E2_VERIFIED", "submitted": True, "submit_selector": "#send", "response_verified": True})
+    saved = {}
+    monkeypatch.setattr(control_panel, "persist_candidate", lambda root, rec: saved.setdefault("record", rec) or tmp_path / "x.json")
+    resp = _client().post('/panel/api/provider-wizard/qualify/future-web', json={})
+    assert resp.status_code == 200
+    assert resp.get_json()["qualification"]["response_verified"] is True
+    assert record["technical_candidate"]["workflow_state"] == "ROUNDTRIP_QUALIFIED"
+
+
+def test_provider_wizard_ui_runs_qualification_without_user_config_input():
+    html = open('control_panel_ui/index.html', encoding='utf-8').read()
+    js = open('control_panel_ui/panel.js', encoding='utf-8').read()
+    assert 'autoQualifyWizardCandidate' in js
+    assert "/provider-wizard/qualify/" in js
+    assert 'TECHNICAL_CANDIDATE_READY' in js
+    assert 'ROUNDTRIP_QUALIFIED' in js
+    assert 'فعلاً اقدامی از شما لازم نیست' in js
+    assert 'لازم نیست خودتان پیام آزمایشی بفرستید' in html
+    assert 'یک پیام مصنوعی کوتاه' in html
+
+
+def test_discovered_candidate_registration_requires_e2(monkeypatch):
+    record={"candidate_id":"future-web","technical_candidate":{},
+            "adapter_conformance":{"status":"E2_REFINEMENT_REQUIRED"},
+            "materialized_adapter_profile":{"status":"E2_CONFORMANT_CANDIDATE","path":"ignored.json"}}
+    monkeypatch.setattr(control_panel,"load_candidate",lambda root,cid:record)
+    resp=_client().post('/panel/api/provider-wizard/register/future-web',json={})
+    assert resp.status_code==409
+    assert resp.get_json()["error"]=="adapter_conformance_e2_required"
+
+
+def test_discovered_candidate_registers_disabled_from_materialized_profile(monkeypatch,tmp_path):
+    monkeypatch.setattr(control_panel,"__file__",str(tmp_path/'control_panel.py'))
+    folder=tmp_path/'docs'/'profiles'/'future-web'; folder.mkdir(parents=True)
+    profile=folder/'adapter_candidate.v1.json'
+    profile.write_text('{"status":"E2_CONFORMANT_CANDIDATE","provider_id":"future-web","adapter_candidate":{"home_url":"https://future.example/chat"}}',encoding='utf-8')
+    runtime=_runtime(); runtime['ready']=True
+    record={"candidate_id":"future-web","analysis":{"url":"https://future.example/chat","recommended_runtime_key":runtime['runtime_key']},
+            "technical_candidate":{},"adapter_conformance":{"status":"E2_VERIFIED"},
+            "materialized_adapter_profile":{"status":"E2_CONFORMANT_CANDIDATE","path":str(profile)}}
+    cfg={"providers":[]}; saved={}
+    monkeypatch.setattr(control_panel,"load_candidate",lambda root,cid:record)
+    monkeypatch.setattr(control_panel,"_browser_runtime_by_key",lambda key:runtime)
+    monkeypatch.setattr(control_panel,"_load_config_file",lambda:cfg)
+    monkeypatch.setattr(control_panel,"_save_config_file",lambda value:saved.update(value))
+    monkeypatch.setattr(control_panel,"_sync_auth_keys",lambda:None)
+    monkeypatch.setattr(control_panel,"_schedule_restart_all",lambda reason:{"scheduled":True})
+    monkeypatch.setattr(control_panel,"persist_candidate",lambda root,rec:profile)
+    resp=_client().post('/panel/api/provider-wizard/register/future-web',json={})
+    assert resp.status_code==201
+    item=cfg['providers'][0]
+    assert item['type']=='custom'
+    assert item['enabled'] is False
+    assert item['config']['adapter_kind']=='discovered_web'
+    assert item['config']['adapter_profile_path']=='docs/profiles/future-web/adapter_candidate.v1.json'
+    assert record['technical_candidate']['workflow_state']=='DISABLED_PROVIDER_REGISTERED'
+    assert record['technical_candidate']['next_required']=='readiness_probe_before_enable'
+
+
+def test_advance_reconciles_stale_readiness_before_enable(monkeypatch,tmp_path):
+    runtime=_runtime(); runtime['ready']=True
+    record={
+        'candidate_id':'future-web',
+        'analysis':{'recommended_runtime_key':runtime['runtime_key']},
+        'technical_candidate':{
+            'workflow_state':'READY_FOR_ENABLE_CONFIRMATION',
+            'next_required':'explicit_enable_confirmation',
+            'user_action_required':True,
+        },
+    }
+    monkeypatch.setattr(control_panel,'load_candidate',lambda root,cid:record)
+    monkeypatch.setattr(control_panel,'_browser_runtime_by_key',lambda key:runtime)
+    monkeypatch.setattr(control_panel,'load_readiness',lambda provider_id:{'state':'READY','ready':True,'current':False,'checked_at':'old','expires_at_epoch':1})
+    monkeypatch.setattr(control_panel,'persist_candidate',lambda root,rec:tmp_path/'candidate.json')
+    resp=_client().post('/panel/api/provider-wizard/advance/future-web',json={})
+    assert resp.status_code==200
+    body=resp.get_json()
+    assert body['workflow_state']=='DISABLED_PROVIDER_REGISTERED'
+    assert body['next_required']=='readiness_probe_before_enable'
+    assert record['technical_candidate']['user_action_required'] is False
+    assert record['readiness']['current'] is False
+
+
+def test_readiness_sync_requires_current_evidence():
+    source=open('control_panel.py',encoding='utf-8').read()
+    assert 'current_record.get("current") is True' in source

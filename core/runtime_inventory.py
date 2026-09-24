@@ -7,6 +7,7 @@ orchestration only when it declares ``runtime.kind: chrome_cdp``.
 from __future__ import annotations
 
 from pathlib import Path
+import os
 from urllib.parse import urlparse
 import json
 import yaml
@@ -26,6 +27,12 @@ def _absolute_profile(root: Path, value: str) -> str:
     return str(p if p.is_absolute() else (root / p).resolve())
 
 
+def _profile_identity(root: Path, value: str) -> str:
+    if not str(value or "").strip():
+        return ""
+    return os.path.normcase(os.path.normpath(_absolute_profile(root, str(value).strip())))
+
+
 def load_runtime_inventory(config_path: str | Path = DEFAULT_CONFIG) -> list[dict]:
     path, config = _load_config(config_path)
     root = path.resolve().parent
@@ -34,6 +41,7 @@ def load_runtime_inventory(config_path: str | Path = DEFAULT_CONFIG) -> list[dic
     shared_mode = bool(shared.get("enabled"))
     shared_cdp = str(shared.get("cdp_url") or "").rstrip("/")
     shared_profile = str(shared.get("profile_dir") or "").strip()
+    shared_profile_identity = _profile_identity(root, shared_profile)
 
     result: list[dict] = []
     seen_ids: set[str] = set()
@@ -58,9 +66,11 @@ def load_runtime_inventory(config_path: str | Path = DEFAULT_CONFIG) -> list[dic
         parsed = urlparse(cdp_url)
         if parsed.hostname not in {"127.0.0.1", "localhost", "::1"} or not parsed.port:
             raise ValueError(f"Provider {provider_id} runtime cdp_url must be loopback with explicit port")
+        profile_abs = _absolute_profile(root, profile_dir)
+        profile_identity = _profile_identity(root, profile_dir)
         if parsed.port in seen_ports:
             if not (shared_mode and cdp_url.rstrip("/") == shared_cdp
-                    and profile_dir == shared_profile):
+                    and profile_identity == shared_profile_identity):
                 raise ValueError(f"Duplicate CDP port in runtime inventory: {parsed.port}")
         seen_ports.add(parsed.port)
         result.append({
@@ -70,7 +80,7 @@ def load_runtime_inventory(config_path: str | Path = DEFAULT_CONFIG) -> list[dic
             "kind": "chrome_cdp",
             "cdp_url": cdp_url.rstrip("/"),
             "port": int(parsed.port),
-            "profile": _absolute_profile(root, profile_dir),
+            "profile": profile_abs,
             "home_url": home_url,
             "label": label,
         })
