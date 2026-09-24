@@ -113,3 +113,31 @@ async def test_visual_action_gate_blocks_general_quota_for_send():
     send=await visual_action_gate(FakePage([state]),"send")
     assert send["allowed"] is False
     assert send["classification"]["scope"] == "general"
+
+
+@pytest.mark.asyncio
+async def test_visual_action_gate_blocks_login_required():
+    from core.visual_discovery import visual_action_gate
+    state={"url":"https://x","title":"x","viewport":{},"body":"Sign in to continue","controls":[],"composers":[]}
+    result=await visual_action_gate(FakePage([state]),"media_qualification")
+    assert result["allowed"] is False
+    assert result["classification"]["state"] == "login_required"
+
+
+@pytest.mark.asyncio
+async def test_visual_action_gate_blocks_challenge():
+    from core.visual_discovery import visual_action_gate
+    state={"url":"https://x","title":"x","viewport":{},"body":"Verify you are human to continue","controls":[],"composers":[]}
+    result=await visual_action_gate(FakePage([state]),"media_qualification")
+    assert result["allowed"] is False
+    assert result["classification"]["state"] == "challenge"
+
+
+@pytest.mark.asyncio
+async def test_visual_action_gate_blocks_persian_media_quota():
+    from core.visual_discovery import visual_action_gate
+    state={"url":"https://x","title":"x","viewport":{},"body":"محدودیت پردازش فایل در بسته‌ی رایگان. پس از آزادسازی سهمیه، پردازش فایل‌های جدید دوباره در دسترس خواهد بود.","controls":[],"composers":[]}
+    result=await visual_action_gate(FakePage([state]),"media_qualification")
+    assert result["allowed"] is False
+    assert result["classification"]["state"] == "quota_limited"
+    assert result["classification"]["scope"] == "media"
