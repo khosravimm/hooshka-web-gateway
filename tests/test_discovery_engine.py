@@ -85,3 +85,10 @@ def test_upload_surface_drift_is_explicit():
     }}
     drift = diff_drift(old, new)
     assert {"type": "upload_class_changed", "class": "document", "old": False, "new": True} in drift
+
+
+def test_composer_selector_never_falls_back_to_generic_tag():
+    from core.discovery_engine import FRONTEND_JS
+    assert "candidates.find(unique) || structural(comp)" in FRONTEND_JS
+    assert "[contenteditable='true']" in FRONTEND_JS
+    assert "else selector = comp.tagName.toLowerCase()" not in FRONTEND_JS

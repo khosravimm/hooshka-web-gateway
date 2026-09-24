@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.48.0",
-  "updated_at": "2026-09-24T13:21:20Z",
+  "version": "1.49.0",
+  "updated_at": "2026-09-24T21:14:09.979072Z",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -873,9 +873,9 @@
       ],
       "latest_evidence": {
         "date": "2026-09-24",
-        "type": "E2 autonomous discovered-provider onboarding and readiness reconciliation",
-        "result": "Unknown GapGPT URL progressed through visual login classification, deterministic discovery, autonomous submit discovery, committed exact-marker E2, generated adapter conformance E2, fail-closed materialization, disabled registration, stale-readiness reconciliation, and fresh functional READY evidence. Activation remains explicitly unapproved.",
-        "record": "docs/evidence/HWG_DISCOVERED_PROVIDER_GAPGPT_E2_20260924.md"
+        "type": "E2 Wizard in-progress visibility and non-retryable qualification safety",
+        "result": "Live NoteGPT Wizard shows persistent stage/elapsed/wait state while asynchronous work is active and disables duplicate controls. A committed-but-unverified qualification is preserved as retry_allowed=false and surfaced explicitly instead of generic HTTP 409.",
+        "record": "docs/evidence/HWG_WIZARD_ACTIVITY_AND_NONRETRYABLE_E2_20260924.md"
       },
       "updated_at": "2026-09-24",
       "evidence": [
@@ -884,7 +884,8 @@
         "docs/evidence/HWG_URL_DRIVEN_PROVIDER_WIZARD_E2_20260924.md",
         "docs/evidence/HWG_EXPLORER_AUTONOMY_GAPGPT_E2_20260924.md",
         "docs/evidence/HWG_EXPLORER_PAGE_IDENTITY_AND_DEEP_DISCOVERY_E2_20260924.md",
-        "docs/evidence/HWG_DISCOVERED_PROVIDER_GAPGPT_E2_20260924.md"
+        "docs/evidence/HWG_DISCOVERED_PROVIDER_GAPGPT_E2_20260924.md",
+        "docs/evidence/HWG_WIZARD_ACTIVITY_AND_NONRETRYABLE_E2_20260924.md"
       ],
       "evidence_paths": [
         "docs/evidence/HWG_EMBEDDED_CHAT_UPLOAD_E2_20260923.md",
@@ -892,7 +893,8 @@
         "docs/evidence/HWG_URL_DRIVEN_PROVIDER_WIZARD_E2_20260924.md",
         "docs/evidence/HWG_EXPLORER_AUTONOMY_GAPGPT_E2_20260924.md",
         "docs/evidence/HWG_EXPLORER_PAGE_IDENTITY_AND_DEEP_DISCOVERY_E2_20260924.md",
-        "docs/evidence/HWG_DISCOVERED_PROVIDER_GAPGPT_E2_20260924.md"
+        "docs/evidence/HWG_DISCOVERED_PROVIDER_GAPGPT_E2_20260924.md",
+        "docs/evidence/HWG_WIZARD_ACTIVITY_AND_NONRETRYABLE_E2_20260924.md"
       ]
     },
     {

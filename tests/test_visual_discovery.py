@@ -168,3 +168,30 @@ async def test_visual_action_gate_blocks_challenge_for_certification_probe():
     result=await visual_action_gate(FakePage([state]),"certification_probe")
     assert result["allowed"] is False
     assert result["classification"]["state"] == "challenge"
+
+@pytest.mark.asyncio
+async def test_visual_action_gate_blocks_auth_ambiguous_certification():
+    from core.visual_discovery import visual_action_gate
+    state={"url":"https://x","title":"x","viewport":{},"body":"","controls":[{"label":"","testid":"","text":"Sign In","disabled":False,"aria_disabled":None}],"composers":[{"disabled":False}]}
+    result=await visual_action_gate(FakePage([state]),"certification_probe")
+    assert result["allowed"] is False
+    assert result["classification"]["state"]=="auth_ambiguous"
+
+
+@pytest.mark.asyncio
+async def test_visual_action_gate_fails_closed_while_loading():
+    from core.visual_discovery import visual_action_gate
+    state={"url":"https://x","title":"x","viewport":{},"body":"Loading","controls":[],"composers":[],"loading":[{"tag":"DIV","text":"Loading","cls":"loading"}]}
+    result=await visual_action_gate(FakePage([state]),"send")
+    assert result["allowed"] is False
+    assert result["classification"]["state"]=="loading"
+    assert result["reason"]=="blocked_by_visual_readiness"
+
+
+@pytest.mark.asyncio
+async def test_visual_action_gate_fails_closed_when_view_state_unknown():
+    from core.visual_discovery import visual_action_gate
+    state={"url":"https://x","title":"x","viewport":{},"body":"Welcome","controls":[],"composers":[]}
+    result=await visual_action_gate(FakePage([state]),"provider_interaction")
+    assert result["allowed"] is False
+    assert result["classification"]["state"]=="unknown"

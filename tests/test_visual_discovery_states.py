@@ -57,3 +57,29 @@ def test_quota_limited_state_persian_visible_text():
     out=classify_user_view_state({"body_tail":"محدودیت پردازش فایل در بسته‌ی رایگان. پس از آزادسازی سهمیه دوباره تلاش کنید.","upload_busy":False,"send_present":False,"send_enabled":False})
     assert out["state"]=="quota_limited"
     assert user_view_access_state(out)=="BLOCKED"
+
+
+def test_visible_login_control_with_composer_is_auth_ambiguous():
+    from core.visual_discovery import classify_user_view_state, user_view_access_state
+    out=classify_user_view_state({"body_tail":"","visible_control_text":"Sign In","composer_present":True,"composer_enabled":True,"send_present":False,"send_enabled":False,"upload_busy":False})
+    assert out["state"]=="auth_ambiguous"
+    assert user_view_access_state(out)=="UNKNOWN"
+
+
+def test_strong_login_surface_precedes_background_composer():
+    from core.visual_discovery import classify_user_view_state
+    out=classify_user_view_state({"body_tail":"","visible_control_text":"Sign In\nContinue with Google\nSign in with Email","composer_present":True,"composer_enabled":True,"send_present":False,"send_enabled":False,"upload_busy":False})
+    assert out["state"]=="login_required"
+    assert out["evidence"].lower() in {"continue with google","sign in with email"}
+
+
+def test_blocking_overlay_precedes_ready_composer():
+    from core.visual_discovery import user_view_access_state
+    out=classify_user_view_state({
+        "body_tail":"NoteGPT has a surprise for you!",
+        "blocking_overlays":[{"kind":"viewport_blocking_overlay","coverage":1.0,"text":"NoteGPT has a surprise for you!"}],
+        "blocking_dialogs":[],"upload_busy":False,"send_present":True,"send_enabled":True,
+        "composer_present":True,"composer_enabled":True,
+    })
+    assert out["state"]=="blocking_overlay"
+    assert user_view_access_state(out)=="BLOCKED"

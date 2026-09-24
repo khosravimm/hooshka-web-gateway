@@ -11,6 +11,69 @@ from urllib.parse import urlparse, urlunparse
 from core.visual_discovery import visible_page_state, visible_interaction_map, classify_user_view_state, capture_user_view
 
 SCHEMA_VERSION = "1.0.0"
+
+def _is_ephemeral_dom_id(value: str) -> bool:
+    value=str(value or "").strip()
+    if not value:
+        return False
+    if re.search(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", value, re.I):
+        return True
+    if re.match(r"^f_[0-9a-f-]{20,}$", value, re.I) or re.search(r"\d{10,}", value):
+        return True
+    parts=[x for x in re.split(r"[-_]", value) if x]
+    randomish=[x for x in parts if len(x)>=6 and re.search(r"[A-Za-z]",x) and re.search(r"\d",x)]
+    if len(randomish)>=2:
+        return True
+    if len(value)>=32 and randomish:
+        return True
+    return False
+
+SUBMIT_COMMITMENT_TIMEOUT_SECONDS = 4.0
+COMMITMENT_NOISE_RE = re.compile(r"(?:/cdn-cgi/rum|analytics|/g/collect|/userinfo(?:$|[/?])|quota|plan-quota|messages\.json|/agent/share/list)", re.I)
+
+def meaningful_commitment_requests(requests: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    out=[]
+    for item in requests:
+        endpoint=str(item.get("endpoint") or "")
+        method=str(item.get("method") or "").upper()
+        resource_type=str(item.get("resource_type") or "").lower()
+        if COMMITMENT_NOISE_RE.search(endpoint):
+            continue
+        if resource_type == "websocket" or method in {"POST","PUT","PATCH"}:
+            out.append(item)
+    return out
+
+async def _read_composer_value(composer) -> str | None:
+    try:
+        if await composer.count() == 0:
+            return None
+        try:
+            return await composer.input_value()
+        except Exception:
+            return (await composer.inner_text()).strip()
+    except Exception:
+        return None
+
+async def _observe_commitment(page, composer, prompt: str, expected: str, started_url: str, requests: list[dict[str, Any]], request_offset: int, timeout_seconds: float) -> dict[str, Any]:
+    deadline=asyncio.get_running_loop().time()+float(timeout_seconds)
+    transition_observed=False
+    prompt_absent_after_navigation=False
+    while asyncio.get_running_loop().time() < deadline:
+        await page.wait_for_timeout(250)
+        current_value=await _read_composer_value(composer)
+        body=await page.locator("body").inner_text()
+        if expected in body:
+            return {"signal":"verified_response_observed","current_value":current_value,"transition_observed":True,"prompt_absent_after_navigation":False}
+        meaningful=meaningful_commitment_requests(requests[request_offset:])
+        if meaningful:
+            return {"signal":"provider_network_activity","current_value":current_value,"transition_observed":True,"prompt_absent_after_navigation":False,"meaningful_requests":meaningful}
+        if page.url != started_url:
+            transition_observed=True
+            prompt_absent_after_navigation = prompt not in body
+        elif current_value is None or prompt not in str(current_value):
+            transition_observed=True
+    return {"signal":None,"current_value":await _read_composer_value(composer),"transition_observed":transition_observed,"prompt_absent_after_navigation":prompt_absent_after_navigation,"meaningful_requests":meaningful_commitment_requests(requests[request_offset:])}
+
 KNOWN_ORIGINS = {
     "chatgpt.com": "chatgpt_web",
     "chat.deepseek.com": "deepseek_web",
@@ -108,7 +171,7 @@ async def probe_composer_submit_candidates(page, discovery: dict[str, Any]) -> d
         return {"status":"blocked","reason":"provider_visual_state","candidates":[],"marker_sent":False,"classification":gate.get("classification") or {}}
     from core.control_discovery import ENUMERATE_JS
     before = await page.evaluate(ENUMERATE_JS)
-    before_selectors = {str(x.get("selector") or "") for x in before}
+    before_by_selector = {str(x.get("selector") or ""): x for x in before if str(x.get("selector") or "")}
     box = await loc.bounding_box() or {}
     marker = "HWG_DISCOVERY_PROBE"
     try:
@@ -134,14 +197,19 @@ async def probe_composer_submit_candidates(page, discovery: dict[str, Any]) -> d
     candidates=[]
     for item in after:
         sel=str(item.get("selector") or "")
-        if not sel or sel in before_selectors or not near_composer(item):
+        if not sel or not near_composer(item):
             continue
         if str(item.get("tag") or "").upper() != "BUTTON" and str(item.get("role") or "").lower() != "button":
+            continue
+        previous=before_by_selector.get(sel)
+        appeared=previous is None
+        enabled_transition=bool(previous and previous.get("disabled") is True and item.get("disabled") is not True)
+        if not appeared and not enabled_transition:
             continue
         candidates.append({
             "selector":sel,"text":item.get("text") or "","aria":item.get("aria") or "",
             "title":item.get("title") or "","rect":item.get("rect") or {},
-            "evidence":"appears_when_empty_composer_is_temporarily_filled",
+            "evidence":"appears_when_empty_composer_is_temporarily_filled" if appeared else "becomes_enabled_when_composer_is_temporarily_filled",
             "status":"candidate_unverified","confidence":"medium",
         })
     return {"status":"observed","marker_sent":False,"composer_restored":True,"candidates":candidates}
@@ -194,13 +262,17 @@ async def observe_url(url: str, cdp_url: str, preferred_target_id: str | None = 
         await sess.detach()
         target_id = (target_info.get("targetInfo") or {}).get("targetId")
         deterministic_discovery = None
-        if classification.get("state") == "ready":
+        access_semantics = {"state":"UNKNOWN","confidence":"low","evidence":["not_probed"]}
+        if classification.get("state") in {"ready","auth_ambiguous","login_required"}:
             from core.discovery_engine import discover_page
+            from core.blind_discovery import probe_observed_access_semantics
             report = await discover_page(page, candidate_id or _slug_host(urlparse(url).hostname or "candidate"))
             deterministic_discovery = report.__dict__
+            access_semantics = await probe_observed_access_semantics(page, (report.backend or {}).get("candidate_endpoints") or [])
             unknown_controls = [c for c in (report.frontend.get("controls") or []) if c.get("kind") == "unclassified"][:6]
             behavior_evidence = []
-            if unknown_controls:
+            interaction_allowed = classification.get("state") == "ready" and str(access_semantics.get("state") or "UNKNOWN").upper() != "LOGIN_REQUIRED"
+            if interaction_allowed and unknown_controls:
                 from core.browser_behavior_probe import run_behavior_probe, BehaviorAction, ProbePolicy
                 from core.control_discovery import classify
                 for control in unknown_controls:
@@ -218,13 +290,13 @@ async def observe_url(url: str, cdp_url: str, preferred_target_id: str | None = 
                     except Exception as exc:
                         behavior_evidence.append({"selector":selector,"action":"hover","error":type(exc).__name__})
             deterministic_discovery["behavior_evidence"] = behavior_evidence
-            deterministic_discovery["composer_submit_probe"] = await probe_composer_submit_candidates(page, deterministic_discovery)
+            deterministic_discovery["composer_submit_probe"] = (await probe_composer_submit_candidates(page, deterministic_discovery)) if interaction_allowed else {"status":"blocked","reason":"access_gate","marker_sent":False,"candidates":[]}
         file_inputs = await page.locator('input[type="file"]').count()
         editable = await page.locator('textarea:visible,[contenteditable="true"]:visible,input[type="text"]:visible').count()
         selects = await page.locator('select:visible,[role="combobox"]:visible').count()
         return {
             "schema_version": SCHEMA_VERSION, "final_url": page.url, "title": await page.title(),
-            "classification": classification, "user_view": state, "exploration_trace": trace,
+            "classification": classification, "access_semantics": access_semantics, "user_view": state, "exploration_trace": trace,
             "interaction_summary": {"controls":len(interaction_map.get("controls") or []),"headings":len(interaction_map.get("headings") or []),"horizontal_overflow":bool(interaction_map.get("horizontal_overflow")),"clipped":len(interaction_map.get("clipped") or []),"file_inputs":file_inputs,"editable_inputs":editable,"selectors":selects},
             "page_left_open": True,
             "target_id": target_id,
@@ -243,15 +315,21 @@ def synthesize_technical_candidate(analysis: dict[str, Any], observation: dict[s
     observation = observation or {}
     classification = observation.get("classification") or {}
     state = str(classification.get("state") or "unknown")
+    access_semantics = observation.get("access_semantics") or {}
+    access_state = str(access_semantics.get("state") or "UNKNOWN").upper()
     discovery = observation.get("deterministic_discovery") or {}
     frontend = discovery.get("frontend") or {}
     backend = discovery.get("backend") or {}
     capabilities = list(discovery.get("capabilities") or [])
     controls = list(frontend.get("controls") or [])
-    if state in {"login_required", "challenge"}:
+    if access_state == "LOGIN_REQUIRED" or state in {"login_required", "challenge"}:
         workflow_state = "WAITING_FOR_USER_GATE"
         next_required = "user_complete_login_or_verification"
         user_action_required = True
+    elif state == "auth_ambiguous" and access_state == "UNKNOWN":
+        workflow_state = "ACCESS_DIAGNOSTIC_REQUIRED"
+        next_required = "resolve_authentication_state"
+        user_action_required = False
     elif state == "unknown" or observation.get("needs_deeper_exploration"):
         workflow_state = "EXPLORER_DEEPENING"
         next_required = "autonomous_deeper_exploration"
@@ -277,6 +355,7 @@ def synthesize_technical_candidate(analysis: dict[str, Any], observation: dict[s
         "reuse_adapter_type": analysis.get("known_adapter_type"),
         "runtime_key": analysis.get("recommended_runtime_key"),
         "target_id": observation.get("target_id"),
+        "access_semantics": access_semantics,
         "composer_selector": frontend.get("composer_selector"),
         "controls": controls,
         "capability_claims": capabilities,
@@ -298,7 +377,7 @@ async def discover_response_surface_from_marker(page, marker: str) -> dict[str, 
         return {"status":"blocked","reason":"marker_missing"}
     rows = await page.evaluate(r"""marker => {
       const esc = s => String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      const eph = v => /^f_[0-9a-f-]{20,}$/i.test(v||'') || /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(v||'');
+      const eph = v => { const z=String(v||''); const parts=z.split(/[-_]/).filter(Boolean); const mixed=parts.filter(x=>x.length>=6&&/[a-z]/i.test(x)&&/\d/.test(x)); return /^f_[0-9a-f-]{20,}$/i.test(z)||/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(z)||/\d{10,}/.test(z)||mixed.length>=2||(z.length>=32&&mixed.length>=1); };
       const selectorOf = cur => {
         const cls=String(cur.className||'').split(/\s+/).filter(Boolean).filter(x=>/^[A-Za-z_][A-Za-z0-9_-]{0,63}$/.test(x));
         const tid=cur.getAttribute('data-testid'); const aria=cur.getAttribute('aria-label'); const role=cur.getAttribute('role');
@@ -324,6 +403,11 @@ async def discover_response_surface_from_marker(page, marker: str) -> dict[str, 
     candidates=[]
     for row in rows or []:
         selector=str(row.get("selector") or "").strip()
+        classes=[str(x) for x in (row.get("cls") or [])]
+        row_id=str(row.get("id") or "").strip()
+        if row_id and _is_ephemeral_dom_id(row_id):
+            tag=str(row.get("tag") or "div").lower()
+            selector=(tag + "".join("."+re.sub(r"[^A-Za-z0-9_-]", "", x) for x in classes if re.match(r"^[A-Za-z_]",x))) if classes else ""
         if not selector:
             continue
         try:
@@ -335,7 +419,6 @@ async def discover_response_surface_from_marker(page, marker: str) -> dict[str, 
         matching=[str(t).strip() for t in texts if marker in str(t)]
         if not matching:
             continue
-        classes=[str(x) for x in (row.get("cls") or [])]
         semantic=sum(1 for x in classes if re.search(r"assistant|bot|message|chat|response|markdown|content",x,re.I))
         exact=bool(row.get("exact")) or any(t == marker for t in matching)
         extra=min((max(0,len(t)-len(marker)) for t in matching), default=99999)
@@ -397,6 +480,26 @@ def enrich_existing_e2_response_surface_sync(cdp_url: str, record: dict[str, Any
     return asyncio.run(enrich_existing_e2_response_surface(cdp_url, record))
 
 
+def _stable_response_selector(response_surface: dict[str, Any]) -> tuple[str, list[str]]:
+    rows=[]
+    primary=str(response_surface.get("selector") or "").strip()
+    if primary:
+        rows.append({"selector":primary,"score":10**6,"exact_marker_text":bool(response_surface.get("exact_marker_text"))})
+    rows.extend(list(response_surface.get("candidates") or []))
+    seen=set(); stable=[]
+    for row in rows:
+        selector=str(row.get("selector") or "").strip()
+        if not selector or selector in seen:
+            continue
+        seen.add(selector)
+        if selector.startswith("#") and _is_ephemeral_dom_id(selector[1:]):
+            continue
+        stable.append((bool(row.get("exact_marker_text")), int(row.get("score") or 0), selector))
+    stable.sort(key=lambda x:(x[0],x[1]), reverse=True)
+    selectors=[x[2] for x in stable]
+    return (selectors[0] if selectors else ""), selectors
+
+
 def generate_adapter_candidate(record: dict[str, Any]) -> dict[str, Any]:
     technical = record.get("technical_candidate") or {}
     qualification = record.get("submit_qualification") or {}
@@ -412,6 +515,9 @@ def generate_adapter_candidate(record: dict[str, Any]) -> dict[str, Any]:
         ev = claim.get("evidence") or {}
         row = {"name":claim.get("name"),"supported":bool(claim.get("supported")),"evidence_level":ev.get("type") or "E0","confidence":ev.get("confidence") or "unknown"}
         (proven if row["supported"] else unresolved).append(row)
+    response_selector, response_selectors = _stable_response_selector(response_surface)
+    if not response_selector:
+        return {"status":"blocked","reason":"stable_response_surface_missing"}
     adapter = {
         "schema_version": SCHEMA_VERSION,
         "kind": "browser_ui_adapter_candidate",
@@ -425,7 +531,7 @@ def generate_adapter_candidate(record: dict[str, Any]) -> dict[str, Any]:
             "target_strategy": "same_origin_live_page",
             "composer": {"selector":technical.get("composer_selector"),"evidence_level":"E1"},
             "submit": {"strategy":"dynamic_after_fill_near_composer","evidence_level":"E2","last_verified_selector":qualification.get("submit_selector")},
-            "response": {"selector":response_surface.get("selector"),"strategy":response_surface.get("strategy"),"evidence_level":"E2"},
+            "response": {"selector":response_selector,"selectors":response_selectors,"strategy":"stable_recorded_response_surface","source_strategy":response_surface.get("strategy"),"evidence_level":"E2"},
         },
         "capabilities": {"observed_supported":proven,"unresolved_or_unsupported":unresolved},
         "upload_surface": technical.get("upload_surface") or {},
@@ -520,6 +626,7 @@ async def qualify_submit_candidate(cdp_url: str, record: dict[str, Any], timeout
         from core.control_discovery import ENUMERATE_JS
         before_controls = await page.evaluate(ENUMERATE_JS)
         before_signature = {(str(x.get("text") or ""), str(x.get("aria") or ""), str(x.get("title") or ""), str(x.get("role") or ""), str(x.get("tag") or ""), int((x.get("rect") or {}).get("x") or 0), int((x.get("rect") or {}).get("y") or 0)) for x in before_controls}
+        before_by_selector = {str(x.get("selector") or ""): x for x in before_controls if str(x.get("selector") or "")}
         requests = []
         def on_request(req):
             if len(requests) >= 80 or req.resource_type not in {"xhr","fetch","websocket"}:
@@ -536,6 +643,7 @@ async def qualify_submit_candidate(cdp_url: str, record: dict[str, Any], timeout
             live_controls = await page.evaluate(ENUMERATE_JS)
             box = await composer.bounding_box() or {}
             prior_semantics = {(str(x.get("text") or "").strip().lower(), str(x.get("aria") or "").strip().lower(), str(x.get("title") or "").strip().lower()) for x in candidates}
+            prior_selectors = {str(x.get("selector") or "").strip() for x in candidates if str(x.get("selector") or "").strip()}
             def near(item):
                 r=item.get("rect") or {}
                 if not box or not r: return False
@@ -550,10 +658,18 @@ async def qualify_submit_candidate(cdp_url: str, record: dict[str, Any], timeout
                 if item.get("disabled") is True or not near(item): continue
                 text=str(item.get("text") or "").strip().lower(); aria=str(item.get("aria") or "").strip().lower(); title=str(item.get("title") or "").strip().lower()
                 r=item.get("rect") or {}; sig=(text,aria,title,str(item.get("role") or ""),str(item.get("tag") or ""),int(r.get("x") or 0),int(r.get("y") or 0))
+                selector_now=str(item.get("selector") or "").strip()
+                previous=before_by_selector.get(selector_now)
+                enabled_transition=bool(previous and previous.get("disabled") is True and item.get("disabled") is not True)
+                appeared=sig not in before_signature
                 score=0
-                if sig not in before_signature: score += 8
+                if selector_now in prior_selectors: score += 20
+                if enabled_transition: score += 12
+                if appeared: score += 6
                 if (text,aria,title) in prior_semantics and any((text,aria,title)): score += 6
                 if re.search(r"send|submit|arrow[_ -]?up", " ".join([text,aria,title]), re.I): score += 5
+                if selector_now not in prior_selectors and not enabled_transition and not appeared and not re.search(r"send|submit|arrow[_ -]?up", " ".join([text,aria,title]), re.I):
+                    continue
                 ranked.append((score,item))
             ranked.sort(key=lambda pair: pair[0], reverse=True)
             if not ranked or ranked[0][0] <= 0:
@@ -564,7 +680,34 @@ async def qualify_submit_candidate(cdp_url: str, record: dict[str, Any], timeout
             if not selector or await submit.count() == 0 or not await submit.is_visible():
                 await composer.fill("")
                 return {"status":"blocked","reason":"live_submit_control_not_visible","submitted":False}
+            requests_before_click=len(requests)
+            activation_strategy="click"
             await submit.click(timeout=5000, no_wait_after=True)
+            commitment=await _observe_commitment(page,composer,prompt,expected,started_url,requests,requests_before_click,SUBMIT_COMMITMENT_TIMEOUT_SECONDS)
+            commitment_signal=commitment.get("signal")
+            if not commitment_signal:
+                final_state = await visible_page_state(page)
+                transition_observed=bool(commitment.get("transition_observed"))
+                prompt_absent_after_navigation=bool(commitment.get("prompt_absent_after_navigation"))
+                if page.url != started_url and prompt_absent_after_navigation:
+                    status="E2_PRECOMMIT_TRANSITION"; reason="precommit_page_transition"; retry_allowed=True
+                elif transition_observed:
+                    status="E2_COMMITMENT_AMBIGUOUS"; reason="commitment_not_proven"; retry_allowed=False
+                else:
+                    status="E2_FAILED_BEFORE_COMMIT"; reason="submit_activation_not_committed"; retry_allowed=True
+                return {
+                    "status":status, "evidence_level":"E2",
+                    "submitted":False, "retry_allowed":retry_allowed, "clicked":True,
+                    "activation_strategy":activation_strategy,
+                    "reason":reason, "commitment_state":"not_proven", "response_verified":False,
+                    "expected_marker":expected, "challenge_kind":"reverse_digits", "challenge_input":digits,
+                    "submit_selector":selector, "target_id":target_id,
+                    "live_selector_rediscovered":refreshed, "composer_selector":composer_selector,
+                    "started_url":started_url, "final_url":page.url,
+                    "network_endpoints":requests[-30:],
+                    "meaningful_commitment_requests":meaningful_commitment_requests(requests[requests_before_click:]),
+                    "final_user_view_classification":classify_user_view_state(final_state),
+                }
             submitted = True
             deadline = asyncio.get_running_loop().time() + float(timeout_seconds)
             verified = False
@@ -584,6 +727,7 @@ async def qualify_submit_candidate(cdp_url: str, record: dict[str, Any], timeout
             return {
                 "status":"E2_VERIFIED" if verified else "E2_FAILED_AFTER_COMMIT",
                 "evidence_level":"E2", "submitted":True, "retry_allowed":False,
+                "activation_strategy":activation_strategy, "commitment_signal":commitment_signal,
                 "response_verified":verified, "expected_marker":expected,
                 "challenge_kind":"reverse_digits", "challenge_input":digits,
                 "submit_selector":selector, "target_id":target_id,
@@ -827,11 +971,17 @@ def save_candidate(root: Path, analysis: dict[str, Any], observation: dict[str, 
         selectors = {str(x.get("selector") or "") for x in (record["technical_candidate"].get("submit_candidates") or [])}
         same_target = str(prior.get("target_id") or "") == str((observation or {}).get("target_id") or "")
         same_selector = str(prior.get("submit_selector") or "") in selectors
-        if prior.get("status") == "E2_VERIFIED" and same_target and same_selector:
+        nonretryable_commit = bool(prior.get("submitted")) and prior.get("retry_allowed") is False
+        if nonretryable_commit or (prior.get("status") == "E2_VERIFIED" and same_target and same_selector):
             apply_submit_qualification(record, prior)
     path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
     return {"candidate": record, "record": str(path)}
 
 
-def observe_url_sync(url: str, cdp_url: str, preferred_target_id: str | None = None, candidate_id: str | None = None) -> dict[str, Any]:
-    return asyncio.run(observe_url(url, cdp_url, preferred_target_id=preferred_target_id, candidate_id=candidate_id))
+def observe_url_sync(url: str, cdp_url: str, preferred_target_id: str | None = None, candidate_id: str | None = None, timeout_seconds: float = 60.0) -> dict[str, Any]:
+    async def _bounded_observation():
+        return await asyncio.wait_for(
+            observe_url(url, cdp_url, preferred_target_id=preferred_target_id, candidate_id=candidate_id),
+            timeout=float(timeout_seconds),
+        )
+    return asyncio.run(_bounded_observation())

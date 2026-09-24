@@ -224,3 +224,118 @@ async def test_submit_qualification_stops_before_prompt_on_visual_block(monkeypa
     assert out["commitment_state"]=="not_sent"
     assert out["classification"]["state"]=="challenge"
     assert page.loc.fill_calls==[]
+
+def test_observe_url_sync_is_bounded(monkeypatch):
+    import asyncio
+    import core.provider_onboarding as po
+    async def stalled(*args, **kwargs):
+        await asyncio.sleep(1)
+        return {}
+    monkeypatch.setattr(po, "observe_url", stalled)
+    try:
+        po.observe_url_sync("https://future.example", "http://127.0.0.1:9330", timeout_seconds=0.01)
+        assert False, "expected TimeoutError"
+    except TimeoutError:
+        pass
+
+
+class _TransitionLocator:
+    first = None
+    def __init__(self):
+        self.first=self
+        self.fill_calls=[]
+    async def count(self): return 1
+    async def is_visible(self): return True
+    async def input_value(self): return ""
+    async def fill(self,value): self.fill_calls.append(value)
+    async def bounding_box(self): return {"x":400,"y":400,"width":800,"height":80}
+
+class _TransitionPage:
+    def __init__(self):
+        self.loc=_TransitionLocator(); self.eval_calls=0
+    def locator(self,_selector): return self.loc
+    async def wait_for_timeout(self,_ms): return None
+    async def evaluate(self,_script):
+        self.eval_calls += 1
+        base={"selector":"#send","tag":"BUTTON","role":"","text":"","aria":"","title":"","rect":{"x":1180,"y":420,"w":32,"h":32}}
+        if self.eval_calls==1:
+            return [{**base,"disabled":True}]
+        return [{**base,"disabled":None}]
+
+@pytest.mark.asyncio
+async def test_composer_probe_detects_existing_button_enabled_transition(monkeypatch):
+    from core.provider_onboarding import probe_composer_submit_candidates
+    import core.visual_discovery as visual
+    async def allowed(_page,_action): return {"allowed":True,"classification":{"state":"ready"}}
+    monkeypatch.setattr(visual,"visual_action_gate",allowed)
+    page=_TransitionPage()
+    out=await probe_composer_submit_candidates(page,{"frontend":{"composer_selector":"div[contenteditable='true']"}})
+    assert out["status"]=="observed"
+    assert out["marker_sent"] is False
+    assert out["composer_restored"] is True
+    assert out["candidates"][0]["selector"]=="#send"
+    assert out["candidates"][0]["evidence"]=="becomes_enabled_when_composer_is_temporarily_filled"
+    assert page.loc.fill_calls==["HWG_DISCOVERY_PROBE",""]
+
+
+def test_backend_access_semantics_overrides_visual_ready_for_login_gate():
+    out=synthesize_technical_candidate(_analysis(), {
+        "classification":{"state":"auth_ambiguous"},
+        "access_semantics":{"state":"LOGIN_REQUIRED","confidence":"high","evidence":["message:login expired"]},
+        "discovery_completed":True,"target_id":"T1",
+        "deterministic_discovery":{"frontend":{"composer_selector":"div[contenteditable='true']","controls":[],"upload_surface":{}},"backend":{},"capabilities":[]},
+    })
+    assert out["workflow_state"]=="WAITING_FOR_USER_GATE"
+    assert out["next_required"]=="user_complete_login_or_verification"
+    assert out["user_action_required"] is True
+    assert out["access_semantics"]["state"]=="LOGIN_REQUIRED"
+
+
+def test_response_surface_ephemeral_id_detection():
+    from core.provider_onboarding import _is_ephemeral_dom_id
+    assert _is_ephemeral_dom_id('f_01234567-89ab-cdef-0123-456789abcdef') is True
+    assert _is_ephemeral_dom_id('gpt-message-id-0_1790260644637') is True
+    assert _is_ephemeral_dom_id('agent-preview-editor-0-mufmyq80-dn2rs0-block-1-preview') is True
+    assert _is_ephemeral_dom_id('chat-scroll-wrapper') is False
+    assert _is_ephemeral_dom_id('send-message-button') is False
+
+
+def test_generate_adapter_candidate_rejects_ephemeral_response_id():
+    from core.provider_onboarding import generate_adapter_candidate
+    surface={
+      "status":"E2_VERIFIED","selector":"#agent-preview-editor-0-mufnfjko-rg06ti-block-1-preview",
+      "strategy":"smallest_stable_marker_anchored_surface","exact_marker_text":True,
+      "candidates":[
+        {"selector":"#agent-preview-editor-0-mufnfjko-rg06ti-block-1-preview","score":49,"exact_marker_text":True},
+        {"selector":"div.md-editor-preview.github-theme.md-editor-scrn","score":45,"exact_marker_text":True},
+        {"selector":"div.ml-1.mt-3","score":9,"exact_marker_text":False},
+      ]}
+    record={"technical_candidate":{"provider_id":"future-web","origin":"https://future.example","home_url":"https://future.example","runtime_key":"r1","composer_selector":"div[contenteditable='true']","response_surface":surface,"capability_claims":[],"upload_surface":{},"backend_hints":{},"unresolved_controls":[]},"submit_qualification":{"status":"E2_VERIFIED","submit_selector":"#send","expected_marker":"X","target_id":"T1","response_surface":surface}}
+    adapter=generate_adapter_candidate(record)
+    response=adapter["transport"]["response"]
+    assert response["selector"]=="div.md-editor-preview.github-theme.md-editor-scrn"
+    assert response["selectors"][0]==response["selector"]
+    assert not any(x.startswith("#agent-preview-editor-0-") for x in response["selectors"])
+
+
+def test_reobserve_preserves_nonretryable_committed_failure_for_same_target(tmp_path):
+    from core.provider_onboarding import save_candidate, candidate_path, apply_submit_qualification
+    analysis = _analysis()
+    observation = {
+        "classification": {"state": "ready"}, "discovery_completed": True, "target_id": "T1",
+        "deterministic_discovery": {"frontend": {"composer_selector": "textarea", "controls": [], "upload_surface": {}},
+                                    "backend": {}, "capabilities": [], "behavior_evidence": [],
+                                    "composer_submit_probe": {"candidates": [{"selector": "#send", "status": "candidate_unverified"}]}}}
+    first = save_candidate(tmp_path, analysis, observation)["candidate"]
+    first = apply_submit_qualification(first, {"status":"E2_FAILED_AFTER_COMMIT","submitted":True,
+        "retry_allowed":False,"target_id":"T1","submit_selector":"#send","expected_marker":"HWGQ999"})
+    candidate_path(tmp_path, "future-web").write_text(__import__('json').dumps(first), encoding="utf-8")
+    same = save_candidate(tmp_path, analysis, observation)["candidate"]
+    assert same["submit_qualification"]["status"] == "E2_FAILED_AFTER_COMMIT"
+    assert same["submit_qualification"]["retry_allowed"] is False
+    assert same["technical_candidate"]["workflow_state"] == "QUALIFICATION_FAILED_AFTER_COMMIT"
+    changed = dict(observation); changed["target_id"] = "T2"
+    candidate_path(tmp_path, "future-web").write_text(__import__('json').dumps(first), encoding="utf-8")
+    moved = save_candidate(tmp_path, analysis, changed)["candidate"]
+    assert moved["submit_qualification"]["status"] == "E2_FAILED_AFTER_COMMIT"
+    assert moved["technical_candidate"]["workflow_state"] == "QUALIFICATION_FAILED_AFTER_COMMIT"

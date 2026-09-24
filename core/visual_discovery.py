@@ -27,8 +27,10 @@ async def visible_page_state(page, file_name: str | None = None) -> dict[str, An
         }));
       const composers=[...document.querySelectorAll('textarea,[contenteditable="true"]')].filter(visible).map(e=>{const r=e.getBoundingClientRect(); return {tag:e.tagName,id:e.id||'',label:e.getAttribute('aria-label')||'',placeholder:e.getAttribute('placeholder')||'',disabled:!!e.disabled||e.getAttribute('aria-disabled')==='true',rect:{x:r.x,y:r.y,w:r.width,h:r.height}};}).filter(x=>x.rect.w>=160&&x.rect.h>=24).slice(0,12);
       const media=[...document.querySelectorAll('img,[role="img"]')].filter(visible).map(e=>{const r=e.getBoundingClientRect(); return {tag:e.tagName,alt:e.getAttribute('alt')||'',label:e.getAttribute('aria-label')||'',title:e.getAttribute('title')||'',src:(e.getAttribute('src')||'').slice(0,220),rect:{x:r.x,y:r.y,w:r.width,h:r.height}};}).filter(x=>x.rect.w>=24&&x.rect.h>=24).slice(0,40);
+      const inViewport=e=>{const r=e.getBoundingClientRect();return r.bottom>0&&r.right>0&&r.top<innerHeight&&r.left<innerWidth};
+      const loading=[...document.querySelectorAll('[aria-busy="true"],.loading,.spinner,[class*="loading"],[class*="spinner"]')].filter(e=>visible(e)&&inViewport(e)).slice(0,20).map(e=>({tag:e.tagName,text:(e.innerText||e.textContent||'').trim().slice(0,160),cls:String(e.className||'').slice(0,180)}));
       return {url:location.href,title:document.title,viewport:{width:innerWidth,height:innerHeight},
-        body:(document.body?.innerText||'').slice(-4000),controls:nodes,composers,media};
+        body:(document.body?.innerText||'').slice(-4000),controls:nodes,composers,media,loading};
     }""")
     body = str(state.get("body") or "")
     controls = list(state.get("controls") or [])
@@ -56,17 +58,20 @@ async def visible_page_state(page, file_name: str | None = None) -> dict[str, An
     composer_enabled = any(not bool(c.get("disabled")) for c in composers)
     dialogs_raw = await visible_blocking_dialogs(page)
     dialogs = dialogs_raw if isinstance(dialogs_raw, list) else []
+    overlays_raw = await visible_blocking_overlays(page)
+    overlays = overlays_raw if isinstance(overlays_raw, list) else []
     upload_dialog = any(re.search(r"upload|آپلود", str(d.get("text") or ""), re.I) for d in dialogs if isinstance(d, dict))
     return {
         "schema_version": VISUAL_VERSION,
         "url": state.get("url"), "title": state.get("title"), "viewport": state.get("viewport"),
-        "body_tail": body, "attachment_visible": attached,
+        "body_tail": body, "visible_control_text": control_text[-6000:], "attachment_visible": attached,
         "upload_busy": bool(UPLOAD_BUSY_RE.search(body)) or upload_dialog,
-        "blocking_dialogs": dialogs[:8],
+        "blocking_dialogs": dialogs[:8], "blocking_overlays": overlays[:8],
         "send_present": bool(send), "send_enabled": send_enabled,
         "send_controls": send[:8], "composer_present": bool(composers),
         "composer_enabled": composer_enabled, "composer_controls": composers[:8],
-        "media_previews": media[:20],
+        "media_previews": media[:20], "loading_indicators": list(state.get("loading") or [])[:20],
+        "loading_visible": bool(state.get("loading")),
     }
 
 
@@ -77,11 +82,21 @@ USER_VIEW_PATTERNS = [
     ("quota_limited", re.compile(r"quota|usage limit|limit reached|processing limit|محدودیت پردازش|سهمیه|پس از آزادسازی سهمیه", re.I)),
     ("rate_limited", re.compile(r"too many requests|rate limit|try again later|تعداد درخواست|بعداً دوباره", re.I)),
     ("service_error", re.compile(r"something went wrong|service unavailable|internal server error|temporarily unavailable", re.I)),
-    ("loading", re.compile(r"\b(loading|initializing|connecting)\b", re.I)),
 ]
 
 def classify_user_view_state(state: dict[str, Any]) -> dict[str, Any]:
-    text = str(state.get("body_tail") or "")
+    body_text = str(state.get("body_tail") or "")
+    control_text = str(state.get("visible_control_text") or "")
+    text = "\n".join(x for x in (body_text, control_text) if x)
+    strong_login_surface = re.search(
+        r"continue with google|continue with apple|sign in with email|log in with email|don\'t have an account|sign up",
+        text, re.I,
+    )
+    login_control = bool(re.search(r"(?:^|\n|\s)(?:log ?in|sign ?in)(?:$|\n|\s)", control_text, re.I))
+    if strong_login_surface:
+        return {"state":"login_required","evidence":strong_login_surface.group(0)[:160]}
+    if login_control and state.get("composer_present"):
+        return {"state":"auth_ambiguous","evidence":"visible login control with interactive composer"}
     for name, pattern in USER_VIEW_PATTERNS:
         match = pattern.search(text)
         if match:
@@ -91,6 +106,13 @@ def classify_user_view_state(state: dict[str, Any]) -> dict[str, Any]:
                 media_hint=bool(re.search(r"file|upload|attachment|processing file|فایل|پردازش\s+فایل", lower, re.I))
                 result["scope"]="media" if media_hint else "general"
             return result
+    overlays=list(state.get("blocking_overlays") or [])
+    dialogs=list(state.get("blocking_dialogs") or [])
+    if overlays or dialogs:
+        item=(overlays or dialogs)[0] if (overlays or dialogs) else {}
+        return {"state":"blocking_overlay","evidence":str(item.get("text") or item.get("kind") or "visible blocking overlay")[:160],"overlay_count":len(overlays),"dialog_count":len(dialogs)}
+    if state.get("loading_visible"):
+        return {"state":"loading","evidence":"visible loading indicator"}
     if state.get("upload_busy"):
         return {"state":"upload_busy","evidence":"visible upload progress"}
     if state.get("send_present") and state.get("send_enabled"):
@@ -103,26 +125,31 @@ def classify_user_view_state(state: dict[str, Any]) -> dict[str, Any]:
 
 
 VISUAL_ACTION_BLOCKING_STATES = {
-    "media_qualification": {"region_blocked","login_required","challenge","quota_limited","rate_limited","service_error"},
-    "send": {"region_blocked","login_required","challenge","quota_limited","rate_limited","service_error"},
-    "probe": {"region_blocked","login_required","challenge","quota_limited","rate_limited","service_error"},
-    "provider_interaction": {"region_blocked","login_required","challenge","quota_limited","rate_limited","service_error"},
-    "certification_probe": {"region_blocked","login_required","challenge","quota_limited","rate_limited","service_error"},
+    "media_qualification": {"region_blocked","login_required","auth_ambiguous","challenge","quota_limited","rate_limited","service_error","blocking_overlay"},
+    "send": {"region_blocked","login_required","auth_ambiguous","challenge","quota_limited","rate_limited","service_error","blocking_overlay"},
+    "probe": {"region_blocked","login_required","auth_ambiguous","challenge","quota_limited","rate_limited","service_error","blocking_overlay"},
+    "provider_interaction": {"region_blocked","login_required","auth_ambiguous","challenge","quota_limited","rate_limited","service_error","blocking_overlay"},
+    "certification_probe": {"region_blocked","login_required","auth_ambiguous","challenge","quota_limited","rate_limited","service_error","blocking_overlay"},
 }
 
 async def visual_action_gate(page, action: str) -> dict[str, Any]:
     state = await visible_page_state(page)
     classification = classify_user_view_state(state)
     name = str(classification.get("state") or "unknown")
-    blocked = name in VISUAL_ACTION_BLOCKING_STATES.get(action, set())
-    if name=="quota_limited" and str(classification.get("scope") or "general")=="media" and action!="media_qualification":
-        blocked=False
+    media_scoped_exception = (
+        name=="quota_limited"
+        and str(classification.get("scope") or "general")=="media"
+        and action!="media_qualification"
+    )
+    allowed = name=="ready" or media_scoped_exception
+    known_blocker = name in VISUAL_ACTION_BLOCKING_STATES.get(action, set())
+    reason = "visual_preflight_clear" if allowed else ("blocked_by_provider_state" if known_blocker else "blocked_by_visual_readiness")
     return {
         "action": action,
-        "allowed": not blocked,
+        "allowed": allowed,
         "classification": classification,
         "state": state,
-        "reason": ("blocked_by_provider_state" if blocked else "visual_preflight_clear"),
+        "reason": reason,
     }
 
 async def media_qualification_preflight(page) -> dict[str, Any]:
@@ -131,13 +158,40 @@ async def media_qualification_preflight(page) -> dict[str, Any]:
 
 def user_view_access_state(classification: dict[str, Any]) -> str:
     state=str((classification or {}).get("state") or "unknown")
-    if state in {"region_blocked","challenge","quota_limited","rate_limited","service_error"}:
+    if state in {"region_blocked","challenge","quota_limited","rate_limited","service_error","blocking_overlay"}:
         return "BLOCKED"
     if state == "login_required":
         return "LOGIN_REQUIRED"
+    if state == "auth_ambiguous":
+        return "UNKNOWN"
     if state in {"ready","interactive_not_ready","upload_busy","loading"}:
         return "AUTHENTICATED"
     return "UNKNOWN"
+
+
+async def visible_blocking_overlays(page) -> list[dict[str, Any]]:
+    return await page.evaluate(r"""() => {
+      const vw=innerWidth, vh=innerHeight, area=Math.max(1,vw*vh);
+      const visible=(e,s,r)=>r.width>0&&r.height>0&&s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity||1)>0.05&&s.pointerEvents!=='none';
+      const center=document.elementFromPoint(vw/2,vh/2);
+      const rows=[];
+      for(const e of document.querySelectorAll('body *')){
+        const s=getComputedStyle(e), r=e.getBoundingClientRect();
+        if(!visible(e,s,r) || s.position!=='fixed') continue;
+        const w=Math.max(0,Math.min(r.right,vw)-Math.max(r.left,0));
+        const h=Math.max(0,Math.min(r.bottom,vh)-Math.max(r.top,0));
+        const coverage=(w*h)/area;
+        const zi=parseInt(s.zIndex||'0',10);
+        const semantic=/overlay|backdrop|modal|dialog|popup|mask|interstitial/i.test(String(e.className||'')+' '+String(e.id||''));
+        const centerBlocks=!!center && (e===center || e.contains(center));
+        const backdrop=(s.backdropFilter&&s.backdropFilter!=='none') || (s.webkitBackdropFilter&&s.webkitBackdropFilter!=='none');
+        if(!centerBlocks) continue;
+        if(!(coverage>=0.45 || semantic || backdrop)) continue;
+        if(!(zi>=20 || semantic || backdrop || coverage>=0.80)) continue;
+        rows.push({kind:'viewport_blocking_overlay',tag:e.tagName,id:e.id||'',cls:String(e.className||'').slice(0,220),coverage:Number(coverage.toFixed(3)),z_index:Number.isFinite(zi)?zi:0,backdrop:!!backdrop,text:(e.innerText||e.textContent||'').trim().slice(0,1000)});
+      }
+      return rows.sort((a,b)=>(b.z_index-a.z_index)||(b.coverage-a.coverage)).slice(0,8);
+    }""")
 
 
 async def visible_blocking_dialogs(page) -> list[dict[str, Any]]:

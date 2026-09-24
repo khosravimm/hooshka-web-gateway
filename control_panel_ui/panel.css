@@ -373,3 +373,14 @@ input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent);
 .wizard-stack .kv b { overflow-wrap:anywhere; word-break:break-word; }
 #pf-url { font-size:16px; padding-block:11px; }
 @media (max-width:760px) { .wizard-stack .kv { grid-template-columns:1fr; } }
+
+.wizard-activity { border:2px solid var(--accent); background:var(--info-bg); color:var(--text); border-radius:12px; padding:14px 16px; margin:10px 0 16px; box-shadow:var(--shadow); }
+.wizard-activity-head { display:flex; align-items:center; gap:12px; }
+.wizard-activity-head > div { flex:1; min-width:0; }
+.wizard-activity-stage,.wizard-activity-message,.wizard-activity-note { margin-top:4px; color:var(--text-2); }
+.wizard-activity-message { font-weight:600; } .wizard-activity-note { font-size:12px; }
+.wizard-elapsed { font-family:var(--mono); font-weight:700; color:var(--info-ink); }
+.wizard-spinner { width:22px; height:22px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:wizard-spin .8s linear infinite; flex:0 0 auto; }
+.wizard-progress { height:5px; overflow:hidden; border-radius:999px; background:var(--panel-3); margin-top:12px; }
+.wizard-progress span { display:block; width:35%; height:100%; background:var(--accent); animation:wizard-progress 1.4s ease-in-out infinite; }
+@keyframes wizard-spin { to { transform:rotate(360deg); } } @keyframes wizard-progress { 0%{transform:translateX(-120%)} 100%{transform:translateX(320%)} }

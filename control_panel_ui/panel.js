@@ -705,8 +705,18 @@ function initNav() {
   };
 
   let providerWizard = { analysis:null, observation:null, candidate:null, runtimes:[] };
+  let wizardActivityTimer=null, wizardActivityStarted=0;
+  function formatWizardElapsed(ms){ const sec=Math.max(0,Math.floor(ms/1000)); return String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0'); }
+  function setWizardControlsBusy(busy){
+    ['pf-analyze','pf-observe','pf-reobserve','pf-runtime'].forEach(id=>{ const el=$('#'+id); if(!el)return; if(busy){ if(el.dataset.wizardPrevDisabled===undefined) el.dataset.wizardPrevDisabled=el.disabled?'1':'0'; el.disabled=true; } else if(el.dataset.wizardPrevDisabled!==undefined){ el.disabled=el.dataset.wizardPrevDisabled==='1'; delete el.dataset.wizardPrevDisabled; } });
+    const url=$('#pf-url'); if(url){ if(busy){ if(url.dataset.wizardPrevReadonly===undefined) url.dataset.wizardPrevReadonly=url.readOnly?'1':'0'; url.readOnly=true; } else if(url.dataset.wizardPrevReadonly!==undefined){ url.readOnly=url.dataset.wizardPrevReadonly==='1'; delete url.dataset.wizardPrevReadonly; } }
+  }
+  function updateWizardActivity(stage,message){ const box=$('#pf-activity'); if(!box)return; box.classList.remove('wizard-hidden'); $('#pf-activity-stage').textContent=stage||'در حال کار'; $('#pf-activity-message').textContent=message||'درخواست ثبت شده است. لطفاً منتظر بمانید.'; }
+  function beginWizardActivity(stage,message){ wizardActivityStarted=Date.now(); updateWizardActivity(stage,message); setWizardControlsBusy(true); if(wizardActivityTimer)clearInterval(wizardActivityTimer); $('#pf-activity-elapsed').textContent='00:00'; wizardActivityTimer=setInterval(()=>{ const el=$('#pf-activity-elapsed'); if(el)el.textContent=formatWizardElapsed(Date.now()-wizardActivityStarted); },500); $('#pf-activity').scrollIntoView({block:'nearest',behavior:'smooth'}); }
+  function endWizardActivity(){ if(wizardActivityTimer){clearInterval(wizardActivityTimer);wizardActivityTimer=null;} setWizardControlsBusy(false); const box=$('#pf-activity'); if(box)box.classList.add('wizard-hidden'); }
 
   function resetProviderWizard() {
+    endWizardActivity();
     providerWizard = { analysis:null, observation:null, candidate:null, runtimes:[] };
     $('#pf-url').value='';
     $('#pf-proposal-card').classList.add('wizard-hidden');
@@ -1256,12 +1266,14 @@ function initNav() {
     $('#pf-analyze').addEventListener('click', async () => {
       const url=($('#pf-url').value||'').trim(); const status=$('#provider-form-status');
       if (!url) { setStatus(status,'آدرس وب‌چت را وارد کنید.','err'); return; }
+      beginWizardActivity('مرحله ۱ از ۳ — تحلیل URL','درخواست شما ثبت شد. HWG در حال تحلیل آدرس و انتخاب مسیر مناسب است؛ لطفاً منتظر بمانید.');
       setStatus(status,'در حال تحلیل URL و انتخاب پیشنهاد مناسب...','working');
       try {
         const a=await api('/provider-wizard/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url})});
         providerWizard.analysis=a; renderWizardProposal(a); $('#pf-observation-card').classList.add('wizard-hidden');
         setStatus(status,'پیشنهاد اولیه آماده است. مرحله بعد مشاهده واقعی صفحه است.','ok');
       } catch(e) { setStatus(status,'تحلیل URL شکست خورد: '+e.message,'err'); }
+      finally { endWizardActivity(); }
     });
 
     async function autoQualifyWizardCandidate(candidate, runtimeKey, status) {
@@ -1269,9 +1281,15 @@ function initNav() {
       if (tc.workflow_state==='ROUNDTRIP_QUALIFIED') { setStatus(status,'Evidence E2 رفت‌وبرگشت معتبر است؛ آزمون تکرار نمی‌شود.','ok'); return candidate; }
       if (tc.user_action_required===true) { setStatus(status,'کاوشگر به یک گام انسانی واقعی رسیده است؛ دستور دقیق در همین صفحه نمایش داده شده است.','ok'); return candidate; }
       if (tc.workflow_state==='EXPLORER_DEEPENING') { setStatus(status,'کاوشگر در حال تکمیل Evidence است؛ اقدامی از شما لازم نیست.','working'); return candidate; }
+      if (tc.workflow_state==='QUALIFICATION_FAILED_AFTER_COMMIT') {
+        $('#pf-next-action').textContent='یک probe قبلی به Provider commit شده اما پاسخ قطعی تأیید نشده است. برای جلوگیری از duplicate، retry خودکار این Candidate قفل است و Explorer باید Evidence failure را تحلیل کند.';
+        setStatus(status,'Qualification قبلی پس از commit کامل نشد؛ retry خودکار قفل است.','err');
+        return candidate;
+      }
       if (tc.workflow_state!=='TECHNICAL_CANDIDATE_READY') { setStatus(status,'مشاهده ثبت شد و ادامه مسیر بر عهده کاوشگر است.','ok'); return candidate; }
       const cid=(candidate||{}).candidate_id;
       if (!cid) return candidate;
+      updateWizardActivity('مرحله ۳ از ۳ — Qualification رفتاری E2','مشاهده اولیه تمام شد. کاوشگر اکنون مسیر ارسال و دریافت پاسخ را با یک آزمون کنترل‌شده بررسی می‌کند؛ هنوز منتظر بمانید.');
       $('#pf-next-action').textContent='Candidate فنی E1 آماده است. کاوشگر اکنون آزمون رفت‌وبرگشت کنترل‌شده را خودش اجرا می‌کند؛ فعلاً اقدامی از شما لازم نیست.';
       setStatus(status,'کاوشگر در حال آزمون رفتاری E2 است؛ یک پیام مصنوعی کوتاه ممکن است ارسال شود.','working');
       try {
@@ -1281,8 +1299,14 @@ function initNav() {
         if (qr.status==='E2_VERIFIED') {
           $('#pf-next-action').textContent='کاوشگر مسیر ارسال و دریافت پاسخ را با Evidence سطح E2 تأیید کرد. مرحله بعد ساخت Adapter Candidate است و فعلاً اقدامی از شما لازم نیست.';
           setStatus(status,qr.reused_evidence?'Evidence معتبر قبلی reuse شد؛ آزمون تکرار نشد.':'آزمون رفت‌وبرگشت E2 با موفقیت تأیید شد.','ok');
+        } else if (qr.status==='E2_FAILED_AFTER_COMMIT' || qr.retry_allowed===false) {
+          $('#pf-next-action').textContent='درخواست آزمون به Provider ارسال شد، اما پاسخ قطعی مورد انتظار تأیید نشد. چون ارسال commit شده است، کاوشگر برای جلوگیری از ارسال تکراری retry خودکار انجام نمی‌دهد. Evidence failure ثبت شده و باید در ادامه توسط خود Explorer تحلیل شود.';
+          setStatus(status,'Qualification پس از ارسال کامل نشد؛ retry خودکار ممنوع است.','err');
+        } else if (qr.status==='E2_PRECOMMIT_TRANSITION') {
+          $('#pf-next-action').textContent='پیش از commit شدن پیام، صفحه به وضعیت دیگری منتقل شد. هیچ پیام آزمایشی قطعی ارسال نشده است؛ Explorer باید وضعیت جدید صفحه را دوباره به‌صورت تصویری مشاهده کند.';
+          setStatus(status,'تغییر وضعیت صفحه پیش از ارسال تشخیص داده شد؛ نیاز به مشاهده مجدد دارد.','working');
         } else {
-          $('#pf-next-action').textContent='آزمون رفتاری هنوز تأیید نشده است. ادامه تشخیص بر عهده کاوشگر است و فعلاً اقدامی از شما لازم نیست.';
+          $('#pf-next-action').textContent='آزمون رفتاری هنوز تأیید نشده است. Evidence ثبت شده و ادامه تشخیص بر عهده کاوشگر است؛ فعلاً اقدامی از شما لازم نیست.';
           setStatus(status,'کاوشگر برای ادامه Qualification به Evidence بیشتری نیاز دارد.','working');
         }
         return providerWizard.candidate;
@@ -1297,6 +1321,7 @@ function initNav() {
       const status=$('#provider-form-status'); const a=providerWizard.analysis;
       if (!a) { setStatus(status,'ابتدا URL را بررسی کنید.','err'); return; }
       const runtimeKey=$('#pf-runtime').value || a.recommended_runtime_key;
+      beginWizardActivity('مرحله ۲ از ۳ — مشاهده واقعی صفحه','HWG صفحه وب‌چت را باز می‌کند و ابتدا آنچه کاربر واقعاً می‌بیند بررسی می‌شود. این مرحله ممکن است چند ثانیه طول بکشد.');
       setStatus(status,'صفحه وب‌چت در مرورگر باز می‌شود. اگر Login، شرایط استفاده یا CAPTCHA دیدید همان را کامل کنید؛ سپس به این Wizard برگردید.','working');
       $('#pf-observe').disabled=true; $('#pf-reobserve').disabled=true;
       try {
@@ -1325,7 +1350,7 @@ function initNav() {
         if (!known && r.candidate) await autoQualifyWizardCandidate(r.candidate, runtimeKey, status);
         else setStatus(status, known?'مشاهده کامل شد؛ پیشنهاد قابل ثبت است.':'مشاهده کامل شد؛ Candidate کاوش ثبت شد.','ok');
       } catch(e) { setStatus(status,'مشاهده صفحه شکست خورد: '+e.message,'err'); }
-      finally { $('#pf-observe').disabled=false; $('#pf-reobserve').disabled=false; }
+      finally { $('#pf-observe').disabled=false; $('#pf-reobserve').disabled=false; endWizardActivity(); }
     }
     $('#pf-observe').addEventListener('click', observeWizardPage);
     $('#pf-reobserve').addEventListener('click', observeWizardPage);

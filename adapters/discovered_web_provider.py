@@ -90,6 +90,8 @@ class DiscoveredWebProvider(Provider):
              int((x.get("rect") or {}).get("x") or 0), int((x.get("rect") or {}).get("y") or 0))
             for x in before_controls
         }
+        before_by_selector = {str(x.get("selector") or "").strip(): x for x in before_controls if str(x.get("selector") or "").strip()}
+        recorded_selector = str((((self._candidate.get("transport") or {}).get("submit") or {}).get("last_verified_selector") or "")).strip()
         box = await composer.bounding_box() or {}
         ranked = []
         for item in live:
@@ -104,9 +106,18 @@ class DiscoveredWebProvider(Provider):
             title = str(item.get("title") or "").strip().lower()
             r = item.get("rect") or {}
             sig = (text, aria, title, str(item.get("role") or ""), str(item.get("tag") or ""), int(r.get("x") or 0), int(r.get("y") or 0))
-            score = 8 if sig not in before else 0
-            if any(token in " ".join([text, aria, title]) for token in ("send", "submit", "arrow_up", "arrow-up")):
-                score += 5
+            selector_now = str(item.get("selector") or "").strip()
+            previous = before_by_selector.get(selector_now)
+            enabled_transition = bool(previous and previous.get("disabled") is True and item.get("disabled") is not True)
+            appeared = sig not in before
+            semantic = any(token in " ".join([text, aria, title]) for token in ("send", "submit", "arrow_up", "arrow-up"))
+            score = 0
+            if selector_now and selector_now == recorded_selector: score += 20
+            if enabled_transition: score += 12
+            if appeared: score += 6
+            if semantic: score += 5
+            if not (selector_now == recorded_selector or enabled_transition or appeared or semantic):
+                continue
             ranked.append((score, item))
         ranked.sort(key=lambda x: x[0], reverse=True)
         if not ranked or ranked[0][0] <= 0:

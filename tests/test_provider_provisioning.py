@@ -267,3 +267,61 @@ def test_provider_wizard_visual_ai_fails_closed_without_trusted_screenshot(monke
     resp=_client().post('/panel/api/provider-wizard/ai-assist/future-web',json={'confirmed_by_user':True,'include_visual_evidence':True})
     assert resp.status_code==409
     assert resp.get_json()['error']=='visual_evidence_unavailable'
+
+
+def test_provider_wizard_observation_timeout_is_explicit(monkeypatch):
+    runtime=_runtime(); runtime['ready']=True
+    monkeypatch.setattr(control_panel, '_browser_runtime_groups', lambda:[runtime])
+    monkeypatch.setattr(control_panel.provider_registry, 'list_providers', lambda enabled_only=False:[])
+    def timeout(*args, **kwargs):
+        raise TimeoutError('bounded observation timeout')
+    monkeypatch.setattr(control_panel, 'observe_url_sync', timeout)
+    resp=_client().post('/panel/api/provider-wizard/observe',json={'url':'https://future.example/chat','runtime_key':runtime['runtime_key']})
+    assert resp.status_code==504
+    assert resp.get_json()['error']=='provider_observation_timeout'
+
+
+def test_provider_wizard_exposes_persistent_working_state():
+    html = open('control_panel_ui/index.html', encoding='utf-8').read()
+    js = open('control_panel_ui/panel.js', encoding='utf-8').read()
+    css = open('control_panel_ui/panel.css', encoding='utf-8').read()
+    assert 'id="pf-activity"' in html
+    assert 'id="pf-activity-stage"' in html
+    assert 'id="pf-activity-elapsed"' in html
+    assert 'aria-live="polite"' in html
+    assert 'beginWizardActivity' in js
+    assert 'updateWizardActivity' in js
+    assert 'endWizardActivity' in js
+    assert 'مرحله ۲ از ۳ — مشاهده واقعی صفحه' in js
+    assert 'مرحله ۳ از ۳ — Qualification رفتاری E2' in js
+    assert '.wizard-spinner' in css
+    assert '.wizard-progress' in css
+
+
+def test_provider_wizard_qualification_domain_failure_returns_http_200(monkeypatch, tmp_path):
+    runtime = _runtime(); runtime["ready"] = True
+    record = {"candidate_id": "future-web", "analysis": {"recommended_runtime_key": runtime["runtime_key"]},
+              "technical_candidate": {"workflow_state": "TECHNICAL_CANDIDATE_READY", "submit_candidates": [{"selector": "#send"}]}}
+    monkeypatch.setattr(control_panel, "load_candidate", lambda root, cid: record)
+    monkeypatch.setattr(control_panel, "_browser_runtime_by_key", lambda key: runtime)
+    monkeypatch.setattr(control_panel, "qualify_submit_candidate_sync", lambda *a, **k: {
+        "status": "E2_FAILED_AFTER_COMMIT", "submitted": True, "retry_allowed": False,
+        "response_verified": False, "reason": "response_not_verified"})
+    monkeypatch.setattr(control_panel, "persist_candidate", lambda root, rec: tmp_path / "future-web.json")
+    resp = _client().post('/panel/api/provider-wizard/qualify/future-web', json={})
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["qualification"]["status"] == "E2_FAILED_AFTER_COMMIT"
+    assert body["qualification"]["retry_allowed"] is False
+
+
+def test_provider_wizard_ui_explains_failed_after_commit_without_http_code():
+    js = open('control_panel_ui/panel.js', encoding='utf-8').read()
+    assert "qr.status==='E2_FAILED_AFTER_COMMIT'" in js
+    assert 'retry خودکار انجام نمی‌دهد' in js
+
+
+def test_provider_wizard_ui_surfaces_nonretryable_qualification_lock():
+    js = open('control_panel_ui/panel.js', encoding='utf-8').read()
+    assert "tc.workflow_state==='QUALIFICATION_FAILED_AFTER_COMMIT'" in js
+    assert 'retry خودکار این Candidate قفل است' in js

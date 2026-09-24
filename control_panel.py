@@ -1055,6 +1055,9 @@ def api_provider_wizard_observe():
             return jsonify({"analysis":analysis,"observation":observation,"candidate":None,"record":None})
         persisted = save_candidate(Path(__file__).parent, analysis, observation)
         return jsonify({"analysis":analysis,"observation":observation,**persisted})
+    except TimeoutError as exc:
+        logger.warning("Provider onboarding observation timed out", exc_info=True)
+        return jsonify({"error":"provider_observation_timeout","message":str(exc) or "Provider observation exceeded the bounded runtime window","analysis":analysis}), 504
     except Exception as exc:
         logger.warning("Provider onboarding observation failed", exc_info=True)
         return jsonify({"error":"provider_observation_failed","message":str(exc),"analysis":analysis}), 502
@@ -1078,8 +1081,9 @@ def api_provider_wizard_qualify(candidate_id):
         result = qualify_submit_candidate_sync(runtime["cdp_url"], record)
         apply_submit_qualification(record, result)
         path = persist_candidate(root, record)
-        code = 200 if result.get("status") == "E2_VERIFIED" else (409 if result.get("submitted") else 422)
-        return jsonify({"candidate":record,"qualification":result,"record":str(path)}), code
+        # Qualification outcomes are domain results, not transport failures.
+        # Return HTTP 200 so the control plane can render the exact E2 state/retry policy.
+        return jsonify({"candidate":record,"qualification":result,"record":str(path)})
     except Exception as exc:
         logger.warning("Provider onboarding submit qualification failed", exc_info=True)
         return jsonify({"error":"submit_qualification_failed","message":type(exc).__name__,"candidate_id":candidate_id}), 502

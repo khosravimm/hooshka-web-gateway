@@ -174,6 +174,12 @@
         <button id="btn-close-provider-form" class="btn ghost btn-sm" type="button">بستن</button>
       </div>
       <div id="provider-form-status" class="status-line"></div>
+      <div id="pf-activity" class="wizard-activity wizard-hidden" role="status" aria-live="polite" aria-atomic="true">
+        <div class="wizard-activity-head"><span class="wizard-spinner" aria-hidden="true"></span><div><strong id="pf-activity-title">کاوشگر در حال کار است</strong><div id="pf-activity-stage" class="wizard-activity-stage">در حال آماده‌سازی</div></div><span id="pf-activity-elapsed" class="wizard-elapsed ltr">00:00</span></div>
+        <div id="pf-activity-message" class="wizard-activity-message">درخواست ثبت شده است. لطفاً منتظر بمانید و دوباره روی دکمه‌ها کلیک نکنید.</div>
+        <div class="wizard-progress" aria-hidden="true"><span></span></div>
+        <div class="wizard-activity-note">کاوشگر ممکن است صفحه وب‌چت را باز کند، وضعیت قابل مشاهده را بررسی کند و چند مرحله آزمون خودکار انجام دهد. تا زمانی که این نوار فعال است، سیستم مشغول کار است.</div>
+      </div>
       <div class="wizard-stack">
         <div class="card provision-step"><span class="step-no">۱</span><h3 class="card-title">آدرس وب‌چت</h3>
           <label class="field">URL<input id="pf-url" class="ctrl ltr" type="url" placeholder="https://example.ai/chat" autocomplete="off"></label>

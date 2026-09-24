@@ -200,15 +200,35 @@ FRONTEND_JS = r"""() => {
   let selector = null;
   if (comp) {
     const ephemeralId = (v) => /^f_[0-9a-f-]{20,}$/i.test(v||'') || /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(v||'');
+    const unique = (s) => { try { const nodes=document.querySelectorAll(s); return nodes.length===1 && nodes[0]===comp; } catch (_) { return false; } };
+    const structural = (el) => {
+      const parts=[]; let cur=el;
+      for (let depth=0; cur && cur.nodeType===1 && depth<7; depth++, cur=cur.parentElement) {
+        let part=cur.tagName.toLowerCase();
+        if (cur.id && !ephemeralId(cur.id)) part='#'+CSS.escape(cur.id);
+        else if (cur.parentElement) {
+          const same=[...cur.parentElement.children].filter(x=>x.tagName===cur.tagName);
+          if (same.length>1) part += `:nth-of-type(${same.indexOf(cur)+1})`;
+        }
+        parts.unshift(part); const candidate=parts.join(' > ');
+        if (unique(candidate)) return candidate;
+        if (part.startsWith('#')) break;
+      }
+      return null;
+    };
+    const tag=comp.tagName.toLowerCase();
     const aria = comp.getAttribute('aria-label');
     const placeholder = comp.getAttribute('placeholder');
     const name = comp.getAttribute('name');
-    if (comp.id && !ephemeralId(comp.id)) selector = '#' + CSS.escape(comp.id);
-    else if (aria) selector = `${comp.tagName.toLowerCase()}[aria-label='${esc(aria)}']`;
-    else if (placeholder) selector = `${comp.tagName.toLowerCase()}[placeholder='${esc(placeholder)}']`;
-    else if (name) selector = `${comp.tagName.toLowerCase()}[name='${esc(name)}']`;
-    else if (comp.getAttribute('role')) selector = `${comp.tagName.toLowerCase()}[role='${esc(comp.getAttribute('role'))}']`;
-    else selector = comp.tagName.toLowerCase();
+    const role = comp.getAttribute('role');
+    const candidates=[];
+    if (comp.id && !ephemeralId(comp.id)) candidates.push('#' + CSS.escape(comp.id));
+    if (aria) candidates.push(`${tag}[aria-label='${esc(aria)}']`);
+    if (placeholder) candidates.push(`${tag}[placeholder='${esc(placeholder)}']`);
+    if (name) candidates.push(`${tag}[name='${esc(name)}']`);
+    if (role) candidates.push(`${tag}[role='${esc(role)}']`);
+    if (comp.getAttribute('contenteditable')==='true') candidates.push(`${tag}[contenteditable='true']`);
+    selector = candidates.find(unique) || structural(comp);
   }
   const assistantSelectors = [
     "[data-message-author-role='assistant']",

@@ -18,6 +18,7 @@ def test_auth_classifier_detects_login_without_transcript_text():
     assert classify_auth_snapshot({'password_input':True}).state=='LOGIN_REQUIRED'
     assert classify_auth_snapshot({'login_control':'Sign in','composer':False}).state=='LOGIN_REQUIRED'
     assert classify_auth_snapshot({'composer':True}).state=='AUTHENTICATED'
+    assert classify_auth_snapshot({'login_control':'Sign In','composer':True}).state=='UNKNOWN'
     assert classify_auth_snapshot({}).state=='UNKNOWN'
 
 
@@ -46,3 +47,20 @@ def test_shared_cdp_does_not_fall_back_to_other_provider_page():
     pages=[Page('https://chat.deepseek.com/a/chat/s/1')]
     assert matching_provider_pages(pages,'https://chatgpt.com/') == []
     assert matching_provider_pages(pages,'https://chat.deepseek.com/') == pages
+
+
+def test_access_semantics_detects_login_expired_without_persisting_payload_data():
+    from core.blind_discovery import classify_access_semantic_observations
+    s=classify_access_semantic_observations([{
+        "endpoint":"/api/v1/userinfo","http_status":200,"code":164003,"message":"login expired"
+    }])
+    assert s.state=="LOGIN_REQUIRED"
+    assert s.user_interaction=="login"
+    assert any("164003" in x for x in s.evidence)
+
+def test_access_semantics_remains_unknown_without_auth_failure():
+    from core.blind_discovery import classify_access_semantic_observations
+    s=classify_access_semantic_observations([{
+        "endpoint":"/api/v2/user/quota-usage","http_status":200,"code":100000,"message":"success"
+    }])
+    assert s.state=="UNKNOWN"

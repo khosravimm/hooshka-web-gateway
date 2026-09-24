@@ -17,6 +17,8 @@ PROVIDER_HOST_HINTS = {
 
 LOGIN_RE = re.compile(r"^(log ?in|sign ?in|continue with|ورود)$", re.I)
 INTERACTION_RE = re.compile(r"captcha|verify (you are|your identity)|human verification|security check|challenge|consent", re.I)
+SAFE_ACCESS_ENDPOINT_RE = re.compile(r"(?:^|/)(?:userinfo|session|quota(?:-usage)?|plan-quota|me)(?:$|[/?-])", re.I)
+AUTH_REQUIRED_MESSAGE_RE = re.compile(r"login expired|session expired|not logged in|unauthori[sz]ed|authentication required|login required|sign in required|please log ?in", re.I)
 
 @dataclass
 class BlindIdentity:
@@ -60,6 +62,9 @@ def classify_auth_snapshot(snapshot: dict) -> AuthState:
     if snapshot.get('login_control') and not snapshot.get('composer'):
         evidence.append('login_control_without_composer')
         return AuthState('LOGIN_REQUIRED','high',evidence,'login')
+    if snapshot.get('login_control') and snapshot.get('composer'):
+        evidence.extend(['login_control_visible','composer_visible'])
+        return AuthState('UNKNOWN','medium',evidence,None)
     if snapshot.get('composer'):
         evidence.append('composer_visible')
         return AuthState('AUTHENTICATED','medium',evidence,None)
@@ -83,6 +88,55 @@ AUTH_SNAPSHOT_JS = r"""() => {
   }
   return {composer:!!composer,password_input:!!pass,email_input:!!email,login_control:login||'',challenge_visible:challenge,provider_restriction:providerRestriction};
 }"""
+
+def classify_access_semantic_observations(rows: list[dict]) -> AuthState:
+    evidence=[]
+    for row in rows or []:
+        endpoint=str(row.get('endpoint') or '')
+        status=int(row.get('http_status') or 0)
+        code=row.get('code')
+        message=str(row.get('message') or '')[:160]
+        if status in {401,403} or AUTH_REQUIRED_MESSAGE_RE.search(message):
+            evidence.append(f"endpoint:{endpoint}")
+            if status:
+                evidence.append(f"http_status:{status}")
+            if code is not None:
+                evidence.append(f"code:{code}")
+            if message:
+                evidence.append(f"message:{message}")
+            return AuthState('LOGIN_REQUIRED','high',evidence,'login')
+    return AuthState('UNKNOWN','low',['no_auth_failure_semantics'],None)
+
+
+async def probe_observed_access_semantics(page, candidate_endpoints: list[dict]) -> dict:
+    paths=[]
+    for item in candidate_endpoints or []:
+        path=str(item.get('path') or '').strip()
+        if path and path.startswith('/') and SAFE_ACCESS_ENDPOINT_RE.search(path) and path not in paths:
+            paths.append(path)
+        if len(paths) >= 4:
+            break
+    if not paths:
+        return asdict(AuthState('UNKNOWN','low',['no_safe_access_endpoint_observed'],None))
+    rows=await page.evaluate(r"""async (paths)=>{
+      const out=[];
+      for(const endpoint of paths){
+        try{
+          const r=await fetch(endpoint,{method:'GET',credentials:'include',cache:'no-store'});
+          let payload=null; try{ payload=await r.json(); }catch(_){}
+          out.push({endpoint,http_status:r.status,code:payload&&payload.code!==undefined?payload.code:null,
+            status:payload&&payload.status!==undefined?String(payload.status).slice(0,80):'',
+            message:payload?String(payload.message||payload.msg||payload.error||'').slice(0,160):''});
+        }catch(e){ out.push({endpoint,error:String(e).slice(0,120)}); }
+      }
+      return out;
+    }""", paths)
+    state=classify_access_semantic_observations(rows if isinstance(rows,list) else [])
+    result=asdict(state)
+    result['observations']=rows if isinstance(rows,list) else []
+    result['probe_kind']='same_origin_observed_get_semantics'
+    return result
+
 
 async def blind_discover_page(page, discover_page_fn):
     identity=identify_provider(page.url, await page.title())
