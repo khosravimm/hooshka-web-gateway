@@ -287,10 +287,10 @@
       <div class="chat-shell card">
         <div class="chat-toolbar">
           <label class="field">پراوایدر
-            <select id="chat-provider" class="ctrl"></select>
+            <select id="chat-provider" class="ctrl" disabled></select>
           </label>
           <label class="field">مدل
-            <select id="chat-model" class="ctrl"></select>
+            <select id="chat-model" class="ctrl" disabled></select>
           </label>
           <label class="check"><input type="checkbox" id="chat-thinking"><span>تفکر</span></label>
           <label class="check"><input type="checkbox" id="chat-search"><span>جستجو</span></label>
@@ -317,7 +317,7 @@
           <div class="composer-row">
             <textarea id="chat-input" rows="3" placeholder="پیام خود را بنویسید (Markdown پشتیبانی می‌شود)..."></textarea>
             <div class="composer-actions">
-              <button id="chat-send" class="btn primary" type="button">ارسال</button>
+              <button id="chat-send" class="btn primary" type="button" disabled>ارسال</button>
               <button id="chat-stop" class="btn danger" type="button" disabled>توقف</button>
             </div>
           </div>

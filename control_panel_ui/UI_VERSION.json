@@ -1,6 +1,6 @@
 {
   "name": "hwg-control-plane-ui",
-  "version": "2.1.1-dev.full-audit-remediation.20260925-1805",
+  "version": "2.1.1-dev.full-audit-remediation.20260925-1813",
   "released": "2026-09-25",
   "direction": "rtl",
   "language": "fa",
@@ -174,8 +174,20 @@
       "date": "2026-09-25",
       "class": "AUDIT_REMEDIATION",
       "notes": "Conversation lifecycle audit: /v1/chat/conversation now creates and reuses the MCP session represented by the Sessions workspace."
+    },
+    {
+      "version": "2.1.1-dev.full-audit-remediation.20260925-1813",
+      "date": "2026-09-25",
+      "class": "AUDIT_REMEDIATION",
+      "notes": "Embedded Chat fail-closed readiness gate: initial/loading selectors and Send stay disabled, and sendMessage revalidates current READY evidence to prevent Enter/direct-call bypass."
+    },
+    {
+      "version": "2.1.1-dev.full-audit-remediation.20260925-1813",
+      "date": "2026-09-25",
+      "class": "AUDIT_REMEDIATION",
+      "notes": "Chat lifecycle audit: make embedded Chat initialization idempotent so repeated workspace navigation cannot duplicate event handlers or send actions."
     }
   ],
-  "build": "20260925-1805",
+  "build": "20260925-1813",
   "last_updated": "2026-09-25"
 }

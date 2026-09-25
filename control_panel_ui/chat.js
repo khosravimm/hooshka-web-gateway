@@ -10,6 +10,7 @@
   let activeController = null;
   let sendInFlight = false;
   let attachedUploads = [];
+  let initialized = false;
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -113,7 +114,12 @@
   async function populateProviders() {
     const sel = $('#chat-provider');
     const msel = $('#chat-model');
+    const send = $('#chat-send');
     const previous = sel ? sel.value : '';
+    if (sel) sel.disabled = true;
+    if (msel) msel.disabled = true;
+    if (send) send.disabled = true;
+    setStatus('در حال دریافت Provider و Readiness...', 'working');
     try {
       const data = await api('/providers');
       providerData = data.providers || [];
@@ -128,9 +134,14 @@
       if (previous && list.some(function(p){return p.id === previous;})) target = list.find(function(p){return p.id === previous;});
       if (!target) target = list[0];
       if (target) sel.value = target.id;
+      if (sel) sel.disabled = false;
+      if (msel) msel.disabled = false;
       renderIndicators(); refreshModelList(); renderChatReadiness(); renderAttachments();
       if (target && target.readiness && target.readiness.ready === true && target.readiness.current === true) setStatus('آماده. انتخاب مدل: ' + (msel.options.length ? msel.options[msel.selectedIndex].text : '-'), 'ok');
     } catch (e) {
+      if (sel) sel.disabled = true;
+      if (msel) msel.disabled = true;
+      if (send) send.disabled = true;
       setStatus('بارگیری پراوایدر ناموفق: ' + e.message, 'err');
     }
   }
@@ -160,6 +171,13 @@
     const account=r.account_id || 'حساب مسیر فعلی نامشخص', model=r.model || ($('#chat-model')?.value || '-');
     box.className='dependency-banner '+(current?'ok':(r.state==='BLOCKED'?'bad':'warn')); box.innerHTML='<b>'+state+'</b><span class="ltr">'+esc(account)+' / '+esc(model)+'</span><span>'+esc(why)+'</span>'+(current?'':'<button id="chat-readiness-probe" class="btn primary btn-xs" type="button">اجرای Readiness Probe</button>');
     if (send && !sendInFlight) { send.disabled=!current; send.textContent=current?'ارسال':'ارسال (نیازمند READY)'; } renderAttachments(); const probe=$('#chat-readiness-probe'); if (probe) probe.onclick=async function(){ probe.disabled=true; probe.textContent='در حال Probe...'; try { await api('/providers/'+encodeURIComponent(id)+'/readiness/probe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({execution_authority:'automated_validation',ttl_seconds:300})}); await populateProviders(); } catch(e){ toast('Readiness: '+e.message,'err'); } }; if (!current) setStatus(state+' — '+why,'warn');
+  }
+
+  function selectedProviderIsCurrentReady() {
+    const id = $('#chat-provider')?.value || '';
+    const p = providerById(id);
+    const r = (p && p.readiness) || {};
+    return !!id && r.ready === true && r.current === true && r.state === 'READY';
   }
 
   function setStatus(msg, kind) {
@@ -237,6 +255,12 @@
     const input = $('#chat-input');
     const text = (input.value || '').trim();
     if (!text || sendInFlight) return;
+    if (!selectedProviderIsCurrentReady()) {
+      setStatus('ارسال مسدود است؛ ابتدا Readiness جاری Provider را تأیید کنید.', 'warn');
+      toast('Provider/Readiness برای ارسال آماده نیست.', 'warn');
+      renderChatReadiness();
+      return;
+    }
     const model = $('#chat-model').value;
     if (!model) { toast('ابتدا مدل انتخاب کنید', 'warn'); return; }
 
@@ -465,6 +489,12 @@
 
   function init() {
     const input = $('#chat-input');
+    if (initialized) {
+      populateProviders();
+      renderAttachments();
+      return;
+    }
+    initialized = true;
     $('#chat-provider').addEventListener('change', function () {
       if (attachedUploads.length) clearUploads(true);
       refreshModelList();
@@ -495,7 +525,7 @@
     $$('.composer-toolbar button[data-ins]').forEach(function (b) {
       b.addEventListener('click', function () { applyToolbarButton(b); });
     });
-    if (providerData.length === 0) populateProviders();
+    populateProviders();
   }
 
   window.HwgChat = {
