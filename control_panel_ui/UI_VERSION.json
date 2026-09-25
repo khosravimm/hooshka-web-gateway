@@ -1,6 +1,6 @@
 {
   "name": "hwg-control-plane-ui",
-  "version": "2.1.1-dev.full-audit-remediation.20260925-1813",
+  "version": "2.1.1-dev.full-audit-remediation.20260925-1822",
   "released": "2026-09-25",
   "direction": "rtl",
   "language": "fa",
@@ -186,8 +186,14 @@
       "date": "2026-09-25",
       "class": "AUDIT_REMEDIATION",
       "notes": "Chat lifecycle audit: make embedded Chat initialization idempotent so repeated workspace navigation cannot duplicate event handlers or send actions."
+    },
+    {
+      "version": "2.1.1-dev.full-audit-remediation.20260925-1822",
+      "date": "2026-09-25",
+      "class": "AUDIT_REMEDIATION",
+      "notes": "Destructive/governance action hardening: backend confirmation gates for Provider deletion, API-key create/delete, Auth state changes, and Discovery review decisions; UI sends explicit confirmation evidence."
     }
   ],
-  "build": "20260925-1813",
+  "build": "20260925-1822",
   "last_updated": "2026-09-25"
 }

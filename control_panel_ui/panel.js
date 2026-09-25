@@ -700,7 +700,7 @@ function initNav() {
   window.HwgDeleteProvider = async function (providerId) {
     if (!confirm('پراوایدر ' + providerId + ' حذف شود؟ این عملیات قابل بازگشت نیست.')) return;
     try {
-      const r = await api('/providers/' + encodeURIComponent(providerId), { method: 'DELETE' });
+      const r = await api('/providers/' + encodeURIComponent(providerId), { method: 'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify({confirm:true}) });
       if (r.success) {
         toast('پراوایدر حذف شد (نیاز به ری‌استارت)', 'ok');
         loadProviders();
@@ -937,7 +937,7 @@ function initNav() {
         b.addEventListener('click', async () => {
           if (!confirm('کلید ' + b.dataset.key.substring(0, 20) + '... حذف شود؟')) return;
           try {
-            const r = await api('/auth/keys/' + encodeURIComponent(b.dataset.key), { method: 'DELETE' });
+            const r = await api('/auth/keys/' + encodeURIComponent(b.dataset.key), { method: 'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify({confirm:true}) });
             toast(r.message || 'کلید حذف شد', 'ok');
           } catch (e) { toast('خطا: ' + e.message, 'err'); }
           loadApiKeys();
@@ -951,7 +951,7 @@ function initNav() {
   window.HwgGenKey = async function () {
     if (!confirm('کلید API جدید تولید شود؟' + '\n\nکلید فقط همین یکبار نمایش داده می‌شود.')) return;
     try {
-      const r = await api('/auth/keys', { method: 'POST' });
+      const r = await api('/auth/keys', { method: 'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({confirm:true}) });
       const modal = document.createElement('div');
       modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:10000;';
       const box = document.createElement('div');
@@ -982,11 +982,13 @@ function initNav() {
   };
 
   async function toggleAuth(enabled) {
+    const label = enabled ? 'فعال‌سازی Authentication' : 'غیرفعال‌سازی Authentication';
+    if (!confirm(label + ' را تأیید می‌کنید؟')) return;
     try {
       await api('/auth/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled }),
+        body: JSON.stringify({ enabled, confirm:true }),
       });
       toast('احراز هویت: ' + (enabled ? 'فعال' : 'غیرفعال'), 'ok');
       loadApiKeys();
@@ -1325,7 +1327,9 @@ function initNav() {
         body = {unresolved_questions:[question], confirmed_by_user, routing_policy:document.getElementById('ai-route-' + run)?.value || 'least_loaded', allow_target_provider:document.getElementById('ai-target-' + run)?.checked === true};
       } else if (action.startsWith('review-')) {
         endpoint = 'review';
-        body = {decision: action.split('-')[1].toUpperCase(), note:(document.getElementById('review-note-' + run)?.value || '').trim()};
+        const decision = action.split('-')[1].toUpperCase();
+        if (!confirm('تصمیم ' + decision + ' برای Candidate ثبت شود؟')) return;
+        body = {decision, note:(document.getElementById('review-note-' + run)?.value || '').trim(), confirmed_by_user:true};
       } else if (action === 'cert-auto') {
         endpoint = 'certification/auto';
         body = {execution_authority:'automated_validation'};

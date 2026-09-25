@@ -929,6 +929,8 @@ def api_discovery_self_use_qualify(provider_id, run_id):
 @control_panel_bp.route('/api/discovery/runs/<provider_id>/<run_id>/review', methods=['POST'])
 def api_discovery_review(provider_id, run_id):
     payload = request.get_json(silent=True) or {}
+    if payload.get("confirmed_by_user") is not True:
+        return jsonify({"error": "confirmation_required", "message": "Discovery review decision requires explicit confirmation"}), 400
     try:
         run = load_discovery_run(provider_id, run_id)
         discovery_review_candidate(run, str(payload.get("decision") or ""), str(payload.get("note") or ""))
@@ -2025,6 +2027,9 @@ def api_providers():
 
 @control_panel_bp.route('/api/providers/<provider_id>', methods=['DELETE'])
 def api_provider_delete(provider_id):
+    body = request.get_json(silent=True) or {}
+    if body.get("confirm") is not True:
+        return jsonify({"error": "confirmation_required", "message": "Provider deletion requires confirm=true"}), 400
     """Remove a provider from config.yaml."""
     cfg = _load_config_file()
     providers_list = cfg.get("providers", [])
@@ -3251,6 +3256,9 @@ def _get_key_created_at():
 
 @control_panel_bp.route('/api/auth/keys', methods=['POST'])
 def api_add_api_key():
+    body = request.get_json(silent=True) or {}
+    if body.get("confirm") is not True:
+        return jsonify({"error": "confirmation_required", "message": "API key creation requires confirm=true"}), 400
     from core.key_hash import hash_token
     token = secrets.token_urlsafe(24)
     ref = hash_token(token)  # only the hash is persisted; secret shown once below
@@ -3276,6 +3284,9 @@ def api_add_api_key():
 
 @control_panel_bp.route('/api/auth/keys/<path:key>', methods=['DELETE'])
 def api_delete_api_key(key):
+    body = request.get_json(silent=True) or {}
+    if body.get("confirm") is not True:
+        return jsonify({"error": "confirmation_required", "message": "API key deletion requires confirm=true"}), 400
     config = _load_config_file()
     auth_section = config.get("governance", {}).get("auth", {})
     keys = auth_section.get("api_keys", {}) or {}
@@ -3295,7 +3306,9 @@ def api_auth_settings():
         return jsonify({
             "enabled": auth_section.get("enabled", False),
         })
-    data = request.get_json(force=True)
+    data = request.get_json(force=True) or {}
+    if data.get("confirm") is not True:
+        return jsonify({"error": "confirmation_required", "message": "Authentication state change requires confirm=true"}), 400
     auth_section["enabled"] = data.get("enabled", False)
     _save_config_file(config)
     _sync_auth_keys()
