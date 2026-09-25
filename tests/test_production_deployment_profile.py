@@ -13,6 +13,8 @@ def test_single_deployment_config_path_is_honored_across_runtime_layers():
     assert "HWG_CONFIG_PATH" in inventory
     assert "HWG_CONFIG_PATH=$ConfigFullPath" in service
     assert "[string]$ConfigPath='config.yaml'" in service
+    assert "-ConfigPath" in panel
+    assert "Path(CONFIG_PATH).resolve()" in panel
 
 
 def test_control_panel_no_longer_uses_local_raw_config_path_for_config_endpoints():

@@ -340,10 +340,12 @@ def _sync_auth_keys():
         }
 
 def _run_service_manager(action, provider=None):
-    """Run a service action via the PowerShell script. Returns (success, output)."""
+    """Run a service action against the active deployment config only."""
+    service_script = Path(__file__).parent / "service_manager.ps1"
+    config_path = Path(CONFIG_PATH).resolve()
     script = f"""
     $ErrorActionPreference = 'Stop'
-    & "{Path(__file__).parent / 'service_manager.ps1'}" {action} {provider or 'all'}
+    & "{service_script}" {action} {provider or 'all'} -ConfigPath "{config_path}"
     """
     try:
         result = subprocess.run(

@@ -1,6 +1,6 @@
 {
   "name": "hwg-control-plane-ui",
-  "version": "2.1.1-dev.full-audit-remediation.20260925-1730",
+  "version": "2.1.1-dev.full-audit-remediation.20260925-1727",
   "released": "2026-09-25",
   "direction": "rtl",
   "language": "fa",
@@ -126,8 +126,14 @@
       "date": "2026-09-25",
       "class": "AUDIT_REMEDIATION",
       "notes": "Synchronize provider-certification test contract with the valid Production W2 replacement while preserving E3_IN_PROGRESS until W3."
+    },
+    {
+      "version": "2.1.1-dev.full-audit-remediation.20260925-1727",
+      "date": "2026-09-25",
+      "class": "AUDIT_REMEDIATION",
+      "notes": "Full-product audit safety: bind all service-manager status/start/stop actions to the active HWG_CONFIG_PATH deployment profile to prevent Dev/Production target confusion."
     }
   ],
-  "build": "20260925-1730",
+  "build": "202609251727",
   "last_updated": "2026-09-25"
 }
