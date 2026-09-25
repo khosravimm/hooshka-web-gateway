@@ -1,3 +1,9 @@
+## 2.1.0-rc.2 - 2026-09-25 - Release Candidate Closure
+- Supersedes RC1 before production cutover.
+- RC1 was rejected after GitHub verification detected accidental UTF-8 documentation mojibake in `HOOSHKA_WEB_GATEWAY_START_HERE.md`.
+- Restored the canonical discovery document byte-safely from the accepted pre-RC baseline and re-applied only the intended RC status section.
+- Full release gates are required again for RC2.
+
 ## 2.1.0-rc.1 - 2026-09-25 - Release Candidate Closure
 - Froze feature development for release closure.
 - Synchronized VERSION, MANIFEST and Control Plane UI release identity.

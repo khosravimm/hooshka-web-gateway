@@ -1,6 +1,6 @@
 {
   "name": "hwg-control-plane-ui",
-  "version": "2.1.0-rc.1+closure.1",
+  "version": "2.1.0-rc.2",
   "released": "2026-09-25",
   "direction": "rtl",
   "language": "fa",
@@ -72,8 +72,14 @@
       "date": "2026-09-25",
       "class": "RELEASE_CANDIDATE",
       "notes": "Release closure candidate: outbound traffic observability, honest token telemetry, DeepSeek readiness revalidation, synchronized release metadata."
+    },
+    {
+      "version": "2.1.0-rc.2",
+      "date": "2026-09-25",
+      "class": "RELEASE_CANDIDATE",
+      "notes": "RC2 supersedes RC1 after documentation encoding defect was detected during GitHub verification; no production cutover occurred."
     }
   ],
-  "build": "20260925-rc1",
+  "build": "20260925-rc2",
   "last_updated": "2026-09-25"
 }
