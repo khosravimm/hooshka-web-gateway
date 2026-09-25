@@ -44,6 +44,30 @@ def test_provider_settings_persists_enabled_and_profile(tmp_path, monkeypatch):
     assert (root / "profiles" / "ds").is_dir()
 
 
+
+def test_provider_enable_requires_current_readiness(monkeypatch):
+    cfg = {"providers": [{"id": "deepseek-web", "type": "deepseek_web", "enabled": False, "priority": 70, "runtime": {}, "config": {}}]}
+    monkeypatch.setattr(control_panel, "_load_config_file", lambda: cfg)
+    monkeypatch.setattr(control_panel, "_save_config_file", lambda value: None)
+    monkeypatch.setattr(control_panel, "load_readiness", lambda provider_id: None)
+    monkeypatch.setattr(control_panel.provider_registry, "get", lambda provider_id: None)
+    response = _client().put('/panel/api/providers/deepseek-web/settings', json={"enabled": True})
+    assert response.status_code == 409
+    assert response.get_json()["error"] == "provider_enable_requires_current_readiness"
+    assert cfg["providers"][0]["enabled"] is False
+
+
+def test_provider_enable_allows_current_ready_evidence(monkeypatch):
+    cfg = {"providers": [{"id": "deepseek-web", "type": "deepseek_web", "enabled": False, "priority": 70, "runtime": {}, "config": {}}]}
+    monkeypatch.setattr(control_panel, "_load_config_file", lambda: cfg)
+    monkeypatch.setattr(control_panel, "_save_config_file", lambda value: None)
+    monkeypatch.setattr(control_panel, "load_readiness", lambda provider_id: {"state": "READY", "ready": True, "current": True, "checked_at": "2026-09-25T17:00:00Z"})
+    monkeypatch.setattr(control_panel, "_schedule_restart_all", lambda reason: {"scheduled": False, "reason": reason})
+    monkeypatch.setattr(control_panel.provider_registry, "get", lambda provider_id: None)
+    response = _client().put('/panel/api/providers/deepseek-web/settings', json={"enabled": True})
+    assert response.status_code == 200
+    assert cfg["providers"][0]["enabled"] is True
+
 def test_assigned_managed_profile_cannot_be_deleted(tmp_path, monkeypatch):
     root = tmp_path / ".runtime-dev"
     target = root / "profiles" / "used"

@@ -2090,9 +2090,28 @@ def api_provider_settings(provider_id):
         return jsonify({"error": "Provider not found"}), 404
     if "enabled" in data:
         requested_enabled = bool(data["enabled"])
+        current_enabled = bool(item.get("enabled", False))
         pcfg = item.get("config", {}) or {}
-        if requested_enabled and item.get("type") == "custom" and pcfg.get("adapter_kind") == "discovered_web":
-            return jsonify({"error":"discovered_provider_enable_requires_readiness_gate","provider":provider_id}), 409
+        if requested_enabled and not current_enabled:
+            if item.get("type") == "custom" and pcfg.get("adapter_kind") == "discovered_web":
+                return jsonify({"error":"discovered_provider_enable_requires_readiness_gate","provider":provider_id}), 409
+            readiness = load_readiness(provider_id) or {}
+            current_ready = (
+                readiness.get("ready") is True
+                and readiness.get("current") is True
+                and readiness.get("state") == "READY"
+            )
+            if not current_ready:
+                return jsonify({
+                    "error": "provider_enable_requires_current_readiness",
+                    "provider": provider_id,
+                    "readiness": {
+                        "state": readiness.get("state") or "UNKNOWN",
+                        "ready": bool(readiness.get("ready")),
+                        "current": bool(readiness.get("current")),
+                        "checked_at": readiness.get("checked_at"),
+                    },
+                }), 409
         item["enabled"] = requested_enabled
     if "priority" in data:
         priority = int(data["priority"])

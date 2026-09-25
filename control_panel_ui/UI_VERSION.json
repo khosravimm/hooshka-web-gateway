@@ -1,6 +1,6 @@
 {
   "name": "hwg-control-plane-ui",
-  "version": "2.1.1-dev.full-audit-remediation.20260925-1734",
+  "version": "2.1.1-dev.full-audit-remediation.20260925-1736",
   "released": "2026-09-25",
   "direction": "rtl",
   "language": "fa",
@@ -144,8 +144,14 @@
       "date": "2026-09-25",
       "class": "AUDIT_REMEDIATION",
       "notes": "Full-product audit safety: enforce Current READY evidence in backend before any disabled-to-enabled Provider transition; prevents API bypass of the UI readiness gate."
+    },
+    {
+      "version": "2.1.1-dev.full-audit-remediation.20260925-1736",
+      "date": "2026-09-25",
+      "class": "AUDIT_REMEDIATION",
+      "notes": "Provider lifecycle audit: enforce current READY evidence in backend before enabling any previously-disabled provider; UI and API now share the same fail-closed activation contract."
     }
   ],
-  "build": "202609251734",
+  "build": "20260925-1736",
   "last_updated": "2026-09-25"
 }

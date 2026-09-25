@@ -1,6 +1,6 @@
 {
   "name": "hwg-next",
-  "version": "2.1.1-dev.full-audit-remediation.20260925-1734",
+  "version": "2.1.1-dev.full-audit-remediation.20260925-1736",
   "canonical_id": "hooshka-web-gateway-next",
   "release_channel": "dev",
   "build_date": "2026-09-25",
@@ -9,7 +9,7 @@
   "parents": [
     {
       "component": "hooshka-web-gateway",
-      "version": "0.7.29",
+      "version": "2.1.1-dev.full-audit-remediation.20260925-1736",
       "source_dir": "D:\\Code\\hooshka-web-gateway",
       "relationship": "seed"
     }
