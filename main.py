@@ -738,10 +738,15 @@ def create_app(config_path: str | None = None) -> Flask:
             "provider_meta": chunk.provider_meta,
         }
 
-    def _get_session(req: ChatCompletionRequest) -> SessionContext | None:
+    def _get_session(req: ChatCompletionRequest, provider=None, create: bool = False) -> SessionContext | None:
         if not req.conversation_id:
             return None
-        session_data = mcp_session_manager.get_session(req.conversation_id)
+        if create:
+            if provider is None:
+                raise ValueError("provider is required when creating a conversation session")
+            session_data = mcp_session_manager.get_or_create_session(req.conversation_id, provider)
+        else:
+            session_data = mcp_session_manager.get_session(req.conversation_id)
         return SessionContext(
             conversation_id=req.conversation_id,
             provider_session_id=session_data.get("provider_session_id") if session_data else None,
@@ -1605,7 +1610,7 @@ def create_app(config_path: str | None = None) -> Flask:
 
         try:
             translated_req = mcp_translator.translate_request(req, provider)
-            session = _get_session(req)
+            session = _get_session(req, provider=provider, create=True)
 
             if req.stream:
                 return _stream_response(provider, translated_req, session, "conversation_chat", close_provider=temporary_provider)

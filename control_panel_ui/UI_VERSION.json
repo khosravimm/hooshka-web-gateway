@@ -1,6 +1,6 @@
 {
   "name": "hwg-control-plane-ui",
-  "version": "2.1.1-dev.full-audit-remediation.20260925-1752",
+  "version": "2.1.1-dev.full-audit-remediation.20260925-1805",
   "released": "2026-09-25",
   "direction": "rtl",
   "language": "fa",
@@ -162,8 +162,20 @@
       "date": "2026-09-25",
       "class": "AUDIT_REMEDIATION",
       "notes": "Config audit: fail-closed loading/write controls and backend bounds aligned with the UI contract."
+    },
+    {
+      "version": "2.1.1-dev.full-audit-remediation.20260925-1802",
+      "date": "2026-09-25",
+      "class": "AUDIT_REMEDIATION",
+      "notes": "Desktop Runtime Agent resilience: allow operation on battery, do not stop when switching to battery, and start when available while preserving restart-on-failure."
+    },
+    {
+      "version": "2.1.1-dev.full-audit-remediation.20260925-1805",
+      "date": "2026-09-25",
+      "class": "AUDIT_REMEDIATION",
+      "notes": "Conversation lifecycle audit: /v1/chat/conversation now creates and reuses the MCP session represented by the Sessions workspace."
     }
   ],
-  "build": "20260925-1752",
+  "build": "20260925-1805",
   "last_updated": "2026-09-25"
 }
