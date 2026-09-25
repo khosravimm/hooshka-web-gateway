@@ -1,0 +1,463 @@
+{
+  "schema_version": "1.0.0",
+  "provider_id": "grok-web",
+  "status": "E2_CONFORMANT_CANDIDATE",
+  "generated_at": "2026-09-25T11:00:09.876734+00:00",
+  "adapter_candidate": {
+    "schema_version": "1.0.0",
+    "kind": "browser_ui_adapter_candidate",
+    "status": "GENERATED_UNCERTIFIED",
+    "provider_id": "grok-web",
+    "origin": "https://grok.com",
+    "home_url": "https://grok.com/",
+    "runtime_key": "http://127.0.0.1:9330|D:\\Code\\hooshka-web-gateway\\.runtime-dev\\shared-profile",
+    "transport": {
+      "mode": "browser_ui_candidate",
+      "target_strategy": "same_origin_live_page",
+      "composer": {
+        "selector": "div[aria-label='Ask Grok anything']",
+        "evidence_level": "E1"
+      },
+      "submit": {
+        "strategy": "dynamic_after_fill_near_composer",
+        "evidence_level": "E2",
+        "last_verified_selector": "[data-testid='chat-submit']"
+      },
+      "response": {
+        "selector": "div.relative.response-content-markdown.markdown.chat-md.chat-md-links",
+        "selectors": [
+          "div.relative.response-content-markdown.markdown.chat-md.chat-md-links",
+          "p.break-words",
+          "div.absolute.inset-x-0.top-0.px-gutter",
+          "div.relative",
+          "div.relative.w-full",
+          "[data-testid='user-message']",
+          "div.relative.group.flex.flex-col.justify-center.w-full.mx-auto.items-end",
+          "[data-testid='chat-transcript-scroller']"
+        ],
+        "strategy": "stable_recorded_response_surface",
+        "source_strategy": "smallest_stable_marker_anchored_surface",
+        "evidence_level": "E2"
+      }
+    },
+    "capabilities": {
+      "observed_supported": [
+        {
+          "name": "chat",
+          "supported": true,
+          "evidence_level": "E1",
+          "confidence": "high"
+        },
+        {
+          "name": "model_selection",
+          "supported": true,
+          "evidence_level": "E1",
+          "confidence": "high"
+        },
+        {
+          "name": "web_search",
+          "supported": true,
+          "evidence_level": "E1",
+          "confidence": "high"
+        },
+        {
+          "name": "file_upload",
+          "supported": true,
+          "evidence_level": "E1",
+          "confidence": "high"
+        },
+        {
+          "name": "backend_api",
+          "supported": true,
+          "evidence_level": "E1",
+          "confidence": "medium"
+        }
+      ],
+      "unresolved_or_unsupported": [
+        {
+          "name": "thinking_control",
+          "supported": false,
+          "evidence_level": "E0",
+          "confidence": "low"
+        },
+        {
+          "name": "streaming",
+          "supported": false,
+          "evidence_level": "E0",
+          "confidence": "low"
+        }
+      ]
+    },
+    "upload_surface": {
+      "schema_version": "1.0.0",
+      "qualification_policy": {
+        "version": "1.0.0",
+        "required": true,
+        "scope": "all_current_and_future_providers",
+        "classes": [
+          "text",
+          "document",
+          "spreadsheet",
+          "image",
+          "code",
+          "presentation",
+          "audio",
+          "video"
+        ],
+        "representatives": {
+          "text": [
+            ".txt",
+            ".md"
+          ],
+          "document": [
+            ".pdf",
+            ".docx"
+          ],
+          "spreadsheet": [
+            ".csv",
+            ".xlsx"
+          ],
+          "image": [
+            ".png",
+            ".jpg",
+            ".jpeg"
+          ],
+          "code": [
+            ".py",
+            ".js",
+            ".ts"
+          ],
+          "presentation": [
+            ".ppt",
+            ".pptx"
+          ],
+          "audio": [
+            ".mp3",
+            ".wav",
+            ".m4a"
+          ],
+          "video": [
+            ".mp4",
+            ".webm",
+            ".mov"
+          ]
+        },
+        "promotion_rule": "E2_required_for_certified"
+      },
+      "input_present": true,
+      "input_count": 1,
+      "multiple_supported": true,
+      "advertised_extensions": [],
+      "advertised_classes": {
+        "text": false,
+        "document": false,
+        "spreadsheet": false,
+        "image": false,
+        "code": false,
+        "presentation": false,
+        "audio": false,
+        "video": false
+      },
+      "inputs": [
+        {
+          "index": 0,
+          "accept": "",
+          "multiple": true,
+          "disabled": false,
+          "parsed": {
+            "tokens": [],
+            "extensions": [],
+            "mime_types": [],
+            "classes": {
+              "text": false,
+              "document": false,
+              "spreadsheet": false,
+              "image": false,
+              "code": false,
+              "presentation": false,
+              "audio": false,
+              "video": false
+            }
+          }
+        }
+      ],
+      "evidence_level": "E1",
+      "status": "advertised_unverified"
+    },
+    "backend_hints": {
+      "candidate_endpoints": [
+        {
+          "path": "/rest/app-chat/conversations",
+          "hits": 2,
+          "methods": []
+        },
+        {
+          "path": "/rest/connectors/list-available-v2",
+          "hits": 1,
+          "methods": []
+        },
+        {
+          "path": "/api/auth/session",
+          "hits": 1,
+          "methods": []
+        },
+        {
+          "path": "/grok_api_v2.GrokBuildBilling/GetGrokCreditsConfig",
+          "hits": 1,
+          "methods": []
+        },
+        {
+          "path": "/rest/assets",
+          "hits": 1,
+          "methods": []
+        }
+      ],
+      "stream_transports": []
+    },
+    "unresolved_controls": [],
+    "evidence_refs": {
+      "submit_marker": "HWGQ183578",
+      "target_id": "03032739EDC2255B23AB12FBFDBF75F1",
+      "response_surface_marker": "HWGQ183578",
+      "qualification_source": "active"
+    },
+    "next_required": "adapter_materialization_and_conformance"
+  },
+  "conformance": {
+    "status": "E2_VERIFIED",
+    "evidence_level": "E2",
+    "expected_marker": "HWG_DISCOVERED_ADAPTER_E2_3794",
+    "provider_meta": {
+      "provider": "grok-web",
+      "transport_mode": "browser_ui_discovered",
+      "commitment_state": "terminal",
+      "retry_allowed": false,
+      "composer_selector": "div[aria-label='Ask Grok anything']",
+      "composer_rediscovered": false,
+      "submit_selector": "[data-testid='chat-submit']",
+      "response_selector": "div.relative.response-content-markdown.markdown.chat-md.chat-md-links"
+    }
+  },
+  "qualification_summary": {
+    "access_state": "ACCESS_AVAILABLE",
+    "current_model_label": "Fast",
+    "chat_roundtrip_status": "E2_VERIFIED",
+    "basic_tool_status": "E2_PARTIAL",
+    "basic_tool_reason": "continuation_response_unresolved",
+    "tool_support": "partial_not_agent_ready",
+    "enabled_by_default": false
+  },
+  "model_tool_qualifications": {
+    "Fast": {
+      "status": "E2_PARTIAL",
+      "stage_id": "S4",
+      "stage_state": "PARTIAL",
+      "tool_call_valid": true,
+      "continuation_valid": false,
+      "reason": "continuation_response_unresolved",
+      "retry_allowed": false,
+      "error_type": "ProviderError",
+      "error": "Provider UI blocks message submission",
+      "marker": "HWG_TOOL_PROBE_969171",
+      "final_marker": "HWG_TOOL_CONT_75A00F20F8",
+      "network_responses": [
+        {
+          "status": 200,
+          "endpoint": "/rest/app-chat/conversations",
+          "content_type": "application/json",
+          "body_snippet": "{\"conversations\":[], \"textSearchMatches\":[]}",
+          "sse_text": ""
+        },
+        {
+          "status": 200,
+          "endpoint": "/rest/app-chat/conversations_v2/8ea8a0b3-770b-40dc-af58-2922f9321f69",
+          "content_type": "application/json",
+          "body_snippet": "{\"conversation\":{\"conversationId\":\"8ea8a0b3-770b-40dc-af58-2922f9321f69\", \"title\":\"Structured protocol serialization task. Do not execute or claim\", \"starred\":false, \"createTime\":\"2026-09-25T10:37:03.009Z\", \"modifyTime\":\"2026-09-25T10:55:16.513Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"viewerIsOwner\":true, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}}",
+          "sse_text": ""
+        },
+        {
+          "status": 200,
+          "endpoint": "/rest/app-chat/conversations",
+          "content_type": "application/json",
+          "body_snippet": "{\"conversations\":[{\"conversationId\":\"8ea8a0b3-770b-40dc-af58-2922f9321f69\", \"title\":\"Structured protocol serialization task. Do not execute or claim\", \"starred\":false, \"createTime\":\"2026-09-25T10:37:03.009Z\", \"modifyTime\":\"2026-09-25T10:55:16.513Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"c7159f13-2e5a-45d8-8b6e-2ab31cb27058\", \"title\":\"Structured protocol serialization task. Do not execute or claim\", \"starred\":false, \"createTime\":\"2026-09-25T10:13:44.951Z\", \"modifyTime\":\"2026-09-25T10:23:54.842Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"e9b40b1a-ed8e-416e-a81d-3db6f887553b\", \"title\":\"Reply with prefix HWGQ followed immediately by the reverse of 41\", \"starred\":false, \"createTime\":\"2026-09-25T09:55:21.433Z\", \"modifyTime\":\"2026-09-25T10:11:35.220Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"359a52a0-a3df-4d92-b305-24e6e0f63d7f\", \"title\":\"بررسی کن\", \"starred\":false, \"createTime\":\"2026-09-20T04:48:20.964Z\", \"modifyTime\":\"2026-09-20T04:49:24.155Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"a6cf1cc9-a03a-4642-8693-8080bd86b1a9\", \"title\":\"New conversation\", \"starred\":false, \"createTime\":\"2026-09-19T15:09:58.825Z\", \"modifyTime\":\"2026-09-19T15:10:14.761Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"b85d86d9-a07f-4ee2-89a9-e8e94b4bbbb1\", \"title\":\"New conversation\", \"starred\":false, \"createTime\":\"2026-09-19T13:47:14.165Z\", \"modifyTime\":\"2026-09-19T13:47:36.692Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"0d598a4d-e80b-4410-88aa-49d9944caea8\", \"title\":\"use RemoteDesktop\", \"starred\":false, \"createTime\":\"2026-09-17T18:15:09.324Z\", \"modifyTime\":\"2026-09-17T18:18:07.635Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"6bd33a68-5422-4027-919c-83227291f34a\", \"title\":\"Use the skill-creator skill to connect to RemoteDesktop\", \"starred\":false, \"createTime\":\"2026-09-17T18:14:23.762Z\", \"modifyTime\":\"2026-09-17T18:14:56.585Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"a194fb8a-d9a8-4aed-80cf-d7599613d2f3\", \"title\":\"/skill-creator\", \"starred\":false, \"createTime\":\"2026-09-17T18:13:29.889Z\", \"modifyTime\":\"2026-09-17T18:13:31.732Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"dde8918f-5b26-48d5-b38a-35c01356f1f5\", \"title\":\"از پلاکین RemoteDesktop   استفاده کن و به Laptop وصل شو\", \"starred\":false, \"createTime\":\"2026-09-17T18:12:37.011Z\", \"modifyTime\":\"2026-09-17T18:13:03.473Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"2421bad2-c295-4c25-b441-6fa24bc36a44\", \"title\":\"RDP connect\", \"starred\":false, \"createTime\":\"2026-09-17T17:44:45.001Z\", \"modifyTime\":\"2026-09-17T18:12:13.124Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"0395ff28-19ba-4b20-b4a5-ee131b4a6949\", \"title\":\"https://github.com/khosravimm/my-system/raw/refs/heads/master/HO\", \"starred\":false, \"createTime\":\"2026-08-19T01:55:28.353Z\", \"modifyTime\":\"2026-09-17T17:43:54.472Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"142f7985-cfcf-4c32-a31b-d33eca54501c\", \"title\":\"می خواهم تو بتوانی مستقیم به گوشی موبایل من که اندروید هست  وصل\", \"starred\":false, \"createTime\":\"2026-09-17T17:23:28.086Z\", \"modifyTime\":\"2026-09-17T17:24:58.048Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"1eecff00-d990-45d4-9384-c272dc1334e6\", \"title\":\"\", \"starred\":false, \"createTime\":\"2026-09-17T17:20:44.597Z\", \"modifyTime\":\"2026-09-17T17:20:44.597Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"f7cc59d3-370c-4342-afc9-c6a823b8daaf\", \"title\":\"یک ارائه آموزشی بسیار کاربردی، جذاب و تعاملی به زبان فارسی و با\", \"starred\":false, \"createTime\":\"2026-09-14T16:11:40.460Z\", \"modifyTime\":\"2026-09-14T18:24:11.276Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"3667dc25-0bff-4ee7-9dca-022d441e344e\", \"title\":\"New conversation\", \"starred\":false, \"createTime\":\"2026-09-13T07:41:16.965Z\", \"modifyTime\":\"2026-09-13T07:51:36.828Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"346f86c4-0836-40f6-b86a-51d63d128e8a\", \"title\":\"Refer to the following content\", \"starred\":false, \"createTime\":\"2026-09-12T03:04:57.594Z\", \"modifyTime\":\"2026-09-12T03:20:22.800Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"e7d7812b-bf72-44e3-a7d8-e433c4dbabcf\", \"title\":\"New conversation\", \"starred\":false, \"createTime\":\"2026-09-04T12:31:58.836Z\", \"modifyTime\":\"2026-09-04T14:54:38.454Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"4df54308-b2c0-4036-bbb3-e57b0b9b13dd\", \"title\":\"GitHub  لیست روپو های خصوص من را بده\", \"starred\":false, \"createTime\":\"2026-08-23T08:17:22.423Z\", \"modifyTime\":\"2026-09-03T12:31:23.253Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"7dd59ad9-19f0-45d2-a0aa-92d5047e142d\", \"title\":\"مأموریت ممیزی جامع Final Pre-Canonical Release Audit نقشه‌یار v0\", \"starred\":false, \"createTime\":\"2026-09-03T12:24:45.713Z\", \"modifyTime\":\"2026-09-03T12:24:54.304Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"5faf8f25-946a-4d17-b2b8-647d1dde88d1\", \"title\":\"آیا ابزار دسترسی به گیتهاب را داری؟\", \"starred\":false, \"createTime\":\"2026-08-23T08:13:25.744Z\", \"modifyTime\":\"2026-08-23T08:16:50.691Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"6294113c-6533-4544-8eed-bcde29671780\", \"title\":\"Research Request — Preventing Knowledge Drift and Obsolete Ancho\", \"starred\":false, \"createTime\":\"2026-08-19T11:24:18.184Z\", \"modifyTime\":\"2026-08-19T11:53:53.235Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"936ae8a7-8227-4829-9a6e-e8d08e512838\", \"title\":\"https://github.com/khosravimm/my-system/raw/refs/heads/master/HO\", \"starred\":false, \"createTime\":\"2026-08-19T01:52:41.056Z\", \"modifyTime\":\"2026-08-19T01:54:17.804Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"e19a5297-2d41-452e-a25d-89f0a39f89a7\", \"title\":\"پروژه‌های OpenAI-compatible برای ChatGPT Claude Gemini\", \"starred\":false, \"createTime\":\"2026-07-31T09:33:09.851Z\", \"modifyTime\":\"2026-07-31T09:34:29.900Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"3e3b9ea4-3462-42d9-83b8-f09c24aead39\", \"title\":\"khosravimm's GitHub repos list\", \"starred\":false, \"createTime\":\"2026-07-28T14:19:28.121Z\", \"modifyTime\":\"2026-07-28T14:21:28.320Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"80f21661-034e-4ec4-96f4-b9f64e14800c\", \"title\":\"ISO 27001 Secure LLM Integration\", \"starred\":false, \"createTime\":\"2026-06-25T12:35:08.774Z\", \"modifyTime\":\"2026-06-25T12:35:35.593Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"aed020a8-3b36-49bf-a10a-9bb23d678c34\", \"title\":\"MikroTik Socksify with Psiphon SOCKS5\", \"starred\":false, \"createTime\":\"2026-06-03T09:33:12.579Z\", \"modifyTime\":\"2026-06-03T09:34:30.972Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"caf16afd-cb5c-4b68-8957-00c84f2ac6b0\", \"title\":\"عیدی بیمه بیکاری در ایران\", \"starred\":false, \"createTime\":\"2026-02-15T14:23:58.151Z\", \"modifyTime\":\"2026-02-15T14:24:09.491Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"497eb012-6ba3-4610-bac8-e3a430dbe5c5\", \"title\":\"بهترین کلاینت ویندوزی SSH Tunnel\", \"starred\":false, \"createTime\":\"2026-02-04T11:53:57.298Z\", \"modifyTime\":\"2026-02-04T11:57:29.864Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"941504c0-1a91-452f-b624-9b2b97869ecb\", \"title\":\"ComfyUI KSampler CUDA Illegal Memory Access\", \"starred\":false, \"createTime\":\"2026-01-30T17:10:46.813Z\", \"modifyTime\":\"2026-01-30T17:11:21.191Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"d65bfd08-41ec-4f18-b1bc-d21b0effbe9e\", \"title\":\"YogaDNS Alternatives for Android\", \"starred\":false, \"cr",
+          "sse_text": ""
+        },
+        {
+          "status": 200,
+          "endpoint": "/rest/app-chat/conversations",
+          "content_type": "application/json",
+          "body_snippet": "{\"conversations\":[{\"conversationId\":\"8ea8a0b3-770b-40dc-af58-2922f9321f69\", \"title\":\"Structured protocol serialization task. Do not execute or claim\", \"starred\":false, \"createTime\":\"2026-09-25T10:37:03.009Z\", \"modifyTime\":\"2026-09-25T10:55:16.513Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"c7159f13-2e5a-45d8-8b6e-2ab31cb27058\", \"title\":\"Structured protocol serialization task. Do not execute or claim\", \"starred\":false, \"createTime\":\"2026-09-25T10:13:44.951Z\", \"modifyTime\":\"2026-09-25T10:23:54.842Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"e9b40b1a-ed8e-416e-a81d-3db6f887553b\", \"title\":\"Reply with prefix HWGQ followed immediately by the reverse of 41\", \"starred\":false, \"createTime\":\"2026-09-25T09:55:21.433Z\", \"modifyTime\":\"2026-09-25T10:11:35.220Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"359a52a0-a3df-4d92-b305-24e6e0f63d7f\", \"title\":\"بررسی کن\", \"starred\":false, \"createTime\":\"2026-09-20T04:48:20.964Z\", \"modifyTime\":\"2026-09-20T04:49:24.155Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"a6cf1cc9-a03a-4642-8693-8080bd86b1a9\", \"title\":\"New conversation\", \"starred\":false, \"createTime\":\"2026-09-19T15:09:58.825Z\", \"modifyTime\":\"2026-09-19T15:10:14.761Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"b85d86d9-a07f-4ee2-89a9-e8e94b4bbbb1\", \"title\":\"New conversation\", \"starred\":false, \"createTime\":\"2026-09-19T13:47:14.165Z\", \"modifyTime\":\"2026-09-19T13:47:36.692Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"0d598a4d-e80b-4410-88aa-49d9944caea8\", \"title\":\"use RemoteDesktop\", \"starred\":false, \"createTime\":\"2026-09-17T18:15:09.324Z\", \"modifyTime\":\"2026-09-17T18:18:07.635Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"6bd33a68-5422-4027-919c-83227291f34a\", \"title\":\"Use the skill-creator skill to connect to RemoteDesktop\", \"starred\":false, \"createTime\":\"2026-09-17T18:14:23.762Z\", \"modifyTime\":\"2026-09-17T18:14:56.585Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"a194fb8a-d9a8-4aed-80cf-d7599613d2f3\", \"title\":\"/skill-creator\", \"starred\":false, \"createTime\":\"2026-09-17T18:13:29.889Z\", \"modifyTime\":\"2026-09-17T18:13:31.732Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"dde8918f-5b26-48d5-b38a-35c01356f1f5\", \"title\":\"از پلاکین RemoteDesktop   استفاده کن و به Laptop وصل شو\", \"starred\":false, \"createTime\":\"2026-09-17T18:12:37.011Z\", \"modifyTime\":\"2026-09-17T18:13:03.473Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"2421bad2-c295-4c25-b441-6fa24bc36a44\", \"title\":\"RDP connect\", \"starred\":false, \"createTime\":\"2026-09-17T17:44:45.001Z\", \"modifyTime\":\"2026-09-17T18:12:13.124Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"0395ff28-19ba-4b20-b4a5-ee131b4a6949\", \"title\":\"https://github.com/khosravimm/my-system/raw/refs/heads/master/HO\", \"starred\":false, \"createTime\":\"2026-08-19T01:55:28.353Z\", \"modifyTime\":\"2026-09-17T17:43:54.472Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"142f7985-cfcf-4c32-a31b-d33eca54501c\", \"title\":\"می خواهم تو بتوانی مستقیم به گوشی موبایل من که اندروید هست  وصل\", \"starred\":false, \"createTime\":\"2026-09-17T17:23:28.086Z\", \"modifyTime\":\"2026-09-17T17:24:58.048Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"1eecff00-d990-45d4-9384-c272dc1334e6\", \"title\":\"\", \"starred\":false, \"createTime\":\"2026-09-17T17:20:44.597Z\", \"modifyTime\":\"2026-09-17T17:20:44.597Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"f7cc59d3-370c-4342-afc9-c6a823b8daaf\", \"title\":\"یک ارائه آموزشی بسیار کاربردی، جذاب و تعاملی به زبان فارسی و با\", \"starred\":false, \"createTime\":\"2026-09-14T16:11:40.460Z\", \"modifyTime\":\"2026-09-14T18:24:11.276Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"3667dc25-0bff-4ee7-9dca-022d441e344e\", \"title\":\"New conversation\", \"starred\":false, \"createTime\":\"2026-09-13T07:41:16.965Z\", \"modifyTime\":\"2026-09-13T07:51:36.828Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"346f86c4-0836-40f6-b86a-51d63d128e8a\", \"title\":\"Refer to the following content\", \"starred\":false, \"createTime\":\"2026-09-12T03:04:57.594Z\", \"modifyTime\":\"2026-09-12T03:20:22.800Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"e7d7812b-bf72-44e3-a7d8-e433c4dbabcf\", \"title\":\"New conversation\", \"starred\":false, \"createTime\":\"2026-09-04T12:31:58.836Z\", \"modifyTime\":\"2026-09-04T14:54:38.454Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"4df54308-b2c0-4036-bbb3-e57b0b9b13dd\", \"title\":\"GitHub  لیست روپو های خصوص من را بده\", \"starred\":false, \"createTime\":\"2026-08-23T08:17:22.423Z\", \"modifyTime\":\"2026-09-03T12:31:23.253Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"7dd59ad9-19f0-45d2-a0aa-92d5047e142d\", \"title\":\"مأموریت ممیزی جامع Final Pre-Canonical Release Audit نقشه‌یار v0\", \"starred\":false, \"createTime\":\"2026-09-03T12:24:45.713Z\", \"modifyTime\":\"2026-09-03T12:24:54.304Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"5faf8f25-946a-4d17-b2b8-647d1dde88d1\", \"title\":\"آیا ابزار دسترسی به گیتهاب را داری؟\", \"starred\":false, \"createTime\":\"2026-08-23T08:13:25.744Z\", \"modifyTime\":\"2026-08-23T08:16:50.691Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"6294113c-6533-4544-8eed-bcde29671780\", \"title\":\"Research Request — Preventing Knowledge Drift and Obsolete Ancho\", \"starred\":false, \"createTime\":\"2026-08-19T11:24:18.184Z\", \"modifyTime\":\"2026-08-19T11:53:53.235Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"936ae8a7-8227-4829-9a6e-e8d08e512838\", \"title\":\"https://github.com/khosravimm/my-system/raw/refs/heads/master/HO\", \"starred\":false, \"createTime\":\"2026-08-19T01:52:41.056Z\", \"modifyTime\":\"2026-08-19T01:54:17.804Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"e19a5297-2d41-452e-a25d-89f0a39f89a7\", \"title\":\"پروژه‌های OpenAI-compatible برای ChatGPT Claude Gemini\", \"starred\":false, \"createTime\":\"2026-07-31T09:33:09.851Z\", \"modifyTime\":\"2026-07-31T09:34:29.900Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"3e3b9ea4-3462-42d9-83b8-f09c24aead39\", \"title\":\"khosravimm's GitHub repos list\", \"starred\":false, \"createTime\":\"2026-07-28T14:19:28.121Z\", \"modifyTime\":\"2026-07-28T14:21:28.320Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"80f21661-034e-4ec4-96f4-b9f64e14800c\", \"title\":\"ISO 27001 Secure LLM Integration\", \"starred\":false, \"createTime\":\"2026-06-25T12:35:08.774Z\", \"modifyTime\":\"2026-06-25T12:35:35.593Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"aed020a8-3b36-49bf-a10a-9bb23d678c34\", \"title\":\"MikroTik Socksify with Psiphon SOCKS5\", \"starred\":false, \"createTime\":\"2026-06-03T09:33:12.579Z\", \"modifyTime\":\"2026-06-03T09:34:30.972Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"caf16afd-cb5c-4b68-8957-00c84f2ac6b0\", \"title\":\"عیدی بیمه بیکاری در ایران\", \"starred\":false, \"createTime\":\"2026-02-15T14:23:58.151Z\", \"modifyTime\":\"2026-02-15T14:24:09.491Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"bae6b044-2f08-497c-a5d2-0e561b8fa6c4\", \"title\":\"تولید موسیقی ایرانی با ACE-Step 1.5\", \"starred\":false, \"createTime\":\"2026-02-13T21:04:53.735Z\", \"modifyTime\":\"2026-02-13T21:36:24.072Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"8463a34a-21eb-4f43-9021-8fa9b85e80cb\", \"title\":\"تفاوت سه فایل run در ComfyUI\", \"starred\":false, \"createTime\":\"2026-02-13T21:11:20.611Z\", \"modifyTime\":\"2026-02-13T21:32:35.090Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"497eb012-6ba3-4610-bac8-e3a430dbe5c5\", \"title\":\"بهترین کلاینت ویندوزی SSH Tunnel\", \"starred\":false, \"createTime\":\"2",
+          "sse_text": ""
+        },
+        {
+          "status": 200,
+          "endpoint": "/rest/app-chat/conversations",
+          "content_type": "application/json",
+          "body_snippet": "{\"conversations\":[{\"conversationId\":\"bae6b044-2f08-497c-a5d2-0e561b8fa6c4\", \"title\":\"تولید موسیقی ایرانی با ACE-Step 1.5\", \"starred\":false, \"createTime\":\"2026-02-13T21:04:53.735Z\", \"modifyTime\":\"2026-02-13T21:36:24.072Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"8463a34a-21eb-4f43-9021-8fa9b85e80cb\", \"title\":\"تفاوت سه فایل run در ComfyUI\", \"starred\":false, \"createTime\":\"2026-02-13T21:11:20.611Z\", \"modifyTime\":\"2026-02-13T21:32:35.090Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}], \"textSearchMatches\":[]}",
+          "sse_text": ""
+        },
+        {
+          "status": 200,
+          "endpoint": "/rest/app-chat/conversations",
+          "content_type": "application/json",
+          "body_snippet": "{\"conversations\":[], \"textSearchMatches\":[]}",
+          "sse_text": ""
+        },
+        {
+          "status": 200,
+          "endpoint": "/rest/app-chat/conversations",
+          "content_type": "application/json",
+          "body_snippet": "{\"conversations\":[{\"conversationId\":\"8df76a3f-fead-4537-8c1f-bd3047849191\", \"title\":\"Image Creation: Khatoon in Iranian Setting\", \"starred\":false, \"createTime\":\"2025-12-17T15:34:03.497Z\", \"modifyTime\":\"2025-12-18T07:20:55.113Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}], \"textSearchMatches\":[]}",
+          "sse_text": ""
+        },
+        {
+          "status": 200,
+          "endpoint": "/rest/app-chat/conversations",
+          "content_type": "application/json",
+          "body_snippet": "{\"conversations\":[], \"textSearchMatches\":[]}",
+          "sse_text": ""
+        },
+        {
+          "status": 200,
+          "endpoint": "/rest/app-chat/conversations",
+          "content_type": "application/json",
+          "body_snippet": "{\"conversations\":[{\"conversationId\":\"7cc7b3dc-dbc1-4822-bb39-3896f8c78e38\", \"title\":\"تحلیل امنیتی پکت‌های لاگین کاربر\", \"starred\":false, \"createTime\":\"2025-08-06T04:33:12.284Z\", \"modifyTime\":\"2025-08-06T05:22:01.698Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"2422f938-e521-477f-bdd9-2fa042953411\", \"title\":\"هوش مصنوعی در تست نفوذ امنیتی\", \"starred\":false, \"createTime\":\"2025-08-04T21:57:30.796Z\", \"modifyTime\":\"2025-08-04T23:33:53.366Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}], \"textSearchMatches\":[]}",
+          "sse_text": ""
+        },
+        {
+          "status": 200,
+          "endpoint": "/rest/app-chat/conversations",
+          "content_type": "application/json",
+          "body_snippet": "{\"conversations\":[], \"textSearchMatches\":[]}",
+          "sse_text": ""
+        },
+        {
+          "status": 200,
+          "endpoint": "/rest/app-chat/conversations/8ea8a0b3-770b-40dc-af58-2922f9321f69/sharing",
+          "content_type": "application/json",
+          "body_snippet": "{\"workspaceSeedEligible\":false, \"workspaceSeedIneligibleReason\":\"WORKSPACE_SEED_INELIGIBLE_REASON_UNSPECIFIED\"}",
+          "sse_text": ""
+        }
+      ],
+      "model_runtime_state": {
+        "selection_mode": "explicit",
+        "selection_kind": "explicit_model",
+        "current_label": null,
+        "model_id": null,
+        "storage_hints": {}
+      },
+      "model_attribution": {
+        "scope": "model_specific",
+        "selection_mode": "explicit",
+        "selection_kind": "explicit_model",
+        "current_label": "Fast"
+      }
+    }
+  },
+  "basic_tool_qualification": {
+    "status": "E2_PARTIAL",
+    "stage_id": "S4",
+    "stage_state": "PARTIAL",
+    "tool_call_valid": true,
+    "continuation_valid": false,
+    "reason": "continuation_response_unresolved",
+    "retry_allowed": false,
+    "error_type": "ProviderError",
+    "error": "Provider UI blocks message submission",
+    "marker": "HWG_TOOL_PROBE_969171",
+    "final_marker": "HWG_TOOL_CONT_75A00F20F8",
+    "network_responses": [
+      {
+        "status": 200,
+        "endpoint": "/rest/app-chat/conversations",
+        "content_type": "application/json",
+        "body_snippet": "{\"conversations\":[], \"textSearchMatches\":[]}",
+        "sse_text": ""
+      },
+      {
+        "status": 200,
+        "endpoint": "/rest/app-chat/conversations_v2/8ea8a0b3-770b-40dc-af58-2922f9321f69",
+        "content_type": "application/json",
+        "body_snippet": "{\"conversation\":{\"conversationId\":\"8ea8a0b3-770b-40dc-af58-2922f9321f69\", \"title\":\"Structured protocol serialization task. Do not execute or claim\", \"starred\":false, \"createTime\":\"2026-09-25T10:37:03.009Z\", \"modifyTime\":\"2026-09-25T10:55:16.513Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"viewerIsOwner\":true, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}}",
+        "sse_text": ""
+      },
+      {
+        "status": 200,
+        "endpoint": "/rest/app-chat/conversations",
+        "content_type": "application/json",
+        "body_snippet": "{\"conversations\":[{\"conversationId\":\"8ea8a0b3-770b-40dc-af58-2922f9321f69\", \"title\":\"Structured protocol serialization task. Do not execute or claim\", \"starred\":false, \"createTime\":\"2026-09-25T10:37:03.009Z\", \"modifyTime\":\"2026-09-25T10:55:16.513Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"c7159f13-2e5a-45d8-8b6e-2ab31cb27058\", \"title\":\"Structured protocol serialization task. Do not execute or claim\", \"starred\":false, \"createTime\":\"2026-09-25T10:13:44.951Z\", \"modifyTime\":\"2026-09-25T10:23:54.842Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"e9b40b1a-ed8e-416e-a81d-3db6f887553b\", \"title\":\"Reply with prefix HWGQ followed immediately by the reverse of 41\", \"starred\":false, \"createTime\":\"2026-09-25T09:55:21.433Z\", \"modifyTime\":\"2026-09-25T10:11:35.220Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"359a52a0-a3df-4d92-b305-24e6e0f63d7f\", \"title\":\"بررسی کن\", \"starred\":false, \"createTime\":\"2026-09-20T04:48:20.964Z\", \"modifyTime\":\"2026-09-20T04:49:24.155Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"a6cf1cc9-a03a-4642-8693-8080bd86b1a9\", \"title\":\"New conversation\", \"starred\":false, \"createTime\":\"2026-09-19T15:09:58.825Z\", \"modifyTime\":\"2026-09-19T15:10:14.761Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"b85d86d9-a07f-4ee2-89a9-e8e94b4bbbb1\", \"title\":\"New conversation\", \"starred\":false, \"createTime\":\"2026-09-19T13:47:14.165Z\", \"modifyTime\":\"2026-09-19T13:47:36.692Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"0d598a4d-e80b-4410-88aa-49d9944caea8\", \"title\":\"use RemoteDesktop\", \"starred\":false, \"createTime\":\"2026-09-17T18:15:09.324Z\", \"modifyTime\":\"2026-09-17T18:18:07.635Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"6bd33a68-5422-4027-919c-83227291f34a\", \"title\":\"Use the skill-creator skill to connect to RemoteDesktop\", \"starred\":false, \"createTime\":\"2026-09-17T18:14:23.762Z\", \"modifyTime\":\"2026-09-17T18:14:56.585Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"a194fb8a-d9a8-4aed-80cf-d7599613d2f3\", \"title\":\"/skill-creator\", \"starred\":false, \"createTime\":\"2026-09-17T18:13:29.889Z\", \"modifyTime\":\"2026-09-17T18:13:31.732Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"dde8918f-5b26-48d5-b38a-35c01356f1f5\", \"title\":\"از پلاکین RemoteDesktop   استفاده کن و به Laptop وصل شو\", \"starred\":false, \"createTime\":\"2026-09-17T18:12:37.011Z\", \"modifyTime\":\"2026-09-17T18:13:03.473Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"2421bad2-c295-4c25-b441-6fa24bc36a44\", \"title\":\"RDP connect\", \"starred\":false, \"createTime\":\"2026-09-17T17:44:45.001Z\", \"modifyTime\":\"2026-09-17T18:12:13.124Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"0395ff28-19ba-4b20-b4a5-ee131b4a6949\", \"title\":\"https://github.com/khosravimm/my-system/raw/refs/heads/master/HO\", \"starred\":false, \"createTime\":\"2026-08-19T01:55:28.353Z\", \"modifyTime\":\"2026-09-17T17:43:54.472Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"142f7985-cfcf-4c32-a31b-d33eca54501c\", \"title\":\"می خواهم تو بتوانی مستقیم به گوشی موبایل من که اندروید هست  وصل\", \"starred\":false, \"createTime\":\"2026-09-17T17:23:28.086Z\", \"modifyTime\":\"2026-09-17T17:24:58.048Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"1eecff00-d990-45d4-9384-c272dc1334e6\", \"title\":\"\", \"starred\":false, \"createTime\":\"2026-09-17T17:20:44.597Z\", \"modifyTime\":\"2026-09-17T17:20:44.597Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"f7cc59d3-370c-4342-afc9-c6a823b8daaf\", \"title\":\"یک ارائه آموزشی بسیار کاربردی، جذاب و تعاملی به زبان فارسی و با\", \"starred\":false, \"createTime\":\"2026-09-14T16:11:40.460Z\", \"modifyTime\":\"2026-09-14T18:24:11.276Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"3667dc25-0bff-4ee7-9dca-022d441e344e\", \"title\":\"New conversation\", \"starred\":false, \"createTime\":\"2026-09-13T07:41:16.965Z\", \"modifyTime\":\"2026-09-13T07:51:36.828Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"346f86c4-0836-40f6-b86a-51d63d128e8a\", \"title\":\"Refer to the following content\", \"starred\":false, \"createTime\":\"2026-09-12T03:04:57.594Z\", \"modifyTime\":\"2026-09-12T03:20:22.800Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"e7d7812b-bf72-44e3-a7d8-e433c4dbabcf\", \"title\":\"New conversation\", \"starred\":false, \"createTime\":\"2026-09-04T12:31:58.836Z\", \"modifyTime\":\"2026-09-04T14:54:38.454Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"4df54308-b2c0-4036-bbb3-e57b0b9b13dd\", \"title\":\"GitHub  لیست روپو های خصوص من را بده\", \"starred\":false, \"createTime\":\"2026-08-23T08:17:22.423Z\", \"modifyTime\":\"2026-09-03T12:31:23.253Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"7dd59ad9-19f0-45d2-a0aa-92d5047e142d\", \"title\":\"مأموریت ممیزی جامع Final Pre-Canonical Release Audit نقشه‌یار v0\", \"starred\":false, \"createTime\":\"2026-09-03T12:24:45.713Z\", \"modifyTime\":\"2026-09-03T12:24:54.304Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"5faf8f25-946a-4d17-b2b8-647d1dde88d1\", \"title\":\"آیا ابزار دسترسی به گیتهاب را داری؟\", \"starred\":false, \"createTime\":\"2026-08-23T08:13:25.744Z\", \"modifyTime\":\"2026-08-23T08:16:50.691Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"6294113c-6533-4544-8eed-bcde29671780\", \"title\":\"Research Request — Preventing Knowledge Drift and Obsolete Ancho\", \"starred\":false, \"createTime\":\"2026-08-19T11:24:18.184Z\", \"modifyTime\":\"2026-08-19T11:53:53.235Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"936ae8a7-8227-4829-9a6e-e8d08e512838\", \"title\":\"https://github.com/khosravimm/my-system/raw/refs/heads/master/HO\", \"starred\":false, \"createTime\":\"2026-08-19T01:52:41.056Z\", \"modifyTime\":\"2026-08-19T01:54:17.804Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"e19a5297-2d41-452e-a25d-89f0a39f89a7\", \"title\":\"پروژه‌های OpenAI-compatible برای ChatGPT Claude Gemini\", \"starred\":false, \"createTime\":\"2026-07-31T09:33:09.851Z\", \"modifyTime\":\"2026-07-31T09:34:29.900Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"3e3b9ea4-3462-42d9-83b8-f09c24aead39\", \"title\":\"khosravimm's GitHub repos list\", \"starred\":false, \"createTime\":\"2026-07-28T14:19:28.121Z\", \"modifyTime\":\"2026-07-28T14:21:28.320Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"80f21661-034e-4ec4-96f4-b9f64e14800c\", \"title\":\"ISO 27001 Secure LLM Integration\", \"starred\":false, \"createTime\":\"2026-06-25T12:35:08.774Z\", \"modifyTime\":\"2026-06-25T12:35:35.593Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"aed020a8-3b36-49bf-a10a-9bb23d678c34\", \"title\":\"MikroTik Socksify with Psiphon SOCKS5\", \"starred\":false, \"createTime\":\"2026-06-03T09:33:12.579Z\", \"modifyTime\":\"2026-06-03T09:34:30.972Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"caf16afd-cb5c-4b68-8957-00c84f2ac6b0\", \"title\":\"عیدی بیمه بیکاری در ایران\", \"starred\":false, \"createTime\":\"2026-02-15T14:23:58.151Z\", \"modifyTime\":\"2026-02-15T14:24:09.491Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"497eb012-6ba3-4610-bac8-e3a430dbe5c5\", \"title\":\"بهترین کلاینت ویندوزی SSH Tunnel\", \"starred\":false, \"createTime\":\"2026-02-04T11:53:57.298Z\", \"modifyTime\":\"2026-02-04T11:57:29.864Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"941504c0-1a91-452f-b624-9b2b97869ecb\", \"title\":\"ComfyUI KSampler CUDA Illegal Memory Access\", \"starred\":false, \"createTime\":\"2026-01-30T17:10:46.813Z\", \"modifyTime\":\"2026-01-30T17:11:21.191Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"d65bfd08-41ec-4f18-b1bc-d21b0effbe9e\", \"title\":\"YogaDNS Alternatives for Android\", \"starred\":false, \"cr",
+        "sse_text": ""
+      },
+      {
+        "status": 200,
+        "endpoint": "/rest/app-chat/conversations",
+        "content_type": "application/json",
+        "body_snippet": "{\"conversations\":[{\"conversationId\":\"8ea8a0b3-770b-40dc-af58-2922f9321f69\", \"title\":\"Structured protocol serialization task. Do not execute or claim\", \"starred\":false, \"createTime\":\"2026-09-25T10:37:03.009Z\", \"modifyTime\":\"2026-09-25T10:55:16.513Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"c7159f13-2e5a-45d8-8b6e-2ab31cb27058\", \"title\":\"Structured protocol serialization task. Do not execute or claim\", \"starred\":false, \"createTime\":\"2026-09-25T10:13:44.951Z\", \"modifyTime\":\"2026-09-25T10:23:54.842Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"e9b40b1a-ed8e-416e-a81d-3db6f887553b\", \"title\":\"Reply with prefix HWGQ followed immediately by the reverse of 41\", \"starred\":false, \"createTime\":\"2026-09-25T09:55:21.433Z\", \"modifyTime\":\"2026-09-25T10:11:35.220Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"359a52a0-a3df-4d92-b305-24e6e0f63d7f\", \"title\":\"بررسی کن\", \"starred\":false, \"createTime\":\"2026-09-20T04:48:20.964Z\", \"modifyTime\":\"2026-09-20T04:49:24.155Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"a6cf1cc9-a03a-4642-8693-8080bd86b1a9\", \"title\":\"New conversation\", \"starred\":false, \"createTime\":\"2026-09-19T15:09:58.825Z\", \"modifyTime\":\"2026-09-19T15:10:14.761Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"b85d86d9-a07f-4ee2-89a9-e8e94b4bbbb1\", \"title\":\"New conversation\", \"starred\":false, \"createTime\":\"2026-09-19T13:47:14.165Z\", \"modifyTime\":\"2026-09-19T13:47:36.692Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"0d598a4d-e80b-4410-88aa-49d9944caea8\", \"title\":\"use RemoteDesktop\", \"starred\":false, \"createTime\":\"2026-09-17T18:15:09.324Z\", \"modifyTime\":\"2026-09-17T18:18:07.635Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"6bd33a68-5422-4027-919c-83227291f34a\", \"title\":\"Use the skill-creator skill to connect to RemoteDesktop\", \"starred\":false, \"createTime\":\"2026-09-17T18:14:23.762Z\", \"modifyTime\":\"2026-09-17T18:14:56.585Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"a194fb8a-d9a8-4aed-80cf-d7599613d2f3\", \"title\":\"/skill-creator\", \"starred\":false, \"createTime\":\"2026-09-17T18:13:29.889Z\", \"modifyTime\":\"2026-09-17T18:13:31.732Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"dde8918f-5b26-48d5-b38a-35c01356f1f5\", \"title\":\"از پلاکین RemoteDesktop   استفاده کن و به Laptop وصل شو\", \"starred\":false, \"createTime\":\"2026-09-17T18:12:37.011Z\", \"modifyTime\":\"2026-09-17T18:13:03.473Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"2421bad2-c295-4c25-b441-6fa24bc36a44\", \"title\":\"RDP connect\", \"starred\":false, \"createTime\":\"2026-09-17T17:44:45.001Z\", \"modifyTime\":\"2026-09-17T18:12:13.124Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"0395ff28-19ba-4b20-b4a5-ee131b4a6949\", \"title\":\"https://github.com/khosravimm/my-system/raw/refs/heads/master/HO\", \"starred\":false, \"createTime\":\"2026-08-19T01:55:28.353Z\", \"modifyTime\":\"2026-09-17T17:43:54.472Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"142f7985-cfcf-4c32-a31b-d33eca54501c\", \"title\":\"می خواهم تو بتوانی مستقیم به گوشی موبایل من که اندروید هست  وصل\", \"starred\":false, \"createTime\":\"2026-09-17T17:23:28.086Z\", \"modifyTime\":\"2026-09-17T17:24:58.048Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"1eecff00-d990-45d4-9384-c272dc1334e6\", \"title\":\"\", \"starred\":false, \"createTime\":\"2026-09-17T17:20:44.597Z\", \"modifyTime\":\"2026-09-17T17:20:44.597Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"f7cc59d3-370c-4342-afc9-c6a823b8daaf\", \"title\":\"یک ارائه آموزشی بسیار کاربردی، جذاب و تعاملی به زبان فارسی و با\", \"starred\":false, \"createTime\":\"2026-09-14T16:11:40.460Z\", \"modifyTime\":\"2026-09-14T18:24:11.276Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"3667dc25-0bff-4ee7-9dca-022d441e344e\", \"title\":\"New conversation\", \"starred\":false, \"createTime\":\"2026-09-13T07:41:16.965Z\", \"modifyTime\":\"2026-09-13T07:51:36.828Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"346f86c4-0836-40f6-b86a-51d63d128e8a\", \"title\":\"Refer to the following content\", \"starred\":false, \"createTime\":\"2026-09-12T03:04:57.594Z\", \"modifyTime\":\"2026-09-12T03:20:22.800Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"e7d7812b-bf72-44e3-a7d8-e433c4dbabcf\", \"title\":\"New conversation\", \"starred\":false, \"createTime\":\"2026-09-04T12:31:58.836Z\", \"modifyTime\":\"2026-09-04T14:54:38.454Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"4df54308-b2c0-4036-bbb3-e57b0b9b13dd\", \"title\":\"GitHub  لیست روپو های خصوص من را بده\", \"starred\":false, \"createTime\":\"2026-08-23T08:17:22.423Z\", \"modifyTime\":\"2026-09-03T12:31:23.253Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"7dd59ad9-19f0-45d2-a0aa-92d5047e142d\", \"title\":\"مأموریت ممیزی جامع Final Pre-Canonical Release Audit نقشه‌یار v0\", \"starred\":false, \"createTime\":\"2026-09-03T12:24:45.713Z\", \"modifyTime\":\"2026-09-03T12:24:54.304Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"5faf8f25-946a-4d17-b2b8-647d1dde88d1\", \"title\":\"آیا ابزار دسترسی به گیتهاب را داری؟\", \"starred\":false, \"createTime\":\"2026-08-23T08:13:25.744Z\", \"modifyTime\":\"2026-08-23T08:16:50.691Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"6294113c-6533-4544-8eed-bcde29671780\", \"title\":\"Research Request — Preventing Knowledge Drift and Obsolete Ancho\", \"starred\":false, \"createTime\":\"2026-08-19T11:24:18.184Z\", \"modifyTime\":\"2026-08-19T11:53:53.235Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"936ae8a7-8227-4829-9a6e-e8d08e512838\", \"title\":\"https://github.com/khosravimm/my-system/raw/refs/heads/master/HO\", \"starred\":false, \"createTime\":\"2026-08-19T01:52:41.056Z\", \"modifyTime\":\"2026-08-19T01:54:17.804Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"e19a5297-2d41-452e-a25d-89f0a39f89a7\", \"title\":\"پروژه‌های OpenAI-compatible برای ChatGPT Claude Gemini\", \"starred\":false, \"createTime\":\"2026-07-31T09:33:09.851Z\", \"modifyTime\":\"2026-07-31T09:34:29.900Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"3e3b9ea4-3462-42d9-83b8-f09c24aead39\", \"title\":\"khosravimm's GitHub repos list\", \"starred\":false, \"createTime\":\"2026-07-28T14:19:28.121Z\", \"modifyTime\":\"2026-07-28T14:21:28.320Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"80f21661-034e-4ec4-96f4-b9f64e14800c\", \"title\":\"ISO 27001 Secure LLM Integration\", \"starred\":false, \"createTime\":\"2026-06-25T12:35:08.774Z\", \"modifyTime\":\"2026-06-25T12:35:35.593Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"aed020a8-3b36-49bf-a10a-9bb23d678c34\", \"title\":\"MikroTik Socksify with Psiphon SOCKS5\", \"starred\":false, \"createTime\":\"2026-06-03T09:33:12.579Z\", \"modifyTime\":\"2026-06-03T09:34:30.972Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"caf16afd-cb5c-4b68-8957-00c84f2ac6b0\", \"title\":\"عیدی بیمه بیکاری در ایران\", \"starred\":false, \"createTime\":\"2026-02-15T14:23:58.151Z\", \"modifyTime\":\"2026-02-15T14:24:09.491Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"bae6b044-2f08-497c-a5d2-0e561b8fa6c4\", \"title\":\"تولید موسیقی ایرانی با ACE-Step 1.5\", \"starred\":false, \"createTime\":\"2026-02-13T21:04:53.735Z\", \"modifyTime\":\"2026-02-13T21:36:24.072Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"8463a34a-21eb-4f43-9021-8fa9b85e80cb\", \"title\":\"تفاوت سه فایل run در ComfyUI\", \"starred\":false, \"createTime\":\"2026-02-13T21:11:20.611Z\", \"modifyTime\":\"2026-02-13T21:32:35.090Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"497eb012-6ba3-4610-bac8-e3a430dbe5c5\", \"title\":\"بهترین کلاینت ویندوزی SSH Tunnel\", \"starred\":false, \"createTime\":\"2",
+        "sse_text": ""
+      },
+      {
+        "status": 200,
+        "endpoint": "/rest/app-chat/conversations",
+        "content_type": "application/json",
+        "body_snippet": "{\"conversations\":[{\"conversationId\":\"bae6b044-2f08-497c-a5d2-0e561b8fa6c4\", \"title\":\"تولید موسیقی ایرانی با ACE-Step 1.5\", \"starred\":false, \"createTime\":\"2026-02-13T21:04:53.735Z\", \"modifyTime\":\"2026-02-13T21:36:24.072Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"8463a34a-21eb-4f43-9021-8fa9b85e80cb\", \"title\":\"تفاوت سه فایل run در ComfyUI\", \"starred\":false, \"createTime\":\"2026-02-13T21:11:20.611Z\", \"modifyTime\":\"2026-02-13T21:32:35.090Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}], \"textSearchMatches\":[]}",
+        "sse_text": ""
+      },
+      {
+        "status": 200,
+        "endpoint": "/rest/app-chat/conversations",
+        "content_type": "application/json",
+        "body_snippet": "{\"conversations\":[], \"textSearchMatches\":[]}",
+        "sse_text": ""
+      },
+      {
+        "status": 200,
+        "endpoint": "/rest/app-chat/conversations",
+        "content_type": "application/json",
+        "body_snippet": "{\"conversations\":[{\"conversationId\":\"8df76a3f-fead-4537-8c1f-bd3047849191\", \"title\":\"Image Creation: Khatoon in Iranian Setting\", \"starred\":false, \"createTime\":\"2025-12-17T15:34:03.497Z\", \"modifyTime\":\"2025-12-18T07:20:55.113Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}], \"textSearchMatches\":[]}",
+        "sse_text": ""
+      },
+      {
+        "status": 200,
+        "endpoint": "/rest/app-chat/conversations",
+        "content_type": "application/json",
+        "body_snippet": "{\"conversations\":[], \"textSearchMatches\":[]}",
+        "sse_text": ""
+      },
+      {
+        "status": 200,
+        "endpoint": "/rest/app-chat/conversations",
+        "content_type": "application/json",
+        "body_snippet": "{\"conversations\":[{\"conversationId\":\"7cc7b3dc-dbc1-4822-bb39-3896f8c78e38\", \"title\":\"تحلیل امنیتی پکت‌های لاگین کاربر\", \"starred\":false, \"createTime\":\"2025-08-06T04:33:12.284Z\", \"modifyTime\":\"2025-08-06T05:22:01.698Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}, {\"conversationId\":\"2422f938-e521-477f-bdd9-2fa042953411\", \"title\":\"هوش مصنوعی در تست نفوذ امنیتی\", \"starred\":false, \"createTime\":\"2025-08-04T21:57:30.796Z\", \"modifyTime\":\"2025-08-04T23:33:53.366Z\", \"systemPromptName\":\"\", \"temporary\":false, \"mediaTypes\":[], \"workspaces\":[], \"taskResult\":{}, \"latestAssetMetadata\":null, \"kind\":\"CONVERSATION_KIND_UNSPECIFIED\", \"hasUnreadCheckin\":false}], \"textSearchMatches\":[]}",
+        "sse_text": ""
+      },
+      {
+        "status": 200,
+        "endpoint": "/rest/app-chat/conversations",
+        "content_type": "application/json",
+        "body_snippet": "{\"conversations\":[], \"textSearchMatches\":[]}",
+        "sse_text": ""
+      },
+      {
+        "status": 200,
+        "endpoint": "/rest/app-chat/conversations/8ea8a0b3-770b-40dc-af58-2922f9321f69/sharing",
+        "content_type": "application/json",
+        "body_snippet": "{\"workspaceSeedEligible\":false, \"workspaceSeedIneligibleReason\":\"WORKSPACE_SEED_INELIGIBLE_REASON_UNSPECIFIED\"}",
+        "sse_text": ""
+      }
+    ],
+    "model_runtime_state": {
+      "selection_mode": "explicit",
+      "selection_kind": "explicit_model",
+      "current_label": null,
+      "model_id": null,
+      "storage_hints": {}
+    },
+    "model_attribution": {
+      "scope": "model_specific",
+      "selection_mode": "explicit",
+      "selection_kind": "explicit_model",
+      "current_label": "Fast"
+    }
+  },
+  "source_candidate_id": "grok-web"
+}

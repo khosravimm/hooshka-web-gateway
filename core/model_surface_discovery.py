@@ -78,7 +78,7 @@ def _normalize_model(row: dict[str, Any], category: str | None, upgrade_notice: 
     }
 
 
-async def discover_model_surface(page, frontend_controls: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+async def discover_model_surface(page, frontend_controls: list[dict[str, Any]] | None = None, authenticated_session: bool = False) -> dict[str, Any]:
     controls=list(frontend_controls or [])
     hints=await _storage_model_hints(page)
     selection_mode=next((v for k,v in hints.items() if re.search(r"model",k,re.I)),None)
@@ -96,29 +96,48 @@ async def discover_model_surface(page, frontend_controls: list[dict[str, Any]] |
         try:
             loc=page.locator(sel).first
             if await loc.count() and await loc.is_visible():
-                candidate=loc; result["selector"]=sel; break
+                text=_clean(await loc.inner_text())
+                aria=_clean(await loc.get_attribute("aria-label") or "")
+                title=_clean(await loc.get_attribute("title") or "")
+                popup=_clean(await loc.get_attribute("aria-haspopup") or "").lower()
+                explicit_model_hint = bool(re.search(r"\bmodel\b", " ".join((aria,title,sel)), re.I))
+                popup_hint = popup in {"dialog","listbox","menu","true"}
+                if explicit_model_hint or popup_hint:
+                    candidate=loc; result["selector"]=sel; break
         except Exception:
             continue
     if candidate is None:
-        pop=page.locator("button[aria-haspopup='dialog'],button[aria-haspopup='listbox'],[role='combobox']")
+        pop=page.locator("button[aria-haspopup='dialog'],button[aria-haspopup='listbox'],[role='combobox'],button[aria-label*='model' i],button[title*='model' i]")
         count=await pop.count()
         for i in range(count):
             loc=pop.nth(i)
             try:
                 text=_clean(await loc.inner_text())
-                if MODEL_TOKEN_RE.search(text) or (str(selection_mode or "").lower()=="auto" and text.lower()=="auto"):
+                aria=_clean(await loc.get_attribute("aria-label") or "")
+                title=_clean(await loc.get_attribute("title") or "")
+                accessible=" ".join(x for x in (text,aria,title) if x)
+                if (
+                    MODEL_TOKEN_RE.search(accessible)
+                    or re.search(r"\bmodel\b", accessible, re.I)
+                    or (str(selection_mode or "").lower()=="auto" and text.lower()=="auto")
+                ):
                     candidate=loc; break
             except Exception:
                 continue
     if candidate is None:
         return result
-    result["current_label"]=_clean(await candidate.inner_text())
+    current_text=_clean(await candidate.inner_text())
+    current_aria=_clean(await candidate.get_attribute("aria-label") or "")
+    current_title=_clean(await candidate.get_attribute("title") or "")
+    result["current_label"]=current_text or current_aria or current_title
     from core.visual_discovery import visible_page_state, classify_user_view_state
     visual_state = await visible_page_state(page)
     classification = classify_user_view_state(visual_state)
     result["visual_preflight"] = classification
     if not _readonly_model_discovery_allowed(visual_state, classification):
-        result["status"]="blocked"; result["reason"]="visual_preflight"; return result
+        if not (authenticated_session and str(classification.get("state") or "") in {"auth_ambiguous","login_required"}):
+            result["status"]="blocked"; result["reason"]="visual_preflight"; return result
+        result["visual_preflight_authenticated_override"] = True
     try:
         await candidate.click(no_wait_after=True,timeout=5000)
         await page.wait_for_timeout(500)

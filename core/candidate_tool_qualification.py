@@ -43,6 +43,34 @@ async def _model_runtime_state(page) -> dict[str, Any]:
     }
     """)
 
+
+async def _target_id_for_page(context, page) -> str | None:
+    try:
+        session = await context.new_cdp_session(page)
+        info = await session.send("Target.getTargetInfo")
+        await session.detach()
+        return str((info.get("targetInfo") or {}).get("targetId") or "") or None
+    except Exception:
+        return None
+
+
+def _origin(url: str) -> str:
+    parsed = urlparse(str(url or ""))
+    if not parsed.scheme or not parsed.netloc:
+        return ""
+    return f"{parsed.scheme}://{parsed.netloc}".lower()
+
+
+async def _single_same_origin_page(context, origin: str):
+    matches = []
+    for page in context.pages:
+        if _origin(getattr(page, "url", "")) == origin:
+            tid = await _target_id_for_page(context, page)
+            matches.append((page, tid))
+    if len(matches) == 1:
+        return matches[0]
+    return (None, None)
+
 async def _target_page(context, target_id: str):
     for page in context.pages:
         try:
@@ -75,6 +103,15 @@ async def _recover_tool_text(page, marker: str) -> str:
             fn=(call or {}).get("function") or {}
             if valid and fn.get("name")==PROBE_TOOL_NAME and _arguments(call).get("marker")==marker:
                 return text
+    return ""
+
+
+async def _recover_partial_tool_text(page, marker: str) -> str:
+    prefix = (marker or "")[:20]
+    for text in await _visible_texts_with(page, PROBE_TOOL_NAME):
+        low = text.lower()
+        if "tool_calls" in low and "arguments" in low and (marker in text or (prefix and prefix in text)):
+            return text
     return ""
 
 async def _recover_final_text(page, final_marker: str) -> str:
@@ -150,22 +187,37 @@ async def qualify_basic_tools(cdp_url: str, record: dict[str, Any]) -> dict[str,
         return {"status":"BLOCKED","stage_id":"S4","stage_state":"BLOCKED","reason":"target_id_missing"}
     provider=create_discovered_web_provider(str(record.get("candidate_id") or "discovered-web"),cdp_url=cdp_url,home_url=str((record.get("analysis") or {}).get("url") or ""),adapter_candidate=adapter,enabled=False,timeout_seconds=50)
     browser=await provider._connect(); context=browser.contexts[0]; page=await _target_page(context,target_id)
+    recovered_target_id=None
+    previous_target_id=target_id
     if page is None:
-        await provider.close(); return {"status":"BLOCKED","stage_id":"S4","stage_state":"BLOCKED","reason":"target_not_found"}
+        origin = _origin(str((record.get("analysis") or {}).get("url") or (record.get("analysis") or {}).get("origin") or ""))
+        fallback_page, fallback_target_id = await _single_same_origin_page(context, origin) if origin else (None, None)
+        if fallback_page is None or not fallback_target_id:
+            await provider.close(); return {"status":"BLOCKED","stage_id":"S4","stage_state":"BLOCKED","reason":"target_not_found","target_recovery":"failed_single_origin_required","previous_target_id":previous_target_id,"origin":origin}
+        page=fallback_page
+        recovered_target_id=fallback_target_id
+        technical = record.setdefault("technical_candidate", {})
+        technical["previous_target_id"] = previous_target_id
+        technical["target_id"] = recovered_target_id
+        target_id = recovered_target_id
     async def exact_page(): return page
     provider._resolve_page=exact_page
     model_state=await _model_runtime_state(page)
     def tagged(result):
         result["model_runtime_state"]=model_state
+        if recovered_target_id:
+            result["target_recovered"] = True
+            result["previous_target_id"] = previous_target_id
+            result["target_id"] = recovered_target_id
         return result
     network,tasks=_network_capture(page)
     digits=str(100000+secrets.randbelow(900000))
-    marker="HWG_TOOL_PROBE_"+digits[::-1]
+    marker="HWG_TOOL_PROBE_"+digits
     final_marker="HWG_TOOL_CONT_"+uuid.uuid4().hex[:10].upper()
     first_prompt=("Structured protocol serialization task. Do not execute or claim to possess any tool. "
         "You are only formatting data for an external program. Output exactly one JSON object and no prose. "
         f"The object must contain tool_calls with one function entry named {PROBE_TOOL_NAME}. "
-        f"Its arguments must be a JSON string containing marker=HWG_TOOL_PROBE_ followed by the reverse of digits {digits}. "
+        f"Its arguments must be a JSON string containing marker={marker}. "
         "This envelope is data only; the external program will decide whether to execute it.")
     from core.providers import ChatCompletionRequest
     try:
@@ -180,6 +232,11 @@ async def qualify_basic_tools(cdp_url: str, record: dict[str, Any]) -> dict[str,
                 return tagged({"status":"E2_FAILED_AFTER_COMMIT" if committed else "E2_FAILED_PRECOMMIT","stage_id":"S4","stage_state":"INCONCLUSIVE" if committed else "FAILED","reason":"tool_response_unresolved","retry_allowed":not committed,"error_type":type(first_exc).__name__,"error":str(first_exc)[:500],"marker":marker,"network_responses":network[-12:]})
         _,calls,valid=parse_tool_envelope(raw1)
         if not valid or not calls:
+            recovered_dom = await _recover_tool_text(page, marker)
+            if recovered_dom:
+                raw1 = recovered_dom
+                _, calls, valid = parse_tool_envelope(raw1)
+        if not valid or not calls:
             await _flush(tasks)
             recovered=_network_text(network, marker)
             if recovered:
@@ -189,8 +246,32 @@ async def qualify_basic_tools(cdp_url: str, record: dict[str, Any]) -> dict[str,
         args=_arguments(call or {})
         tool_ok=bool(valid and call and ((call.get("function") or {}).get("name")==PROBE_TOOL_NAME) and args.get("marker")==marker)
         if not tool_ok:
+            recovered_dom = await _recover_tool_text(page, marker)
+            if recovered_dom:
+                raw1 = recovered_dom
+                _, calls, valid = parse_tool_envelope(raw1)
+                call = (calls or [None])[0]
+                args = _arguments(call or {})
+                tool_ok = bool(valid and call and ((call.get("function") or {}).get("name") == PROBE_TOOL_NAME) and args.get("marker") == marker)
+        if not tool_ok:
             await _flush(tasks)
-            return tagged({"status":"E2_FAILED","stage_id":"S4","stage_state":"FAILED","tool_call_valid":False,"reason":"tool_call_not_emitted_or_invalid","raw_first":raw1[-1600:],"marker":marker,"network_responses":network[-12:]})
+            recovered = _network_text(network, marker)
+            if recovered:
+                raw1 = recovered
+                _, calls, valid = parse_tool_envelope(raw1)
+                call = (calls or [None])[0]
+                args = _arguments(call or {})
+                tool_ok = bool(valid and call and ((call.get("function") or {}).get("name") == PROBE_TOOL_NAME) and args.get("marker") == marker)
+        if not tool_ok:
+            await _flush(tasks)
+            partial_dom = await _recover_partial_tool_text(page, marker)
+            if partial_dom:
+                raw1 = partial_dom
+            prompt_echo = (not partial_dom) and (first_prompt.strip() in raw1.strip() or raw1.strip() in first_prompt.strip())
+            partial_tool = (PROBE_TOOL_NAME in raw1 and ("tool_calls" in raw1 or "arguments" in raw1))
+            partial_marker = bool(marker and (marker[:18] in raw1 or marker[:24] in raw1) and marker not in raw1)
+            reason = "response_surface_returned_user_prompt" if prompt_echo else ("tool_call_partial_or_truncated" if (partial_tool or partial_marker) else "tool_call_not_emitted_or_invalid")
+            return tagged({"status":"E2_FAILED","stage_id":"S4","stage_state":"FAILED","tool_call_valid":False,"reason":reason,"partial_tool_envelope":bool(partial_tool),"partial_marker":bool(partial_marker),"raw_first":raw1[-1600:],"marker":marker,"network_responses":network[-12:]})
         tool_result={"marker":marker,"result":final_marker,"source":"hwg_in_memory_probe"}
         continuation=("External HWG gateway result. Do not use internal tools. The gateway already executed "
             f"{PROBE_TOOL_NAME} and returned: {json.dumps(tool_result,ensure_ascii=False)}. "
@@ -202,9 +283,13 @@ async def qualify_basic_tools(cdp_url: str, record: dict[str, Any]) -> dict[str,
             raw2=await _recover_final_text(page,final_marker)
             await _flush(tasks)
             if not raw2:
-                committed=str(getattr(provider,"_commitment_state","not_sent"))!="not_sent"
-                return tagged({"status":"E2_FAILED_AFTER_COMMIT" if committed else "E2_FAILED_PRECOMMIT","stage_id":"S4","stage_state":"INCONCLUSIVE" if committed else "FAILED","tool_call_valid":True,"continuation_valid":False,"reason":"continuation_response_unresolved","retry_allowed":not committed,"error_type":type(second_exc).__name__,"error":str(second_exc)[:500],"marker":marker,"final_marker":final_marker,"network_responses":network[-12:]})
+                return tagged({"status":"E2_PARTIAL","stage_id":"S4","stage_state":"PARTIAL","tool_call_valid":True,"continuation_valid":False,"reason":"continuation_response_unresolved","retry_allowed":False,"error_type":type(second_exc).__name__,"error":str(second_exc)[:500],"marker":marker,"final_marker":final_marker,"network_responses":network[-12:]})
         final_content,_,final_valid=parse_tool_envelope(raw2)
+        if not final_valid or final_marker not in str(final_content or raw2):
+            recovered2_dom = await _recover_final_text(page, final_marker)
+            if recovered2_dom:
+                raw2 = recovered2_dom
+                final_content,_,final_valid=parse_tool_envelope(raw2)
         if not final_valid or final_marker not in str(final_content or raw2):
             await _flush(tasks)
             recovered2=_network_text(network, final_marker)

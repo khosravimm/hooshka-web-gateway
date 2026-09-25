@@ -111,6 +111,64 @@ def _first_json_object(text: str):
     return None
 
 
+def _repair_arguments_json_string(raw: str) -> str:
+    """Repair a narrow Web-chat defect: arguments as an unescaped JSON string.
+
+    Example from browser DOM:
+    {"tool_calls":[{"function":{"arguments":"{"marker":"X"}"}}]}
+
+    The repair is intentionally scoped to the value of an `arguments` field.
+    It converts that quoted inner object to a normal JSON object and leaves all
+    other fields untouched.
+    """
+    key_pattern = re.compile(r'"arguments"\s*:\s*"(?=\s*\{)')
+    out = []
+    pos = 0
+    for match in key_pattern.finditer(raw):
+        quote_start = match.end() - 1
+        inner_start = quote_start + 1
+        idx = inner_start
+        depth = 0
+        in_string = False
+        escape = False
+        end_obj = None
+        while idx < len(raw):
+            ch = raw[idx]
+            if in_string:
+                if escape:
+                    escape = False
+                elif ch == "\\":
+                    escape = True
+                elif ch == '"':
+                    in_string = False
+            else:
+                if ch == '"':
+                    in_string = True
+                elif ch == "{":
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                    if depth == 0:
+                        end_obj = idx
+                        break
+            idx += 1
+        if end_obj is None:
+            continue
+        close_quote = end_obj + 1
+        while close_quote < len(raw) and raw[close_quote].isspace():
+            close_quote += 1
+        if close_quote >= len(raw) or raw[close_quote] != '"':
+            continue
+        inner = raw[inner_start:end_obj + 1]
+        out.append(raw[pos:quote_start])
+        out.append(inner)
+        pos = close_quote + 1
+    if not out:
+        return raw
+    out.append(raw[pos:])
+    return "".join(out)
+
+
 def _json_loads_tolerant(raw: str):
     # A model may encode a Windows drive root as \"D:\\"; the trailing
     # backslash then escapes the JSON quote. Canonicalize only this narrow
@@ -119,6 +177,17 @@ def _json_loads_tolerant(raw: str):
     try:
         return json.loads(raw)
     except Exception as first_error:
+        # Some Web-chat DOM surfaces de-escape the JSON string carried in an
+        # `arguments` field, yielding e.g.:
+        # {"tool_calls":[{"function":{"arguments":"{"marker":"X"}"}}]}
+        # Repair only that bounded field shape, then require normal json.loads
+        # to succeed. This keeps the recovery fail-closed.
+        arguments_repaired = _repair_arguments_json_string(raw)
+        if arguments_repaired != raw:
+            try:
+                return json.loads(arguments_repaired)
+            except Exception:
+                pass
         # Web chat models often emit Windows paths inside JSON strings with
         # raw backslashes, e.g. {"filePath":"D:\\Code\\repo\\README.md"}
         # after DOM extraction this may become JSON-invalid as D:\Code.

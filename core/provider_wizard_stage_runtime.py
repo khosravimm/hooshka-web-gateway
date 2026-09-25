@@ -81,7 +81,7 @@ async def _firebase_auth_preflight(page) -> dict[str, Any] | None:
     is never returned in evidence.  This is only a transport/config reachability
     check; it does not submit credentials or mutate account state.
     """
-    probe = await page.evaluate("""async () => {
+    probe = await page.evaluate(r"""async () => {
       const resources=performance.getEntriesByType('resource').map(x=>String(x.name||''));
       let apiKey='';
       for(const name of resources){
@@ -158,7 +158,7 @@ async def access_bootstrap(cdp_url: str, target_id: str, candidate_id: str) -> d
         visual = str(classification.get("state") or "unknown")
         composer_usable = bool(state.get("composer_present")) and bool(state.get("composer_enabled"))
         guest_candidate = visual == "auth_ambiguous" and composer_usable
-        if visual in {"ready","login_required"} or (visual == "auth_ambiguous" and not guest_candidate):
+        if visual in {"ready", "login_required", "auth_ambiguous"}:
             report = await discover_page(page, candidate_id)
             access = await probe_observed_access_semantics(page, (report.backend or {}).get("candidate_endpoints") or [])
         if guest_candidate and str(access.get("state") or "UNKNOWN").upper() == "UNKNOWN":
@@ -172,10 +172,10 @@ async def access_bootstrap(cdp_url: str, target_id: str, candidate_id: str) -> d
             auth_failure = await _firebase_auth_preflight(page)
         if auth_failure:
             stage_state = "BLOCKED"
+        elif access_state in {"ACCESS_AVAILABLE","AUTHENTICATED"} and visual != "challenge":
+            stage_state = "PASSED"
         elif visual in {"login_required","challenge"} or access_state in {"LOGIN_REQUIRED","USER_INTERACTION_REQUIRED"}:
             stage_state = "USER_GATE"
-        elif access_state in {"ACCESS_AVAILABLE","AUTHENTICATED"} and visual in {"ready","auth_ambiguous"}:
-            stage_state = "PASSED"
         else:
             stage_state = "USER_GATE"
         result={"status":"observed","stage_id":"S1","stage_state":stage_state,"target_id":target_id,"url":page.url,"title":await page.title(),"classification":classification,"access_semantics":access,"observation_trace":trace}
@@ -198,12 +198,29 @@ async def model_entitlement_discovery(cdp_url: str, target_id: str) -> dict[str,
         state = await visible_page_state(page)
         classification = classify_user_view_state(state)
         visual=str(classification.get("state") or "unknown")
-        if visual != "ready":
+        access = None
+        if visual in {"auth_ambiguous", "login_required"}:
+            report = await discover_page(page, "s2-auth-check")
+            access = await probe_observed_access_semantics(page, (report.backend or {}).get("candidate_endpoints") or [])
+            access_state = str(access.get("state") or "UNKNOWN").upper()
+            if access_state not in {"ACCESS_AVAILABLE", "AUTHENTICATED"}:
+                return {
+                    "status":"blocked",
+                    "stage_id":"S2",
+                    "stage_state":"BLOCKED",
+                    "classification":classification,
+                    "access_semantics":access,
+                    "reason":"visual_preflight_not_ready",
+                }
+        elif visual != "ready":
             return {"status":"blocked","stage_id":"S2","stage_state":"BLOCKED","classification":classification,"reason":"visual_preflight_not_ready"}
         controls = await discover_page_controls(page)
-        surface = await discover_model_surface(page, [asdict(c) for c in controls])
+        surface = await discover_model_surface(page, [asdict(c) for c in controls], authenticated_session=access is not None)
         passed = surface.get("status") == "observed"
-        return {"status":"observed" if passed else "incomplete","stage_id":"S2","stage_state":"PASSED" if passed else "INCOMPLETE","target_id":target_id,"classification":classification,"model_surface":surface}
+        result={"status":"observed" if passed else "incomplete","stage_id":"S2","stage_state":"PASSED" if passed else "INCOMPLETE","target_id":target_id,"classification":classification,"model_surface":surface}
+        if access is not None:
+            result["access_semantics"] = access
+        return result
     finally:
         await pw.stop()
 

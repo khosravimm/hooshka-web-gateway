@@ -649,7 +649,7 @@ async def qualify_submit_candidate(cdp_url: str, record: dict[str, Any], timeout
             current_value = (await composer.inner_text()).strip()
         if current_value:
             text=str(current_value)
-            synthetic_leftover=text.startswith("Reply with prefix HWGQ") or "HWG_TOOL_PROBE_" in text
+            synthetic_leftover=text.startswith("Reply with prefix HWGQ") or text.startswith("Return exactly this token") or "HWG_TOOL_PROBE_" in text
             if synthetic_leftover:
                 try:
                     await composer.fill("")
@@ -665,8 +665,8 @@ async def qualify_submit_candidate(cdp_url: str, record: dict[str, Any], timeout
         if not preflight.get("allowed") and not auth_resolved:
             return {"status":"blocked","reason":"provider_visual_state","submitted":False,"commitment_state":"not_sent","classification":preflight.get("classification") or {}}
         digits = str(100000 + secrets.randbelow(900000))
-        expected = "HWGQ" + digits[::-1]
-        prompt = f"Reply with prefix HWGQ followed immediately by the reverse of {digits}. Return only that."
+        expected = "HWGQ" + digits
+        prompt = f"Return exactly this token and nothing else: {expected}"
         from core.control_discovery import ENUMERATE_JS
         before_controls = await page.evaluate(ENUMERATE_JS)
         before_signature = {(str(x.get("text") or ""), str(x.get("aria") or ""), str(x.get("title") or ""), str(x.get("role") or ""), str(x.get("tag") or ""), int((x.get("rect") or {}).get("x") or 0), int((x.get("rect") or {}).get("y") or 0)) for x in before_controls}
@@ -770,7 +770,7 @@ async def qualify_submit_candidate(cdp_url: str, record: dict[str, Any], timeout
                     "submitted":False, "retry_allowed":retry_allowed, "clicked":True,
                     "activation_strategy":activation_strategy,
                     "reason":reason, "commitment_state":"not_proven", "response_verified":False,
-                    "expected_marker":expected, "challenge_kind":"reverse_digits", "challenge_input":digits,
+                    "expected_marker":expected, "challenge_kind":"exact_echo_marker", "challenge_input":expected,
                     "submit_selector":selector, "target_id":target_id,
                     "live_selector_rediscovered":refreshed, "composer_selector":composer_selector,
                     "started_url":started_url, "final_url":page.url,
@@ -801,7 +801,7 @@ async def qualify_submit_candidate(cdp_url: str, record: dict[str, Any], timeout
                 "evidence_level":"E2", "submitted":True, "retry_allowed":False,
                 "activation_strategy":activation_strategy, "commitment_signal":commitment_signal,
                 "response_verified":verified, "expected_marker":expected,
-                "challenge_kind":"reverse_digits", "challenge_input":digits,
+                "challenge_kind":"exact_echo_marker", "challenge_input":expected,
                 "submit_selector":selector, "target_id":target_id,
                 "live_selector_rediscovered":refreshed, "composer_selector":composer_selector,
                 "started_url":started_url, "final_url":page.url,
@@ -1027,12 +1027,26 @@ def materialize_adapter_profile(root: Path, record: dict[str, Any]) -> dict[str,
     folder = root / "docs" / "profiles" / provider_id
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / "adapter_candidate.v1.json"
+    tool_qualification = record.get("basic_tool_qualification") or {}
+    model_tool_qualifications = record.get("model_tool_qualifications") or {}
+    model_surface = ((record.get("technical_candidate") or {}).get("model_surface") or {})
     artifact = {
         "schema_version":SCHEMA_VERSION, "provider_id":provider_id,
         "status":"E2_CONFORMANT_CANDIDATE",
         "generated_at":datetime.now(timezone.utc).isoformat(),
         "adapter_candidate":adapter,
         "conformance":{"status":conformance.get("status"),"evidence_level":conformance.get("evidence_level"),"expected_marker":conformance.get("expected_marker"),"provider_meta":conformance.get("provider_meta") or {}},
+        "qualification_summary":{
+            "access_state":(((record.get("technical_candidate") or {}).get("access_semantics") or {}).get("state")),
+            "current_model_label":model_surface.get("current_label"),
+            "chat_roundtrip_status":((record.get("submit_qualification") or {}).get("status")),
+            "basic_tool_status":tool_qualification.get("status"),
+            "basic_tool_reason":tool_qualification.get("reason"),
+            "tool_support":("qualified" if tool_qualification.get("status") == "E2_VERIFIED" else ("partial_not_agent_ready" if tool_qualification.get("status") == "E2_PARTIAL" else "not_qualified")),
+            "enabled_by_default":False,
+        },
+        "model_tool_qualifications":model_tool_qualifications,
+        "basic_tool_qualification":tool_qualification,
         "source_candidate_id":record.get("candidate_id"),
     }
     path.write_text(json.dumps(artifact,ensure_ascii=False,indent=2),encoding="utf-8")

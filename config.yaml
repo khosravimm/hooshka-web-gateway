@@ -242,6 +242,28 @@ providers:
   feature_controls:
     thinking: false
     search: false
+- id: grok-web
+  type: custom
+  enabled: false
+  priority: 50
+  runtime:
+    kind: chrome_cdp
+    cdp_url: http://127.0.0.1:9330
+    profile_dir: D:\Code\hooshka-web-gateway\.runtime-dev\shared-profile
+    home_url: https://grok.com/
+    label: HWG-NG-Discovered-grok-web
+  config:
+    adapter_kind: discovered_web
+    adapter_profile_path: docs/profiles/grok-web/adapter_candidate.v1.json
+    cdp_url: http://127.0.0.1:9330
+    home_url: https://grok.com/
+    timeout_seconds: 60
+  feature_defaults:
+    thinking: false
+    search: false
+  feature_controls:
+    thinking: false
+    search: false
 governance:
   auth:
     enabled: true

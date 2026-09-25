@@ -162,6 +162,26 @@
         </div>
       </div>
       <div class="dependency-note">Provider یک قرارداد منطقی است. Browser Runtime و Account در Workspaceهای خودشان مدیریت می‌شوند؛ اینجا مدل، Feature defaults، وضعیت فعال‌سازی و Readiness دیده می‌شود.</div>
+      <div class="card mt" id="wizard-candidate-card">
+        <div class="card-head">
+          <div><h3 class="card-title">وضعیت زنده Wizard Provider</h3><p class="hint">این کارت فقط از رکورد واقعی Candidate خوانده می‌شود و اجرای S4/Advance را به‌صورت visible از همین پنل انجام می‌دهد.</p></div>
+          <span class="badge ltr" id="wizard-candidate-version">panel-visible</span>
+        </div>
+        <div class="grid-3">
+          <label class="field">Candidate<select id="wizard-candidate-id" class="ctrl ltr"><option value="grok-web">grok-web</option></select></label>
+          <div class="field"><span>Stage</span><b class="ltr" id="wizard-candidate-stage">-</b></div>
+          <div class="field"><span>State</span><b class="ltr" id="wizard-candidate-state">-</b></div>
+        </div>
+        <div id="wizard-candidate-stages" class="flow-rail mt"></div>
+        <div class="btn-row mt">
+          <button id="wizard-candidate-refresh" class="btn ghost btn-sm" type="button">تازه‌سازی وضعیت Wizard</button>
+          <button id="wizard-candidate-run-s4" class="btn primary btn-sm" type="button">اجرای S4 از پنل</button>
+          <button id="wizard-candidate-advance" class="btn ghost btn-sm" type="button">Advance / Materialize</button>
+          <span id="wizard-candidate-status" class="status-line"></span>
+        </div>
+        <div id="wizard-candidate-activity" class="work-list mt"></div>
+      </div>
+
       <div id="providers-grid" class="provider-performance-grid mt"></div>
     </section>
 

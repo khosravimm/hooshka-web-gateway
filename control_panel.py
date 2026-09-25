@@ -1039,6 +1039,44 @@ def _browser_runtime_groups():
 def api_provider_wizard_mission():
     return jsonify(provider_wizard_stage_model())
 
+@control_panel_bp.route('/api/provider-wizard/candidate/<candidate_id>', methods=['GET'])
+def api_provider_wizard_candidate_status(candidate_id):
+    root = Path(__file__).parent.resolve()
+    try:
+        record = load_candidate(root, candidate_id)
+    except FileNotFoundError:
+        return jsonify({"error":"candidate_not_found", "candidate_id": candidate_id}), 404
+    technical = record.get("technical_candidate") or {}
+    access = technical.get("access_semantics") or {}
+    submit = record.get("submit_qualification") or {}
+    s4 = record.get("basic_tool_qualification") or {}
+    adapter = record.get("adapter_candidate") or {}
+    conformance = record.get("adapter_conformance") or {}
+    materialized = record.get("materialized_adapter_profile") or {}
+    registered = record.get("registered_provider") or {}
+    summary = {
+        "candidate_id": record.get("candidate_id") or candidate_id,
+        "updated_at": record.get("updated_at"),
+        "workflow_state": technical.get("workflow_state"),
+        "next_required": technical.get("next_required"),
+        "qualification_stage": technical.get("qualification_stage"),
+        "stage_state": technical.get("stage_state"),
+        "target_id": technical.get("target_id"),
+        "current_model_label": ((technical.get("model_surface") or {}).get("current_label") or ((s4.get("model_attribution") or {}).get("current_label"))),
+        "s1": {"state": access.get("state"), "evidence": access.get("evidence") or []},
+        "s2": {"status": (technical.get("model_surface") or {}).get("status"), "current_label": (technical.get("model_surface") or {}).get("current_label")},
+        "s3": {"status": submit.get("status"), "expected_marker": submit.get("expected_marker")},
+        "s4": {"status": s4.get("status"), "stage_state": s4.get("stage_state"), "tool_call_valid": s4.get("tool_call_valid"), "continuation_valid": s4.get("continuation_valid"), "reason": s4.get("reason"), "marker": s4.get("marker")},
+        "adapter_candidate_status": adapter.get("status"),
+        "adapter_conformance_status": conformance.get("status"),
+        "materialized_status": materialized.get("status"),
+        "materialized_path": materialized.get("path"),
+        "registered_status": registered.get("status"),
+        "registered_enabled": registered.get("enabled"),
+        "registered_provider_id": registered.get("provider_id"),
+    }
+    return jsonify({"summary": summary})
+
 @control_panel_bp.route('/api/provider-wizard/analyze', methods=['POST'])
 def api_provider_wizard_analyze():
     data = request.get_json(silent=True) or {}

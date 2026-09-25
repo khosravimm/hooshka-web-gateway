@@ -22,6 +22,7 @@
 
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+  function htmlEscape(value) { return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[ch] || ch)); }
   const esc = (value) => String(value == null ? '' : value)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -541,6 +542,11 @@ function initNav() {
     if (opts && opts.quiet) return;
 
     const grid = $('#providers-grid');
+    if ($('#wizard-candidate-refresh')) {
+      if ($('#wizard-candidate-refresh')) { $('#wizard-candidate-refresh').onclick = loadWizardCandidateStatus; $('#wizard-candidate-run-s4').onclick = (ev) => runWizardCandidateAction('s4', ev.currentTarget); $('#wizard-candidate-advance').onclick = (ev) => runWizardCandidateAction('advance', ev.currentTarget); }
+      await loadWizardCandidateStatus();
+    }
+
     grid.innerHTML = providers.map(p => {
       const functionalReady = p.readiness?.ready === true && p.readiness?.current === true;
       const canEnable = p.enabled || functionalReady;
@@ -1178,6 +1184,58 @@ function initNav() {
       };
     } catch (e) {
       setStatus(status, 'خطا: ' + e.message, 'err');
+    }
+  }
+
+
+  async function loadWizardCandidateStatus() {
+    const select = $('#wizard-candidate-id');
+    const box = $('#wizard-candidate-activity');
+    const stages = $('#wizard-candidate-stages');
+    const status = $('#wizard-candidate-status');
+    if (!select || !box || !stages) return;
+    const id = select.value || 'grok-web';
+    try {
+      const data = await api('/provider-wizard/candidate/' + encodeURIComponent(id));
+      const s = data.summary || {};
+      $('#wizard-candidate-stage').textContent = (s.qualification_stage || '-') + ' / ' + (s.stage_state || '-');
+      $('#wizard-candidate-state').textContent = s.workflow_state || '-';
+      const rows = [
+        ['S1 Access', (s.s1||{}).state || '-'],
+        ['S2 Model', ((s.s2||{}).status || '-') + ' · ' + ((s.s2||{}).current_label || s.current_model_label || '-')],
+        ['S3 Chat', ((s.s3||{}).status || '-') + ' · ' + ((s.s3||{}).expected_marker || '-')],
+        ['S4 Tools', ((s.s4||{}).status || '-') + ' · tool=' + ((s.s4||{}).tool_call_valid === true ? 'true' : ((s.s4||{}).tool_call_valid === false ? 'false' : '-')) + ' · cont=' + ((s.s4||{}).continuation_valid === true ? 'true' : ((s.s4||{}).continuation_valid === false ? 'false' : '-'))],
+        ['Adapter', (s.adapter_conformance_status || '-') + ' · materialized=' + (s.materialized_status || '-')],
+        ['Registered', (s.registered_status || '-') + ' · enabled=' + (s.registered_enabled === true ? 'true' : 'false')]
+      ];
+      stages.innerHTML = rows.map(r => `<div><b>${htmlEscape(r[0])}</b><span class="ltr">${htmlEscape(r[1])}</span></div>`).join('');
+      box.innerHTML = `<div class="work-item"><div><b class="ltr">${htmlEscape(s.candidate_id || id)}</b><span class="badge">${htmlEscape(s.workflow_state || '-')}</span><span class="badge">${htmlEscape(s.next_required || '-')}</span></div><div class="hint ltr">target=${htmlEscape(s.target_id || '-')}</div><div class="hint">مدل فعلی: <span class="ltr">${htmlEscape(s.current_model_label || '-')}</span> · S4 reason: <span class="ltr">${htmlEscape((s.s4||{}).reason || '-')}</span></div><div class="hint ltr">profile=${htmlEscape(s.materialized_path || '-')}</div></div>`;
+      setStatus(status, 'وضعیت Wizard از Candidate واقعی خوانده شد.', 'ok');
+    } catch (e) {
+      box.innerHTML = `<div class="hint">خطا: ${htmlEscape(e.message)}</div>`;
+      setStatus(status, 'خطا در خواندن Candidate: ' + e.message, 'err');
+    }
+  }
+
+  async function runWizardCandidateAction(action, btn) {
+    const select = $('#wizard-candidate-id');
+    const status = $('#wizard-candidate-status');
+    const id = (select && select.value) || 'grok-web';
+    const orig = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = action === 's4' ? 'S4 در حال اجرا...' : 'Advance در حال اجرا...'; }
+    setStatus(status, action === 's4' ? 'در حال اجرای S4 از خود پنل...' : 'در حال اجرای Advance/Materialize از خود پنل...', 'working');
+    try {
+      const endpoint = action === 's4' ? '/provider-wizard/basic-tools/' : '/provider-wizard/advance/';
+      await api(endpoint + encodeURIComponent(id), { method:'POST' });
+      setStatus(status, 'عملیات کامل شد؛ وضعیت تازه‌سازی شد.', 'ok');
+      await loadWizardCandidateStatus();
+      toast('Wizard ' + action + ': done', 'ok');
+    } catch (e) {
+      setStatus(status, 'خطا: ' + e.message, 'err');
+      toast('Wizard ' + action + ': ' + e.message, 'err');
+      await loadWizardCandidateStatus();
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = orig; }
     }
   }
 

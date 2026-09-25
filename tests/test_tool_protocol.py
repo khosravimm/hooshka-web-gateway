@@ -168,3 +168,20 @@ def test_parse_compact_key_value_arguments_normalizes_to_json():
     assert valid is True
     assert calls and calls[0]['function']['name']=='hwg_tool_capability_probe'
     assert json.loads(calls[0]['function']['arguments'])=={'marker':'HWG_TOOL_PROBE_123456'}
+
+
+def test_parse_tool_envelope_repairs_dom_deescaped_json_string_arguments():
+    text = (
+        '{"tool_calls":[{"type":"function","function":{'
+        '"name":"hwg_tool_capability_probe",'
+        '"arguments":"{"marker":"HWG_TOOL_PROBE_395404"}"}}]}'
+    )
+
+    content, calls, valid = parse_tool_envelope(text)
+
+    assert valid is True
+    assert content is None
+    assert calls and calls[0]["function"]["name"] == "hwg_tool_capability_probe"
+    assert json.loads(calls[0]["function"]["arguments"]) == {
+        "marker": "HWG_TOOL_PROBE_395404"
+    }
