@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.54.0",
-  "updated_at": "2026-09-25T19:27:00Z",
+  "version": "1.55.0",
+  "updated_at": "2026-09-25T19:58:00Z",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -490,9 +490,9 @@
       ],
       "latest_evidence": {
         "date": "2026-09-25",
-        "type": "E3 W3 replacement precondition gate",
-        "result": "DEFERRED with zero probes: port 5000 meta reported Dev build 2.1.1-dev.full-audit-remediation.20260925-1907 from mutable develop checkout, not immutable release 2.1.0. E3 remains NOT CLAIMED.",
-        "record": "docs/evidence/HWG_2.1.0_E3_DEEPSEEK_W3_REPLACEMENT_DEFERRED_20260925.md"
+        "type": "E3 scoped provider reliability",
+        "result": "Production 2.1.0 DeepSeek exact scope deepseek-web / deepseek-web:default-account / deepseek-web completed W1 3/3 + accepted W2 replacement 3/3 + W3 replacement 3/3. E3 is claimed only for this exact scope; broader provider certification remains open.",
+        "record": "docs/evidence/HWG_2.1.0_E3_DEEPSEEK_W3_REPLACEMENT_20260925.md"
       },
       "evidence": [
         "docs/evidence/HWG_E3_DEEPSEEK_W1_20260922.md",
@@ -501,7 +501,8 @@
         "docs/evidence/HWG_2.1.0_E3_DEEPSEEK_W1_20260925.md",
         "docs/evidence/HWG_2.1.0_E3_DEEPSEEK_W2_20260925.md",
         "docs/evidence/HWG_2.1.0_E3_DEEPSEEK_W2_REPLACEMENT_20260925.md",
-        "docs/evidence/HWG_2.1.0_E3_DEEPSEEK_W3_REPLACEMENT_DEFERRED_20260925.md"
+        "docs/evidence/HWG_2.1.0_E3_DEEPSEEK_W3_REPLACEMENT_DEFERRED_20260925.md",
+        "docs/evidence/HWG_2.1.0_E3_DEEPSEEK_W3_REPLACEMENT_20260925.md"
       ],
       "updated_at": "2026-09-25"
     },
@@ -532,14 +533,15 @@
       "updated_at": "2026-09-25",
       "latest_evidence": {
         "date": "2026-09-25",
-        "type": "E2 controlled cutover + rollback + restore + production stable verification",
-        "result": "Production 2.1.0 passed controlled cutover, real rollback to v0.7.19 process/API baseline, restoration, scheduled restart recovery, fresh authenticated readiness, and exact-marker provider smoke. Work remains PARTIAL because E3 evidence and HWG-WORK-013 remain open.",
-        "record": "docs/evidence/HWG_2.1.0_PRODUCTION_RELEASE_EVIDENCE_20260925.md"
+        "type": "E2 cutover/rollback plus scoped DeepSeek E3",
+        "result": "Production 2.1.0 cutover/rollback remains proven; DeepSeek exact scope now has valid W1/W2-replacement/W3-replacement E3 evidence. WORK-014 remains PARTIAL because WORK-013 is intentionally still open for other provider scopes.",
+        "record": "docs/evidence/HWG_2.1.0_E3_DEEPSEEK_W3_REPLACEMENT_20260925.md"
       },
       "evidence": [
-        "docs/evidence/HWG_2.1.0_PRODUCTION_RELEASE_EVIDENCE_20260925.md"
+        "docs/evidence/HWG_2.1.0_PRODUCTION_RELEASE_EVIDENCE_20260925.md",
+        "docs/evidence/HWG_2.1.0_E3_DEEPSEEK_W3_REPLACEMENT_20260925.md"
       ],
-      "result": "E2 operational cutover/rollback proof is complete for 2.1.0; E3 reliability dependency remains open."
+      "result": "E2 operational cutover/rollback proof is complete for 2.1.0. Exact DeepSeek Production scope has E3 repeated-window evidence, while broader HWG provider certification under HWG-WORK-013 remains open."
     },
     {
       "id": "HWG-WORK-015",

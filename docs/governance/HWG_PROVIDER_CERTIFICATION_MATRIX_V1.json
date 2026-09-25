@@ -1,16 +1,17 @@
 {
   "id": "HWG-PROVIDER-CERT-MATRIX-001",
-  "version": "1.0.0",
-  "updated_at": "2026-09-22T10:40:00+03:30",
+  "version": "1.1.0",
+  "updated_at": "2026-09-25T19:58:00Z",
   "rows": [
     {
       "provider_id": "deepseek-web",
       "account_id": "deepseek-web:default-account",
       "model": "deepseek-web",
-      "status": "W1_PASS",
-      "evidence_level": "E2_REPEATED_WINDOW",
-      "evidence": "docs/evidence/HWG_E3_DEEPSEEK_W1_20260922.md",
-      "program_status": "E3_IN_PROGRESS"
+      "status": "E3_PASS_SCOPED",
+      "evidence_level": "E3_SCOPED",
+      "evidence": "docs/evidence/HWG_2.1.0_E3_DEEPSEEK_W3_REPLACEMENT_20260925.md",
+      "program_status": "E3_CERTIFIED_EXACT_SCOPE",
+      "scope_note": "Production 2.1.0 on Safe-Laptop only; no claim for other providers/accounts/models."
     },
     {
       "provider_id": "chatgpt-web",
