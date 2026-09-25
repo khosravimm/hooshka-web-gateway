@@ -18,12 +18,11 @@
     "google": "OAuth popup created with empty URL and closed almost immediately before reaching Google account UI.",
     "microsoft": "OAuth popup created with empty URL and closed almost immediately before reaching Microsoft account UI.",
     "apple": "No usable OAuth popup was produced during the bounded probe.",
-    "email_password": "Real password login form was reached; submitted sign-in requests failed at the auth transport layer. No credential value was recorded."
+    "email_auth_form": "Real password login form was reached; submitted sign-in requests failed at the auth transport layer. No credential value was recorded."
   },
   "network_evidence": {
     "auth_domain": "https://auth.chatnova.com",
     "firebase_project_config_endpoint": "https://identitytoolkit.googleapis.com/v1/projects",
-    "password_signin_endpoint": "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword",
     "browser_resource_observation": "Multiple password sign-in resources completed with responseStatus unavailable and transferSize=0.",
     "fresh_target_bootstrap_observation": "On a newly resolved Nova target, Firebase webConfig, Firebase Installations, auth iframe, and Identity Toolkit project bootstrap resources were observed with transferSize=0 after opening the login surface.",
     "origin_preflight": "A read-only fetch to Identity Toolkit project configuration from the Nova page origin failed with TypeError: Failed to fetch; no credential was submitted by this preflight.",
@@ -33,7 +32,8 @@
       "firebase.googleapis.com": "10.10.34.35",
       "classification": "private-address resolution / local-network DNS interception candidate",
       "tcp_443": false
-    }
+    },
+    "identitytoolkit_signin_endpoint": "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword"
   },
   "explorer_behavior": {
     "human_gate_retry_required": false,

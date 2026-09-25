@@ -1,10 +1,10 @@
 {
   "name": "hwg-next",
-  "version": "1.0.0-dev.7",
+  "version": "2.1.0-rc.1+closure.1",
   "canonical_id": "hooshka-web-gateway-next",
-  "release_channel": "dev",
-  "build_date": "2026-09-22",
-  "status": "IN_DEVELOPMENT",
+  "release_channel": "rc",
+  "build_date": "2026-09-25",
+  "status": "RELEASE_CANDIDATE",
   "port": 5080,
   "parents": [
     {

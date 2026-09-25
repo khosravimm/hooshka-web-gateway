@@ -1,3 +1,12 @@
+## 2.1.0-rc.1 - 2026-09-25 - Release Candidate Closure
+- Froze feature development for release closure.
+- Synchronized VERSION, MANIFEST and Control Plane UI release identity.
+- Preserved real outbound Web Chat traffic accounting and deduplication.
+- Preserved token telemetry while continuing to redact actual credentials/secrets; estimated Web Chat usage is labeled explicitly.
+- Revalidated DeepSeek functional readiness with authenticated E2 exact-marker evidence.
+- Updated release tests to match current operational empty-traffic semantics.
+- Secret evidence terminology was clarified without weakening the release secret scanner.
+
 ### 1.0.0-dev.7 (WIP - visual preflight rollout)
 - Extended Visual Action Gate to governed hover/focus/click behavior probes, composer/submit discovery interaction, and E2 submit certification.
 - Blocking semantic states are checked before target interaction or prompt fill; blocked certification remains `commitment_state=not_sent`.

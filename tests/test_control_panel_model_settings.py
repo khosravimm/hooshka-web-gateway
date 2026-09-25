@@ -79,7 +79,7 @@ def test_control_panel_request_chart_has_operational_axes():
     js = js_text()
     assert "function niceCeil" in js
     assert "labelStep" in js
-    assert "data\u200cای موجود نیست" in js or "\u062f\u0627\u062f\u0647\u200c\u0627\u06cc \u0645\u0648\u062c\u0648\u062f \u0646\u06cc\u0633\u062a" in js
+    assert "\u062f\u0631 \u06cc\u06a9 \u0633\u0627\u0639\u062a \u06af\u0630\u0634\u062a\u0647 \u0627\u0631\u0633\u0627\u0644 \u0648\u0627\u0642\u0639\u06cc \u0628\u0647 Provider \u062b\u0628\u062a \u0646\u0634\u062f\u0647 \u0627\u0633\u062a" in js
     text = source()
     assert "def _build_request_history_window" in text
 

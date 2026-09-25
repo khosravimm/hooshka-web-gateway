@@ -12,11 +12,13 @@ def test_release_version_sources_are_synchronized():
     version = (ROOT / "VERSION").read_text(encoding="utf-8-sig").strip()
     manifest = _json("MANIFEST.json")
     ui = _json("control_panel_ui/UI_VERSION.json")
-    assert version == "1.0.0-dev.7"
+    assert version.startswith("2.1.0-rc.1")
     assert manifest["version"] == version
     assert ui["version"] == version
-    assert manifest["build_date"] == "2026-09-22"
-    assert ui["released"] == "2026-09-22"
+    assert manifest["build_date"] == "2026-09-25"
+    assert manifest["release_channel"] == "rc"
+    assert manifest["status"] == "RELEASE_CANDIDATE"
+    assert ui["released"] == "2026-09-25"
 
 
 def test_dev7_change_history_and_schema_contracts_exist():

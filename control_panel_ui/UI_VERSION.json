@@ -1,7 +1,7 @@
 {
   "name": "hwg-control-plane-ui",
-  "version": "1.0.0-dev.7",
-  "released": "2026-09-22",
+  "version": "2.1.0-rc.1+closure.1",
+  "released": "2026-09-25",
   "direction": "rtl",
   "language": "fa",
   "themes": [
@@ -66,8 +66,14 @@
       "date": "2026-09-24",
       "class": "BUILD",
       "notes": "Embedded Chat canonical uploads, provider-side Stop/cancellation, User-View discovery states و media qualification عملیاتی."
+    },
+    {
+      "version": "2.1.0-rc.1",
+      "date": "2026-09-25",
+      "class": "RELEASE_CANDIDATE",
+      "notes": "Release closure candidate: outbound traffic observability, honest token telemetry, DeepSeek readiness revalidation, synchronized release metadata."
     }
   ],
-  "build": "20260924-1215",
-  "last_updated": "2026-09-24"
+  "build": "20260925-rc1",
+  "last_updated": "2026-09-25"
 }

@@ -1,4 +1,4 @@
-# Hooshka Web Gateway — Start Here
+# Hooshka Web Gateway â€” Start Here
 
 > **Canonical discovery document for humans and agents**
 >
@@ -37,10 +37,10 @@ Hooshka itself should consume the gateway API and must not depend directly on pr
 
 **Evidence levels**
 
-- E0 — source/research evidence
-- E1 — deterministic unit/synthetic/prototype evidence
-- E2 — real Web-chat end-to-end evidence
-- E3 — repeated predefined reliability evidence across independent windows
+- E0 â€” source/research evidence
+- E1 â€” deterministic unit/synthetic/prototype evidence
+- E2 â€” real Web-chat end-to-end evidence
+- E3 â€” repeated predefined reliability evidence across independent windows
 
 The current release is an **E2 operational baseline**, not an E3 reliability claim.
 
@@ -65,9 +65,9 @@ HWG uses separate authority layers so that current implementation cannot silentl
 
 **Normative product and control authority (what HWG must become and which gates apply):**
 
-1. `docs/governance/HWG_NEXT_GENERATION_PRODUCTION_MISSION_V1.md` (`HWG-MISSION-NG-001`) — mandatory upper-level production mission and acceptance gates.
+1. `docs/governance/HWG_NEXT_GENERATION_PRODUCTION_MISSION_V1.md` (`HWG-MISSION-NG-001`) â€” mandatory upper-level production mission and acceptance gates.
 2. The parent architecture referenced by that mission (`HWG-ARCH-001`) when present in the repository; material deviations require ADR + synchronized mission/architecture/tests/docs.
-3. `docs/governance/WEBCHAT_PROVIDER_INTEGRATION_KNOWLEDGE_TRANSFER_V1.md` (`HWG-KT-WEBCHAT-001`) — canonical provider/runtime engineering playbook and reusable operational invariants.
+3. `docs/governance/WEBCHAT_PROVIDER_INTEGRATION_KNOWLEDGE_TRANSFER_V1.md` (`HWG-KT-WEBCHAT-001`) â€” canonical provider/runtime engineering playbook and reusable operational invariants.
 4. Approved ADRs and versioned schemas/contracts.
 
 **Current implementation truth (what is actually implemented now):**
@@ -253,14 +253,14 @@ Do not run repeated live provider tests unless the change actually requires prov
 
 ## Main API surface
 
-- `GET /health` — process/liveness identity
-- `GET /ready` — provider readiness
-- `GET /health/deep` — deeper runtime/provider diagnostics
-- `GET /modes` — capability and transport provenance
-- `GET /v1/models` — canonical routable models
-- `POST /v1/chat/completions` — primary chat/stream endpoint
-- `POST /v1/chat/code` — code-oriented compatibility endpoint
-- `POST /v1/chat/conversation` — conversation continuity endpoint
+- `GET /health` â€” process/liveness identity
+- `GET /ready` â€” provider readiness
+- `GET /health/deep` â€” deeper runtime/provider diagnostics
+- `GET /modes` â€” capability and transport provenance
+- `GET /v1/models` â€” canonical routable models
+- `POST /v1/chat/completions` â€” primary chat/stream endpoint
+- `POST /v1/chat/code` â€” code-oriented compatibility endpoint
+- `POST /v1/chat/conversation` â€” conversation continuity endpoint
 
 See `docs/API_REFERENCE.md` and `docs/PRACTICAL_USAGE.md`.
 
@@ -299,6 +299,15 @@ Stop testing immediately on:
 - secret exposure;
 - unexpected cross-provider routing;
 - unexplained provider enforcement.
+
+
+### Current release-candidate status — 2026-09-25
+
+- Release candidate: `2.1.0-rc.1+closure.1`
+- Evidence: `docs/evidence/HWG_2.1.0_RC1_RELEASE_CLOSURE_20260925.md`
+- Local release gates: 608/608 tests PASS; secret scan PASS; dependency advisory audit PASS.
+- Production cutover on port 5000 has **not** been executed and requires explicit owner authorization.
+- E3 reliability is not claimed.
 
 ## Release and rollback
 
