@@ -27,7 +27,7 @@
 - Rollback to `v0.7.19` / `ebd971735ff5e8d5a596d4d543c6c66e61de4f89`: health PASS, version `0.7.19`, models API PASS.
 - Restore to RC3: readiness PASS; exact marker `HWG_PROD_RC3_RESTORE_711480` PASS.
 - Production gateway scheduled restart: task result 0; log `success=True`; post-restart readiness PASS; exact marker `HWG_PROD_RESTART_604280` PASS.
-- Production Control Plane UI rendered RC3 version and DeepSeek `READY ???????` using the existing browser tab; the tab was returned to 5080 afterward.
+- Production Control Plane UI rendered RC3 version and DeepSeek functional READY state using the existing browser tab; the tab was returned to 5080 afterward.
 
 ## Rollback reference
 
@@ -39,4 +39,15 @@
 
 ## Exact stable deployment verification
 
-Pending after local `2.1.0` full-suite PASS and Production restart to the final accepted commit.
+- Stable preparation commit deployed to Production: `9f50e11fcd03001e799a79c361952b7f679a309f`.
+- Production `/panel/api/meta`: version `2.1.0`, commit `9f50e11`.
+- Production Windows service: `HooshkaWebGateway`, Running, Automatic.
+- Production restart used the installed `Hooshka-HWG-Prod-Restart-Gateway` scheduled task and recovered successfully.
+- Fresh functional readiness after stable restart: PASS, `AUTHENTICATED`; runtime/page/auth/model/feature/functional_probe all PASS.
+- Exact stable provider smoke: expected `HWG_STABLE_210_709319`, observed exactly `HWG_STABLE_210_709319`.
+- Stable smoke token telemetry: total `16`, explicitly estimated.
+- No runtime/provider logic changed after this smoke; the final evidence commit only closes documentation/governance provenance.
+
+## Known non-blocking rollback metadata limitation
+
+During the real rollback rehearsal, the baseline process/API correctly reported `version=0.7.19`, health was OK, and `/v1/models` was valid, but the old baseline meta endpoint reported the current checkout's short commit instead of the detached rollback worktree SHA. This is a legacy metadata-resolution defect in the old baseline and did not prevent proving process/API rollback. The rollback SHA itself was independently fixed by the immutable rollback ref and detached worktree.

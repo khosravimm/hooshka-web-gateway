@@ -528,14 +528,14 @@
       "updated_at": "2026-09-25",
       "latest_evidence": {
         "date": "2026-09-25",
-        "type": "E2 controlled cutover + rollback + restore + restart rehearsal",
-        "result": "Production cutover to RC3 passed liveness/readiness/UI/provider smoke; rollback to v0.7.19 restored process/API baseline; RC3 restoration and production restart both recovered with fresh authenticated DeepSeek E2 smoke. Work remains PARTIAL because the registry requires E3 and depends on HWG-WORK-013.",
+        "type": "E2 controlled cutover + rollback + restore + production stable verification",
+        "result": "Production 2.1.0 passed controlled cutover, real rollback to v0.7.19 process/API baseline, restoration, scheduled restart recovery, fresh authenticated readiness, and exact-marker provider smoke. Work remains PARTIAL because E3 evidence and HWG-WORK-013 remain open.",
         "record": "docs/evidence/HWG_2.1.0_PRODUCTION_RELEASE_EVIDENCE_20260925.md"
       },
       "evidence": [
         "docs/evidence/HWG_2.1.0_PRODUCTION_RELEASE_EVIDENCE_20260925.md"
       ],
-      "result": "E2 cutover/rollback operational proof is complete; E3 dependency remains open."
+      "result": "E2 operational cutover/rollback proof is complete for 2.1.0; E3 reliability dependency remains open."
     },
     {
       "id": "HWG-WORK-015",
