@@ -1,6 +1,6 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.53.0",
+  "version": "1.54.0",
   "updated_at": "2026-09-24T23:55:00Z",
   "status_vocabulary": [
     "OPEN",
@@ -505,7 +505,7 @@
       "id": "HWG-WORK-014",
       "title": "Controlled cutover and rollback proof",
       "area": "release",
-      "status": "OPEN",
+      "status": "PARTIAL",
       "priority": "P0",
       "source": [
         "Migration and cutover §20",
@@ -515,7 +515,7 @@
         "HWG-WORK-010",
         "HWG-WORK-013"
       ],
-      "target_version": "1.0.0-rc.1",
+      "target_version": "2.1.0",
       "evidence_required": [
         "E2",
         "E3"
@@ -524,7 +524,18 @@
         "Immutable RC baseline and rollback point recorded",
         "Cutover smoke covers liveness/readiness/provider/UI",
         "Critical failure performs verified rollback"
-      ]
+      ],
+      "updated_at": "2026-09-25",
+      "latest_evidence": {
+        "date": "2026-09-25",
+        "type": "E2 controlled cutover + rollback + restore + restart rehearsal",
+        "result": "Production cutover to RC3 passed liveness/readiness/UI/provider smoke; rollback to v0.7.19 restored process/API baseline; RC3 restoration and production restart both recovered with fresh authenticated DeepSeek E2 smoke. Work remains PARTIAL because the registry requires E3 and depends on HWG-WORK-013.",
+        "record": "docs/evidence/HWG_2.1.0_PRODUCTION_RELEASE_EVIDENCE_20260925.md"
+      },
+      "evidence": [
+        "docs/evidence/HWG_2.1.0_PRODUCTION_RELEASE_EVIDENCE_20260925.md"
+      ],
+      "result": "E2 cutover/rollback operational proof is complete; E3 dependency remains open."
     },
     {
       "id": "HWG-WORK-015",

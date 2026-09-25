@@ -1,6 +1,6 @@
 {
   "name": "hwg-control-plane-ui",
-  "version": "2.1.0-rc.3",
+  "version": "2.1.0",
   "released": "2026-09-25",
   "direction": "rtl",
   "language": "fa",
@@ -84,8 +84,20 @@
       "date": "2026-09-25",
       "class": "RELEASE_CANDIDATE",
       "notes": "RC3 adds explicit production deployment-profile isolation for port 5000 and Windows service configuration."
+    },
+    {
+      "version": "2.1.0",
+      "date": "2026-09-25",
+      "class": "RELEASE",
+      "notes": "E2 operational release after controlled production cutover, verified rollback/restore, production restart recovery, and bounded provider smoke. E3 reliability is not claimed."
+    },
+    {
+      "version": "2.1.0",
+      "date": "2026-09-25",
+      "class": "RELEASE",
+      "notes": "Final E2 operational release after RC4 exact preflight, controlled cutover, rollback/restore and production restart recovery. E3 reliability not claimed."
     }
   ],
-  "build": "20260925-rc3",
+  "build": "20260925-stable",
   "last_updated": "2026-09-25"
 }

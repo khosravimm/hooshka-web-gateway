@@ -301,13 +301,12 @@ Stop testing immediately on:
 - unexplained provider enforcement.
 
 
-### Current release-candidate status - 2026-09-25
+### Current release status - 2026-09-25
 
-- Release candidate: `2.1.0-rc.3`
-- Supersedes `v2.1.0-rc.1`, which was rejected before production cutover due to documentation encoding corruption detected during GitHub verification.
-- Evidence: `docs/evidence/HWG_2.1.0_RC3_PRE_CUTOVER_20260925.md`
-- Pre-cutover gates: 612/612 tests PASS; secret scan PASS; dependency audit PASS; production deployment profile validated.
-- Production cutover on port 5000 has **not** been executed and requires explicit owner authorization.
+- Release: `2.1.0` (E2 operational)
+- - Evidence: `docs/evidence/HWG_2.1.0_PRODUCTION_RELEASE_EVIDENCE_20260925.md`
+- Cutover, rollback/restore, production restart and exact stable-version local gates passed. E3 reliability is not claimed.
+- Production cutover on port 5000 is complete; service identity is `HooshkaWebGateway`.
 - E3 reliability is not claimed.
 
 ## Release and rollback
@@ -315,13 +314,19 @@ Stop testing immediately on:
 Current release:
 
 ```text
-v0.7.0
+v2.1.0
 ```
 
 Pre-canonical-migration rollback reference:
 
 ```text
 rollback/pre-hooshka-web-gateway-migration
+```
+
+Pre-2.1 rollback reference:
+
+```text
+rollback/pre-2.1.0-rc1-cutover-20260925
 ```
 
 For future risky changes, create a new rollback reference at the exact accepted SHA before migration/release work.

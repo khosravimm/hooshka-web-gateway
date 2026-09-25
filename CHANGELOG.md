@@ -1,3 +1,12 @@
+## 2.1.0 - 2026-09-25 - E2 Operational Release
+- Promoted RC3 after controlled Production cutover on port 5000.
+- Production Windows service `HooshkaWebGateway` installed with automatic start and isolated `config.production.yaml`.
+- Production liveness/readiness/models/capabilities and Control Plane UI verified.
+- DeepSeek authenticated readiness and exact-marker chat smoke passed on Production.
+- Rollback rehearsal to `v0.7.19` passed for process/API baseline, followed by successful restoration to RC3 and renewed E2 provider smoke.
+- Production gateway scheduled restart path passed with health recovery and renewed E2 smoke.
+- Exact final version is gated by the complete suite; E3 reliability certification is explicitly not claimed.
+
 ## 2.1.0-rc.3 - 2026-09-25 - Production Deployment Profile
 - Added one explicit `HWG_CONFIG_PATH` deployment boundary across gateway, Control Plane, runtime inventory and Windows service manager.
 - Added `config.production.yaml` with port 5000 and `HooshkaWebGateway` identity while preserving the existing Dev 5080 profile.
