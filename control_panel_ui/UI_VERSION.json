@@ -1,6 +1,6 @@
 {
   "name": "hwg-control-plane-ui",
-  "version": "2.1.1-dev.full-audit-remediation.20260925-1822",
+  "version": "2.1.1-dev.full-audit-remediation.20260925-1907",
   "released": "2026-09-25",
   "direction": "rtl",
   "language": "fa",
@@ -192,8 +192,20 @@
       "date": "2026-09-25",
       "class": "AUDIT_REMEDIATION",
       "notes": "Destructive/governance action hardening: backend confirmation gates for Provider deletion, API-key create/delete, Auth state changes, and Discovery review decisions; UI sends explicit confirmation evidence."
+    },
+    {
+      "version": "2.1.1-dev.full-audit-remediation.20260925-1848",
+      "date": "2026-09-25",
+      "class": "AUDIT_REMEDIATION",
+      "notes": "Desktop Runtime Agent watchdog continuously recovers dead enabled CDP runtimes and exposes watchdog health/recovery counters."
+    },
+    {
+      "version": "2.1.1-dev.full-audit-remediation.20260925-1907",
+      "date": "2026-09-25",
+      "class": "AUDIT_REMEDIATION",
+      "notes": "Desktop Runtime Agent scheduled task now launches a persistent supervisor wrapper that restarts the Python agent child after unexpected exit; browser watchdog remains active inside the agent."
     }
   ],
-  "build": "20260925-1822",
+  "build": "20260925-1907",
   "last_updated": "2026-09-25"
 }

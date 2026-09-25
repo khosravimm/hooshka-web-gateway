@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
   "version": "1.54.0",
-  "updated_at": "2026-09-24T23:55:00Z",
+  "updated_at": "2026-09-25T19:27:00Z",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -490,9 +490,9 @@
       ],
       "latest_evidence": {
         "date": "2026-09-25",
-        "type": "E3 predefined windows W1 + clean W2 replacement",
-        "result": "Production 2.1.0 DeepSeek exact scope: W1 PASS 3/3 and clean replacement W2 PASS 3/3 with >30 minute spacing. Earlier six-probe W2 attempt is preserved as procedurally invalid and excluded. W3 remains pending; no E3 claim yet.",
-        "record": "docs/evidence/HWG_2.1.0_E3_DEEPSEEK_W2_REPLACEMENT_20260925.md"
+        "type": "E3 W3 replacement precondition gate",
+        "result": "DEFERRED with zero probes: port 5000 meta reported Dev build 2.1.1-dev.full-audit-remediation.20260925-1907 from mutable develop checkout, not immutable release 2.1.0. E3 remains NOT CLAIMED.",
+        "record": "docs/evidence/HWG_2.1.0_E3_DEEPSEEK_W3_REPLACEMENT_DEFERRED_20260925.md"
       },
       "evidence": [
         "docs/evidence/HWG_E3_DEEPSEEK_W1_20260922.md",
@@ -500,7 +500,8 @@
         "docs/governance/HWG_PROVIDER_CERTIFICATION_MATRIX_V1.json",
         "docs/evidence/HWG_2.1.0_E3_DEEPSEEK_W1_20260925.md",
         "docs/evidence/HWG_2.1.0_E3_DEEPSEEK_W2_20260925.md",
-        "docs/evidence/HWG_2.1.0_E3_DEEPSEEK_W2_REPLACEMENT_20260925.md"
+        "docs/evidence/HWG_2.1.0_E3_DEEPSEEK_W2_REPLACEMENT_20260925.md",
+        "docs/evidence/HWG_2.1.0_E3_DEEPSEEK_W3_REPLACEMENT_DEFERRED_20260925.md"
       ],
       "updated_at": "2026-09-25"
     },
@@ -834,7 +835,7 @@
       "id": "HWG-WORK-024",
       "title": "Desktop Runtime Agent scheduled-task resilience",
       "area": "runtime",
-      "status": "OPEN",
+      "status": "DONE",
       "priority": "P1",
       "source": [
         "Runtime operations",
@@ -852,11 +853,16 @@
         "Recovery is validated without disturbing provider browser profiles or port 5000"
       ],
       "latest_evidence": {
-        "date": "2026-09-22",
-        "type": "live_runtime_restart_failure",
-        "result": "Gateway restart task invoked restart_gateway_hwg.ps1, but configured service HooshkaHWGNGDevGateway is not installed; restart state recorded failed and the old 5080 process remained active. Manual scoped replacement of the identified 5080 main.py process restored the new code without touching port 5000.",
-        "record": "docs/evidence/HWG_AGENT_LOOP_GOVERNANCE_E2_20260922.md"
-      }
+        "date": "2026-09-25",
+        "type": "E2 runtime resilience",
+        "result": "Browser watchdog and supervisor-backed Desktop Runtime Agent validated on Safe-Laptop; focused 7/7 and full 631/631 PASS; controlled child-agent crash recovered in ~3.5s without disturbing 5000 or 9330.",
+        "record": "docs/evidence/HWG_DESKTOP_RUNTIME_AGENT_RESILIENCE_E2_20260925.md"
+      },
+      "updated_at": "2026-09-25",
+      "evidence": [
+        "docs/evidence/HWG_DESKTOP_RUNTIME_AGENT_RESILIENCE_E2_20260925.md"
+      ],
+      "completed_at": "2026-09-25T19:27:00Z"
     },
     {
       "id": "HWG-WORK-025",

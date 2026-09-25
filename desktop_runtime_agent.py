@@ -3,8 +3,10 @@ import json
 import os
 import shutil
 import subprocess
+import threading
 import time
 import urllib.request
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import psutil
@@ -18,6 +20,21 @@ _agent_parsed = urlparse(str(_agent_url))
 HOST = _agent_parsed.hostname or "127.0.0.1"
 PORT = int(_agent_parsed.port or 5181)
 ROOT = os.path.dirname(os.path.abspath(__file__))
+WATCHDOG_INTERVAL_SECONDS = max(5, int(os.environ.get("HWG_RUNTIME_WATCHDOG_SECONDS", "15")))
+_RUNTIME_LOCK = threading.RLock()
+_WATCHDOG_STATE = {
+    "enabled": True,
+    "interval_seconds": WATCHDOG_INTERVAL_SECONDS,
+    "last_check_at": None,
+    "last_recovered": [],
+    "last_errors": [],
+    "checks": 0,
+    "recoveries": 0,
+}
+
+
+def _utc_now():
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def chrome_executable():
@@ -244,16 +261,17 @@ def account_status():
 
 
 def runtime_action(item, action):
-    if action == "start":
-        return cdp_ready(item) or start_runtime_item(item)
-    if action == "restart":
-        stop_runtime_item(item); return start_runtime_item(item)
-    if action == "stop":
-        stop_runtime_item(item); return not cdp_ready(item)
-    if action == "repair":
-        return cdp_ready(item) or start_runtime_item(item)
-    if action == "open":
-        return open_runtime_item(item)
+    with _RUNTIME_LOCK:
+        if action == "start":
+            return cdp_ready(item) or start_runtime_item(item)
+        if action == "restart":
+            stop_runtime_item(item); return start_runtime_item(item)
+        if action == "stop":
+            stop_runtime_item(item); return not cdp_ready(item)
+        if action == "repair":
+            return cdp_ready(item) or start_runtime_item(item)
+        if action == "open":
+            return open_runtime_item(item)
     raise ValueError("invalid_action")
 
 
@@ -271,7 +289,7 @@ class H(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/health":
-            return self.out(200, {"ok": True, "service": "hwg-desktop-runtime-agent", "port": PORT})
+            return self.out(200, {"ok": True, "service": "hwg-desktop-runtime-agent", "port": PORT, "watchdog": dict(_WATCHDOG_STATE)})
         if self.path == "/status":
             return self.out(200, {"ok": True, "providers": status(), "accounts": account_status(), "session": os.environ.get("SESSIONNAME", "")})
         return self.out(404, {"error": "not_found"})
@@ -303,16 +321,54 @@ class H(BaseHTTPRequestHandler):
 
 
 def ensure_enabled():
-    for item in load_runtime_inventory():
-        if not item["enabled"]:
-            continue
-        if not cdp_ready(item):
+    recovered = []
+    errors = []
+    checked = 0
+    with _RUNTIME_LOCK:
+        for item in load_runtime_inventory():
+            if not item["enabled"]:
+                continue
+            checked += 1
+            if cdp_ready(item):
+                continue
             try:
-                start_provider(item["id"])
-            except Exception:
-                pass
+                if start_runtime_item(item):
+                    recovered.append(item["id"])
+                else:
+                    errors.append({"id": item["id"], "error": "start_timeout"})
+            except Exception as exc:
+                errors.append({"id": item["id"], "error": type(exc).__name__})
+    return {"checked": checked, "recovered": recovered, "errors": errors}
+
+
+def _watchdog_once():
+    result = ensure_enabled()
+    _WATCHDOG_STATE["last_check_at"] = _utc_now()
+    _WATCHDOG_STATE["last_recovered"] = list(result["recovered"])
+    _WATCHDOG_STATE["last_errors"] = list(result["errors"])
+    _WATCHDOG_STATE["checks"] += 1
+    _WATCHDOG_STATE["recoveries"] += len(result["recovered"])
+    return result
+
+
+def _watchdog_loop():
+    while True:
+        try:
+            _watchdog_once()
+        except Exception as exc:
+            _WATCHDOG_STATE["last_check_at"] = _utc_now()
+            _WATCHDOG_STATE["last_errors"] = [{"id": "watchdog", "error": type(exc).__name__}]
+            _WATCHDOG_STATE["checks"] += 1
+        time.sleep(WATCHDOG_INTERVAL_SECONDS)
+
+
+def start_watchdog():
+    thread = threading.Thread(target=_watchdog_loop, name="hwg-runtime-watchdog", daemon=True)
+    thread.start()
+    return thread
 
 
 if __name__ == "__main__":
-    ensure_enabled()
+    _watchdog_once()
+    start_watchdog()
     ThreadingHTTPServer((HOST, PORT), H).serve_forever()
