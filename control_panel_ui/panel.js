@@ -994,13 +994,26 @@ function initNav() {
   }
 
   /* ---------------- Config ---------------- */
+  let configLoaded = false;
+  function setConfigControlsPending(pending=true) {
+    ['save-human-config','save-raw-config'].forEach(id => { const el=$('#'+id); if(el) el.disabled = pending || !configLoaded; });
+    $$('#panel-config input, #panel-config textarea').forEach(el => { el.disabled = pending; });
+  }
+
   async function loadConfig() {
+    configLoaded = false;
+    setConfigControlsPending(true);
+    setStatus($('#config-status'), 'در حال دریافت تنظیمات...', 'working');
     try {
       const [raw, summary] = await Promise.all([api('/config'), api('/config/summary')]);
       $('#config-content').value = raw.content || '';
       renderHumanConfig(summary);
+      configLoaded = true;
+      setConfigControlsPending(false);
       setStatus($('#config-status'), '', '');
     } catch (e) {
+      configLoaded = false;
+      setConfigControlsPending(true);
       setStatus($('#config-status'), 'خطا: ' + e.message, 'err');
     }
   }
@@ -1075,6 +1088,8 @@ function initNav() {
   }
 
   async function saveHumanConfig() {
+    if (!configLoaded) { setStatus($('#config-status'), 'تنظیمات هنوز بارگذاری نشده‌اند؛ ابتدا بازخوانی کنید.', 'err'); return; }
+    setConfigControlsPending(true);
     setStatus($('#config-status'), 'در حال ذخیره تنظیمات...', 'working');
     try {
       const r = await api('/config/summary', {
@@ -1090,10 +1105,13 @@ function initNav() {
       refreshAll();
     } catch (e) {
       setStatus($('#config-status'), 'خطا: ' + e.message, 'err');
+      setConfigControlsPending(false);
     }
   }
 
   async function saveRawConfig() {
+    if (!configLoaded) { setStatus($('#config-status'), 'تنظیمات هنوز بارگذاری نشده‌اند؛ ابتدا بازخوانی کنید.', 'err'); return; }
+    setConfigControlsPending(true);
     setStatus($('#config-status'), 'در حال ذخیره YAML خام...', 'working');
     try {
       const r = await api('/config', {
@@ -1109,6 +1127,7 @@ function initNav() {
       refreshAll();
     } catch (e) {
       setStatus($('#config-status'), 'خطا: ' + e.message, 'err');
+      setConfigControlsPending(false);
     }
   }
 

@@ -1,5 +1,7 @@
 import os
 import json
+import copy
+import tempfile
 import time
 import logging
 import subprocess
@@ -18,7 +20,7 @@ from core.mcp import mcp_session_manager
 from core.governance import auth_manager, rate_limiter
 from core.config import load_config, deep_merge, get_default_config
 from core.feature_settings import persist_provider_feature_defaults, provider_feature_state
-from core.runtime_inventory import inventory_by_id, load_orchestration_settings
+from core.runtime_inventory import inventory_by_id, load_orchestration_settings, load_runtime_configuration
 from core.profile_contract import project_ng_inventory
 from core.profile_store import load_ng_inventory, migrate_legacy_inventory, rollback_legacy_migration, update_account_session, update_provider_tool_capabilities, update_provider_media_qualification, reconcile_isolation_metadata, sync_projected_inventory, provision_account_instance, account_runtime, deprovision_account_instance
 from core.work_register import load_register, summarize_register, validate_register
@@ -48,6 +50,7 @@ from core.blind_discovery import probe_auth_cdp as discovery_probe_auth_cdp
 from core.account_session import normalize_session
 from core.functional_readiness import run_functional_probe, save_readiness, load_readiness, invalidate_readiness
 from core.media_contract import provider_media_manifest
+from core.security_gate import assert_release_security_config
 from core.provider_onboarding import analyze_url as analyze_provider_url, observe_url_sync, save_candidate, load_candidate, persist_candidate, qualify_submit_candidate_sync, apply_submit_qualification, generate_adapter_candidate, qualify_materialized_adapter_sync, materialize_adapter_profile, refine_adapter_from_existing_conformance_sync, diagnose_committed_qualification_sync
 from core.provider_wizard_stages import public_model as provider_wizard_stage_model
 from core.provider_wizard_stage_runtime import access_bootstrap_sync, model_entitlement_discovery_sync
@@ -2575,6 +2578,88 @@ def _config_summary_from_dict(config):
     }
 
 
+
+def _bounded_int(name, value, minimum=1, maximum=None):
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{name} must be an integer")
+    if value < minimum or (maximum is not None and value > maximum):
+        if maximum is None:
+            raise ValueError(f"{name} must be at least {minimum}")
+        raise ValueError(f"{name} must be between {minimum} and {maximum}")
+    return value
+
+
+def _validate_provider_enable_transitions(previous, candidate):
+    previous_by_id = {
+        str(item.get("id") or ""): item
+        for item in (previous.get("providers", []) or [])
+        if isinstance(item, dict) and item.get("id")
+    }
+    for item in candidate.get("providers", []) or []:
+        if not isinstance(item, dict):
+            raise ValueError("providers entries must be mappings")
+        provider_id = str(item.get("id") or "").strip()
+        if not provider_id:
+            raise ValueError("Provider entry is missing id")
+        before = previous_by_id.get(provider_id) or {}
+        if bool(item.get("enabled", True)) and not bool(before.get("enabled", False)):
+            pcfg = item.get("config", {}) or {}
+            if item.get("type") == "custom" and pcfg.get("adapter_kind") == "discovered_web":
+                raise ValueError(f"discovered_provider_enable_requires_readiness_gate: {provider_id}")
+            readiness = load_readiness(provider_id) or {}
+            if not (
+                readiness.get("ready") is True
+                and readiness.get("current") is True
+                and readiness.get("state") == "READY"
+            ):
+                raise ValueError(f"provider_enable_requires_current_readiness: {provider_id}")
+
+
+def _validate_config_candidate(candidate, previous=None):
+    if not isinstance(candidate, dict):
+        raise ValueError("Configuration root must be a mapping")
+    server = candidate.get("server", {}) or {}
+    if not isinstance(server, dict):
+        raise ValueError("server must be a mapping")
+    host = str(server.get("host") or "").strip()
+    if not host:
+        raise ValueError("server.host is required")
+    port = _bounded_int("server.port", server.get("port"), 1, 65535)
+    if "threads" in server:
+        _bounded_int("server.threads", server.get("threads"), 1, 128)
+    if "provider_concurrency" in server:
+        _bounded_int("server.provider_concurrency", server.get("provider_concurrency"), 1, 32)
+    cdp = candidate.get("cdp", {}) or {}
+    if not isinstance(cdp, dict):
+        raise ValueError("cdp must be a mapping")
+    if "timeout" in cdp:
+        _bounded_int("cdp.timeout", cdp.get("timeout"), 1000, 300000)
+    orchestration = candidate.get("runtime_orchestration", {}) or {}
+    if not isinstance(orchestration, dict):
+        raise ValueError("runtime_orchestration must be a mapping")
+    health_url = str(orchestration.get("gateway_health_url") or "").strip()
+    if health_url:
+        parsed_health = urllib.parse.urlparse(health_url)
+        if parsed_health.port and parsed_health.port != port:
+            raise ValueError("server.port must match runtime_orchestration.gateway_health_url port")
+    assert_release_security_config(candidate)
+    if previous is not None:
+        _validate_provider_enable_transitions(previous, candidate)
+    root = Path(CONFIG_PATH).resolve().parent
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", suffix=".yaml", prefix=".hwg-config-validate-", dir=root, delete=False) as fh:
+            yaml.safe_dump(candidate, fh, allow_unicode=True, sort_keys=False)
+            tmp_path = Path(fh.name)
+        load_runtime_configuration(tmp_path)
+    finally:
+        if tmp_path is not None:
+            try:
+                tmp_path.unlink(missing_ok=True)
+            except OSError:
+                logger.warning("Failed to remove temporary config validation file: %s", tmp_path)
+    return candidate
+
 def _apply_config_summary(config, data):
     server=data.get("server", {}) or {}; cdp=data.get("cdp", {}) or {}; auth=data.get("auth", {}) or {}
     config.setdefault("server", {})
@@ -2620,7 +2705,9 @@ def api_config_summary():
         return jsonify(_config_summary_from_dict(config))
     data=request.get_json(force=True) or {}
     try:
+        previous = copy.deepcopy(config)
         updated=_apply_config_summary(config, data)
+        _validate_config_candidate(updated, previous=previous)
         _save_config_file(updated); _sync_auth_keys()
         restart = _schedule_restart_all("config-summary-save")
         return jsonify({"success": True, "summary": _config_summary_from_dict(updated), "restart": restart})
@@ -2645,6 +2732,12 @@ def api_config():
             parsed = yaml.safe_load(content)
         except yaml.YAMLError as e:
             return jsonify({"error": f"YAML parse error: {e}"}), 400
+        try:
+            previous = _load_config_file()
+            _validate_config_candidate(parsed, previous=previous)
+        except Exception as exc:
+            logger.warning("Rejected raw config candidate: %s", exc)
+            return jsonify({"error": str(exc)}), 400
         with open(config_path, 'w', encoding='utf-8') as f:
             f.write(content)
         _sync_auth_keys()

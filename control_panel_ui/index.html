@@ -369,7 +369,7 @@
           <p class="hint">تنظیمات رایج به‌صورت فرم؛ YAML خام زیر بخش پیشرفته است. ذخیره باعث ری‌استارت سرویس‌ها می‌شود.</p>
         </div>
         <div class="btn-row">
-          <button id="save-human-config" class="btn primary" type="button">ذخیره تنظیمات</button>
+          <button id="save-human-config" class="btn primary" type="button" disabled>ذخیره تنظیمات</button>
           <button id="reload-config" class="btn ghost" type="button">بازخوانی</button>
         </div>
       </div>
@@ -377,17 +377,17 @@
       <div class="grid-2">
         <div class="card">
           <h3 class="card-title">سرور</h3>
-          <label class="field">میزبان<input id="cfg-server-host" class="ctrl ltr" type="text"></label>
-          <label class="field">پورت<input id="cfg-server-port" class="ctrl" type="number" min="1" max="65535"></label>
-          <label class="field">تعداد رشته‌ها<input id="cfg-server-threads" class="ctrl" type="number" min="1" max="128"></label>
-          <label class="field">همروندی پراوایدر<input id="cfg-provider-concurrency" class="ctrl" type="number" min="1" max="32"></label>
-          <label class="check"><input id="cfg-server-debug" type="checkbox"><span>حالت اشکال‌زدایی</span></label>
+          <label class="field">میزبان<input id="cfg-server-host" disabled class="ctrl ltr" type="text"></label>
+          <label class="field">پورت<input id="cfg-server-port" disabled class="ctrl" type="number" min="1" max="65535"></label>
+          <label class="field">تعداد رشته‌ها<input id="cfg-server-threads" disabled class="ctrl" type="number" min="1" max="128"></label>
+          <label class="field">همروندی پراوایدر<input id="cfg-provider-concurrency" disabled class="ctrl" type="number" min="1" max="32"></label>
+          <label class="check"><input id="cfg-server-debug" disabled type="checkbox"><span>حالت اشکال‌زدایی</span></label>
         </div>
         <div class="card">
           <h3 class="card-title">Runtime و امنیت</h3>
           <div class="dependency-note">مالک CDP و Browser Profile، Workspace «Runtimeهای مرورگر» است. تغییر مسیر Browser از تنظیمات عمومی انجام نمی‌شود.</div>
-          <label class="field">مهلت CDP (میلی‌ثانیه)<input id="cfg-cdp-timeout" class="ctrl" type="number" min="1000" max="300000"></label>
-          <label class="check"><input id="cfg-auth-enabled" type="checkbox"><span>نیاز به کلید برای اتصالات خارج از لوکال هاست</span></label>
+          <label class="field">مهلت CDP (میلی‌ثانیه)<input id="cfg-cdp-timeout" disabled class="ctrl" type="number" min="1000" max="300000"></label>
+          <label class="check"><input id="cfg-auth-enabled" disabled type="checkbox"><span>نیاز به کلید برای اتصالات خارج از لوکال هاست</span></label>
         </div>
       </div>
       <div class="card mt">
@@ -398,10 +398,10 @@
         <summary class="card-title">پیشرفته: YAML خام</summary>
         <p class="hint">فقط برای کلیدهایی که فرم تنظیمات رایج پوشش نمی‌دهد.</p>
         <div class="btn-row">
-          <button id="save-raw-config" class="btn primary btn-sm" type="button" aria-label="ذخیره YAML خام تنظیمات" title="ذخیره YAML خام و اجرای چرخه restart/verification">ذخیره</button>
+          <button id="save-raw-config" class="btn primary btn-sm" type="button" disabled aria-label="ذخیره YAML خام تنظیمات" title="ذخیره YAML خام و اجرای چرخه restart/verification">ذخیره</button>
           <button id="reload-raw-config" class="btn ghost btn-sm" type="button" aria-label="بازخوانی YAML خام تنظیمات" title="بازخوانی YAML خام از فایل تنظیمات فعال">بارگذاری مجدد</button>
         </div>
-        <textarea id="config-content" class="code-edit" spellcheck="false" aria-label="ویرایشگر پیشرفته YAML خام تنظیمات" title="ویرایش پیشرفته؛ تغییرات پس از ذخیره باید restart و verify شوند"></textarea>
+        <textarea id="config-content" class="code-edit" disabled spellcheck="false" aria-label="ویرایشگر پیشرفته YAML خام تنظیمات" title="ویرایش پیشرفته؛ تغییرات پس از ذخیره باید restart و verify شوند"></textarea>
       </details>
     </section>
 

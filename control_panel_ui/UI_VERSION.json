@@ -1,6 +1,6 @@
 {
   "name": "hwg-control-plane-ui",
-  "version": "2.1.1-dev.full-audit-remediation.20260925-1736",
+  "version": "2.1.1-dev.full-audit-remediation.20260925-1752",
   "released": "2026-09-25",
   "direction": "rtl",
   "language": "fa",
@@ -150,8 +150,20 @@
       "date": "2026-09-25",
       "class": "AUDIT_REMEDIATION",
       "notes": "Provider lifecycle audit: enforce current READY evidence in backend before enabling any previously-disabled provider; UI and API now share the same fail-closed activation contract."
+    },
+    {
+      "version": "2.1.1-dev.full-audit-remediation.20260925-1743",
+      "date": "2026-09-25",
+      "class": "AUDIT_REMEDIATION",
+      "notes": "Config governance audit: validate candidate structure, security/runtime invariants, deployment port identity, and Provider readiness transitions before any config write or restart."
+    },
+    {
+      "version": "2.1.1-dev.full-audit-remediation.20260925-1752",
+      "date": "2026-09-25",
+      "class": "AUDIT_REMEDIATION",
+      "notes": "Config audit: fail-closed loading/write controls and backend bounds aligned with the UI contract."
     }
   ],
-  "build": "20260925-1736",
+  "build": "20260925-1752",
   "last_updated": "2026-09-25"
 }
