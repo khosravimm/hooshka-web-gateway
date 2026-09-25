@@ -3083,7 +3083,10 @@ def _evaluate_account_session(account_id):
     except concurrent.futures.TimeoutError:
         access = {"state": "UNKNOWN", "reason": "structural_probe_timeout"}
     previous = ((account.get("session") or {}).get("access_state"))
-    lifecycle = normalize_session({}, access.get("state"), previous)
+    effective_access_state = access.get("state")
+    if effective_access_state == "UNKNOWN" and access.get("user_interaction") == "login":
+        effective_access_state = "LOGIN_REQUIRED"
+    lifecycle = normalize_session({}, effective_access_state, previous)
     persisted = False
     if authority == "persistent_ng_store":
         update_account_session(account_id, lifecycle); persisted = True

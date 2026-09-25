@@ -1,6 +1,6 @@
 {
   "name": "hwg-control-plane-ui",
-  "version": "2.1.1-dev.connection-profile-ia.20260926-0030",
+  "version": "2.1.1-dev.connection-profile-ia.20260926-0105",
   "released": "2026-09-26",
   "direction": "rtl",
   "language": "fa",
@@ -210,8 +210,26 @@
       "date": "2026-09-26",
       "class": "IA_REDESIGN",
       "notes": "Connection Profile domain/UX baseline: mission-driven primary navigation, Provider-centric multi-account profiles, editable suggested profile naming, and preservation of integrated Explorer Live View."
+    },
+    {
+      "version": "2.1.1-dev.connection-profile-ia.20260926-0050",
+      "date": "2026-09-26",
+      "class": "IA_REMEDIATION",
+      "notes": "DeepSeek login-page classifier recognizes visible credential surfaces in dedicated Connection Profile runtimes; preserves visual-first login gating."
+    },
+    {
+      "version": "2.1.1-dev.connection-profile-ia.20260926-0055",
+      "date": "2026-09-26",
+      "class": "IA_REMEDIATION",
+      "notes": "Fail closed on guest-capable web-chat composers: composer visibility alone is not authenticated evidence for dedicated Connection Profiles."
+    },
+    {
+      "version": "2.1.1-dev.connection-profile-ia.20260926-0105",
+      "date": "2026-09-26",
+      "class": "IA_REMEDIATION",
+      "notes": "Account lifecycle maps fail-closed guest candidates requiring login to LOGIN_REQUIRED while raw discovery remains UNKNOWN."
     }
   ],
-  "build": "20260926-0030",
+  "build": "20260926-0105",
   "last_updated": "2026-09-26"
 }

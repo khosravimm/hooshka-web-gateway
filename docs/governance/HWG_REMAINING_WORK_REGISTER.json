@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.57.0",
-  "updated_at": "2026-09-25T21:24:00Z",
+  "version": "1.58.0",
+  "updated_at": "2026-09-26T01:01:00+03:30",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -959,10 +959,13 @@
       ],
       "latest_evidence": {
         "date": "2026-09-26",
-        "type": "design/requirement reconciliation",
-        "result": "Existing provisioning/runtime APIs are E1; owner clarification elevates user-visible Connection Profile ownership, editable suggested naming, and real second-account isolation E2 to P0 acceptance requirements.",
-        "record": "docs/design/HWG_CONTROL_PLANE_CONNECTION_PROFILE_IA_V1_20260926.md"
-      }
+        "type": "Partial live E2 same-origin secondary Connection Profile",
+        "result": "DeepSeek secondary Connection Profile provisioned on dedicated Browser Profile/CDP 9340 while primary shared 9330 remained intact. Guest composer was correctly rejected as authenticated evidence; secondary lifecycle is LOGIN_REQUIRED. Real second-account login and post-login isolation verification remain pending.",
+        "record": "docs/evidence/HWG_DEEPSEEK_SECONDARY_CONNECTION_PROFILE_E2_PARTIAL_20260926.md"
+      },
+      "evidence": [
+        "docs/evidence/HWG_DEEPSEEK_SECONDARY_CONNECTION_PROFILE_E2_PARTIAL_20260926.md"
+      ]
     },
     {
       "id": "HWG-WORK-027",

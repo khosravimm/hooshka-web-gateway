@@ -56,7 +56,7 @@ def classify_auth_snapshot(snapshot: dict) -> AuthState:
     if snapshot.get('challenge_visible'):
         evidence.append('challenge_surface_visible')
         return AuthState('USER_INTERACTION_REQUIRED','high',evidence,'challenge_or_verification')
-    if snapshot.get('password_input') or snapshot.get('email_input'):
+    if snapshot.get('password_input') or snapshot.get('email_input') or snapshot.get('credential_input'):
         evidence.append('credential_input_visible')
         return AuthState('LOGIN_REQUIRED','high',evidence,'login')
     if snapshot.get('login_control') and not snapshot.get('composer'):
@@ -66,14 +66,15 @@ def classify_auth_snapshot(snapshot: dict) -> AuthState:
         evidence.extend(['login_control_visible','composer_visible'])
         return AuthState('UNKNOWN','medium',evidence,None)
     if snapshot.get('composer'):
-        evidence.append('composer_visible')
-        return AuthState('AUTHENTICATED','medium',evidence,None)
+        evidence.append('composer_visible_without_strong_auth_evidence')
+        return AuthState('UNKNOWN','medium',evidence,'login')
     return AuthState('UNKNOWN','low',['no_strong_auth_signal'],None)
 AUTH_SNAPSHOT_JS = r"""() => {
   const visible = e => { const r=e.getBoundingClientRect(); return !!(r.width||r.height); };
   const composer = [...document.querySelectorAll('textarea,[contenteditable=true][role=textbox],[contenteditable=true]')].find(visible);
   const pass = [...document.querySelectorAll('input[type=password]')].find(visible);
   const email = [...document.querySelectorAll('input[type=email],input[autocomplete=username],input[name*=email i]')].find(visible);
+  const credentialLike = [...document.querySelectorAll('input')].filter(visible).find(e => /(?:phone|mobile|email|e-mail|password|passcode|username|شماره|ایمیل|رمز)/i.test((e.getAttribute('placeholder')||'')+' '+(e.getAttribute('name')||'')+' '+(e.getAttribute('aria-label')||'')));
   const controls = [...document.querySelectorAll('button,[role=button],a')].filter(visible).slice(0,300);
   const labels = controls.map(e => ((e.innerText||e.getAttribute('aria-label')||e.getAttribute('title')||'').trim())).filter(Boolean);
   const login = labels.find(x => /^(log ?in|sign ?in|continue with|ورود)$/i.test(x));
@@ -86,7 +87,7 @@ AUTH_SNAPSHOT_JS = r"""() => {
   if (!composer && bodyText.length < 600 && /not available in (your )?(region|country)|service unavailable in (your )?(region|country)/i.test(bodyText)) {
     providerRestriction = 'region_restriction';
   }
-  return {composer:!!composer,password_input:!!pass,email_input:!!email,login_control:login||'',challenge_visible:challenge,provider_restriction:providerRestriction};
+  return {composer:!!composer,password_input:!!pass,email_input:!!email,credential_input:!!credentialLike,login_control:login||'',challenge_visible:challenge,provider_restriction:providerRestriction};
 }"""
 
 def classify_access_semantic_observations(rows: list[dict]) -> AuthState:

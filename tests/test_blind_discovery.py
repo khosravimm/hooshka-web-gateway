@@ -16,8 +16,11 @@ def test_auth_classifier_prefers_challenge_over_composer():
 
 def test_auth_classifier_detects_login_without_transcript_text():
     assert classify_auth_snapshot({'password_input':True}).state=='LOGIN_REQUIRED'
+    assert classify_auth_snapshot({'credential_input':True}).state=='LOGIN_REQUIRED'
     assert classify_auth_snapshot({'login_control':'Sign in','composer':False}).state=='LOGIN_REQUIRED'
-    assert classify_auth_snapshot({'composer':True}).state=='AUTHENTICATED'
+    composer_only=classify_auth_snapshot({'composer':True})
+    assert composer_only.state=='UNKNOWN'
+    assert composer_only.user_interaction=='login'
     assert classify_auth_snapshot({'login_control':'Sign In','composer':True}).state=='UNKNOWN'
     assert classify_auth_snapshot({}).state=='UNKNOWN'
 

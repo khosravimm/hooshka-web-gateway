@@ -74,3 +74,10 @@ def test_session_evaluation_does_not_override_missing_provider_page():
     block=text[start:end]
     assert 'no_provider_page' in block
     assert 'session_probe": "no_provider_page"' in block
+
+def test_control_plane_maps_guest_candidate_to_login_required():
+    root=Path(__file__).resolve().parents[1]
+    text=(root/'control_panel.py').read_text(encoding='utf-8-sig')
+    assert 'effective_access_state = access.get("state")' in text
+    assert 'access.get("user_interaction") == "login"' in text
+    assert 'effective_access_state = "LOGIN_REQUIRED"' in text
