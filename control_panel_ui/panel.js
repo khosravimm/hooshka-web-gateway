@@ -229,6 +229,7 @@ function initNav() {
     const success = rows.reduce((a, r) => a + Number(r.success_count || 0), 0);
     const failure = rows.reduce((a, r) => a + Number(r.failure_count || 0), 0);
     const tokens = rows.reduce((a, r) => a + Number(r.total_tokens || 0), 0);
+    const tokensEstimated = rows.some(r => r.tokens_estimated === true && Number(r.total_tokens || 0) > 0);
     const measured = rows.reduce((a, r) => a + Number(r.requests || 0), 0);
     const weightedLatency = rows.reduce((a, r) => a + Number(r.avg_latency_ms || 0) * Number(r.requests || 0), 0);
     const latency = measured ? Math.round(weightedLatency / measured) : null;
@@ -237,7 +238,7 @@ function initNav() {
       ['موفق', compact(success), 'ok'],
       ['ناموفق', compact(failure), failure ? 'bad' : 'neutral'],
       ['میانگین تأخیر', latency == null ? '—' : compact(latency) + ' ms', 'neutral'],
-      ['توکن اندازه‌گیری‌شده', compact(tokens), 'info'],
+      ['توکن ثبت‌شده', compact(tokens) + (tokensEstimated ? ' (تخمین)' : ''), 'info'],
     ].map(([label, value, kind]) => `<div class="metric-tile ${kind}"><span>${label}</span><b>${value}</b></div>`).join('');
   }
 
@@ -304,9 +305,8 @@ function initNav() {
     ctx.fillStyle = '#64748b';
     ctx.font = '12px Segoe UI, Arial, sans-serif';
     ctx.fillText('ارسال واقعی به Web Chat در هر دقیقه', pad.left, 18);
-    ctx.strokeStyle = '#e5e7eb';
     const labels = ['#64748b', '#cbd5e1', '#2563eb', '#334155'];
-    ctx.strokeStyle = labels[2];
+    ctx.strokeStyle = labels[1];
     ctx.textAlign = 'right';
     for (let i = 0; i <= 5; i++) {
       const y = pad.top + (plotH * i / 5);
@@ -316,8 +316,13 @@ function initNav() {
       ctx.fillText(String(tick), pad.left - 8, y + 4);
     }
     if (!points.length || maxObs === 0) {
+      ctx.fillStyle = labels[3];
+      ctx.font = '600 14px Segoe UI, Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('در یک ساعت گذشته ارسال واقعی به Provider ثبت نشده است', pad.left + (plotW / 2), pad.top + (plotH / 2) - 6);
       ctx.fillStyle = labels[0];
-      ctx.fillText('داده‌ای موجود نیست', pad.left + 14, pad.top + 44);
+      ctx.font = '12px Segoe UI, Arial, sans-serif';
+      ctx.fillText('Panel polling و Health check در این نمودار شمرده نمی‌شوند.', pad.left + (plotW / 2), pad.top + (plotH / 2) + 18);
       return;
     }
     const denom = Math.max(1, points.length - 1);

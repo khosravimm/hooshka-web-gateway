@@ -6,6 +6,7 @@ from typing import AsyncIterator, Optional, Any
 from urllib.parse import urlparse
 
 from core.control_discovery import ENUMERATE_JS
+from core.governance import audit_logger
 from core.providers import (
     Provider, ProviderCapabilities, ProviderConfig, ProviderError, ProviderType,
     ChatCompletionRequest, ChatCompletionResponse, ChatCompletionChunk,
@@ -267,9 +268,34 @@ class DiscoveredWebProvider(Provider):
             submit, submit_selector = await self._resolve_submit(page, composer, before_controls)
             await submit.click(timeout=5000, no_wait_after=True)
             self._commitment_state = "committed"
+            audit_logger.log({
+                "event": "provider_send",
+                "provider": self.provider_id,
+                "model": request.model,
+                "transport_mode": "browser_ui_discovered",
+                "source": "provider_adapter",
+                "commitment_state": "committed",
+            })
             content = await self._wait_response(page, before_texts)
             self._commitment_state = "terminal"
+            audit_logger.log({
+                "event": "provider_result",
+                "provider": self.provider_id,
+                "model": request.model,
+                "transport_mode": "browser_ui_discovered",
+                "source": "provider_adapter",
+                "outcome": "success",
+            })
         except ProviderError:
+            if self._commitment_state != "not_sent":
+                audit_logger.log({
+                    "event": "provider_result",
+                    "provider": self.provider_id,
+                    "model": request.model,
+                    "transport_mode": "browser_ui_discovered",
+                    "source": "provider_adapter",
+                    "outcome": "failure",
+                })
             if self._commitment_state == "not_sent":
                 try:
                     await composer.fill("")

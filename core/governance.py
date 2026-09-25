@@ -1,5 +1,5 @@
 from functools import wraps
-from flask import request, jsonify, g
+from flask import request, jsonify, g, has_request_context
 import time
 import logging
 import json
@@ -97,13 +97,16 @@ class AuthManager:
 
 _AUDIT_SECRET_TERMS = ("token", "secret", "api_key", "authorization", "cookie", "password")
 _AUDIT_CONTENT_KEYS = {"prompt", "messages", "content", "body", "request_body", "response_body", "headers"}
+_AUDIT_TELEMETRY_TOKEN_KEYS = {"prompt_tokens", "completion_tokens", "total_tokens"}
 
 def _sanitize_audit_value(value):
     if isinstance(value, dict):
         out = {}
         for key, item in value.items():
             normalized = str(key).lower().replace("-", "_")
-            if normalized in _AUDIT_CONTENT_KEYS or any(term in normalized for term in _AUDIT_SECRET_TERMS):
+            if normalized in _AUDIT_TELEMETRY_TOKEN_KEYS:
+                out[key] = _sanitize_audit_value(item)
+            elif normalized in _AUDIT_CONTENT_KEYS or any(term in normalized for term in _AUDIT_SECRET_TERMS):
                 out[key] = "[REDACTED]"
             else:
                 out[key] = _sanitize_audit_value(item)
@@ -124,7 +127,7 @@ class AuditLogger:
         
         event = _sanitize_audit_value(dict(event or {}))
         event["timestamp"] = time.time()
-        event["request_id"] = getattr(g, "request_id", "unknown")
+        event["request_id"] = getattr(g, "request_id", "unknown") if has_request_context() else "unknown"
         
         try:
             with open(self._log_file, "a", encoding="utf-8") as f:

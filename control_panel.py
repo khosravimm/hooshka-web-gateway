@@ -2305,26 +2305,60 @@ def _build_request_history_window(now=None, minutes=60):
     audit_log = "logs/audit.log"
 
     if os.path.exists(audit_log):
+        entries = []
         with open(audit_log, 'r', encoding='utf-8') as f:
             for line in f:
                 try:
-                    entry = json.loads(line)
-                    if entry.get("event") != "request_complete":
-                        continue
-                    ts = float(entry.get("timestamp", 0) or 0)
-                    minute = int(ts // 60) * 60
-                    if start_minute <= minute <= end_minute:
-                        endpoint = str(entry.get("endpoint") or "")
-                        provider = str(entry.get("provider") or "unknown")
-                        if _request_bucket(endpoint) != "model" or provider in ("", "unknown", "default"):
-                            continue
-                        requests_1h += 1
-                        status_code = int(entry.get("status_code", 0) or 0)
-                        outcome = "success" if 200 <= status_code < 400 else "failure"
-                        breakdown[outcome] += 1
-                        minute_counts[minute] = minute_counts.get(minute, 0) + 1
+                    entries.append(json.loads(line))
                 except Exception:
                     pass
+
+        provider_send_request_ids = {
+            str(entry.get("request_id") or "")
+            for entry in entries
+            if entry.get("event") == "provider_send" and str(entry.get("request_id") or "") not in ("", "unknown")
+        }
+        result_by_request_id = {
+            str(entry.get("request_id") or ""): str(entry.get("outcome") or "")
+            for entry in entries
+            if entry.get("event") == "provider_result" and str(entry.get("request_id") or "") not in ("", "unknown")
+        }
+
+        for entry in entries:
+            try:
+                event = entry.get("event")
+                ts = float(entry.get("timestamp", 0) or 0)
+                minute = int(ts // 60) * 60
+                if not (start_minute <= minute <= end_minute):
+                    continue
+
+                if event == "provider_send":
+                    provider = str(entry.get("provider") or "unknown")
+                    if provider in ("", "unknown", "default"):
+                        continue
+                    requests_1h += 1
+                    minute_counts[minute] = minute_counts.get(minute, 0) + 1
+                    outcome = result_by_request_id.get(str(entry.get("request_id") or ""))
+                    if outcome in breakdown:
+                        breakdown[outcome] += 1
+                    continue
+
+                if event != "request_complete":
+                    continue
+                endpoint = str(entry.get("endpoint") or "")
+                provider = str(entry.get("provider") or "unknown")
+                if _request_bucket(endpoint) != "model" or provider in ("", "unknown", "default"):
+                    continue
+                request_id = str(entry.get("request_id") or "")
+                if request_id and request_id in provider_send_request_ids:
+                    continue
+                requests_1h += 1
+                status_code = int(entry.get("status_code", 0) or 0)
+                outcome = "success" if 200 <= status_code < 400 else "failure"
+                breakdown[outcome] += 1
+                minute_counts[minute] = minute_counts.get(minute, 0) + 1
+            except Exception:
+                pass
 
     history = [
         {"timestamp": minute, "count": minute_counts.get(minute, 0)}

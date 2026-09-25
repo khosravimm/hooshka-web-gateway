@@ -42,6 +42,55 @@ def test_stats_count_only_provider_bound_model_requests(tmp_path, monkeypatch):
     assert sum(point['count'] for point in result['requests_history']) == 2
 
 
+def test_stats_counts_direct_provider_send_and_deduplicates_matching_api_request(tmp_path, monkeypatch):
+    from control_panel import _build_request_history_window
+    monkeypatch.chdir(tmp_path)
+    log_dir = Path('logs')
+    log_dir.mkdir()
+    events = [
+        {'event': 'provider_send', 'timestamp': 1000, 'request_id': 'req-1', 'provider': 'grok-web', 'model': 'grok-web'},
+        {'event': 'provider_result', 'timestamp': 1001, 'request_id': 'req-1', 'provider': 'grok-web', 'model': 'grok-web', 'outcome': 'success'},
+        {'event': 'request_complete', 'timestamp': 1002, 'request_id': 'req-1', 'endpoint': '/v1/chat/completions', 'provider': 'grok-web', 'status_code': 200},
+        {'event': 'provider_send', 'timestamp': 1003, 'request_id': 'unknown', 'provider': 'grok-web', 'model': 'grok-web'},
+    ]
+    (log_dir / 'audit.log').write_text('\n'.join(json.dumps(e) for e in events) + '\n', encoding='utf-8')
+    result = _build_request_history_window(now=1020, minutes=60)
+    assert result['requests_1h'] == 2
+    assert result['breakdown'] == {'success': 1, 'failure': 0}
+    assert sum(point['count'] for point in result['requests_history']) == 2
+
+
+def test_audit_logger_preserves_token_metrics_but_redacts_secrets(tmp_path):
+    from core.governance import AuditLogger
+    audit_path = tmp_path / "audit.log"
+    logger = AuditLogger(str(audit_path))
+    logger.log({
+        "event": "request_complete",
+        "prompt_tokens": 11,
+        "completion_tokens": 7,
+        "total_tokens": 18,
+        "access_token": "secret-value",
+        "authorization": "Bearer secret",
+    })
+    row = json.loads(audit_path.read_text(encoding="utf-8").strip())
+    assert row["prompt_tokens"] == 11
+    assert row["completion_tokens"] == 7
+    assert row["total_tokens"] == 18
+    assert row["access_token"] == "[REDACTED]"
+    assert row["authorization"] == "[REDACTED]"
+
+
+def test_audit_logger_records_provider_send_without_flask_request_context(tmp_path):
+    from core.governance import AuditLogger
+    audit_path = tmp_path / 'audit.log'
+    logger = AuditLogger(str(audit_path))
+    logger.log({'event': 'provider_send', 'provider': 'grok-web'})
+    row = json.loads(audit_path.read_text(encoding='utf-8').strip())
+    assert row['event'] == 'provider_send'
+    assert row['provider'] == 'grok-web'
+    assert row['request_id'] == 'unknown'
+
+
 def test_model_usage_excludes_requests_without_selected_provider(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     log_dir = Path('logs')
