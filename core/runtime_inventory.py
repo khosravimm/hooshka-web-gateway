@@ -13,7 +13,10 @@ import json
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_CONFIG = ROOT / "config.yaml"
+_CONFIG_ENV = os.getenv("HWG_CONFIG_PATH", "config.yaml")
+DEFAULT_CONFIG = Path(_CONFIG_ENV)
+if not DEFAULT_CONFIG.is_absolute():
+    DEFAULT_CONFIG = ROOT / DEFAULT_CONFIG
 
 
 def _load_config(config_path: str | Path = DEFAULT_CONFIG) -> tuple[Path, dict]:

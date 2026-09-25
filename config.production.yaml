@@ -1,0 +1,304 @@
+server:
+  host: 127.0.0.1
+  port: 5000
+  debug: false
+  threads: 12
+  provider_concurrency: 2
+runtime_orchestration:
+  gateway_service: HooshkaWebGateway
+  legacy_gateway_service: WebLLMBridge
+  gateway_health_url: http://127.0.0.1:5000/health
+  desktop_agent_task: Hooshka-HWG-NG-Dev-Desktop-Runtime-Agent
+  desktop_agent_url: http://127.0.0.1:5181
+  restart_all_task: Hooshka-HWG-Prod-Restart-All
+  restart_gateway_task: Hooshka-HWG-Prod-Restart-Gateway
+  shared_browser:
+    enabled: true
+    cdp_url: http://127.0.0.1:9330
+    profile_dir: .runtime-dev\shared-profile
+cdp:
+  url: http://127.0.0.1:9330
+  timeout: 30000
+providers:
+- id: chatgpt-web
+  type: chatgpt_web
+  enabled: false
+  priority: 100
+  runtime:
+    kind: chrome_cdp
+    cdp_url: http://127.0.0.1:9330
+    profile_dir: .runtime-dev\shared-profile
+    home_url: https://chatgpt.com/
+    label: HWG-NG-ChatGPT-Web-CDP
+  config:
+    cdp_url: http://127.0.0.1:9330
+    chatgpt_url: https://chatgpt.com
+    adapter: dom
+    require_authenticated: true
+    headless: false
+    timeout: 120
+    long_text_chunk_size: 2048
+    feature_defaults:
+      thinking: false
+      search: false
+    feature_controls:
+      thinking: true
+      search: true
+    default_upstream_model: chatgpt-web
+  capabilities:
+    chat_completion: true
+    streaming: true
+    streaming_mode: buffered
+    tools: true
+    vision: false
+    embeddings: false
+    max_context_tokens: 128000
+    supported_models:
+    - chatgpt-web
+    search: true
+    reasoning: true
+    files: false
+    transport_mode: browser_ui
+  feature_defaults:
+    thinking: false
+    search: false
+- id: qwen-web
+  type: qwen_web
+  enabled: false
+  priority: 90
+  runtime:
+    kind: chrome_cdp
+    cdp_url: http://127.0.0.1:9325
+    profile_dir: .runtime-dev\qwen-profile
+    home_url: https://chat.qwen.ai/
+    label: HWG-NG-Qwen-Web-Controller
+  config:
+    transport_mode: browser_controller
+    default_upstream_model: qwen3.8-max
+    model_namespace: qwen
+    selectable_upstream_models:
+    - qwen3.7-plus
+    - qwen3.8-max
+    - qwen3.7-max
+    - qwen3.6-plus
+    - qwen3.5-plus
+    tool_certified_upstream_models:
+    - qwen3.8-max
+    require_authenticated: true
+    profile_dir: .runtime-dev\qwen-profile
+    runtime_label: HWG-NG-Qwen-Web-Controller
+    cdp_url: http://127.0.0.1:9325
+    browser_channel: chrome
+    headless: false
+    launch_timeout: 45
+    first_event_timeout: 30
+    idle_timeout: 45
+    total_timeout: 180
+    poll_interval: 0.08
+    requests_per_minute: 12
+    feature_defaults:
+      thinking: false
+      search: false
+    feature_controls:
+      thinking: true
+      search: true
+  capabilities:
+    chat_completion: true
+    streaming: true
+    streaming_mode: reconstructed
+    tools: true
+    vision: false
+    embeddings: false
+    max_context_tokens: 1000000
+    supported_models:
+    - qwen-web
+    search: true
+    reasoning: true
+    files: false
+    transport_mode: browser_backend_controller
+  feature_defaults:
+    thinking: false
+    search: false
+- id: zai-web
+  type: zai_web
+  enabled: false
+  priority: 80
+  runtime:
+    kind: chrome_cdp
+    cdp_url: http://127.0.0.1:9330
+    profile_dir: .runtime-dev\shared-profile
+    home_url: https://chat.z.ai/
+    label: HWG-NG-Zai-Web-SSE-Capture
+  config:
+    base_url: https://chat.z.ai
+    frontend_version: prod-fe-1.1.93
+    default_upstream_model: glm-5.3-flash
+    model_namespace: zai
+    selectable_upstream_models:
+    - glm-5.3
+    - glm-5.3-flash
+    - glm-5.2
+    launch_timeout: 120
+    require_authenticated: true
+    runtime_label: HWG-NG-Zai-Web-SSE-Capture
+    profile_dir: .runtime-dev\shared-profile
+    transport_mode: browser_ui_capture
+    cdp_url: http://127.0.0.1:9330
+    first_event_timeout: 240
+    idle_timeout: 300
+    total_timeout: 600
+    poll_interval: 0.25
+    connect_timeout: 10
+    header_timeout: 30
+    requests_per_minute: 6
+    feature_defaults:
+      thinking: false
+      search: false
+    feature_controls:
+      thinking: true
+      search: true
+  capabilities:
+    chat_completion: true
+    streaming: true
+    streaming_mode: buffered_sse_capture
+    tools: true
+    vision: false
+    embeddings: false
+    max_context_tokens: 128000
+    supported_models:
+    - zai-web
+    search: true
+    reasoning: true
+    files: false
+    transport_mode: browser_frontend_backend_sse_capture
+  feature_defaults:
+    thinking: false
+    search: false
+- id: deepseek-web
+  type: deepseek_web
+  enabled: true
+  priority: 70
+  runtime:
+    kind: chrome_cdp
+    cdp_url: http://127.0.0.1:9330
+    profile_dir: .runtime-dev\shared-profile
+    home_url: https://chat.deepseek.com/
+    label: HWG-NG-DeepSeek-Web-UI
+  config:
+    base_url: https://chat.deepseek.com/
+    require_authenticated: true
+    runtime_label: HWG-NG-DeepSeek-Web-UI
+    transport_mode: browser_ui
+    cdp_url: http://127.0.0.1:9330
+    launch_timeout: 45
+    first_event_timeout: 45
+    idle_timeout: 90
+    total_timeout: 180
+    poll_interval: 0.5
+    requests_per_minute: 4
+    feature_defaults:
+      thinking: false
+      search: false
+    feature_controls:
+      thinking: true
+      search: true
+    default_upstream_model: deepseek-web
+  capabilities:
+    chat_completion: true
+    streaming: true
+    streaming_mode: reconstructed
+    tools: true
+    vision: false
+    embeddings: false
+    max_context_tokens: 128000
+    supported_models:
+    - deepseek-web
+    search: true
+    reasoning: true
+    files: false
+    transport_mode: browser_ui
+  feature_defaults:
+    thinking: false
+    search: false
+- id: gapgpt-web
+  type: custom
+  enabled: false
+  priority: 50
+  runtime:
+    kind: chrome_cdp
+    cdp_url: http://127.0.0.1:9330
+    profile_dir: D:\Code\hooshka-web-gateway\.runtime-dev\shared-profile
+    home_url: https://gapgpt.app/
+    label: HWG-NG-Discovered-gapgpt-web
+  config:
+    adapter_kind: discovered_web
+    adapter_profile_path: docs/profiles/gapgpt-web/adapter_candidate.v1.json
+    cdp_url: http://127.0.0.1:9330
+    home_url: https://gapgpt.app/
+    timeout_seconds: 60
+  feature_defaults:
+    thinking: false
+    search: false
+  feature_controls:
+    thinking: false
+    search: false
+- id: grok-web
+  type: custom
+  enabled: false
+  priority: 50
+  runtime:
+    kind: chrome_cdp
+    cdp_url: http://127.0.0.1:9330
+    profile_dir: D:\Code\hooshka-web-gateway\.runtime-dev\shared-profile
+    home_url: https://grok.com/
+    label: HWG-NG-Discovered-grok-web
+  config:
+    adapter_kind: discovered_web
+    adapter_profile_path: docs/profiles/grok-web/adapter_candidate.v1.json
+    cdp_url: http://127.0.0.1:9330
+    home_url: https://grok.com/
+    timeout_seconds: 60
+  feature_defaults:
+    thinking: false
+    search: false
+  feature_controls:
+    thinking: false
+    search: false
+governance:
+  auth:
+    enabled: true
+    api_keys: {}
+  rate_limiting:
+    enabled: true
+    default_requests_per_minute: 60
+    per_provider:
+      chatgpt-web:
+        requests_per_minute: 20
+      qwen-web:
+        requests_per_minute: 12
+      zai-web:
+        requests_per_minute: 6
+  audit:
+    enabled: true
+    output: logs/audit.log
+    format: json
+    retention_days: 90
+  policies:
+    enabled: false
+    engine: opa
+    bundle_path: policies/
+logging:
+  level: INFO
+  file: logs/bridge.log
+  format: '%(asctime)s - %(levelname)s - %(message)s'
+  max_bytes: 10485760
+  backup_count: 5
+agent_tools:
+  authorization_gate_enabled: false
+  read_roots:
+  - D:\
+  max_steps: 6
+  per_tool_timeout_seconds: 10
+  max_result_chars: 50000
+  duplicate_call_limit: 1
+  max_loop_seconds: 180

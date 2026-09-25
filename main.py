@@ -47,6 +47,9 @@ from adapters.discovered_web_provider import create_discovered_web_provider
 from control_panel import control_panel_bp
 
 
+DEFAULT_CONFIG_PATH = os.getenv("HWG_CONFIG_PATH", "config.yaml")
+
+
 SWAGGER_TEMPLATE = {
     "swagger": "2.0",
     "info": {
@@ -274,7 +277,8 @@ SWAGGER_TEMPLATE = {
 }
 
 
-def create_app(config_path: str = "config.yaml") -> Flask:
+def create_app(config_path: str | None = None) -> Flask:
+    config_path = config_path or DEFAULT_CONFIG_PATH
     config = load_config(config_path)
 
     app = Flask(__name__)
@@ -1684,7 +1688,7 @@ def create_app(config_path: str = "config.yaml") -> Flask:
 app = create_app()
 
 if __name__ == "__main__":
-    config = load_config()
+    config = load_config(DEFAULT_CONFIG_PATH)
     server_config = config["server"]
     http_threads = int(
         os.getenv(

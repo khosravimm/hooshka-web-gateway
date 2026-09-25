@@ -12,7 +12,7 @@ def test_release_version_sources_are_synchronized():
     version = (ROOT / "VERSION").read_text(encoding="utf-8-sig").strip()
     manifest = _json("MANIFEST.json")
     ui = _json("control_panel_ui/UI_VERSION.json")
-    assert version.startswith("2.1.0-rc.2")
+    assert version.startswith("2.1.0-rc.3")
     assert manifest["version"] == version
     assert ui["version"] == version
     assert manifest["build_date"] == "2026-09-25"

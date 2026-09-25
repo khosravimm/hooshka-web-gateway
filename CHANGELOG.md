@@ -1,3 +1,9 @@
+## 2.1.0-rc.3 - 2026-09-25 - Production Deployment Profile
+- Added one explicit `HWG_CONFIG_PATH` deployment boundary across gateway, Control Plane, runtime inventory and Windows service manager.
+- Added `config.production.yaml` with port 5000 and `HooshkaWebGateway` identity while preserving the existing Dev 5080 profile.
+- Production restart task identities are separate from Dev and fail closed until installed.
+- Provider/browser contracts are unchanged; the authenticated shared CDP runtime is reused intentionally for controlled cutover.
+
 ## 2.1.0-rc.2 - 2026-09-25 - Release Candidate Closure
 - Supersedes RC1 before production cutover.
 - RC1 was rejected after GitHub verification detected accidental UTF-8 documentation mojibake in `HOOSHKA_WEB_GATEWAY_START_HERE.md`.

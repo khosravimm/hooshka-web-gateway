@@ -70,3 +70,20 @@ def test_shared_runtime_still_rejects_same_port_different_profile(tmp_path):
         assert 'Duplicate CDP port' in str(exc)
     else:
         raise AssertionError('same-port different-profile conflict was accepted')
+
+
+def test_production_config_isolated_from_dev_http_and_service_identity():
+    prod = yaml.safe_load((ROOT / "config.production.yaml").read_text(encoding="utf-8-sig"))
+    dev = yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8-sig"))
+    assert dev["server"]["port"] == 5080
+    assert prod["server"]["port"] == 5000
+    assert prod["runtime_orchestration"]["gateway_service"] == "HooshkaWebGateway"
+    assert prod["runtime_orchestration"]["gateway_health_url"] == "http://127.0.0.1:5000/health"
+    assert prod["runtime_orchestration"]["restart_gateway_task"] != dev["runtime_orchestration"]["restart_gateway_task"]
+    assert prod["runtime_orchestration"]["restart_all_task"] != dev["runtime_orchestration"]["restart_all_task"]
+
+
+def test_production_runtime_inventory_preserves_provider_runtime_contract():
+    dev = load_runtime_configuration(ROOT / "config.yaml")
+    prod = load_runtime_configuration(ROOT / "config.production.yaml")
+    assert [(x["id"], x["cdp_url"], x["enabled"]) for x in prod["providers"]] == [(x["id"], x["cdp_url"], x["enabled"]) for x in dev["providers"]]

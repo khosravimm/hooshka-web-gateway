@@ -1,6 +1,6 @@
 {
   "name": "hwg-control-plane-ui",
-  "version": "2.1.0-rc.2",
+  "version": "2.1.0-rc.3",
   "released": "2026-09-25",
   "direction": "rtl",
   "language": "fa",
@@ -78,8 +78,14 @@
       "date": "2026-09-25",
       "class": "RELEASE_CANDIDATE",
       "notes": "RC2 supersedes RC1 after documentation encoding defect was detected during GitHub verification; no production cutover occurred."
+    },
+    {
+      "version": "2.1.0-rc.3",
+      "date": "2026-09-25",
+      "class": "RELEASE_CANDIDATE",
+      "notes": "RC3 adds explicit production deployment-profile isolation for port 5000 and Windows service configuration."
     }
   ],
-  "build": "20260925-rc2",
+  "build": "20260925-rc3",
   "last_updated": "2026-09-25"
 }

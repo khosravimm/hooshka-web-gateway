@@ -61,7 +61,11 @@ control_panel_bp = Blueprint('control_panel', __name__, url_prefix='/panel')
 
 logger = logging.getLogger(__name__)
 
-CONFIG_PATH = str(Path(__file__).parent / "config.yaml")
+_CONFIG_ENV = os.getenv("HWG_CONFIG_PATH", "config.yaml")
+_CONFIG_CANDIDATE = Path(_CONFIG_ENV)
+if not _CONFIG_CANDIDATE.is_absolute():
+    _CONFIG_CANDIDATE = Path(__file__).parent / _CONFIG_CANDIDATE
+CONFIG_PATH = str(_CONFIG_CANDIDATE.resolve())
 
 
 def _write_restart_state(state_path, request_id, state, success, reason, errors=None):
@@ -1862,7 +1866,7 @@ def _get_initial_auth():
 
 def _get_initial_config():
     try:
-        config_path = "config.yaml"
+        config_path = CONFIG_PATH
         if os.path.exists(config_path):
             with open(config_path, 'r', encoding='utf-8') as f:
                 return f.read()
@@ -2606,7 +2610,7 @@ def api_config_summary():
 
 @control_panel_bp.route('/api/config', methods=['GET', 'PUT'])
 def api_config():
-    config_path = "config.yaml"
+    config_path = CONFIG_PATH
     if request.method == 'GET':
         content = ""
         if os.path.exists(config_path):

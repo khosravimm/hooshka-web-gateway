@@ -3,7 +3,8 @@ import yaml
 from typing import Any, Dict, Optional
 
 
-def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
+def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
+    config_path = config_path or os.getenv("HWG_CONFIG_PATH", "config.yaml")
     if not os.path.exists(config_path):
         raise FileNotFoundError(
             f"config file not found: {config_path}. "

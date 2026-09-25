@@ -6,7 +6,8 @@ param(
   [ValidateSet('install','uninstall','start','stop','restart','status','logs','config','runtime-start','runtime-restart','runtime-repair','runtime-status')]
   [string]$Command,
   [Parameter(Position=1)]
-  [string]$Provider='all'
+  [string]$Provider='all',
+  [string]$ConfigPath='config.yaml'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -15,11 +16,15 @@ $PythonExe = Join-Path $ScriptDir '.venv\Scripts\python.exe'
 $MainScript = Join-Path $ScriptDir 'main.py'
 $Nssm = 'D:\nssm-2.24-103-gdee49fc\win64\nssm.exe'
 $EnvFile = Join-Path $ScriptDir '.env'
+$ConfigFullPath = if ([System.IO.Path]::IsPathRooted($ConfigPath)) { $ConfigPath } else { Join-Path $ScriptDir $ConfigPath }
+$ConfigFullPath = [System.IO.Path]::GetFullPath($ConfigFullPath)
+$env:HWG_CONFIG_PATH = $ConfigFullPath
 
 function Assert-Prereqs {
   if (-not (Test-Path $Nssm)) { throw "NSSM not found: $Nssm" }
   if (-not (Test-Path $PythonExe)) { throw "Python venv not found: $PythonExe" }
   if (-not (Test-Path $MainScript)) { throw "main.py not found: $MainScript" }
+  if (-not (Test-Path $ConfigFullPath)) { throw "Config not found: $ConfigFullPath" }
 }
 
 function Get-RuntimeConfiguration {
@@ -111,13 +116,13 @@ switch ($Command) {
     & $Nssm set $ServiceName Start SERVICE_AUTO_START | Out-Null
     & $Nssm set $ServiceName AppStdout (Join-Path $ScriptDir 'logs\nssm-out.log') | Out-Null
     & $Nssm set $ServiceName AppStderr (Join-Path $ScriptDir 'logs\nssm-error.log') | Out-Null
-    & $Nssm set $ServiceName AppEnvironmentExtra "BRIDGE_API_KEY=$($runtimeCredential.ApiKey)" "BRIDGE_API_IDENTITY=$($runtimeCredential.Identity)" | Out-Null
+    & $Nssm set $ServiceName AppEnvironmentExtra "BRIDGE_API_KEY=$($runtimeCredential.ApiKey)" "BRIDGE_API_IDENTITY=$($runtimeCredential.Identity)" "HWG_CONFIG_PATH=$ConfigFullPath" | Out-Null
     Write-Output "INSTALLED $ServiceName"
     Write-Output "RUNTIME_CREDENTIAL_READY source=.env+nssm_environment"
   }
   'start' {
     $runtimeCredential = Ensure-RuntimeCredential
-    & $Nssm set $ServiceName AppEnvironmentExtra "BRIDGE_API_KEY=$($runtimeCredential.ApiKey)" "BRIDGE_API_IDENTITY=$($runtimeCredential.Identity)" | Out-Null
+    & $Nssm set $ServiceName AppEnvironmentExtra "BRIDGE_API_KEY=$($runtimeCredential.ApiKey)" "BRIDGE_API_IDENTITY=$($runtimeCredential.Identity)" "HWG_CONFIG_PATH=$ConfigFullPath" | Out-Null
     Start-Service $ServiceName
     Get-Service $ServiceName
   }
@@ -128,7 +133,7 @@ switch ($Command) {
   }
   'restart' {
     $runtimeCredential = Ensure-RuntimeCredential
-    & $Nssm set $ServiceName AppEnvironmentExtra "BRIDGE_API_KEY=$($runtimeCredential.ApiKey)" "BRIDGE_API_IDENTITY=$($runtimeCredential.Identity)" | Out-Null
+    & $Nssm set $ServiceName AppEnvironmentExtra "BRIDGE_API_KEY=$($runtimeCredential.ApiKey)" "BRIDGE_API_IDENTITY=$($runtimeCredential.Identity)" "HWG_CONFIG_PATH=$ConfigFullPath" | Out-Null
     # Gateway restart deliberately preserves browser/CDP runtimes and login state.
     Restart-Service $ServiceName -Force
     Start-Sleep -Seconds 1
@@ -175,6 +180,7 @@ switch ($Command) {
       directory=$ScriptDir
       nssm=$Nssm
       runtime_credential_source='.env+nssm_environment'
+      config_path=$ConfigFullPath
       gateway_health_url=$GatewayHealthUrl
       desktop_agent_url=$AgentBase
       providers=$RuntimeProviders

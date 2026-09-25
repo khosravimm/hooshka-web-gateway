@@ -303,10 +303,10 @@ Stop testing immediately on:
 
 ### Current release-candidate status - 2026-09-25
 
-- Release candidate: `2.1.0-rc.2`
+- Release candidate: `2.1.0-rc.3`
 - Supersedes `v2.1.0-rc.1`, which was rejected before production cutover due to documentation encoding corruption detected during GitHub verification.
-- Evidence: `docs/evidence/HWG_2.1.0_RC2_RELEASE_CLOSURE_20260925.md`
-- Local release gates must be re-run before acceptance.
+- Evidence: `docs/evidence/HWG_2.1.0_RC3_PRE_CUTOVER_20260925.md`
+- Pre-cutover gates: 612/612 tests PASS; secret scan PASS; dependency audit PASS; production deployment profile validated.
 - Production cutover on port 5000 has **not** been executed and requires explicit owner authorization.
 - E3 reliability is not claimed.
 
