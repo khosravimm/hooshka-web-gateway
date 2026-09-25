@@ -25,7 +25,7 @@ async def visible_page_state(page, file_name: str | None = None) -> dict[str, An
           text:(e.innerText||e.textContent||'').trim().slice(0,160), disabled:!!e.disabled,
           aria_disabled:e.getAttribute('aria-disabled'), cls:String(e.className||'').slice(0,180)
         }));
-      const composers=[...document.querySelectorAll('textarea,[contenteditable="true"]')].filter(visible).map(e=>{const r=e.getBoundingClientRect(); return {tag:e.tagName,id:e.id||'',label:e.getAttribute('aria-label')||'',placeholder:e.getAttribute('placeholder')||'',disabled:!!e.disabled||e.getAttribute('aria-disabled')==='true',rect:{x:r.x,y:r.y,w:r.width,h:r.height}};}).filter(x=>x.rect.w>=160&&x.rect.h>=24).slice(0,12);
+      const composers=[...document.querySelectorAll('textarea,[contenteditable="true"]')].filter(visible).map(e=>{const r=e.getBoundingClientRect(); return {tag:e.tagName,id:e.id||'',label:e.getAttribute('aria-label')||'',placeholder:e.getAttribute('placeholder')||'',disabled:!!e.disabled||e.getAttribute('aria-disabled')==='true',rect:{x:r.x,y:r.y,w:r.width,h:r.height}};}).filter(x=>x.rect.w>=160&&x.rect.h>=18).slice(0,12);
       const media=[...document.querySelectorAll('img,[role="img"]')].filter(visible).map(e=>{const r=e.getBoundingClientRect(); return {tag:e.tagName,alt:e.getAttribute('alt')||'',label:e.getAttribute('aria-label')||'',title:e.getAttribute('title')||'',src:(e.getAttribute('src')||'').slice(0,220),rect:{x:r.x,y:r.y,w:r.width,h:r.height}};}).filter(x=>x.rect.w>=24&&x.rect.h>=24).slice(0,40);
       const inViewport=e=>{const r=e.getBoundingClientRect();return r.bottom>0&&r.right>0&&r.top<innerHeight&&r.left<innerWidth};
       const loading=[...document.querySelectorAll('[aria-busy="true"],.loading,.spinner,[class*="loading"],[class*="spinner"]')].filter(e=>visible(e)&&inViewport(e)).slice(0,20).map(e=>({tag:e.tagName,text:(e.innerText||e.textContent||'').trim().slice(0,160),cls:String(e.className||'').slice(0,180)}));
@@ -91,14 +91,17 @@ def classify_user_view_state(state: dict[str, Any]) -> dict[str, Any]:
     control_text = str(state.get("visible_control_text") or "")
     text = "\n".join(x for x in (body_text, control_text) if x)
     strong_login_surface = re.search(
-        r"continue with google|continue with apple|sign in with email|log in with email|don\'t have an account|sign up",
+        r"continue with google|continue with apple|sign in with email|log in with email|don\'t have an account",
         text, re.I,
     )
     login_control = bool(re.search(r"(?:^|\n|\s)(?:log ?in|sign ?in)(?:$|\n|\s)", control_text, re.I))
+    signup_control = bool(re.search(r"(?:^|\n|\s)sign ?up(?:$|\n|\s)", control_text, re.I))
     if strong_login_surface:
         return {"state":"login_required","evidence":strong_login_surface.group(0)[:160]}
-    if login_control and state.get("composer_present"):
-        return {"state":"auth_ambiguous","evidence":"visible login control with interactive composer"}
+    if (login_control or signup_control) and state.get("composer_present"):
+        return {"state":"auth_ambiguous","evidence":"visible login/signup control with interactive composer"}
+    if signup_control:
+        return {"state":"login_required","evidence":"Sign up"}
     for name, pattern in USER_VIEW_PATTERNS:
         match = pattern.search(text)
         if match:

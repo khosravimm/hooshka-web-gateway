@@ -30,11 +30,27 @@ async def _find_page(context, target_id: str = "", url: str = ""):
     wanted = _origin(url)
     fallback = None
     for page in reversed(context.pages):
+        if target_id:
+            if await _target_id(context, page) == target_id:
+                return page
+            continue
         if wanted and page.url.startswith(wanted) and fallback is None:
             fallback = page
-        if target_id and await _target_id(context, page) == target_id:
-            return page
     return fallback
+
+
+async def _find_owned_page(context, cdp_url: str, url: str):
+    wanted_origin = _origin(url)
+    for owned_cdp, owned_target_id in list(_OWNED_TARGETS):
+        if owned_cdp != cdp_url:
+            continue
+        existing = await _find_page(context, target_id=owned_target_id)
+        if existing is None:
+            _OWNED_TARGETS.discard((owned_cdp, owned_target_id))
+            continue
+        if wanted_origin and _origin(existing.url) == wanted_origin:
+            return existing, owned_target_id
+    return None, ""
 
 
 async def open_target(cdp_url: str, url: str) -> dict[str, Any]:
@@ -43,6 +59,15 @@ async def open_target(cdp_url: str, url: str) -> dict[str, Any]:
     try:
         browser = await pw.chromium.connect_over_cdp(cdp_url)
         context = browser.contexts[0]
+        existing, owned_target_id = await _find_owned_page(context, cdp_url, url)
+        if existing is not None:
+            return {
+                "target_id": owned_target_id,
+                "url": existing.url,
+                "title": await existing.title(),
+                "owned_by_wizard": True,
+                "reused_existing": True,
+            }
         # Wizard-owned Provider targets must be created in background. context.new_page()
         # activates the new tab in headed Chrome and steals focus from the Wizard.
         browser_cdp = await browser.new_browser_cdp_session()

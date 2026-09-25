@@ -1,6 +1,6 @@
 import json
 
-from core.tool_protocol import parse_tool_calls, serialize_messages, strong_auto_tool_signal
+from core.tool_protocol import parse_tool_calls, parse_tool_envelope, serialize_messages, strong_auto_tool_signal
 
 
 TOOLS = [{
@@ -161,3 +161,10 @@ I should not invent the tool result."""
     args = json.loads(calls[0]["function"]["arguments"])
     assert args["filePath"] == "D:\\Code\\hooshka-web-gateway\\.runtime\\kilogate_qwen_patch_probe.txt"
     assert "I should not invent" in content
+
+def test_parse_compact_key_value_arguments_normalizes_to_json():
+    text='{"tool_calls":[{"name":"hwg_tool_capability_probe","arguments":"marker=HWG_TOOL_PROBE_123456"}]}'
+    content,calls,valid=parse_tool_envelope(text)
+    assert valid is True
+    assert calls and calls[0]['function']['name']=='hwg_tool_capability_probe'
+    assert json.loads(calls[0]['function']['arguments'])=={'marker':'HWG_TOOL_PROBE_123456'}

@@ -30,3 +30,15 @@ async def test_resolve_submit_prefers_recorded_enabled_transition():
     loc, selector=await provider._resolve_submit(_Page(),_Composer(),before)
     assert selector=="#send"
     assert loc.selector=="#send"
+
+@pytest.mark.asyncio
+async def test_resolve_submit_accepts_unlabeled_trailing_icon_action():
+    candidate={"transport":{"submit":{}}}
+    provider=create_discovered_web_provider("future-web",cdp_url="http://127.0.0.1:9330",home_url="https://future.example",adapter_candidate=candidate)
+    before=[
+        {"selector":"#send","tag":"BUTTON","role":"","text":"","aria":"","title":"","disabled":False,"rect":{"x":1168,"y":420,"w":32,"h":32}},
+        {"selector":"#model","tag":"BUTTON","role":"","text":"Auto","aria":"","title":"","disabled":False,"rect":{"x":1080,"y":420,"w":90,"h":32}},
+    ]
+    loc, selector=await provider._resolve_submit(_Page(),_Composer(),before)
+    assert selector=="#send"
+    assert loc.selector=="#send"

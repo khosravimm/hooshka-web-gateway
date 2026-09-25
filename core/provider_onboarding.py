@@ -532,6 +532,10 @@ def _stable_response_selector(response_surface: dict[str, Any]) -> tuple[str, li
 def generate_adapter_candidate(record: dict[str, Any]) -> dict[str, Any]:
     technical = record.get("technical_candidate") or {}
     qualification = record.get("submit_qualification") or {}
+    qualification_source = "active"
+    if qualification.get("status") != "E2_VERIFIED":
+        qualification = next((x for x in reversed(record.get("qualification_history") or []) if x.get("status") == "E2_VERIFIED"), {})
+        qualification_source = "qualification_history"
     response_surface = technical.get("response_surface") or qualification.get("response_surface") or {}
     if qualification.get("status") != "E2_VERIFIED":
         return {"status":"blocked","reason":"roundtrip_e2_missing"}
@@ -566,7 +570,7 @@ def generate_adapter_candidate(record: dict[str, Any]) -> dict[str, Any]:
         "upload_surface": technical.get("upload_surface") or {},
         "backend_hints": technical.get("backend_hints") or {},
         "unresolved_controls": technical.get("unresolved_controls") or [],
-        "evidence_refs": {"submit_marker":qualification.get("expected_marker"),"target_id":qualification.get("target_id"),"response_surface_marker":response_surface.get("marker")},
+        "evidence_refs": {"submit_marker":qualification.get("expected_marker"),"target_id":qualification.get("target_id"),"response_surface_marker":response_surface.get("marker"),"qualification_source":qualification_source},
         "next_required": "adapter_materialization_and_conformance",
     }
     record["adapter_candidate"] = adapter
@@ -644,7 +648,16 @@ async def qualify_submit_candidate(cdp_url: str, record: dict[str, Any], timeout
         except Exception:
             current_value = (await composer.inner_text()).strip()
         if current_value:
-            return {"status":"blocked","reason":"composer_not_empty","submitted":False}
+            text=str(current_value)
+            synthetic_leftover=text.startswith("Reply with prefix HWGQ") or "HWG_TOOL_PROBE_" in text
+            if synthetic_leftover:
+                try:
+                    await composer.fill("")
+                    current_value=""
+                except Exception:
+                    return {"status":"blocked","reason":"synthetic_composer_cleanup_failed","submitted":False}
+            else:
+                return {"status":"blocked","reason":"composer_not_empty","submitted":False,"preserved_user_content":True}
         from core.visual_discovery import visual_action_gate
         preflight = await visual_action_gate(page, "certification_probe")
         access_state = str((technical.get("access_semantics") or {}).get("state") or "UNKNOWN").upper()
@@ -1041,6 +1054,13 @@ def load_candidate(root: Path, candidate_id: str) -> dict[str, Any]:
 def persist_candidate(root: Path, record: dict[str, Any]) -> Path:
     path = candidate_path(root, str(record.get("candidate_id") or "candidate"))
     record["updated_at"] = datetime.now(timezone.utc).isoformat()
+    model_matrix=record.get("model_tool_qualifications") or {}
+    explicit_pass=any((q or {}).get("status")=="E2_VERIFIED" and (((q or {}).get("model_attribution") or {}).get("scope")=="model_specific") for q in model_matrix.values())
+    if explicit_pass:
+        tc=record.setdefault("technical_candidate",{})
+        tc["qualification_stage"]="CP-A"
+        tc["stage_state"]="PASSED"
+        tc["next_required"]="full_tool_protocol_qualification"
     path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
     return path
 
@@ -1067,6 +1087,7 @@ def save_candidate(root: Path, analysis: dict[str, Any], observation: dict[str, 
         "created_at": previous.get("created_at") or datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "state": "OBSERVED" if observation else "ANALYZED",
+        "mission_run_id": str(analysis.get("mission_run_id") or previous.get("mission_run_id") or ""),
         "analysis": analysis,
         "observation": observation,
         "technical_candidate": synthesize_technical_candidate(analysis, observation),
@@ -1074,8 +1095,12 @@ def save_candidate(root: Path, analysis: dict[str, Any], observation: dict[str, 
         "ai_assistance_history": list(previous.get("ai_assistance_history") or []),
         "ai_verification_history": list(previous.get("ai_verification_history") or []),
         "ai_blocker_diagnosis_history": list(previous.get("ai_blocker_diagnosis_history") or []),
-        "auto_instrumented_probe_attempts": int(previous.get("auto_instrumented_probe_attempts") or 0),
-        "auto_probe_authorization": previous.get("auto_probe_authorization") or {},
+        "model_capability_matrix": dict(previous.get("model_capability_matrix") or {}),
+        "model_tool_qualifications": dict(previous.get("model_tool_qualifications") or {}),
+        "preferred_tool_model": previous.get("preferred_tool_model"),
+        "preferred_tool_model": str(previous.get("preferred_tool_model") or ""),
+        "auto_instrumented_probe_attempts": int(previous.get("auto_instrumented_probe_attempts") or 0) if ((not str(previous.get("mission_run_id") or "") and not str(analysis.get("mission_run_id") or "")) or str(previous.get("mission_run_id") or "") == str(analysis.get("mission_run_id") or "")) else 0,
+        "auto_probe_authorization": (previous.get("auto_probe_authorization") or {}) if ((not str(previous.get("mission_run_id") or "") and not str(analysis.get("mission_run_id") or "")) or str(previous.get("mission_run_id") or "") == str(analysis.get("mission_run_id") or "")) else {},
     }
     # Preserve AI audit history across re-observation, but do not blindly reuse an
     # active diagnosis/verification against newly observed evidence.
@@ -1089,7 +1114,10 @@ def save_candidate(root: Path, analysis: dict[str, Any], observation: dict[str, 
         same_target = str(prior.get("target_id") or "") == str((observation or {}).get("target_id") or "")
         same_selector = str(prior.get("submit_selector") or "") in selectors
         nonretryable_commit = bool(prior.get("submitted")) and prior.get("retry_allowed") is False
-        if nonretryable_commit or (prior.get("status") == "E2_VERIFIED" and same_target and same_selector):
+        prev_mission = str(previous.get("mission_run_id") or "")
+        current_mission = str(record.get("mission_run_id") or "")
+        same_mission = (not prev_mission and not current_mission) or (bool(current_mission) and prev_mission == current_mission)
+        if same_mission and (nonretryable_commit or (prior.get("status") == "E2_VERIFIED" and same_target and same_selector)):
             apply_submit_qualification(record, prior)
     path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
     return {"candidate": record, "record": str(path)}

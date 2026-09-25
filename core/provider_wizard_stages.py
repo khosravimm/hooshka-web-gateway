@@ -6,7 +6,7 @@ MISSION = (
 )
 
 STAGES = [
-    {"id":"S1","name":"ACCESS_BOOTSTRAP","title":"دسترسی و ورود","exit":"Guest/Auth usable یا Human Gate واقعی"},
+    {"id":"S1","name":"ACCESS_BOOTSTRAP","title":"دسترسی و ورود","exit":"Session احراز‌شده با Evidence معتبر؛ Guest قابل قبول نیست"},
     {"id":"S2","name":"MODEL_ENTITLEMENT_DISCOVERY","title":"مدل‌ها و دسترسی حساب","exit":"حالت انتخاب، مدل جاری و inventory ثبت شود"},
     {"id":"S3","name":"BASELINE_CHAT","title":"چت پایه","exit":"Round-trip واقعی E2"},
     {"id":"S4","name":"BASIC_AGENT_TOOLS","title":"ابزارهای پایه","exit":"Tool call → اجرا → continuation"},
@@ -25,9 +25,11 @@ def infer_stage(observation: dict | None, technical: dict | None = None) -> dict
     observation=observation or {}; technical=technical or {}
     state=str((observation.get("classification") or {}).get("state") or "unknown")
     access=str((observation.get("access_semantics") or {}).get("state") or "UNKNOWN").upper()
-    if state in {"login_required","challenge"} or access=="LOGIN_REQUIRED":
+    if state in {"login_required","challenge"} or access in {"LOGIN_REQUIRED","USER_INTERACTION_REQUIRED"}:
         return {"stage_id":"S1","stage_state":"USER_GATE","next_required":"complete_access_gate"}
-    if state not in {"ready","auth_ambiguous"} or access not in {"ACCESS_AVAILABLE","AUTHENTICATED","UNKNOWN"}:
+    if access not in {"ACCESS_AVAILABLE","AUTHENTICATED"}:
+        return {"stage_id":"S1","stage_state":"USER_GATE","next_required":"authenticate_account_session"}
+    if state not in {"ready","auth_ambiguous"}:
         return {"stage_id":"S1","stage_state":"RUNNING","next_required":"establish_access"}
     model=(observation.get("deterministic_discovery") or {}).get("model_surface") or technical.get("model_surface") or {}
     if model.get("status") != "observed":

@@ -229,7 +229,13 @@ def _call(name: str, arguments) -> dict:
             name, parsed_arguments = _normalize_tool_name_and_args(name, parsed_arguments)
             args_str = json.dumps(parsed_arguments if parsed_arguments is not None else {}, ensure_ascii=False)
         except Exception:
-            args_str = arguments
+            compact = re.fullmatch(r"\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([^,;]+)\s*", arguments)
+            if compact:
+                parsed_arguments = {compact.group(1): compact.group(2).strip()}
+                name, parsed_arguments = _normalize_tool_name_and_args(name, parsed_arguments)
+                args_str = json.dumps(parsed_arguments, ensure_ascii=False)
+            else:
+                args_str = arguments
     else:
         args_str = json.dumps(arguments if arguments is not None else {}, ensure_ascii=False)
     return {

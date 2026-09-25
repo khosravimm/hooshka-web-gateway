@@ -697,7 +697,7 @@ function initNav() {
     }
   };
 
-  let providerWizard = { analysis:null, observation:null, candidate:null, runtimes:[], mission:null, liveTargetId:'', liveRuntimeKey:'', liveUrl:'', liveViewport:{width:0,height:0}, liveOwned:false };
+  let providerWizard = { analysis:null, observation:null, candidate:null, runtimes:[], mission:null, missionRunId:'', liveTargetId:'', liveRuntimeKey:'', liveUrl:'', liveViewport:{width:0,height:0}, liveOwned:false };
   let wizardActivityTimer=null, wizardActivityStarted=0;
   function formatWizardElapsed(ms){ const sec=Math.max(0,Math.floor(ms/1000)); return String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0'); }
   function setWizardControlsBusy(busy){
@@ -709,7 +709,14 @@ function initNav() {
   function endWizardActivity(){ if(wizardActivityTimer){clearInterval(wizardActivityTimer);wizardActivityTimer=null;} setWizardControlsBusy(false); const box=$('#pf-activity'); if(box)box.classList.add('wizard-hidden'); }
 
   let providerLiveTimer=null, providerLiveBusy=false, providerLiveObjectUrl='';
-  function stopProviderLiveView(){ if(providerLiveTimer){clearInterval(providerLiveTimer);providerLiveTimer=null;} providerLiveBusy=false; if(providerLiveObjectUrl){URL.revokeObjectURL(providerLiveObjectUrl);providerLiveObjectUrl='';} const pane=$('#pf-live-pane'); if(pane){pane.classList.add('wizard-hidden');pane.classList.remove('live-connected');} }
+  function clearProviderLiveFrame(message='در انتظار Target واقعی Provider...'){
+    if(providerLiveObjectUrl){URL.revokeObjectURL(providerLiveObjectUrl);providerLiveObjectUrl='';}
+    const img=$('#pf-live-image'); if(img){img.removeAttribute('src');}
+    const pane=$('#pf-live-pane'); if(pane)pane.classList.remove('live-connected');
+    providerWizard.liveViewport={width:0,height:0};
+    const status=$('#pf-live-status'); if(status)status.textContent=message;
+  }
+  function stopProviderLiveView(){ if(providerLiveTimer){clearInterval(providerLiveTimer);providerLiveTimer=null;} providerLiveBusy=false; clearProviderLiveFrame(); const pane=$('#pf-live-pane'); if(pane)pane.classList.add('wizard-hidden'); }
   async function pollProviderLiveView(){
     if(providerLiveBusy || !providerWizard.liveRuntimeKey || !providerWizard.liveUrl) return;
     providerLiveBusy=true;
@@ -721,10 +728,10 @@ function initNav() {
       const frame=$('#pf-live-frame'); if(frame && providerWizard.liveViewport.width>0 && providerWizard.liveViewport.height>0) frame.style.aspectRatio=`${providerWizard.liveViewport.width} / ${providerWizard.liveViewport.height}`;
       const blob=await resp.blob(); const next=URL.createObjectURL(blob); const img=$('#pf-live-image'); if(providerLiveObjectUrl)URL.revokeObjectURL(providerLiveObjectUrl); providerLiveObjectUrl=next; img.src=next;
       $('#pf-live-pane').classList.add('live-connected'); $('#pf-live-status').textContent='متصل به همان Target واقعی Provider · '+(providerWizard.liveTargetId||'target?');
-    } catch(e) { $('#pf-live-status').textContent='در انتظار Target واقعی Provider...'; }
+    } catch(e) { clearProviderLiveFrame('Target واقعی Provider در دسترس نیست؛ Explorer در حال resolve مجدد است...'); }
     finally { providerLiveBusy=false; }
   }
-  function startProviderLiveView(runtimeKey,url,targetId){ providerWizard.liveRuntimeKey=runtimeKey||''; providerWizard.liveUrl=url||''; if(targetId)providerWizard.liveTargetId=targetId; $('#pf-live-pane').classList.remove('wizard-hidden'); api('/provider-wizard/screencast/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runtime_key:providerWizard.liveRuntimeKey,target_id:providerWizard.liveTargetId,url:providerWizard.liveUrl})}).catch(()=>{}); pollProviderLiveView(); if(providerLiveTimer)clearInterval(providerLiveTimer); providerLiveTimer=setInterval(pollProviderLiveView,250); }
+  function startProviderLiveView(runtimeKey,url,targetId){ providerWizard.liveRuntimeKey=runtimeKey||''; providerWizard.liveUrl=url||''; providerWizard.liveTargetId=targetId||''; $('#pf-live-pane').classList.remove('wizard-hidden'); api('/provider-wizard/screencast/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runtime_key:providerWizard.liveRuntimeKey,target_id:providerWizard.liveTargetId,url:providerWizard.liveUrl})}).catch(()=>{}); pollProviderLiveView(); if(providerLiveTimer)clearInterval(providerLiveTimer); providerLiveTimer=setInterval(pollProviderLiveView,250); }
   async function cleanupWizardOwnedTarget(){
     const runtimeKey=providerWizard.liveRuntimeKey, targetId=providerWizard.liveTargetId, owned=providerWizard.liveOwned===true;
     stopProviderLiveView();
@@ -756,15 +763,18 @@ function initNav() {
     const idx=Math.max(0,stages.findIndex(x=>x.id===stageId));
     $('#pf-stage-track').innerHTML=stages.map((x,i)=>`<span class="wizard-stage-pill ${i<idx?'done':''} ${x.id===stageId?'active':''}" title="${esc(x.exit||'')}">${esc(x.id)} · ${esc(x.title||x.name)}</span>`).join('');
     const cur=stages.find(x=>x.id===stageId)||stages[0]||{};
-    $('#pf-stage-current').innerHTML=`<b>مرحله جاری: ${esc(cur.id||stageId)} — ${esc(cur.title||cur.name||'-')}</b><br><span class="hint">وضعیت: ${esc(stageState||'-')} · معیار خروج: ${esc(cur.exit||'-')}</span>`;
+    $('#pf-stage-current').innerHTML=`<b>مرحله جاری: ${esc(cur.id||stageId)} — ${esc(cur.title||cur.name||'-')}</b><br><span class="hint">وضعیت: ${esc(stageState||'-')} · معیار خروج: ${esc(cur.exit||'-')}</span>`; const resultStage=$('#pf-result-stage'); if(resultStage) resultStage.textContent=`${cur.id||stageId} · ${stageState||'-'}`;
   }
 
   async function loadProviderForm() {
     await cleanupWizardOwnedTarget();
     resetProviderWizard();
     try {
-      const [data,mission]=await Promise.all([api('/browser-runtimes'),api('/provider-wizard/mission')]); providerWizard.runtimes=data.browser_runtimes||[]; providerWizard.mission=mission; renderWizardMission('S1','NOT_STARTED');
-    } catch(e) { setStatus($('#provider-form-status'),'بارگذاری Runtime/Mission شکست خورد: '+e.message,'err'); }
+      const mission=await api('/provider-wizard/mission'); providerWizard.mission=mission; renderWizardMission('S1','NOT_STARTED');
+    } catch(e) { setStatus($('#provider-form-status'),'بارگذاری Mission Model شکست خورد: '+e.message,'err'); }
+    try {
+      const data=await api('/browser-runtimes'); providerWizard.runtimes=data.browser_runtimes||[];
+    } catch(e) { setStatus($('#provider-form-status'),'بارگذاری Runtimeها شکست خورد: '+e.message,'err'); }
   }
 
   function fillWizardRuntimeSelect(recommendedKey) {
@@ -1300,8 +1310,15 @@ function initNav() {
 
     $('#pf-analyze').addEventListener('click', async () => {
       const url=($('#pf-url').value||'').trim(); const status=$('#provider-form-status');
+      if (providerWizard.liveUrl) {
+        let originChanged=false;
+        try { originChanged=(new URL(providerWizard.liveUrl)).origin!==(new URL(url)).origin; } catch(e) { originChanged=true; }
+        if(originChanged){ await cleanupWizardOwnedTarget(); providerWizard.liveTargetId=''; providerWizard.liveOwned=false; providerWizard.liveViewport={width:0,height:0}; }
+      }
+      providerWizard.observation=null;
       if (!url) { setStatus(status,'آدرس وب‌چت را وارد کنید.','err'); return; }
-      beginWizardActivity('آماده‌سازی مأموریت — تحلیل URL','درخواست شما ثبت شد. HWG در حال تحلیل آدرس و انتخاب مسیر مناسب است؛ لطفاً منتظر بمانید.');
+      providerWizard.missionRunId=(globalThis.crypto&&crypto.randomUUID)?crypto.randomUUID():('mission-'+Date.now()+'-'+Math.random().toString(16).slice(2));
+      renderWizardMission('S1','RUNNING'); beginWizardActivity('آماده‌سازی مأموریت — تحلیل URL','درخواست شما ثبت شد. HWG در حال تحلیل آدرس و انتخاب مسیر مناسب است؛ لطفاً منتظر بمانید.');
       setStatus(status,'در حال تحلیل URL و انتخاب پیشنهاد مناسب...','working');
       try {
         const a=await api('/provider-wizard/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url})});
@@ -1363,7 +1380,7 @@ function initNav() {
           }
           if(vr.status==='FINAL_INCONCLUSIVE'){
             $('#pf-next-action').innerHTML='<b>پایان فنی کاوش</b><br>Explorer همه بررسی‌های read-only و یک آزمون تکمیلی instrumented را انجام داد، اما پاسخ قابل‌راستی‌آزمایی کافی به دست نیامد.<br><span class="hint">Provider فعال نمی‌شود و هیچ اقدام دیگری از کاربر لازم نیست. این نتیجه به‌عنوان E2_INCONCLUSIVE ثبت می‌شود.</span>';
-            setStatus(status,'کاوش کامل شد، اما Qualification قطعی به دست نیامد؛ Provider فعال نخواهد شد.','err');
+            renderWizardMission('S3','INCONCLUSIVE'); setStatus(status,'کاوش کامل شد، اما Qualification قطعی به دست نیامد؛ Provider فعال نخواهد شد.','err');
             return providerWizard.candidate;
           }
         }
@@ -1376,11 +1393,67 @@ function initNav() {
       }
     }
 
+    async function runBasicToolQualification(candidate,runtimeKey,status) {
+      const cid=(candidate||{}).candidate_id; if(!cid)return candidate;
+      renderWizardMission('S4','RUNNING');
+      updateWizardActivity('S4 — ابزارهای پایه','Explorer یک Tool Call مصنوعی و بی‌خطر را درخواست می‌کند، نتیجه را فقط در حافظه HWG تولید می‌کند و continuation مدل را بررسی می‌کند.');
+      setStatus(status,'S4 در حال اجرا است: Tool Call → اجرای in-memory → continuation.','working');
+      const r=await api('/provider-wizard/basic-tools/'+encodeURIComponent(cid),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runtime_key:runtimeKey})});
+      providerWizard.candidate=r.candidate||candidate; const q=r.qualification||{};
+      if(q.status==='E2_VERIFIED'){
+        renderWizardMission('CP-A','PASSED');
+        $('#pf-next-action').textContent='S4 با Evidence سطح E2 عبور کرد. Checkpoint A برقرار است: این وب‌چت برای Chat + Basic Tools آماده است. Explorer می‌تواند به S5 — پروتکل کامل ابزارها ادامه دهد.';
+        setStatus(status,'Checkpoint A برقرار شد: وب‌چت پایه Agent-capable با موفقیت تأیید شد.','ok');
+        return await runFullToolMatrix(providerWizard.candidate,runtimeKey,status);
+      } else {
+        renderWizardMission('S4',q.stage_state||'FAILED');
+        $('#pf-next-action').textContent='S4 کامل نشد. Explorer باید علت Tool Protocol/Continuation را از Evidence همین مرحله تشخیص دهد؛ تصمیم فنی از کاربر خواسته نمی‌شود.';
+        setStatus(status,'S4 کامل نشد: '+(q.reason||q.status||'unknown'),'err');
+      }
+      endWizardActivity();
+      return providerWizard.candidate;
+    }
+
+    async function runFullToolMatrix(candidate,runtimeKey,status) {
+      const cid=(candidate||{}).candidate_id; if(!cid)return candidate;
+      renderWizardMission('S5','RUNNING');
+      beginWizardActivity('S5 — پروتکل کامل ابزارها','Explorer ماتریس Tool Protocol را اجرا می‌کند: Unicode، nested/array، multi-call و error continuation.');
+      setStatus(status,'S5 در حال اجرای Tool Protocol Matrix است.','working');
+      const pinnedModel=(candidate||{}).preferred_tool_model||Object.entries((candidate||{}).model_tool_qualifications||{}).find(([name,q])=>q?.status==='E2_VERIFIED'&&q?.model_attribution?.scope==='model_specific')?.[0]||null;
+      const r=await api('/provider-wizard/tool-matrix/'+encodeURIComponent(cid),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runtime_key:runtimeKey,model_name:pinnedModel})});
+      providerWizard.candidate=r.candidate||candidate; const q=r.qualification||{};
+      if(q.status==='E2_VERIFIED'){
+        renderWizardMission('S6','READY_TO_RUN');
+        $('#pf-next-action').textContent='S5 با '+q.passed_cases+'/'+q.total_cases+' آزمون E2 عبور کرد. Explorer آماده ورود به S6 — قابلیت‌های توسعه‌یافته است.';
+        setStatus(status,'S5 PASS: Tool Protocol Matrix کامل تأیید شد.','ok');
+      } else {
+        renderWizardMission('S5',q.stage_state||'PARTIAL');
+        $('#pf-next-action').textContent='S5 به‌صورت '+(q.stage_state||'PARTIAL')+' ثبت شد؛ '+(q.passed_cases||0)+' از '+(q.total_cases||4)+' مورد پاس شده است. Explorer باید Evidence همین matrix را تحلیل کند.';
+        setStatus(status,'S5 کامل نشد: '+(q.reason||q.status||'partial'),'err');
+      }
+      endWizardActivity(); return providerWizard.candidate;
+    }
+
     async function autoQualifyWizardCandidate(candidate, runtimeKey, status) {
       const tc=(candidate||{}).technical_candidate||{};
       const cid=(candidate||{}).candidate_id;
-      if (tc.workflow_state==='ROUNDTRIP_QUALIFIED') { setStatus(status,'Evidence E2 رفت‌وبرگشت معتبر است؛ آزمون تکرار نمی‌شود.','ok'); return candidate; }
-      if (tc.workflow_state==='QUALIFICATION_INCONCLUSIVE_FINAL') {
+      const toolMatrix=(candidate||{}).model_tool_qualifications||{};
+      const explicitPass=Object.entries(toolMatrix).find(([name,q])=>q?.status==='E2_VERIFIED' && q?.model_attribution?.scope==='model_specific');
+      if(explicitPass){
+        renderWizardMission('CP-A','PASSED');
+        const toolModel=(candidate||{}).preferred_tool_model||explicitPass[0];
+        $('#pf-next-action').textContent='Checkpoint A برقرار است. مدل صریح Tool-capable: '+toolModel+'. Auto یک Routing Policy است و نتیجه Tools به آن تعمیم داده نمی‌شود. مرحله بعد S5 باید روی مدل صریح انجام شود.';
+        setStatus(status,'CP-A PASS — Chat + Basic Tools روی '+toolModel+' با E2 تأیید شده است.','ok');
+        const priorS5=(candidate||{}).tool_protocol_matrix||{};
+        if(priorS5.status==='E2_VERIFIED' && priorS5?.model_attribution?.current_label===toolModel){
+          renderWizardMission('S6','READY_TO_RUN');
+          setStatus(status,'S5 قبلاً روی '+toolModel+' با E2 تأیید شده است؛ آماده ورود به S6.','ok');
+          return candidate;
+        }
+        return await runFullToolMatrix(candidate,runtimeKey,status);
+      }
+      if (tc.workflow_state==='ROUNDTRIP_QUALIFIED') { return await runBasicToolQualification(candidate,runtimeKey,status); }
+      if (tc.workflow_state==='QUALIFICATION_INCONCLUSIVE_FINAL') { renderWizardMission('S3','INCONCLUSIVE');
         $('#pf-next-action').innerHTML='<b>پایان فنی کاوش</b><br>Qualification قطعی به دست نیامد. Provider فعال نمی‌شود و اقدام دیگری از شما لازم نیست.<br><span class="hint">نتیجه: E2_INCONCLUSIVE</span>';
         setStatus(status,'کاوش کامل شده است؛ نتیجه فنی نامعین و غیرقابل‌تأیید است.','err'); return candidate;
       }
@@ -1434,8 +1507,10 @@ function initNav() {
         providerWizard.candidate=q.candidate||candidate;
         const qr=q.qualification||{}; const nt=(providerWizard.candidate||{}).technical_candidate||{};
         if (qr.status==='E2_VERIFIED') {
-          $('#pf-next-action').textContent='کاوشگر مسیر ارسال و دریافت پاسخ را با Evidence سطح E2 تأیید کرد. مرحله بعد ساخت Adapter Candidate است و فعلاً اقدامی از شما لازم نیست.';
-          setStatus(status,qr.reused_evidence?'Evidence معتبر قبلی reuse شد؛ آزمون تکرار نشد.':'آزمون رفت‌وبرگشت E2 با موفقیت تأیید شد.','ok');
+          renderWizardMission('S4','READY_TO_RUN');
+          $('#pf-next-action').textContent='S3 با Evidence سطح E2 عبور کرد. مرحله بعد S4 — آزمون ابزارهای پایه است و Explorer آن را خودش ادامه می‌دهد.';
+          setStatus(status,qr.reused_evidence?'Evidence معتبر همین مأموریت reuse شد؛ ورود به S4.':'آزمون رفت‌وبرگشت E2 با موفقیت تأیید شد؛ ورود به S4.','ok');
+          return await runBasicToolQualification(providerWizard.candidate,runtimeKey,status);
         } else if (qr.status==='E2_FAILED_AFTER_COMMIT' || qr.retry_allowed===false) {
           $('#pf-next-action').textContent='Probe commit شده ولی پاسخ قطعی تأیید نشده است. resend قفل می‌ماند و Explorer اکنون ابتدا diagnosis قطعی و سپس در صورت نیاز AI-assisted diagnosis را اجرا می‌کند.';
           setStatus(status,'Qualification پس از commit کامل نشد؛ ورود به diagnosis بدون resend.','working');
@@ -1443,6 +1518,10 @@ function initNav() {
         } else if (qr.status==='E2_PRECOMMIT_TRANSITION') {
           $('#pf-next-action').textContent='پیش از commit شدن پیام، صفحه به وضعیت دیگری منتقل شد. هیچ پیام آزمایشی قطعی ارسال نشده است؛ Explorer باید وضعیت جدید صفحه را دوباره به‌صورت تصویری مشاهده کند.';
           setStatus(status,'تغییر وضعیت صفحه پیش از ارسال تشخیص داده شد؛ نیاز به مشاهده مجدد دارد.','working');
+        } else if (qr.reason==='provider_visual_state' && (qr.classification||{}).state==='quota_limited') {
+          renderWizardMission('S3','BLOCKED');
+          $('#pf-next-action').textContent='S3 به علت محدودیت سهمیه همین Session قابل ادامه نیست. این یک تصمیم فنی کاربر نیست؛ Explorer نتیجه را به‌عنوان BLOCKED_BY_QUOTA ثبت می‌کند و Provider فعال نمی‌شود.';
+          setStatus(status,'S3 متوقف شد: سهمیه فعلی Provider اجازه آزمون پایه را نمی‌دهد.','err');
         } else {
           $('#pf-next-action').textContent='آزمون رفتاری هنوز تأیید نشده است. Evidence ثبت شده و ادامه تشخیص بر عهده کاوشگر است؛ فعلاً اقدامی از شما لازم نیست.';
           setStatus(status,'کاوشگر برای ادامه Qualification به Evidence بیشتری نیاز دارد.','working');
@@ -1463,22 +1542,59 @@ function initNav() {
       setStatus(status,'نمای زنده Provider در سمت چپ باز می‌شود. در صورت نیاز می‌توانید همان‌جا با صفحه تعامل کنید.','working');
       $('#pf-observe').disabled=true; $('#pf-reobserve').disabled=true;
       try {
-        let preferred=(providerWizard.observation||{}).target_id||providerWizard.liveTargetId||null;
+        const previousTarget=providerWizard.liveTargetId||'';
+        let preferred=null;
         $('#pf-live-pane').classList.remove('wizard-hidden');
         $('#pf-live-pane').classList.remove('live-connected');
-        $('#pf-live-status').textContent=preferred?'در حال اتصال به Target موجود...':'در حال ساخت Target واقعی Provider...';
-        if(!preferred){
-          const opened=await api('/provider-wizard/open-target',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:a.url,runtime_key:runtimeKey})});
-          preferred=opened.target_id||null; providerWizard.liveTargetId=preferred||''; providerWizard.liveOwned=opened.owned_by_wizard===true;
+        $('#pf-live-status').textContent='در حال resolve کردن Target واقعی Provider...';
+        const opened=await api('/provider-wizard/open-target',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:a.url,runtime_key:runtimeKey})});
+        preferred=opened.target_id||null;
+        if(previousTarget && previousTarget!==preferred){
+          try { await api('/provider-wizard/screencast/stop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runtime_key:runtimeKey,target_id:previousTarget})}); } catch(e) {}
+          clearProviderLiveFrame();
         }
+        providerWizard.liveTargetId=preferred||''; providerWizard.liveOwned=opened.owned_by_wizard===true;
         startProviderLiveView(runtimeKey,a.url,preferred);
-        const r=await api('/provider-wizard/observe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:a.url,runtime_key:runtimeKey,preferred_target_id:preferred})});
-        providerWizard.observation=r.observation; providerWizard.candidate=r.candidate;
+        renderWizardMission('S1','RUNNING');
+        updateWizardActivity('S1 — Access Bootstrap','Explorer وضعیت واقعی صفحه، Guest/Auth/Login/CAPTCHA و قابلیت دسترسی همین Session را بررسی می‌کند.');
+        const s1=await api('/provider-wizard/access-bootstrap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runtime_key:runtimeKey,target_id:preferred,candidate_id:a.suggested_provider_id})});
+        providerWizard.accessStage=s1; renderWizardMission('S1',s1.stage_state||'RUNNING');
+        if((s1.stage_state||'')!=='PASSED'){
+          const cls=s1.classification||{};
+          $('#pf-observation-card').classList.remove('wizard-hidden');
+          $('#pf-observation').innerHTML=`<div class="kv"><span>Stage</span><b id="pf-result-stage">S1 · ${esc(s1.stage_state||'-')}</b><span>وضعیت قابل مشاهده</span><b>${esc(cls.state||'unknown')}</b><span>شاهد</span><b>${esc(cls.evidence||'-')}</b></div>`;
+          if(s1.reason==='auth_provider_transport_failure' || (s1.auth_failure||{}).kind==='AUTH_PROVIDER_BROKEN'){
+            renderWizardMission('S1','BLOCKED');
+            $('#pf-next-action').textContent='ورود کاربر تلاش شده اما زیرسامانه احراز هویت Provider در لایه شبکه/Identity شکست خورده است. این یک Gate انسانی نیست و تکرار Login از کاربر خواسته نمی‌شود؛ S1 تا رفع Auth Provider متوقف می‌ماند.';
+            setStatus(status,'S1 BLOCKED — AUTH_PROVIDER_BROKEN: درخواست‌های احراز هویت Provider بدون پاسخ معتبر شبکه شکست خورده‌اند.','err');
+          } else {
+            $('#pf-next-action').textContent=(s1.stage_state==='USER_GATE')?'برای ادامه فقط Gate انسانی واقعیِ نشان‌داده‌شده در وب‌چت را کامل کنید.':'S1 هنوز به معیار خروج نرسیده است؛ Explorer بدون عبور از Access Bootstrap وارد مراحل بعدی نمی‌شود.';
+            setStatus(status,'S1 کامل نشده است؛ ادامه Stageها متوقف شد.','err');
+          }
+          return;
+        }
+        renderWizardMission('S2','RUNNING');
+        updateWizardActivity('S2 — Model & Entitlement Discovery','Explorer حالت Auto، مدل جاری و inventory مدل‌های visible این Account/Session را بدون انتخاب مدل استخراج می‌کند.');
+        const s2=await api('/provider-wizard/model-discovery',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runtime_key:runtimeKey,target_id:preferred})});
+        providerWizard.modelSurface=s2.model_surface||{}; renderWizardMission('S2',s2.stage_state||'INCOMPLETE');
+        if((s2.stage_state||'')!=='PASSED'){
+          $('#pf-observation-card').classList.remove('wizard-hidden');
+          $('#pf-next-action').textContent='S2 کامل نشد؛ Model/Entitlement inventory باید قبل از Baseline Chat تکمیل شود.';
+          setStatus(status,'S2 مدل‌ها کامل نشد؛ S3 شروع نمی‌شود.','err'); return;
+        }
+        renderWizardMission('S3','READY_TO_RUN');
+        updateWizardActivity('S3 — Baseline Chat','Access و Model Discovery عبور کرده‌اند. Explorer اکنون یک round-trip پایه و قابل‌راستی‌آزمایی را آماده می‌کند.');
+        const r=await api('/provider-wizard/observe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:a.url,runtime_key:runtimeKey,preferred_target_id:preferred,mission_run_id:providerWizard.missionRunId})});
+        providerWizard.observation=r.observation; providerWizard.candidate=r.candidate; const stageMeta=(r.candidate||{}).technical_candidate||{}; renderWizardMission(stageMeta.qualification_stage||'S1',stageMeta.stage_state||'RUNNING');
         const o=r.observation||{}, c=o.classification||{}, m=o.interaction_summary||{}, tc=(r.candidate||{}).technical_candidate||{}, ms=tc.model_surface||{};
         renderWizardMission(tc.qualification_stage||'S1',tc.stage_state||'RUNNING');
         const models=ms.models||[], premium=models.filter(x=>x.requires_upgrade), accessible=models.filter(x=>!x.requires_upgrade);
-        const modelHtml=ms.status==='observed' ? `<div class="wizard-model-list"><div class="model-row"><span>حالت انتخاب</span><b>${esc(ms.selection_mode||'-')}</b></div><div class="model-row"><span>مدل/برچسب جاری</span><b>${esc(ms.current_label||'-')}</b></div><div class="model-row"><span>مدل‌های visible</span><b>${models.length}</b></div><div class="model-row"><span>بدون برچسب Upgrade</span><b>${accessible.length}</b></div><div class="model-row"><span>Premium / Upgrade</span><b>${premium.length}</b></div></div>` : `<div class="hint">Model Surface هنوز کامل کشف نشده است.</div>`;
-        $('#pf-observation').innerHTML=`<div class="kv"><span>Stage</span><b>${esc(tc.qualification_stage||'-')} · ${esc(tc.stage_state||'-')}</b><span>وضعیت قابل مشاهده</span><b>${esc(c.state||'unknown')}</b><span>شاهد</span><b>${esc(c.evidence||'-')}</b><span>عنوان صفحه</span><b>${esc(o.title||'-')}</b><span>کنترل‌های قابل مشاهده</span><b>${m.controls??'-'}</b><span>ورودی فایل</span><b>${m.file_inputs??'-'}</b><span>ورودی پیام/متن</span><b>${m.editable_inputs??'-'}</b></div><div class="dependency-note mt"><b>S2 — Model & Entitlement Discovery</b>${modelHtml}</div>`;
+        const selectionKind=ms.selection_kind||((String(ms.selection_mode||'').toLowerCase()==='auto')?'routing_policy':'explicit_model');
+        const selectionLabel=selectionKind==='routing_policy'?'Routing Policy (Auto)':'مدل صریح';
+        const modelMatrix=(r.candidate||{}).model_tool_qualifications||{};
+        const matrixRows=Object.entries(modelMatrix).map(([name,q])=>`<div class="model-row"><span>${esc(name)}</span><b>${esc((q.model_attribution||{}).scope||'-')} · ${esc(q.status||'-')}</b></div>`).join('');
+        const modelHtml=ms.status==='observed' ? `<div class="wizard-model-list"><div class="model-row"><span>نوع انتخاب</span><b>${esc(selectionLabel)}</b></div><div class="model-row"><span>حالت انتخاب</span><b>${esc(ms.selection_mode||'-')}</b></div><div class="model-row"><span>مدل/برچسب جاری</span><b>${esc(ms.current_label||'-')}</b></div><div class="model-row"><span>مدل‌های visible</span><b>${models.length}</b></div><div class="model-row"><span>بدون برچسب Upgrade</span><b>${accessible.length}</b></div><div class="model-row"><span>Premium / Upgrade</span><b>${premium.length}</b></div>${ms.routing_policy_text?`<div class="hint">Auto: ${esc(ms.routing_policy_text)}</div>`:''}${matrixRows?`<div class="hint"><b>S4 — Model-scoped Tool Evidence</b></div>${matrixRows}`:''}</div>` : `<div class="hint">Model Surface هنوز کامل کشف نشده است.</div>`;
+        $('#pf-observation').innerHTML=`<div class="kv"><span>Stage</span><b id="pf-result-stage">${esc(tc.qualification_stage||'-')} · ${esc(tc.stage_state||'-')}</b><span>وضعیت قابل مشاهده</span><b>${esc(c.state||'unknown')}</b><span>شاهد</span><b>${esc(c.evidence||'-')}</b><span>عنوان صفحه</span><b>${esc(o.title||'-')}</b><span>کنترل‌های قابل مشاهده</span><b>${m.controls??'-'}</b><span>ورودی فایل</span><b>${m.file_inputs??'-'}</b><span>ورودی پیام/متن</span><b>${m.editable_inputs??'-'}</b></div><div class="dependency-note mt"><b>S2 — Model & Entitlement Discovery</b>${modelHtml}</div>`;
         const known=!!r.analysis?.reuse_existing_adapter && r.analysis?.register_new_provider!==false;
         const save=$('#pf-save'); save.disabled=!known;
         if (r.analysis?.register_new_provider===false) save.textContent='Provider موجود است';

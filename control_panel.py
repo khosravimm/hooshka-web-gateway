@@ -50,6 +50,10 @@ from core.functional_readiness import run_functional_probe, save_readiness, load
 from core.media_contract import provider_media_manifest
 from core.provider_onboarding import analyze_url as analyze_provider_url, observe_url_sync, save_candidate, load_candidate, persist_candidate, qualify_submit_candidate_sync, apply_submit_qualification, generate_adapter_candidate, qualify_materialized_adapter_sync, materialize_adapter_profile, refine_adapter_from_existing_conformance_sync, diagnose_committed_qualification_sync
 from core.provider_wizard_stages import public_model as provider_wizard_stage_model
+from core.provider_wizard_stage_runtime import access_bootstrap_sync, model_entitlement_discovery_sync
+from core.provider_model_selection import select_model_sync, restore_auto_sync
+from core.candidate_tool_qualification import qualify_basic_tools_sync
+from core.candidate_tool_matrix import qualify_tool_matrix_sync
 from adapters.discovered_web_provider import create_discovered_web_provider
 from core.provider_live_view import open_target_sync, capture_live_view_sync, dispatch_live_input_sync, close_owned_target_sync, start_screencast_sync, get_screencast_frame, stop_screencast_sync
 
@@ -1125,12 +1129,45 @@ def api_provider_wizard_close_target():
     return jsonify(result), (200 if result.get('status') in {'closed','gone'} else 409)
 
 
+@control_panel_bp.route('/api/provider-wizard/access-bootstrap', methods=['POST'])
+def api_provider_wizard_access_bootstrap():
+    data=request.get_json(silent=True) or {}
+    runtime=_browser_runtime_by_key(str(data.get('runtime_key') or '').strip())
+    if runtime is None or not runtime.get('ready'):
+        return jsonify({'error':'browser_runtime_not_ready'}),409
+    target_id=str(data.get('target_id') or '').strip()
+    if not target_id:
+        return jsonify({'error':'target_id_required'}),400
+    candidate_id=str(data.get('candidate_id') or 'candidate').strip()
+    try:
+        result=access_bootstrap_sync(runtime['cdp_url'],target_id,candidate_id)
+        return jsonify(result)
+    except Exception as exc:
+        logger.warning('Provider wizard S1 access bootstrap failed',exc_info=True)
+        return jsonify({'error':'access_bootstrap_failed','message':str(exc)}),502
+
+@control_panel_bp.route('/api/provider-wizard/model-discovery', methods=['POST'])
+def api_provider_wizard_model_discovery():
+    data=request.get_json(silent=True) or {}
+    runtime=_browser_runtime_by_key(str(data.get('runtime_key') or '').strip())
+    if runtime is None or not runtime.get('ready'):
+        return jsonify({'error':'browser_runtime_not_ready'}),409
+    target_id=str(data.get('target_id') or '').strip()
+    if not target_id:
+        return jsonify({'error':'target_id_required'}),400
+    try:
+        return jsonify(model_entitlement_discovery_sync(runtime['cdp_url'],target_id))
+    except Exception as exc:
+        logger.warning('Provider wizard S2 model discovery failed',exc_info=True)
+        return jsonify({'error':'model_discovery_failed','message':str(exc)}),502
+
 @control_panel_bp.route('/api/provider-wizard/observe', methods=['POST'])
 def api_provider_wizard_observe():
     data = request.get_json(silent=True) or {}
     try:
         existing = [p.provider_id for p in provider_registry.list_providers(enabled_only=False)]
         analysis = analyze_provider_url(data.get("url"), _browser_runtime_groups(), existing)
+        analysis["mission_run_id"] = str(data.get("mission_run_id") or "").strip()
     except ValueError as exc:
         return jsonify({"error":"invalid_url","message":str(exc)}), 400
     runtime_key = str(data.get("runtime_key") or analysis.get("recommended_runtime_key") or '').strip()
@@ -1176,6 +1213,81 @@ def api_provider_wizard_qualify(candidate_id):
         logger.warning("Provider onboarding submit qualification failed", exc_info=True)
         return jsonify({"error":"submit_qualification_failed","message":type(exc).__name__,"candidate_id":candidate_id}), 502
 
+
+@control_panel_bp.route('/api/provider-wizard/basic-tools/<candidate_id>', methods=['POST'])
+def api_provider_wizard_basic_tools(candidate_id):
+    root=Path(__file__).parent
+    try:
+        record=load_candidate(root,candidate_id)
+    except FileNotFoundError:
+        return jsonify({'error':'candidate_not_found','candidate_id':candidate_id}),404
+    runtime_key=str((request.get_json(silent=True) or {}).get('runtime_key') or ((record.get('analysis') or {}).get('recommended_runtime_key') or '')).strip()
+    runtime=_browser_runtime_by_key(runtime_key) if runtime_key else None
+    if runtime is None or not runtime.get('ready'):
+        return jsonify({'error':'browser_runtime_not_ready'}),409
+    result=qualify_basic_tools_sync(runtime['cdp_url'],record)
+    record['basic_tool_qualification']=result
+    technical=record.setdefault('technical_candidate',{})
+    model_surface=technical.get('model_surface') or {}
+    live_model=result.get('model_runtime_state') or {}
+    selection_mode=str(live_model.get('selection_mode') or model_surface.get('selection_mode') or '').strip()
+    selection_kind=str(live_model.get('selection_kind') or model_surface.get('selection_kind') or ('routing_policy' if selection_mode.lower()=='auto' else 'explicit_model'))
+    current_label=str(live_model.get('current_label') or model_surface.get('current_label') or selection_mode or 'unknown').strip()
+    scope='routing_sample' if selection_kind=='routing_policy' else 'model_specific'
+    result['model_attribution']={'scope':scope,'selection_mode':selection_mode or None,'selection_kind':selection_kind,'current_label':current_label or None}
+    matrix=record.setdefault('model_tool_qualifications',{})
+    key=('AUTO::'+current_label) if scope=='routing_sample' else current_label
+    matrix[key]=result
+    if result.get('status')=='E2_VERIFIED' and scope=='model_specific':
+        record['preferred_tool_model']=current_label
+        technical['qualification_stage']='CP-A'; technical['stage_state']='PASSED'; technical['next_required']='full_tool_protocol_qualification'
+    else:
+        technical['qualification_stage']='S4'; technical['stage_state']=result.get('stage_state') or 'FAILED'; technical['next_required']='diagnose_basic_tool_qualification'
+    persist_candidate(root,record)
+    return jsonify({'candidate':record,'qualification':result})
+
+@control_panel_bp.route('/api/provider-wizard/tool-matrix/<candidate_id>', methods=['POST'])
+def api_provider_wizard_tool_matrix(candidate_id):
+    root=Path(__file__).parent
+    try: record=load_candidate(root,candidate_id)
+    except FileNotFoundError: return jsonify({'error':'candidate_not_found'}),404
+    data=request.get_json(silent=True) or {}
+    rk=str(data.get('runtime_key') or ((record.get('analysis') or {}).get('recommended_runtime_key') or '')).strip()
+    runtime=_browser_runtime_by_key(rk) if rk else None
+    if runtime is None or not runtime.get('ready'): return jsonify({'error':'browser_runtime_not_ready'}),409
+    tech=record.setdefault('technical_candidate',{})
+    model_name=str(data.get('model_name') or record.get('preferred_tool_model') or '').strip()
+    if not model_name:
+        return jsonify({'candidate':record,'qualification':{'status':'BLOCKED','stage_id':'S5','stage_state':'BLOCKED','reason':'explicit_tool_model_required'}})
+    surface=tech.get('model_surface') or {}; models=surface.get('models') or []
+    category=next((str(m.get('category') or '') for m in models if str(m.get('display_text') or '').startswith(model_name)),None)
+    target_id=str(tech.get('target_id') or '').strip()
+    selection_attempts=[]
+    selection={}
+    for _ in range(2):
+        selection=select_model_sync(runtime['cdp_url'],target_id,model_name,category)
+        selection_attempts.append(selection)
+        if selection.get('status')=='SELECTED': break
+    if selection.get('status')!='SELECTED':
+        reason=str(selection.get('reason') or 'model_selection_failed')
+        return jsonify({'candidate':record,'qualification':{'status':'BLOCKED','stage_id':'S5','stage_state':'BLOCKED','reason':reason,'selection':selection,'selection_attempts':selection_attempts}})
+    selection['attempts']=selection_attempts
+    before=selection.get('before') or {}; restore={}
+    try:
+        result=qualify_tool_matrix_sync(runtime['cdp_url'],record)
+        result['model_attribution']={'scope':'model_specific','selection_mode':'explicit','selection_kind':'explicit_model','current_label':model_name}
+        result['model_selection']=selection
+    finally:
+        if before.get('selection_kind')=='routing_policy': restore=restore_auto_sync(runtime['cdp_url'],target_id)
+        elif before.get('current_label') and before.get('current_label')!=model_name:
+            prev=str(before.get('current_label')); prev_cat=next((str(m.get('category') or '') for m in models if str(m.get('display_text') or '').startswith(prev)),None)
+            restore=select_model_sync(runtime['cdp_url'],target_id,prev,prev_cat)
+    result['model_restore']=restore; record['tool_protocol_matrix']=result
+    tech['qualification_stage']='S6' if result.get('status')=='E2_VERIFIED' else 'S5'
+    tech['stage_state']='READY_TO_RUN' if result.get('status')=='E2_VERIFIED' else (result.get('stage_state') or 'PARTIAL')
+    tech['next_required']='extended_capability_discovery' if result.get('status')=='E2_VERIFIED' else 'continue_tool_protocol_qualification'
+    persist_candidate(root,record)
+    return jsonify({'candidate':record,'qualification':result})
 
 @control_panel_bp.route('/api/provider-wizard/diagnose/<candidate_id>', methods=['POST'])
 def api_provider_wizard_diagnose(candidate_id):

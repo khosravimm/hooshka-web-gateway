@@ -111,12 +111,17 @@ class DiscoveredWebProvider(Provider):
             enabled_transition = bool(previous and previous.get("disabled") is True and item.get("disabled") is not True)
             appeared = sig not in before
             semantic = any(token in " ".join([text, aria, title]) for token in ("send", "submit", "arrow_up", "arrow-up"))
+            composer_right = float(box.get("x", 0)) + float(box.get("width", 0))
+            button_right = float(r.get("x", 0)) + float(r.get("w", 0))
+            icon_only = not text and not aria and not title and float(r.get("w", 0)) <= 56 and float(r.get("h", 0)) <= 56
+            trailing_icon_action = bool(icon_only and abs(button_right - composer_right) <= 64)
             score = 0
             if selector_now and selector_now == recorded_selector: score += 20
             if enabled_transition: score += 12
             if appeared: score += 6
             if semantic: score += 5
-            if not (selector_now == recorded_selector or enabled_transition or appeared or semantic):
+            if trailing_icon_action: score += 4
+            if not (selector_now == recorded_selector or enabled_transition or appeared or semantic or trailing_icon_action):
                 continue
             ranked.append((score, item))
         ranked.sort(key=lambda x: x[0], reverse=True)

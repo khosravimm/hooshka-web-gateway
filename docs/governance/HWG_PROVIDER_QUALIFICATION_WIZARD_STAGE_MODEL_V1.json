@@ -1,14 +1,14 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.2.0",
   "mission": "Convert an unknown Web Chat URL into an auditable, disabled Provider Profile with account/session-scoped access, model, chat, tool and capability evidence.",
   "stages": [
     {
       "id": "S1",
       "name": "ACCESS_BOOTSTRAP",
-      "purpose": "Open provider and classify guest/auth/login/challenge/terms/region state",
+      "purpose": "Open provider, require a real authenticated session, and classify login/challenge/terms/region state. Guest sessions are evidence-only and are never accepted for qualification.",
       "exit": [
         "page_interactive",
-        "usable_access_or_explicit_human_gate"
+        "authenticated_session_or_explicit_human_gate"
       ]
     },
     {
@@ -34,8 +34,10 @@
     {
       "id": "S4",
       "name": "BASIC_AGENT_TOOLS",
-      "purpose": "Prove bounded core tool calling and continuation",
+      "purpose": "Prove bounded core tool calling and continuation on an attributable explicit model when Auto routing is dynamic",
       "exit": [
+        "explicit_model_attribution",
+        "E2_baseline_for_same_model",
         "core_tool_request",
         "tool_execution",
         "tool_result_continuation"
@@ -46,7 +48,8 @@
       "name": "AGENT_BASIC_READY",
       "purpose": "Usable basic HWG web-chat checkpoint",
       "exit": [
-        "S1-S4_pass"
+        "S1-S3_pass",
+        "at_least_one_explicit_model_S4_E2_pass"
       ]
     },
     {
@@ -102,6 +105,13 @@
     "provider_enable",
     "ambiguous_high_impact_choice"
   ],
+  "access_policy": {
+    "authenticated_session_required": true,
+    "guest_session_accepted": false,
+    "guest_composer_is_evidence_only": true,
+    "prior_guest_roundtrip_cannot_bypass_login_gate": true,
+    "downstream_stages_require_s1_authenticated_session": true
+  },
   "technical_decisions_owned_by_explorer": [
     "evidence_sufficiency",
     "retry_or_new_probe_policy",
@@ -116,5 +126,11 @@
     "AGENT_BASIC_READY",
     "AGENT_FULL_READY",
     "PROVIDER_QUALIFIED"
-  ]
+  ],
+  "model_routing_policy": {
+    "auto_is_routing_policy_not_model": true,
+    "capabilities_must_not_be_inferred_across_models": true,
+    "auto_tool_result_requires_resolved_model_attribution": true,
+    "checkpoint_a_rule": "At least one explicit selectable model has E2 baseline chat and E2 basic tool continuation."
+  }
 }

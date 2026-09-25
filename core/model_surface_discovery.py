@@ -59,6 +59,11 @@ def _dedupe(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+def _readonly_model_discovery_allowed(state: dict[str, Any], classification: dict[str, Any]) -> bool:
+    name = str((classification or {}).get("state") or "unknown")
+    return name == "ready"
+
+
 def _normalize_model(row: dict[str, Any], category: str | None, upgrade_notice: bool) -> dict[str, Any]:
     text=_clean(row.get("text") or "")
     premium=bool(re.search(r"\bpremium\b", text, re.I))
@@ -79,8 +84,8 @@ async def discover_model_surface(page, frontend_controls: list[dict[str, Any]] |
     selection_mode=next((v for k,v in hints.items() if re.search(r"model",k,re.I)),None)
     result={
         "status":"not_observed","evidence_level":"E1","storage_hints":hints,
-        "selection_mode":selection_mode,"current_label":None,"selector":None,
-        "categories":[],"models":[],"opened":False,
+        "selection_mode":selection_mode,"selection_kind":"routing_policy" if str(selection_mode or "").lower()=="auto" else ("explicit_model" if selection_mode else "unknown"),
+        "current_label":None,"selector":None,"categories":[],"models":[],"opened":False,
     }
     candidate=None
     for control in controls:
@@ -108,10 +113,11 @@ async def discover_model_surface(page, frontend_controls: list[dict[str, Any]] |
     if candidate is None:
         return result
     result["current_label"]=_clean(await candidate.inner_text())
-    from core.visual_discovery import visual_action_gate
-    gate=await visual_action_gate(page,"provider_interaction")
-    result["visual_preflight"]=gate.get("classification") or {}
-    if not gate.get("allowed"):
+    from core.visual_discovery import visible_page_state, classify_user_view_state
+    visual_state = await visible_page_state(page)
+    classification = classify_user_view_state(visual_state)
+    result["visual_preflight"] = classification
+    if not _readonly_model_discovery_allowed(visual_state, classification):
         result["status"]="blocked"; result["reason"]="visual_preflight"; return result
     try:
         await candidate.click(no_wait_after=True,timeout=5000)
@@ -129,6 +135,11 @@ async def discover_model_surface(page, frontend_controls: list[dict[str, Any]] |
                 categories.append(text)
         categories=list(dict.fromkeys(categories))
         upgrade_notice=bool(await popup.get_by_text(re.compile(r"upgrade.*premium|premium.*upgrade",re.I)).count())
+        if str(result.get("selection_kind"))=="routing_policy":
+            try:
+                auto_note=popup.get_by_text(re.compile(r"auto-selects.*best model|best model.*quality.*speed.*cost",re.I)).first
+                if await auto_note.count(): result["routing_policy_text"]=_clean(await auto_note.inner_text())
+            except Exception: pass
         inventory=[]
         for label in categories:
             try:

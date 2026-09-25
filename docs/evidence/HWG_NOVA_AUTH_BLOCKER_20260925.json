@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0.0",
+  "captured_date": "2026-09-25",
+  "provider": "novaapp-web",
+  "url": "https://chat.novaapp.ai/",
+  "stage": "S1_ACCESS_BOOTSTRAP",
+  "qualification_policy": {
+    "authenticated_session_required": true,
+    "guest_session_accepted": false
+  },
+  "result": {
+    "stage_state": "BLOCKED",
+    "kind": "AUTH_PROVIDER_BROKEN",
+    "reason": "firebase_auth_preflight_failed",
+    "user_action_required": false
+  },
+  "live_observations": {
+    "google": "OAuth popup created with empty URL and closed almost immediately before reaching Google account UI.",
+    "microsoft": "OAuth popup created with empty URL and closed almost immediately before reaching Microsoft account UI.",
+    "apple": "No usable OAuth popup was produced during the bounded probe.",
+    "email_password": "Real password login form was reached; submitted sign-in requests failed at the auth transport layer. No credential value was recorded."
+  },
+  "network_evidence": {
+    "auth_domain": "https://auth.chatnova.com",
+    "firebase_project_config_endpoint": "https://identitytoolkit.googleapis.com/v1/projects",
+    "password_signin_endpoint": "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword",
+    "browser_resource_observation": "Multiple password sign-in resources completed with responseStatus unavailable and transferSize=0.",
+    "fresh_target_bootstrap_observation": "On a newly resolved Nova target, Firebase webConfig, Firebase Installations, auth iframe, and Identity Toolkit project bootstrap resources were observed with transferSize=0 after opening the login surface.",
+    "origin_preflight": "A read-only fetch to Identity Toolkit project configuration from the Nova page origin failed with TypeError: Failed to fetch; no credential was submitted by this preflight.",
+    "direct_identitytoolkit_probe": "HTTP 403 Forbidden with Google HTML error response.",
+    "tor_identitytoolkit_probe": "HTTP 403 Forbidden with Google HTML error response.",
+    "local_dns_observation": {
+      "firebase.googleapis.com": "10.10.34.35",
+      "classification": "private-address resolution / local-network DNS interception candidate",
+      "tcp_443": false
+    }
+  },
+  "explorer_behavior": {
+    "human_gate_retry_required": false,
+    "downstream_stages_allowed": false,
+    "target_resolution": "The Wizard now resolves/reuses the authoritative target from the backend for each S1 run instead of trusting a stale UI target id; stale live frames are cleared when the target changes or disappears.",
+    "visual_wizard_verification": "PASS: the visible Wizard displayed S1 / BLOCKED and the AUTH_PROVIDER_BROKEN status while showing the current Nova target in Live View.",
+    "next_action": "Revalidate S1 only after Provider Auth transport or network path changes. Do not qualify guest mode."
+  },
+  "sensitive_data_policy": "No password, token, cookie, OTP, or email address is stored in this evidence file."
+}
