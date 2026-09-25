@@ -398,10 +398,10 @@
         <summary class="card-title">پیشرفته: YAML خام</summary>
         <p class="hint">فقط برای کلیدهایی که فرم تنظیمات رایج پوشش نمی‌دهد.</p>
         <div class="btn-row">
-          <button id="save-raw-config" class="btn primary btn-sm" type="button">ذخیره</button>
-          <button id="reload-raw-config" class="btn ghost btn-sm" type="button">بارگذاری مجدد</button>
+          <button id="save-raw-config" class="btn primary btn-sm" type="button" aria-label="ذخیره YAML خام تنظیمات" title="ذخیره YAML خام و اجرای چرخه restart/verification">ذخیره</button>
+          <button id="reload-raw-config" class="btn ghost btn-sm" type="button" aria-label="بازخوانی YAML خام تنظیمات" title="بازخوانی YAML خام از فایل تنظیمات فعال">بارگذاری مجدد</button>
         </div>
-        <textarea id="config-content" class="code-edit" spellcheck="false"></textarea>
+        <textarea id="config-content" class="code-edit" spellcheck="false" aria-label="ویرایشگر پیشرفته YAML خام تنظیمات" title="ویرایش پیشرفته؛ تغییرات پس از ذخیره باید restart و verify شوند"></textarea>
       </details>
     </section>
 
@@ -414,9 +414,9 @@
         <div class="card">
           <h3 class="card-title">عملیات</h3>
           <div class="btn-row">
-            <button id="svc-start" class="btn success" type="button">شروع</button>
-            <button id="svc-stop" class="btn danger" type="button">توقف</button>
-            <button id="svc-restart" class="btn primary" type="button">ری‌استارت</button>
+            <button id="svc-start" class="btn success" type="button" disabled aria-disabled="true">شروع</button>
+            <button id="svc-stop" class="btn danger" type="button" disabled aria-disabled="true">توقف</button>
+            <button id="svc-restart" class="btn primary" type="button" disabled aria-disabled="true">ری‌استارت</button>
           </div>
           <div id="service-message" class="status-line"></div>
         </div>

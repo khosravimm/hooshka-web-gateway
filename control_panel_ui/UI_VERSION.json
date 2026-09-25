@@ -1,6 +1,6 @@
 {
   "name": "hwg-control-plane-ui",
-  "version": "2.1.0",
+  "version": "2.1.1-dev.full-audit-remediation.20260925-1730",
   "released": "2026-09-25",
   "direction": "rtl",
   "language": "fa",
@@ -96,8 +96,38 @@
       "date": "2026-09-25",
       "class": "RELEASE",
       "notes": "Final E2 operational release after RC4 exact preflight, controlled cutover, rollback/restore and production restart recovery. E3 reliability not claimed."
+    },
+    {
+      "version": "2.1.1-dev.full-audit-remediation.20260925-1655",
+      "date": "2026-09-25",
+      "class": "AUDIT_REMEDIATION",
+      "notes": "Post-2.1.0 full-panel audit remediation: fail-closed service controls, runtime-gated account readiness, explicit model loading state, and raw YAML accessibility labels."
+    },
+    {
+      "version": "2.1.1-dev.full-audit-remediation.20260925-1702",
+      "date": "2026-09-25",
+      "class": "AUDIT_REMEDIATION",
+      "notes": "Full-panel audit pass 2: complete Models capability matrix across registered providers and contain Overview charts/status labels at responsive widths."
+    },
+    {
+      "version": "2.1.1-dev.full-audit-remediation.20260925-1720",
+      "date": "2026-09-25",
+      "class": "AUDIT_REMEDIATION",
+      "notes": "Full-product audit pass 3: encoding-safe provider routing labels and independent Session/Readiness evidence timestamps on Account cards."
+    },
+    {
+      "version": "2.1.1-dev.full-audit-remediation.20260925-1725",
+      "date": "2026-09-25",
+      "class": "AUDIT_REMEDIATION",
+      "notes": "Encoding-safe correction of all Persian labels introduced by the full-product audit; preserves pass-3 Session/Readiness evidence separation."
+    },
+    {
+      "version": "2.1.1-dev.full-audit-remediation.20260925-1730",
+      "date": "2026-09-25",
+      "class": "AUDIT_REMEDIATION",
+      "notes": "Synchronize provider-certification test contract with the valid Production W2 replacement while preserving E3_IN_PROGRESS until W3."
     }
   ],
-  "build": "20260925-stable",
+  "build": "20260925-1730",
   "last_updated": "2026-09-25"
 }

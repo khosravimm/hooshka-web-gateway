@@ -482,14 +482,18 @@ function initNav() {
         const readinessText=ready ? 'READY عملکردی' : (rr.state==='READY' ? 'STALE · Probe لازم' : (rr.state || 'UNKNOWN'));
         const failedStage=(rr.stages || []).find(x => x.ok === false); const checkedAt=rr.checked_at ? new Date(rr.checked_at).toLocaleString('fa-IR') : 'ثبت نشده';
         const readinessReason=ready ? 'Evidence معتبر و جاری است.' : (rr.state==='READY' ? 'Evidence منقضی شده؛ Probe را دوباره اجرا کنید.' : (failedStage ? ('توقف در '+failedStage.stage) : 'Evidence آمادگی ثبت نشده است.'));
+        const sessionCheckedAt=sess.validated_at ? new Date(sess.validated_at).toLocaleString('fa-IR') : 'not validated';
         const providerId=(a.provider_profile_id || '').split(':')[0] || a.provider_id || '';
+        const providerRuntime=groups.find(g => (g.providers || []).some(x => (typeof x === 'string' ? x : x.id) === providerId) || g.representative_provider === providerId);
+        const runtimeReady=providerRuntime ? providerRuntime.ready === true : !!rg?.ready;
+        const readinessAllowed=!!providerId && runtimeReady;
         const conflict=b.sharing_mode==='same_origin_conflict';
         return `<div class="profile-card account-card ${conflict?'conflict':''}">
           <div class="profile-card-head"><div><b class="ltr">${a.account_id}</b><span class="badge neutral ltr">${a.provider_profile_id || '-'}</span></div><span class="badge ${access==='AUTHENTICATED'?'ok':(access==='BLOCKED'?'bad':'warn')}">${access}</span></div>
           <div class="relationship-preview"><b>Provider Profile</b> <span class="ltr">${a.provider_profile_id || '-'}</span> → <b>Account</b> <span class="ltr">${a.account_id}</span> → <b>Profile/Origin</b> <span class="ltr">${b.path || '-'} · ${b.origin || '-'}</span> → <b>Runtime</b> <span class="ltr">${rg?.cdp_url || a.runtime?.cdp_url || 'provider runtime'}</span></div>
-          <div class="kv"><span>Isolation</span><b>${b.sharing_mode || b.ownership || 'unknown'}</b><span>Session</span><b>${access}</b><span>Readiness</span><b>${readinessText}</b><span>Evidence</span><b>${checkedAt}</b><span>چرا/قدم بعد</span><b>${readinessReason}</b></div>
+          <div class="kv"><span>Isolation</span><b>${b.sharing_mode || b.ownership || 'unknown'}</b><span>Session</span><b>${access}</b><span>Session Evidence</span><b>${sessionCheckedAt}</b><span>Readiness</span><b>${readinessText}</b><span>Readiness Evidence</span><b>${checkedAt}</b><span>چرا/قدم بعد</span><b>${readinessReason}</b></div>
           ${conflict ? '<div class="dependency-note warn">Same-origin multi-account conflict: این Account باید Profile/Runtime مستقل داشته باشد.</div>' : ''}
-          <div class="btn-row mt"><button class="btn ghost btn-xs" data-account="${a.account_id}" data-aa="validate">Validate Session</button><button class="btn primary btn-xs" data-account="${a.account_id}" data-aa="login">Open / Login</button><button class="btn ghost btn-xs" data-account="${a.account_id}" data-aa="reauth">Re-auth</button><button class="btn primary btn-xs" data-account="${a.account_id}" data-provider-ready="${providerId}" ${providerId ? '' : 'disabled'}>اجرای Readiness</button><button class="btn danger btn-xs" data-account="${a.account_id}" data-aa="logout">Logout</button></div>
+          <div class="btn-row mt"><button class="btn ghost btn-xs" data-account="${a.account_id}" data-aa="validate">Validate Session</button><button class="btn primary btn-xs" data-account="${a.account_id}" data-aa="login">Open / Login</button><button class="btn ghost btn-xs" data-account="${a.account_id}" data-aa="reauth">Re-auth</button><button class="btn primary btn-xs" data-account="${a.account_id}" data-provider-ready="${providerId}" ${readinessAllowed ? '' : 'disabled'} title="${readinessAllowed ? 'اجرای Readiness Probe' : 'ابتدا Browser Runtime باید آماده باشد'}">اجرای Readiness</button><button class="btn danger btn-xs" data-account="${a.account_id}" data-aa="logout">Logout</button></div>
           <div class="status-line" id="account-status-${a.account_id}"></div></div>`;
       }).join('') || '<div class="hint">Account Instance ثبت نشده است.</div>';
       box.querySelectorAll('[data-aa]').forEach(btn => btn.addEventListener('click', () => accountAction(btn.dataset.account, btn.dataset.aa, btn)));
@@ -807,13 +811,18 @@ function initNav() {
   }
   /* ---------------- Models & Capabilities ---------------- */
   async function loadModelsTab() {
+    const mbox = $('#models-summary');
+    const certBox = $('#models-certification-scope');
+    const matrix = $('#capability-matrix');
+    if (mbox) mbox.innerHTML = '<div class="card loading-state" role="status" aria-live="polite">در حال دریافت مدل‌ها و قابلیت‌ها...</div>';
+    if (certBox) certBox.innerHTML = '<div class="hint loading-state" role="status">در حال دریافت شواهد Readiness...</div>';
+    if (matrix) matrix.innerHTML = '<div class="hint loading-state" role="status">در حال ساخت ماتریس قابلیت‌ها...</div>';
     try {
       const caps = await fetch('/v1/capabilities', { cache: 'no-store' }).then(r => r.json());
       const models = await fetch('/v1/models', { cache: 'no-store' }).then(r => r.json());
       const prov = await api('/providers');
       const readiness = await api('/readiness');
 
-      const mbox = $('#models-summary');
       mbox.innerHTML = `
         <div class="card"><div class="kv">
           <span>Manifest</span><b class="ltr">${caps.manifest_version || '-'}</b>
@@ -833,7 +842,6 @@ function initNav() {
           <span>هم‌روندی</span><b>${models.provider_runtime?.inflight || 0}/${models.provider_runtime?.max_concurrency || '-'}</b>
         </div></div>`;
 
-      const certBox = $('#models-certification-scope');
       if (certBox) {
         certBox.innerHTML = (readiness.providers || []).map(r => {
           const current = r.ready === true && r.current === true;
@@ -847,10 +855,9 @@ function initNav() {
       }
 
       const capKeys = ['chat_completion', 'streaming', 'tools', 'vision', 'embeddings', 'search', 'reasoning', 'files', 'max_context_tokens'];
-      const plist = (caps.providers || []).filter(p => p.enabled !== false);
-      const matrix = $('#capability-matrix');
+      const plist = (caps.providers || []);
       matrix.innerHTML = '<table class="data-table"><thead><tr><th>قابلیت</th>' +
-        plist.map(p => `<th class="ltr">${p.id}</th>`).join('') + '</tr></thead><tbody>' +
+        plist.map(p => `<th class="ltr">${p.id}${p.enabled === false ? ' [disabled]' : ' [enabled]'}</th>`).join('') + '</tr></thead><tbody>' +
         capKeys.map(k => `<tr><td><span class="cap-badge">${k}</span></td>` +
           plist.map(p => {
             const v = p.capabilities && p.capabilities[k];
@@ -1106,7 +1113,14 @@ function initNav() {
   }
 
   /* ---------------- Service ---------------- */
+  function setServiceControlsPending(pending=true) {
+    ['svc-start','svc-stop','svc-restart'].forEach(id => { const el=$('#'+id); if(el) el.disabled = pending; });
+    const badge=$('#service-status-badge2');
+    if (pending && badge) { badge.textContent='در حال بررسی...'; badge.className='badge neutral'; }
+  }
+
   async function loadServiceStatus() {
+    setServiceControlsPending(true);
     try {
       const [data, orchestration, health] = await Promise.all([api('/service/status'), api('/runtime/orchestration'), api('/health')]);
       const service=data.service||{}, legacy=data.legacy_service||{}, agent=orchestration.desktop_agent||{};
@@ -1159,7 +1173,6 @@ function initNav() {
       toast('سرویس: ' + e.message, 'err');
     } finally {
       await loadServiceStatus();
-      if (btn) btn.disabled = false;
     }
   }
 

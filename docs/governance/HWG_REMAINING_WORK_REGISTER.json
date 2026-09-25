@@ -489,17 +489,20 @@
         "Capability matrix links scoped evidence"
       ],
       "latest_evidence": {
-        "date": "2026-09-22",
-        "type": "E3 predefined window W1",
-        "provider": "deepseek-web",
-        "result": "Predefined E3 contract requires 3 independent windows >=30 minutes apart, each 3/3 exact-token probes. DeepSeek W1 passed 3/3 with terminal commitment and retry_allowed=false. W2/W3 remain pending; no E3 claim yet.",
-        "record": "docs/evidence/HWG_E3_DEEPSEEK_W1_20260922.md"
+        "date": "2026-09-25",
+        "type": "E3 predefined windows W1 + clean W2 replacement",
+        "result": "Production 2.1.0 DeepSeek exact scope: W1 PASS 3/3 and clean replacement W2 PASS 3/3 with >30 minute spacing. Earlier six-probe W2 attempt is preserved as procedurally invalid and excluded. W3 remains pending; no E3 claim yet.",
+        "record": "docs/evidence/HWG_2.1.0_E3_DEEPSEEK_W2_REPLACEMENT_20260925.md"
       },
       "evidence": [
         "docs/evidence/HWG_E3_DEEPSEEK_W1_20260922.md",
         "docs/governance/HWG_E3_RELIABILITY_PROGRAM_V1.md",
-        "docs/governance/HWG_PROVIDER_CERTIFICATION_MATRIX_V1.json"
-      ]
+        "docs/governance/HWG_PROVIDER_CERTIFICATION_MATRIX_V1.json",
+        "docs/evidence/HWG_2.1.0_E3_DEEPSEEK_W1_20260925.md",
+        "docs/evidence/HWG_2.1.0_E3_DEEPSEEK_W2_20260925.md",
+        "docs/evidence/HWG_2.1.0_E3_DEEPSEEK_W2_REPLACEMENT_20260925.md"
+      ],
+      "updated_at": "2026-09-25"
     },
     {
       "id": "HWG-WORK-014",
@@ -884,9 +887,9 @@
       ],
       "latest_evidence": {
         "date": "2026-09-25",
-        "type": "E2 AI-assisted blocker-resolution loop on NoteGPT",
-        "result": "Wizard blocker states now invoke AI diagnosis automatically, deterministically verify auto-safe proposals, and terminate at either recovered evidence or an explicit Human Gate. Live NoteGPT used DeepSeek as non-target analyst; safe verification ran without resend and ended at approve_new_instrumented_probe.",
-        "record": "docs/evidence/HWG_EXPLORER_AI_BLOCKER_DIAGNOSIS_NOTEGPT_E2_20260924.md"
+        "type": "E2 post-release full Control Plane audit pass 1 + live remediation",
+        "result": "All 15 primary workspaces were inventoried and visually/runtime audited. Eight concrete findings were remediated on Dev and revalidated live; 612/612 tests pass, secret/OSV gates are clean, and safe interaction sweep passes without console/page errors. Destructive/negative-path scenarios and human acceptance remain pending.",
+        "record": "docs/evidence/HWG_2.1_FULL_PRODUCT_AUDIT_PASS1_20260925.md"
       },
       "updated_at": "2026-09-25",
       "evidence": [
@@ -898,7 +901,8 @@
         "docs/evidence/HWG_DISCOVERED_PROVIDER_GAPGPT_E2_20260924.md",
         "docs/evidence/HWG_WIZARD_ACTIVITY_AND_NONRETRYABLE_E2_20260924.md",
         "docs/evidence/HWG_INTEGRATED_EXPLORER_WORKSPACE_E2_20260924.md",
-        "docs/evidence/HWG_EXPLORER_AI_BLOCKER_DIAGNOSIS_NOTEGPT_E2_20260924.md"
+        "docs/evidence/HWG_EXPLORER_AI_BLOCKER_DIAGNOSIS_NOTEGPT_E2_20260924.md",
+        "docs/evidence/HWG_2.1_FULL_PRODUCT_AUDIT_PASS1_20260925.md"
       ],
       "evidence_paths": [
         "docs/evidence/HWG_EMBEDDED_CHAT_UPLOAD_E2_20260923.md",
@@ -909,8 +913,10 @@
         "docs/evidence/HWG_DISCOVERED_PROVIDER_GAPGPT_E2_20260924.md",
         "docs/evidence/HWG_WIZARD_ACTIVITY_AND_NONRETRYABLE_E2_20260924.md",
         "docs/evidence/HWG_INTEGRATED_EXPLORER_WORKSPACE_E2_20260924.md",
-        "docs/evidence/HWG_EXPLORER_AI_BLOCKER_DIAGNOSIS_NOTEGPT_E2_20260924.md"
-      ]
+        "docs/evidence/HWG_EXPLORER_AI_BLOCKER_DIAGNOSIS_NOTEGPT_E2_20260924.md",
+        "docs/evidence/HWG_2.1_FULL_PRODUCT_AUDIT_PASS1_20260925.md"
+      ],
+      "result": "Post-release full-product audit is active. Pass 1 P0/P1/P2 findings are remediated and live-revalidated on Dev build 2.1.1-dev.full-audit-remediation.20260925-1730; destructive/negative-path and human-acceptance scope remains open."
     },
     {
       "id": "HWG-WORK-026",

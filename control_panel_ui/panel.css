@@ -405,3 +405,7 @@ input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent);
 .wizard-stage-pill.done { opacity:.72; }
 .wizard-model-list { display:grid; gap:5px; margin-top:8px; }
 .wizard-model-list .model-row { display:flex; justify-content:space-between; gap:10px; border-bottom:1px dashed var(--border); padding:4px 0; font-size:12px; }
+/* Full-product audit 2026-09-25: responsive containment. */
+.chart-wrap { min-width: 0; max-width: 100%; overflow: hidden; }
+.chart-wrap canvas { display: block; max-width: 100% !important; width: 100% !important; }
+.provider-status-card, .provider-status-state, .provider-status-meta { min-width: 0; overflow-wrap: anywhere; word-break: break-word; }

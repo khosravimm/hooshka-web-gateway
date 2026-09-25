@@ -12,12 +12,12 @@ def test_release_version_sources_are_synchronized():
     version = (ROOT / "VERSION").read_text(encoding="utf-8-sig").strip()
     manifest = _json("MANIFEST.json")
     ui = _json("control_panel_ui/UI_VERSION.json")
-    assert version == "2.1.0"
+    assert version == "2.1.1-dev.full-audit-remediation.20260925-1730"
     assert manifest["version"] == version
     assert ui["version"] == version
     assert manifest["build_date"] == "2026-09-25"
-    assert manifest["release_channel"] == "stable"
-    assert manifest["status"] == "RELEASED_E2_OPERATIONAL"
+    assert manifest["release_channel"] == "dev"
+    assert manifest["status"] == "IN_DEVELOPMENT"
     assert ui["released"] == "2026-09-25"
 
 
