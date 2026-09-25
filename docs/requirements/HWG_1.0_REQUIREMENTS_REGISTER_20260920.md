@@ -196,3 +196,11 @@ DoD: کارکرد کامل Chat کافی نیست؛ تکمیل با Profile/Disc
 - وضعیت همه‌ی موارد: `RECORDED`؛ `implementation_action: NONE` تا دستور مالک.
 - اولویت مالک (cross-cutting) بر همه‌ی موارد: **استانداردها/الزامات زبان فارسی، مستندسازی، ثبت نسخه**.
 - پیش از هر گام پیاده‌سازی: نسخه‌دارسازی، Research/Reuse-First (NG-DISC-001/NG-ENG-001) و ثبت ADR در موارد مهم.
+## Owner clarification — 2026-09-26 / Connection Profile & Integrated Explorer
+
+| ID | Area | Owner requirement | Status | Primary trace |
+|---|---|---|---|---|
+| A22 / HWG-REQ-022 | Profile/Account UX | Multi-account Provider must expose explicit user-facing Connection Profiles; same-origin accounts require isolated Browser Profile/Runtime. | IN_PROGRESS | `HWG-WORK-026`, `HWG-WORK-030` |
+| A23 / HWG-REQ-023 | Profile UX | Suggest human-readable profile name from Provider/account evidence; user edits/confirms; no silent overwrite after confirmation. | OPEN | `HWG-WORK-030` |
+| A24 / HWG-REQ-024 | Explorer UX | Real Provider target remains visible/interactable inside Wizard workspace with safe native-tab fallback. | PARTIAL/E2 | `HWG-WORK-029`, `HWG_INTEGRATED_EXPLORER_WORKSPACE_E2_20260924.md` |
+| A25 / HWG-REQ-025 | Control Plane IA | Primary navigation is mission/workspace-driven and makes Provider→Connection Profile→Account→Runtime/Readiness/Certification traceable. | IN_PROGRESS | `HWG-WORK-030` |

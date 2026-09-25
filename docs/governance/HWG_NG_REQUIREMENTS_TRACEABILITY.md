@@ -85,3 +85,11 @@ The machine-readable execution register is `docs/governance/HWG_REMAINING_WORK_R
 ## Discovery AI self-use invariant
 
 When the provider under investigation is also considered as the AI helper, explicit user approval alone is insufficient. The target provider must have a current deterministic transport qualification proving send-path identification, receive-path identification, completion detection, and a successful controlled round-trip. Qualification is bound to the current transport fingerprint and fails closed on missing, stale, incomplete, or AI-derived evidence. Until the live human-confirmed round-trip is executed, target-provider self-use remains blocked.
+
+## 2026-09-26 Connection Profile / Control Plane reconciliation
+
+- `HWG-REQ-022`: same-Provider multi-account is represented as explicit Connection Profiles; same-origin accounts require dedicated Browser Profile/Runtime isolation. Implementation E1 exists under `HWG-WORK-026`; live second-account E2 remains required.
+- `HWG-REQ-023`: Connection Profile naming suggestion + user edit/confirm is newly explicit and tracked under `HWG-WORK-030`.
+- `HWG-REQ-024`: integrated Explorer live target is an existing E2 capability and is now a mandatory UX contract under `HWG-WORK-029`.
+- `HWG-REQ-025`: primary Control Plane IA is mission/workspace-driven and tracked under `HWG-WORK-030`.
+- Canonical design: `docs/design/HWG_CONTROL_PLANE_CONNECTION_PROFILE_IA_V1_20260926.md`.

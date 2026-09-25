@@ -2,14 +2,14 @@
   'use strict';
 
   const PANEL_TITLES = {
-    overview: 'وضعیت کلی',
-    runtimes: 'Runtimeهای مرورگر',
-    profiles: 'پروفایل‌های مرورگر',
-    accounts: 'حساب‌ها و Session',
-    providers: 'فراهم‌کننده‌ها',
+    overview: 'داشبورد',
+    runtimes: 'محیط اجرا',
+    profiles: 'پروفایل‌های مرورگر (فنی)',
+    accounts: 'حساب‌ها و دسترسی',
+    providers: 'فراهم‌کننده‌ها و پروفایل‌ها',
     'provider-form': 'افزودن وب‌چت جدید',
-    models: 'مدل‌ها و قابلیت‌ها',
-    discovery: 'کاوش و گواهی',
+    models: 'ماتریس قابلیت‌ها',
+    discovery: 'آمادگی و گواهی',
     chat: 'چت تعاملی',
     sessions: 'گفتگوها',
     telemetry: 'آمار مصرف',
@@ -522,10 +522,14 @@ function initNav() {
 
   /* ---------------- Providers ---------------- */
   async function loadProviders(opts) {
-    let data;
-    try { data = await api('/providers'); }
+    let data, accountData = {accounts:[]};
+    try {
+      if (opts && opts.quiet) data = await api('/providers');
+      else [data, accountData] = await Promise.all([api('/providers'), api('/accounts')]);
+    }
     catch (e) { return; }
     const providers = data.providers || [];
+    const accounts = accountData.accounts || [];
     $('#stat-providers').textContent = providers.length;
     const enabled = providers.filter(p => p.enabled === true);
     const ready = enabled.filter(p => p.readiness?.ready === true && p.readiness?.current === true).length;
@@ -563,9 +567,26 @@ function initNav() {
       const readyLabel = functionalReady ? 'READY' : (rawReadiness === 'READY' ? 'STALE · Probe لازم' : rawReadiness);
       const featureBadges = Object.entries(p.capabilities || {}).filter(([k,v]) => v === true).map(([k]) => `<span class="cap-badge">${k}</span>`).join('');
       const modelOptions = (p.model?.options || [p.model?.default || p.id]).map(m => `<option value="${m.replace(/"/g,'&quot;')}">${m}</option>`).join('');
+      const providerAccounts = accounts.filter(a => ((a.provider_profile_id || '').split(':')[0] || a.provider_id || '') === p.id);
+      const connectionProfiles = providerAccounts.map(a => {
+        const cp=a.connection_profile || {}; const sess=a.session || {}; const bp=a.browser_profile || {}; const rt=a.runtime || {};
+        const leaf=(a.account_id || '').split(':').slice(1).join(':') || a.account_id || 'حساب';
+        const display=cp.display_name || `${p.id} — ${leaf}`;
+        const access=sess.access_state || sess.state || 'UNKNOWN';
+        const isolation=bp.sharing_mode || bp.ownership || (rt.cdp_url ? 'exclusive_profile' : 'shared/current');
+        return `<div class="connection-profile-card">
+          <div class="connection-profile-head"><div><b>${esc(display)}</b><div class="hint ltr">${esc(a.account_id || '-')}</div></div><span class="badge ${access==='AUTHENTICATED'?'ok':(access==='BLOCKED'?'bad':'warn')}">${esc(access)}</span></div>
+          <div class="connection-profile-meta"><span>Account</span><b class="ltr">${esc(a.account_id || '-')}</b><span>Isolation</span><b>${esc(isolation)}</b><span>Runtime</span><b class="ltr">${esc(rt.cdp_url || 'shared/current')}</b></div>
+          <div class="btn-row mt"><button class="btn primary btn-xs" onclick="window.HwgConnectionOpen && HwgConnectionOpen('${esc(a.account_id)}')">باز کردن / ورود</button><button class="btn ghost btn-xs" onclick="window.HwgGoAccounts && HwgGoAccounts()">دسترسی و Session</button></div>
+          <div class="connection-profile-rename"><input class="ctrl" id="cp-name-${esc(a.account_id)}" value="${esc(display)}"><button class="btn ghost btn-xs" onclick="window.HwgRenameConnectionProfile && HwgRenameConnectionProfile('${esc(a.account_id)}')">ذخیره نام</button></div>
+        </div>`;
+      }).join('') || '<div class="hint">هنوز پروفایل اتصال برای این Provider ثبت نشده است.</div>';
       return `<div class="card provider-relationship-card">
         <div class="card-head"><div><b class="ltr">${p.id}</b><div class="hint">${p.type} · اولویت ${p.priority}</div></div><div class="btn-row"><span class="badge ${p.runtime?.ready ? 'ok' : 'bad'}">Browser ${p.runtime?.ready ? 'ready' : 'down'}</span><span class="badge ${functionalReady ? 'ok' : 'neutral'}">${readyLabel}</span></div></div>
-        <div class="relationship-preview"><b>Provider</b> <span class="ltr">${p.id}</span> → <b>Profile</b> <span class="ltr">${p.profile_dir || '-'}</span> → <b>Readiness</b> ${readyLabel}</div>
+        <div class="relationship-preview"><b>Provider</b> <span class="ltr">${p.id}</span> → <b>Connection Profiles</b> ${providerAccounts.length} → <b>Readiness</b> ${readyLabel}</div>
+        <div class="connection-profile-section"><div class="connection-profile-title"><div><b>پروفایل‌های اتصال</b><div class="hint">هر کارت یک اکانت مشخص و مرز اتصال آن را نشان می‌دهد.</div></div></div>${connectionProfiles}
+          <details class="connection-profile-add"><summary>+ افزودن پروفایل اتصال</summary><div class="grid-2 mt"><label class="field">شناسه/نام حساب<input class="ctrl" id="cp-alias-${p.id}" placeholder="مثال: work یا user@example.com" oninput="window.HwgSuggestConnectionName && HwgSuggestConnectionName('${p.id}')"></label><label class="field">نام پروفایل<input class="ctrl" id="cp-display-${p.id}" placeholder="نام پیشنهادی"></label></div><div class="btn-row mt"><button class="btn primary btn-sm" onclick="window.HwgCreateConnectionProfile && HwgCreateConnectionProfile('${p.id}')">ایجاد پروفایل اتصال</button></div><div id="cp-create-status-${p.id}" class="status-line"></div></details>
+        </div>
         <div class="grid-2 mt">
           <div><div class="hint">قابلیت‌های اعلام‌شده</div><div class="capability-badges">${featureBadges || '<span class="hint">ثبت نشده</span>'}</div></div>
           <div><div class="hint">وضعیت فعال‌سازی</div><label class="provider-switch"><input type="checkbox" ${p.enabled ? 'checked' : ''} ${canEnable ? '' : 'disabled'} onchange="window.HwgProviderEnabled && HwgProviderEnabled('${p.id}',this.checked)"><span>${p.enabled ? 'فعال' : (functionalReady ? 'آماده فعال‌سازی' : 'پس از READY قابل فعال‌سازی')}</span></label></div>
@@ -581,6 +602,45 @@ function initNav() {
     }).join('') || '<div class="hint">Provider ثبت نشده است.</div>';
   }
 
+
+  window.HwgSuggestConnectionName = function (providerId) {
+    const alias=(document.getElementById('cp-alias-'+providerId)?.value || '').trim();
+    const display=document.getElementById('cp-display-'+providerId);
+    if (!display) return;
+    if (!display.dataset.userEdited || display.dataset.userEdited==='false') display.value = alias ? `${providerId} — ${alias}` : `${providerId} — حساب جدید`;
+    display.oninput=()=>{display.dataset.userEdited='true';};
+  };
+
+  window.HwgCreateConnectionProfile = async function (providerId) {
+    const alias=(document.getElementById('cp-alias-'+providerId)?.value || '').trim();
+    const display=(document.getElementById('cp-display-'+providerId)?.value || '').trim();
+    const status=document.getElementById('cp-create-status-'+providerId);
+    if (!alias) { setStatus(status,'شناسه یا نام حساب را وارد کنید.','err'); return; }
+    const accountId=providerId+':'+alias;
+    setStatus(status,'در حال ایجاد Browser Profile و Runtime ایزوله...','working');
+    try {
+      await api('/accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider_id:providerId,account_id:accountId,display_name:display || null,display_name_confirmed:true,confirm:true})});
+      setStatus(status,'پروفایل اتصال ساخته شد. برای ورود «باز کردن / ورود» را بزنید.','ok');
+      toast('پروفایل اتصال ساخته شد','ok');
+      await loadProviders();
+    } catch(e) { setStatus(status,'خطا: '+e.message,'err'); }
+  };
+
+  window.HwgRenameConnectionProfile = async function (accountId) {
+    const input=document.getElementById('cp-name-'+accountId); if(!input) return;
+    const name=(input.value||'').trim(); if(!name){toast('نام پروفایل نمی‌تواند خالی باشد','err');return;}
+    try { await api('/accounts/'+encodeURIComponent(accountId)+'/connection-profile',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({display_name:name,confirm:true})}); toast('نام پروفایل ذخیره شد','ok'); await loadProviders(); } catch(e){toast('ذخیره نام: '+e.message,'err');}
+  };
+
+  window.HwgConnectionOpen = async function (accountId) {
+    try {
+      await api('/accounts/'+encodeURIComponent(accountId)+'/runtime/start',{method:'POST'}).catch(()=>null);
+      await api('/accounts/'+encodeURIComponent(accountId)+'/login/open',{method:'POST'});
+      toast('پنجره ورود/اکانت باز شد','ok');
+      await loadProviders();
+    } catch(e){toast('باز کردن پروفایل اتصال: '+e.message,'err');}
+  };
+
   window.HwgProviderEnabled = async function (providerId, enabled) {
     try {
       const r = await api('/providers/' + encodeURIComponent(providerId) + '/settings', {
@@ -592,6 +652,7 @@ function initNav() {
   };
 
   window.HwgGoRuntime = function () { showPanel('runtimes'); };
+  window.HwgGoProfiles = function () { showPanel('profiles'); };
   window.HwgGoAccounts = function () { showPanel('accounts'); };
 
   window.HwgRuntimeProfile = async function (providerId) {
@@ -729,7 +790,7 @@ function initNav() {
     const img=$('#pf-live-image'); if(img){img.removeAttribute('src');}
     const pane=$('#pf-live-pane'); if(pane)pane.classList.remove('live-connected');
     providerWizard.liveViewport={width:0,height:0};
-    const status=$('#pf-live-status'); if(status)status.textContent=message;
+    const status=$('#pf-live-status'); if(status)status.textContent=message; const target=$('#pf-live-target'); if(target)target.textContent='Target: —';
   }
   function stopProviderLiveView(){ if(providerLiveTimer){clearInterval(providerLiveTimer);providerLiveTimer=null;} providerLiveBusy=false; clearProviderLiveFrame(); const pane=$('#pf-live-pane'); if(pane)pane.classList.add('wizard-hidden'); }
   async function pollProviderLiveView(){
@@ -742,11 +803,11 @@ function initNav() {
       providerWizard.liveViewport={width:Number(resp.headers.get('X-HWG-Viewport-Width')||0),height:Number(resp.headers.get('X-HWG-Viewport-Height')||0)};
       const frame=$('#pf-live-frame'); if(frame && providerWizard.liveViewport.width>0 && providerWizard.liveViewport.height>0) frame.style.aspectRatio=`${providerWizard.liveViewport.width} / ${providerWizard.liveViewport.height}`;
       const blob=await resp.blob(); const next=URL.createObjectURL(blob); const img=$('#pf-live-image'); if(providerLiveObjectUrl)URL.revokeObjectURL(providerLiveObjectUrl); providerLiveObjectUrl=next; img.src=next;
-      $('#pf-live-pane').classList.add('live-connected'); $('#pf-live-status').textContent='متصل به همان Target واقعی Provider · '+(providerWizard.liveTargetId||'target?');
+      $('#pf-live-pane').classList.add('live-connected'); $('#pf-live-status').textContent='متصل به همان Target واقعی Provider · '+(providerWizard.liveTargetId||'target?'); const target=$('#pf-live-target'); if(target)target.textContent='Target: '+(providerWizard.liveTargetId||'—');
     } catch(e) { clearProviderLiveFrame('Target واقعی Provider در دسترس نیست؛ Explorer در حال resolve مجدد است...'); }
     finally { providerLiveBusy=false; }
   }
-  function startProviderLiveView(runtimeKey,url,targetId){ providerWizard.liveRuntimeKey=runtimeKey||''; providerWizard.liveUrl=url||''; providerWizard.liveTargetId=targetId||''; $('#pf-live-pane').classList.remove('wizard-hidden'); api('/provider-wizard/screencast/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runtime_key:providerWizard.liveRuntimeKey,target_id:providerWizard.liveTargetId,url:providerWizard.liveUrl})}).catch(()=>{}); pollProviderLiveView(); if(providerLiveTimer)clearInterval(providerLiveTimer); providerLiveTimer=setInterval(pollProviderLiveView,250); }
+  function startProviderLiveView(runtimeKey,url,targetId){ providerWizard.liveRuntimeKey=runtimeKey||''; providerWizard.liveUrl=url||''; providerWizard.liveTargetId=targetId||''; const a=providerWizard.analysis||{}; const provider=$('#pf-live-provider'); if(provider)provider.textContent='Provider: '+(a.suggested_provider_id||a.suggested_name||'در حال شناسایی'); const profile=$('#pf-live-profile'); if(profile)profile.textContent='پروفایل: '+(a.existing_origin_provider_ids?.length?'اکانت/پروفایل موجود یا جدید':'در حال ساخت/شناسایی'); const access=$('#pf-live-access'); if(access)access.textContent='دسترسی: در حال بررسی'; const target=$('#pf-live-target'); if(target)target.textContent='Target: '+(providerWizard.liveTargetId||'—'); $('#pf-live-pane').classList.remove('wizard-hidden'); api('/provider-wizard/screencast/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runtime_key:providerWizard.liveRuntimeKey,target_id:providerWizard.liveTargetId,url:providerWizard.liveUrl})}).catch(()=>{}); pollProviderLiveView(); if(providerLiveTimer)clearInterval(providerLiveTimer); providerLiveTimer=setInterval(pollProviderLiveView,250); }
   async function cleanupWizardOwnedTarget(){
     const runtimeKey=providerWizard.liveRuntimeKey, targetId=providerWizard.liveTargetId, owned=providerWizard.liveOwned===true;
     stopProviderLiveView();
@@ -1657,7 +1718,7 @@ function initNav() {
         renderWizardMission('S1','RUNNING');
         updateWizardActivity('S1 — Access Bootstrap','Explorer وضعیت واقعی صفحه، Guest/Auth/Login/CAPTCHA و قابلیت دسترسی همین Session را بررسی می‌کند.');
         const s1=await api('/provider-wizard/access-bootstrap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runtime_key:runtimeKey,target_id:preferred,candidate_id:a.suggested_provider_id})});
-        providerWizard.accessStage=s1; renderWizardMission('S1',s1.stage_state||'RUNNING');
+        providerWizard.accessStage=s1; renderWizardMission('S1',s1.stage_state||'RUNNING'); const liveAccess=$('#pf-live-access'); if(liveAccess){ const cls=s1.classification||{}; liveAccess.textContent='دسترسی: '+(cls.state||s1.stage_state||'UNKNOWN'); }
         if((s1.stage_state||'')!=='PASSED'){
           const cls=s1.classification||{};
           $('#pf-observation-card').classList.remove('wizard-hidden');

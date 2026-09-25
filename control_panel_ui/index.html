@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>هوشکا وب گیت‌وی - کنترل پنل</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="/panel/assets/panel.css?b=20260924-1215">
+<link rel="stylesheet" href="/panel/assets/panel.css?b=20260926-0030">
 </head>
 <body>
 <div class="app-shell">
@@ -23,16 +23,13 @@
     </div>
 
     <nav class="nav" aria-label="ناوبری اصلی">
-      <div class="nav-group-title">نظارت</div>
-      <button class="nav-item active" data-panel="overview"><span class="nav-chip">O</span><span>وضعیت کلی</span></button>
-      <button class="nav-item" data-panel="runtimes"><span class="nav-chip">R</span><span>Runtimeهای مرورگر</span></button>
-      <button class="nav-item" data-panel="profiles"><span class="nav-chip">F</span><span>پروفایل‌های مرورگر</span></button>
-      <button class="nav-item" data-panel="accounts"><span class="nav-chip">A</span><span>حساب‌ها و Session</span></button>
-      <button class="nav-item" data-panel="providers"><span class="nav-chip">P</span><span>فراهم‌کننده‌ها</span></button>
-
-      <div class="nav-group-title">قابلیت‌ها</div>
-      <button class="nav-item" data-panel="models"><span class="nav-chip">M</span><span>مدل‌ها و قابلیت‌ها</span></button>
-      <button class="nav-item" data-panel="discovery"><span class="nav-chip">D</span><span>کاوش و گواهی</span></button>
+      <div class="nav-group-title">عملیات اصلی</div>
+      <button class="nav-item active" data-panel="overview"><span class="nav-chip">D</span><span>داشبورد</span></button>
+      <button class="nav-item" data-panel="providers"><span class="nav-chip">P</span><span>فراهم‌کننده‌ها و پروفایل‌ها</span></button>
+      <button class="nav-item" data-panel="accounts"><span class="nav-chip">A</span><span>حساب‌ها و دسترسی</span></button>
+      <button class="nav-item" data-panel="runtimes"><span class="nav-chip">R</span><span>محیط اجرا</span></button>
+      <button class="nav-item" data-panel="discovery"><span class="nav-chip">Q</span><span>آمادگی و گواهی</span></button>
+      <button class="nav-item" data-panel="models"><span class="nav-chip">M</span><span>ماتریس قابلیت‌ها</span></button>
 
       <div class="nav-group-title">گفتگو و مصرف</div>
       <button class="nav-item" data-panel="chat"><span class="nav-chip">C</span><span>چت تعاملی</span></button>
@@ -118,7 +115,7 @@
 
     <section class="panel" id="panel-runtimes">
       <div class="card operational-intro">
-        <h3 class="card-title">زنجیره آماده‌سازی Web Chat</h3>
+        <h3 class="card-title">محیط اجرا — جزئیات فنی و عیب‌یابی</h3>
         <div class="flow-rail">
           <div><b>۱. Browser Profile</b><span>مرز داده مرورگر و Storage</span></div>
           <div><b>۲. Browser Runtime</b><span>Chrome/CDP و Tabهای Provider</span></div>
@@ -130,7 +127,7 @@
       </div>
       <div class="card mt">
         <div class="card-head"><div><h3 class="card-title">Runtimeهای مرورگر</h3><p class="hint">عملیات Start / Open فقط اینجا انجام می‌شود. Provider صفحه مدیریت منطقی است، نه کنترل Browser.</p></div>
-          <button id="runtime-repair-all" class="btn warn" type="button">تعمیر Runtimeها</button></div>
+          <div class="btn-row"><button class="btn ghost" type="button" onclick="window.HwgGoProfiles && HwgGoProfiles()">پروفایل‌های مرورگر (فنی)</button><button id="runtime-repair-all" class="btn warn" type="button">تعمیر Runtimeها</button></div></div>
         <div id="runtime-action-global" class="status-line"></div>
         <div id="runtime-cards" class="runtime-operation-grid"></div>
       </div>
@@ -145,7 +142,7 @@
     </section>
 
     <section class="panel" id="panel-accounts">
-      <div class="card operational-intro"><h3 class="card-title">Account Instances و Session Lifecycle</h3><p class="hint">واحد Login و Session، Account Instance است. هر کارت رابطه Provider Profile → Account → Browser Profile/Origin → Runtime → Session → Readiness را نشان می‌دهد.</p></div>
+      <div class="card operational-intro"><h3 class="card-title">حساب‌ها و دسترسی</h3><p class="hint">هر حساب باید به یک پروفایل اتصال مشخص تعلق داشته باشد. Login، Session، Re-auth و وضعیت دسترسی از اینجا مدیریت می‌شود.</p></div>
       <div id="accounts-global-status" class="status-line"></div>
       <div id="accounts-grid" class="profiles-grid mt"></div>
     </section>
@@ -153,15 +150,15 @@
     <section class="panel" id="panel-providers">
       <div class="card-head">
         <div>
-          <h3 class="card-title">پراوایدرهای ثبت‌شده</h3>
-          <p class="hint">این صفحه فقط تنظیمات منطقی Provider را مدیریت می‌کند. Browser/Profile در «مرورگر و اتصال» مدیریت می‌شود.</p>
+          <h3 class="card-title">فراهم‌کننده‌ها و پروفایل‌های اتصال</h3>
+          <p class="hint">هر Provider می‌تواند چند پروفایل اتصال برای اکانت‌های مختلف داشته باشد. رابطه پروفایل، اکانت، Session، Runtime و آمادگی باید از همین صفحه قابل فهم باشد.</p>
         </div>
         <div class="btn-row">
           <button id="btn-add-provider" class="btn success btn-sm" type="button">اضافه‌کردن</button>
 
         </div>
       </div>
-      <div class="dependency-note">Provider یک قرارداد منطقی است. Browser Runtime و Account در Workspaceهای خودشان مدیریت می‌شوند؛ اینجا مدل، Feature defaults، وضعیت فعال‌سازی و Readiness دیده می‌شود.</div>
+      <div class="dependency-note">Connection Profile نمای کاربرپسند Provider + Account + Browser Profile/Runtime است. جزئیات فنی Browser Profile و CDP در «محیط اجرا» باقی می‌ماند.</div>
       <div class="card mt" id="wizard-candidate-card">
         <div class="card-head">
           <div><h3 class="card-title">وضعیت زنده Wizard Provider</h3><p class="hint">این کارت فقط از رکورد واقعی Candidate خوانده می‌شود و اجرای S4/Advance را به‌صورت visible از همین پنل انجام می‌دهد.</p></div>
@@ -193,7 +190,7 @@
       <div id="provider-form-status" class="status-line"></div>
       <div class="provider-explorer-workspace">
         <div id="pf-live-pane" class="provider-live-pane wizard-hidden">
-          <div class="provider-live-head"><div><strong>نمای زنده وب‌چت</strong><div id="pf-live-status" class="hint">در انتظار اتصال به Target واقعی Provider</div></div><button id="pf-live-focus" class="btn ghost btn-sm" type="button">نمایش تب واقعی</button></div>
+          <div class="provider-live-head"><div><strong>نمای زنده وب‌چت</strong><div class="live-scope-badges"><span class="badge neutral" id="pf-live-provider">Provider: —</span><span class="badge neutral" id="pf-live-profile">پروفایل: در حال شناسایی</span><span class="badge neutral" id="pf-live-access">دسترسی: —</span><span class="badge neutral ltr" id="pf-live-target">Target: —</span></div><div id="pf-live-status" class="hint">در انتظار اتصال به Target واقعی Provider</div></div><button id="pf-live-focus" class="btn ghost btn-sm" type="button">نمایش تب واقعی</button></div>
           <div id="pf-live-frame" class="provider-live-frame">
             <img id="pf-live-image" alt="نمای زنده وب‌چت در حال کاوش" draggable="false" tabindex="0">
             <div id="pf-live-placeholder" class="provider-live-placeholder">پس از شروع مشاهده، همین‌جا صفحه واقعی Provider را خواهید دید.</div>
@@ -238,7 +235,7 @@
     <section class="panel" id="panel-models">
       <div class="card-head">
         <div>
-          <h3 class="card-title">مدل‌ها و قابلیت‌ها</h3>
+          <h3 class="card-title">ماتریس قابلیت‌ها</h3>
           <p class="hint">ماتریس کامل قابلیت هر پراوایدر از Runtime API + فهرست مدل‌ها از /v1/models.</p>
         </div>
         <button id="reload-models" class="btn ghost btn-sm" type="button">تازه‌سازی</button>
@@ -253,7 +250,7 @@
 
     <section class="panel" id="panel-discovery">
       <div class="card-head">
-        <div><h3 class="card-title">کاوش و گواهی</h3><p class="hint">Research-first → Baseline → Deterministic Exploration → Behavior Lab / AI-assisted analysis when needed → Synthesis → Update Candidate → Automated E2 or Human Acceptance. هیچ Run جدیدی مستقیم به Profile عملیاتی اعمال نمی‌شود.</p></div>
+        <div><h3 class="card-title">آمادگی و گواهی</h3><p class="hint">Research-first → Baseline → Deterministic Exploration → Behavior Lab / AI-assisted analysis when needed → Synthesis → Update Candidate → Automated E2 or Human Acceptance. هیچ Run جدیدی مستقیم به Profile عملیاتی اعمال نمی‌شود.</p></div>
         <span class="badge">Discovery Engine 2.x</span>
       </div>
       <div class="card discovery-map">
@@ -479,8 +476,8 @@
 
 <div id="toast-region" class="toast-region" aria-live="polite"></div>
 
-<script src="/panel/assets/markdown.js?b=20260924-1215"></script>
-<script src="/panel/assets/panel.js?b=20260924-1215"></script>
-<script src="/panel/assets/chat.js?b=20260924-1215"></script>
+<script src="/panel/assets/markdown.js?b=20260926-0030"></script>
+<script src="/panel/assets/panel.js?b=20260926-0030"></script>
+<script src="/panel/assets/chat.js?b=20260926-0030"></script>
 </body>
 </html>

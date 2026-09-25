@@ -9,6 +9,7 @@ from core.profile_store import (
     provision_account_instance,
     account_runtime,
     deprovision_account_instance,
+    update_connection_profile_name,
 )
 
 
@@ -97,3 +98,24 @@ def test_account_deprovision_route_is_guarded_and_profile_scoped():
     assert 'Account deprovision requires confirm=true' in panel
     assert 'default_account_protected' in panel
     assert 'accounts_root = (_profile_root() / "accounts").resolve()' in panel
+
+
+def test_connection_profile_name_is_suggested_and_user_confirmable(tmp_path):
+    cfg=tmp_path/'config.yaml'; root=tmp_path/'store'
+    _config(cfg); migrate_legacy_inventory(cfg, root)
+    account=provision_account_instance('deepseek-web','deepseek-web:office',cfg,root)
+    cp=account['connection_profile']
+    assert cp['profile_id']=='cp:deepseek-web:office'
+    assert cp['display_name']=='deepseek-web — office'
+    assert cp['name_confirmed'] is False
+    renamed=update_connection_profile_name('deepseek-web:office','DeepSeek — حساب کاری',root,confirmed=True)
+    assert renamed['connection_profile']['display_name']=='DeepSeek — حساب کاری'
+    assert renamed['connection_profile']['name_confirmed'] is True
+    assert renamed['connection_profile']['name_source']=='user_confirmed'
+
+
+def test_control_plane_exposes_connection_profile_rename_route():
+    root=Path(__file__).resolve().parents[1]
+    panel=(root/'control_panel.py').read_text(encoding='utf-8-sig')
+    assert "/api/accounts/<path:account_id>/connection-profile" in panel
+    assert 'display_name_confirmed' in panel

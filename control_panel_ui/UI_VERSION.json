@@ -1,7 +1,7 @@
 {
   "name": "hwg-control-plane-ui",
-  "version": "2.1.1-dev.full-audit-remediation.20260925-1907",
-  "released": "2026-09-25",
+  "version": "2.1.1-dev.connection-profile-ia.20260926-0030",
+  "released": "2026-09-26",
   "direction": "rtl",
   "language": "fa",
   "themes": [
@@ -204,8 +204,14 @@
       "date": "2026-09-25",
       "class": "AUDIT_REMEDIATION",
       "notes": "Desktop Runtime Agent scheduled task now launches a persistent supervisor wrapper that restarts the Python agent child after unexpected exit; browser watchdog remains active inside the agent."
+    },
+    {
+      "version": "2.1.1-dev.connection-profile-ia.20260926-0030",
+      "date": "2026-09-26",
+      "class": "IA_REDESIGN",
+      "notes": "Connection Profile domain/UX baseline: mission-driven primary navigation, Provider-centric multi-account profiles, editable suggested profile naming, and preservation of integrated Explorer Live View."
     }
   ],
-  "build": "20260925-1907",
-  "last_updated": "2026-09-25"
+  "build": "20260926-0030",
+  "last_updated": "2026-09-26"
 }

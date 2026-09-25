@@ -22,7 +22,7 @@ from core.config import load_config, deep_merge, get_default_config
 from core.feature_settings import persist_provider_feature_defaults, provider_feature_state
 from core.runtime_inventory import inventory_by_id, load_orchestration_settings, load_runtime_configuration
 from core.profile_contract import project_ng_inventory
-from core.profile_store import load_ng_inventory, migrate_legacy_inventory, rollback_legacy_migration, update_account_session, update_provider_tool_capabilities, update_provider_media_qualification, reconcile_isolation_metadata, sync_projected_inventory, provision_account_instance, account_runtime, deprovision_account_instance
+from core.profile_store import load_ng_inventory, migrate_legacy_inventory, rollback_legacy_migration, update_account_session, update_provider_tool_capabilities, update_provider_media_qualification, reconcile_isolation_metadata, sync_projected_inventory, provision_account_instance, account_runtime, deprovision_account_instance, update_connection_profile_name
 from core.work_register import load_register, summarize_register, validate_register
 from core.discovery_orchestrator import (
     attach_baseline as discovery_attach_baseline,
@@ -3110,8 +3110,12 @@ def api_create_account():
     account_id = str(payload.get("account_id") or "").strip()
     preferred = payload.get("preferred_port")
     try:
-        account = provision_account_instance(provider_id, account_id, CONFIG_PATH,
-                                             preferred_port=int(preferred) if preferred is not None else None)
+        account = provision_account_instance(
+            provider_id, account_id, CONFIG_PATH,
+            preferred_port=int(preferred) if preferred is not None else None,
+            display_name=str(payload.get("display_name") or "").strip() or None,
+            display_name_confirmed=payload.get("display_name_confirmed") is True,
+        )
         return jsonify({"account": account, "next_action": "login/open"}), 201
     except FileExistsError as exc:
         return jsonify({"error": "account_exists", "message": str(exc)}), 409
@@ -3119,6 +3123,21 @@ def api_create_account():
         return jsonify({"error": "invalid_account_request", "message": str(exc)}), 400
     except FileNotFoundError as exc:
         return jsonify({"error": "persistent_store_not_initialized", "message": str(exc)}), 409
+
+
+@control_panel_bp.route('/api/accounts/<path:account_id>/connection-profile', methods=['PATCH'])
+def api_update_connection_profile(account_id):
+    payload = request.get_json(silent=True) or {}
+    name = str(payload.get("display_name") or "").strip()
+    if not name:
+        return jsonify({"error": "display_name_required"}), 400
+    try:
+        account = update_connection_profile_name(account_id, name, confirmed=payload.get("confirm") is True)
+        return jsonify({"account": account, "connection_profile": account.get("connection_profile")}), 200
+    except FileNotFoundError:
+        return jsonify({"error": "Account instance not found"}), 404
+    except ValueError as exc:
+        return jsonify({"error": "invalid_connection_profile", "message": str(exc)}), 400
 
 
 @control_panel_bp.route('/api/accounts/<path:account_id>/runtime/<action>', methods=['POST'])
@@ -3344,4 +3363,3 @@ def api_service_action(action):
     payload["success"] = success
     payload["action"] = action
     return jsonify(payload)
-

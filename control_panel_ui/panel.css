@@ -409,3 +409,21 @@ input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent);
 .chart-wrap { min-width: 0; max-width: 100%; overflow: hidden; }
 .chart-wrap canvas { display: block; max-width: 100% !important; width: 100% !important; }
 .provider-status-card, .provider-status-state, .provider-status-meta { min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
+
+/* Connection Profile UX — user-facing Provider + Account aggregate */
+.connection-profile-section { margin-top:14px; padding:12px; border:1px solid var(--border); border-radius:12px; background:var(--panel-2); }
+.connection-profile-title { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:10px; }
+.connection-profile-card { border:1px solid var(--border); border-radius:10px; padding:10px; margin-top:8px; background:var(--panel); }
+.connection-profile-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+.connection-profile-meta { display:grid; grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr); gap:6px 10px; margin-top:8px; font-size:12px; }
+.connection-profile-meta span { color:var(--text-3); }
+.connection-profile-meta b { overflow-wrap:anywhere; }
+.connection-profile-rename { display:flex; gap:8px; align-items:center; margin-top:8px; }
+.connection-profile-rename .ctrl { margin:0; min-width:220px; }
+.connection-profile-add { margin-top:10px; border-top:1px dashed var(--border); padding-top:10px; }
+.connection-profile-add summary { cursor:pointer; font-weight:700; color:var(--accent); }
+@media (max-width:760px) {
+  .connection-profile-meta { grid-template-columns:1fr; }
+  .connection-profile-rename { flex-direction:column; align-items:stretch; }
+  .connection-profile-rename .ctrl { min-width:0; }
+}

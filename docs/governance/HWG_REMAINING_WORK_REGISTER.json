@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.55.0",
-  "updated_at": "2026-09-25T19:58:00Z",
+  "version": "1.57.0",
+  "updated_at": "2026-09-25T21:24:00Z",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -931,17 +931,20 @@
       "title": "Dedicated same-origin Account Runtime provisioning and lifecycle",
       "area": "runtime",
       "status": "PARTIAL",
-      "priority": "P1",
+      "priority": "P0",
       "source": [
         "NG-BRW-003",
         "HWG-WORK-002",
-        "Account Instance lifecycle"
+        "Account Instance lifecycle",
+        "HWG-REQ-022",
+        "HWG-REQ-023",
+        "Connection Profile IA v1"
       ],
       "depends_on": [
         "HWG-WORK-002",
         "HWG-WORK-004"
       ],
-      "target_version": "1.0.0-dev.7",
+      "target_version": "2.1.1-dev",
       "evidence_required": [
         "E1",
         "E2"
@@ -949,13 +952,16 @@
       "exit_criteria": [
         "Second same-origin Account receives a dedicated Browser Profile and unique CDP port",
         "Desktop Runtime Agent supports start/restart/stop/repair/open by account_id",
+        "Control Plane represents each Provider account as an explicit Connection Profile with visible account ownership",
+        "Connection Profile name is suggested and can be edited/confirmed without silent later overwrite",
         "Account deprovision is guarded and cannot delete default/shared Account artifacts",
-        "Live E2 validates an isolated Account Runtime without disturbing shared-window provider sessions"
+        "Live E2 validates two isolated same-origin Accounts without disturbing existing Provider sessions"
       ],
       "latest_evidence": {
-        "date": "2026-09-22",
-        "type": "E1 implementation",
-        "result": "Provisioning/runtime/deprovision APIs and Desktop Runtime Agent account routes exist; deterministic tests pass. Live second-account E2 remains pending."
+        "date": "2026-09-26",
+        "type": "design/requirement reconciliation",
+        "result": "Existing provisioning/runtime APIs are E1; owner clarification elevates user-visible Connection Profile ownership, editable suggested naming, and real second-account isolation E2 to P0 acceptance requirements.",
+        "record": "docs/design/HWG_CONTROL_PLANE_CONNECTION_PROFILE_IA_V1_20260926.md"
       }
     },
     {
@@ -1039,7 +1045,9 @@
       "priority": "P0",
       "source": [
         "Owner staged qualification directive 2026-09-24",
-        "HWG-KT-WEBCHAT-001 readiness model"
+        "HWG-KT-WEBCHAT-001 readiness model",
+        "HWG-REQ-024",
+        "Connection Profile IA v1"
       ],
       "depends_on": [
         "HWG-WORK-003",
@@ -1062,7 +1070,9 @@
         "S5-S7 qualify full tools, extended capabilities and models without cross-model inference",
         "S8 materializes only proven facts with provider disabled",
         "S9 terminates in explicit readiness state with evidence and revalidation policy",
-        "Human Gates are limited to genuine user authority/consent/risk decisions"
+        "Human Gates are limited to genuine user authority/consent/risk decisions",
+        "Integrated live Provider target remains visible beside Wizard progress/evidence and is bound to the authoritative Runtime/CDP Target ID",
+        "Human-required login/challenge actions can be completed in the integrated view when safe or in the native Provider tab with return to the same Wizard state"
       ],
       "latest_evidence": {
         "date": "2026-09-24",
@@ -1072,6 +1082,55 @@
       },
       "evidence": [
         "docs/evidence/HWG_PROVIDER_WIZARD_STAGE_MODEL_NOTEGPT_S1_S2_E2_20260924.md"
+      ]
+    },
+    {
+      "id": "HWG-WORK-030",
+      "title": "Connection Profile UX and Control Plane information architecture redesign",
+      "area": "ui-domain-model",
+      "status": "IN_PROGRESS",
+      "priority": "P0",
+      "source": [
+        "HWG-REQ-007",
+        "HWG-REQ-017",
+        "HWG-REQ-022",
+        "HWG-REQ-023",
+        "HWG-REQ-024",
+        "HWG-REQ-025",
+        "Owner navigation review 2026-09-26"
+      ],
+      "depends_on": [
+        "HWG-WORK-004",
+        "HWG-WORK-005",
+        "HWG-WORK-026",
+        "HWG-WORK-029"
+      ],
+      "target_version": "2.1.1-dev",
+      "evidence_required": [
+        "E1",
+        "E2",
+        "Human acceptance"
+      ],
+      "exit_criteria": [
+        "Primary navigation is mission/workspace-driven rather than exposing Browser Runtime/Profile as unrelated peer entities",
+        "Provider workspace shows Connection Profiles as explicit child identities with account/session/runtime/readiness/certification summary",
+        "User can start Add Connection Profile from a Provider without manually pre-creating a raw Browser Profile",
+        "Profile display name is suggested from Provider/account evidence and is editable/confirmable",
+        "Accounts workspace makes Connection Profile ownership and access lifecycle obvious",
+        "Execution Environment retains advanced Browser Profile/Runtime/CDP operations without becoming the normal onboarding path",
+        "Explorer Live View remains integrated and identifies Provider + Connection Profile/Account + target state",
+        "Old deep links/routes remain backward-compatible during the transition",
+        "Visual scenario audit and human acceptance confirm users can distinguish two accounts of the same Provider without inspecting raw IDs/paths"
+      ],
+      "latest_evidence": {
+        "date": "2026-09-26",
+        "type": "E1 implementation checkpoint",
+        "result": "Mission-driven primary IA, Provider child Connection Profile cards, guarded creation/rename metadata, and Live View scope header are implemented on Dev 5080. Full suite 633/633 PASS. Real second same-origin account E2 and human acceptance remain pending.",
+        "record": "docs/evidence/HWG_CONNECTION_PROFILE_IA_IMPLEMENTATION_E1_20260926.md"
+      },
+      "evidence": [
+        "docs/design/HWG_CONTROL_PLANE_CONNECTION_PROFILE_IA_V1_20260926.md",
+        "docs/evidence/HWG_CONNECTION_PROFILE_IA_IMPLEMENTATION_E1_20260926.md"
       ]
     }
   ]

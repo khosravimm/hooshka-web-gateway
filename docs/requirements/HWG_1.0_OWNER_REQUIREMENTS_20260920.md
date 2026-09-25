@@ -79,3 +79,11 @@
 - این سند صرفاً «مرجع نیازمندی» است؛ `implementation_action: NONE`.
 - استخراج بر اساس متن مالک انجام شده و به‌روزرسانی آینده نیازمند نسخه‌بندی و مستندات تغییر (نیازمندی ۱۳/۱۴) است.
 - هر نیاز در زمان شروع، طبق سیاست «Reuse/Research-First» (نیازمندی ۱۰) ارزیابی و سپس پیاده‌سازی می‌شود.
+## تکمیل نیازمندی مالک — 2026-09-26 (Connection Profile / Integrated Explorer)
+
+| # | requirement_id | خلاصه نیاز | وضعیت | ارجاع |
+|---|---|---|---|---|
+| 22 | HWG-REQ-022 | هر Provider باید چند «پروفایل اتصال» کاربرپسند برای اکانت‌های مختلف داشته باشد؛ نسبت Profile↔Account باید در پنل صریح باشد و same-origin accountها Browser Profile/Runtime ایزوله داشته باشند. | RECORDED | `docs/design/HWG_CONTROL_PLANE_CONNECTION_PROFILE_IA_V1_20260926.md`, `HWG-WORK-026` |
+| 23 | HWG-REQ-023 | هنگام ساخت/ثبت پروفایل، HWG نام قابل‌فهم بر اساس Provider و هویت قابل مشاهده Account پیشنهاد دهد؛ کاربر بتواند نام را اصلاح/تأیید کند و نام تأییدشده بدون اجازه تغییر نکند. | RECORDED | `docs/design/HWG_CONTROL_PLANE_CONNECTION_PROFILE_IA_V1_20260926.md` |
+| 24 | HWG-REQ-024 | هنگام کار Explorer/Wizard، نمای زنده سایت مقصد باید در همان Workspace قابل مشاهده و برای تعامل‌های مجاز قابل استفاده باشد؛ تعامل‌های حساس/native به تب واقعی هدایت و سپس همان state ادامه یابد. | RECORDED | `docs/evidence/HWG_INTEGRATED_EXPLORER_WORKSPACE_E2_20260924.md`, `HWG-WORK-029` |
+| 25 | HWG-REQ-025 | معماری اطلاعات Control Plane باید Mission/Workspace-driven باشد؛ Provider→Connection Profile→Account→Runtime/Profile→Readiness/Certification برای کاربر قابل ردیابی باشد و جزئیات فنی Browser Profile/CDP در مسیر عادی مانع فهم کاربر نشود. | RECORDED | `docs/design/HWG_CONTROL_PLANE_CONNECTION_PROFILE_IA_V1_20260926.md`, `HWG-WORK-030` |

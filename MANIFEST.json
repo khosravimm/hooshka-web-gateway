@@ -1,9 +1,9 @@
 {
   "name": "hwg-next",
-  "version": "2.1.1-dev.full-audit-remediation.20260925-1907",
+  "version": "2.1.1-dev.connection-profile-ia.20260926-0030",
   "canonical_id": "hooshka-web-gateway-next",
   "release_channel": "dev",
-  "build_date": "2026-09-25",
+  "build_date": "2026-09-26",
   "status": "IN_DEVELOPMENT",
   "port": 5080,
   "parents": [
@@ -162,7 +162,9 @@
     "e3_deepseek_w1": "docs/evidence/HWG_E3_DEEPSEEK_W1_20260922.md",
     "deepseek_e3_w1_evidence": "docs/evidence/HWG_E3_DEEPSEEK_W1_20260922.md",
     "interactive_agent_local_tools_evidence": "docs/evidence/HWG_INTERACTIVE_AGENT_LOCAL_TOOLS_E2_20260922.md",
-    "agent_capability_expansion_evidence": "docs/evidence/HWG_AGENT_CAPABILITY_EXPANSION_E1_20260922.md"
+    "agent_capability_expansion_evidence": "docs/evidence/HWG_AGENT_CAPABILITY_EXPANSION_E1_20260922.md",
+    "connection_profile_ia": "docs/design/HWG_CONTROL_PLANE_CONNECTION_PROFILE_IA_V1_20260926.md",
+    "connection_profile_ia_evidence": "docs/evidence/HWG_CONNECTION_PROFILE_IA_IMPLEMENTATION_E1_20260926.md"
   },
   "contracts": {
     "provider_profile_schema": "urn:hwg:schema:provider-profile:1.0.0",
@@ -171,10 +173,10 @@
     "discovery_ai_policy": "discovery/policies/ai-assistance-v1.json",
     "discovery_routing_policy": "discovery/policies/routing-v1.json",
     "provider_self_use_schema": "urn:hwg:schema:provider-self-use-qualification:1.0.0",
-    "work_register": "HWG-WORK-REGISTER-001@1.24.0",
+    "work_register": "HWG-WORK-REGISTER-001@1.57.0",
     "functional_readiness_api": "/panel/api/readiness",
     "ui_audit_register": "HWG-UI-AUDIT-REGISTER-001@1.3.0",
-    "provider_certification_matrix": "HWG-PROVIDER-CERT-MATRIX-001@1.0.0"
+    "provider_certification_matrix": "HWG-PROVIDER-CERT-MATRIX-001@1.1.0"
   },
   "evidence": {
     "full_suite": "423 passed",
@@ -188,6 +190,6 @@
     "evidence": "docs/evidence/HWG_SECURITY_RELEASE_GATE_E2_20260922.md"
   },
   "governance": {
-    "work_register": "HWG-WORK-REGISTER-001@1.25.0"
+    "work_register": "HWG-WORK-REGISTER-001@1.57.0"
   }
 }

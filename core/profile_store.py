@@ -370,6 +370,8 @@ def provision_account_instance(
     config_path: str | Path,
     root: str | Path | None = None,
     preferred_port: int | None = None,
+    display_name: str | None = None,
+    display_name_confirmed: bool = False,
 ) -> dict[str, Any]:
     """Create an isolated same-provider Account Instance without cloning a Provider."""
     from urllib.parse import urlparse
@@ -394,11 +396,21 @@ def provision_account_instance(
     safe = _safe_id(account_id)
     profile_rel = str(Path(".runtime-dev") / "accounts" / safe)
     now = _now()
+    account_label = account_id.split(":", 1)[-1].strip() or "حساب"
+    suggested_name = f"{provider_id} — {account_label}"
+    chosen_name = str(display_name or "").strip() or suggested_name
     payload = {
         "schema_version": "1.0.0",
         "artifact_version": "1.0.0-provisioned.1",
         "account_id": account_id,
         "provider_profile_id": profile["profile_id"],
+        "connection_profile": {
+            "profile_id": f"cp:{account_id}",
+            "display_name": chosen_name,
+            "suggested_name": suggested_name,
+            "name_source": "user_confirmed" if (display_name and display_name_confirmed) else "suggested",
+            "name_confirmed": bool(display_name and display_name_confirmed),
+        },
         "browser_profile": {
             "path": profile_rel,
             "origin": origin,
@@ -425,6 +437,34 @@ def provision_account_instance(
     _atomic_json(path, payload)
     return payload
 
+
+
+def update_connection_profile_name(
+    account_id: str,
+    display_name: str,
+    root: str | Path | None = None,
+    confirmed: bool = True,
+) -> dict[str, Any]:
+    """Update only the user-facing Connection Profile name; never browser/session secrets."""
+    root = Path(root) if root else DEFAULT_ROOT
+    _profiles_dir, accounts_dir = _dirs(root)
+    path = accounts_dir / (_safe_id(account_id) + ".json")
+    if not path.exists():
+        raise FileNotFoundError(f"account instance not found: {account_id}")
+    name = str(display_name or "").strip()
+    if not name:
+        raise ValueError("display_name is required")
+    payload = json.loads(path.read_text(encoding="utf-8-sig"))
+    cp = dict(payload.get("connection_profile") or {})
+    cp.setdefault("profile_id", f"cp:{account_id}")
+    cp["display_name"] = name
+    cp["name_source"] = "user_confirmed" if confirmed else "user_edit"
+    cp["name_confirmed"] = bool(confirmed)
+    payload["connection_profile"] = cp
+    payload["updated_at"] = _now()
+    payload.setdefault("change_log", []).append({"at": payload["updated_at"], "change": "connection_profile_name_updated", "evidence_level": "E1"})
+    _atomic_json(path, payload)
+    return payload
 
 def account_runtime(account_id: str, root: str | Path | None = None, project_root: str | Path | None = None) -> dict[str, Any]:
     root = Path(root) if root else DEFAULT_ROOT

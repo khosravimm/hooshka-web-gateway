@@ -278,8 +278,8 @@ def test_operational_ui_separates_provider_config_from_browser_runtime():
     assert "HwgRuntimeProfile" in js
     assert "HwgGoRuntime" in js
     assert "HwgProviderProfile" not in js
-    assert "مرورگر و اتصال" in index
-    assert "زنجیره آماده‌سازی Web Chat" in index
+    assert "محیط اجرا" in index
+    assert "پروفایل‌های مرورگر (فنی)" in index
     assert 'id="profiles-grid"' in index
     assert 'id="profile-create"' in index
     text = source()
