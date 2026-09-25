@@ -1,6 +1,6 @@
 {
   "name": "hwg-control-plane-ui",
-  "version": "2.1.1-dev.connection-profile-ia.20260926-0105",
+  "version": "2.1.1-dev.connection-profile-ia.20260926-0120",
   "released": "2026-09-26",
   "direction": "rtl",
   "language": "fa",
@@ -230,6 +230,6 @@
       "notes": "Account lifecycle maps fail-closed guest candidates requiring login to LOGIN_REQUIRED while raw discovery remains UNKNOWN."
     }
   ],
-  "build": "20260926-0105",
+  "build": "20260926-0120",
   "last_updated": "2026-09-26"
 }

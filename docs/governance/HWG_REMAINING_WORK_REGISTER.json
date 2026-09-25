@@ -930,7 +930,7 @@
       "id": "HWG-WORK-026",
       "title": "Dedicated same-origin Account Runtime provisioning and lifecycle",
       "area": "runtime",
-      "status": "PARTIAL",
+      "status": "DONE",
       "priority": "P0",
       "source": [
         "NG-BRW-003",
@@ -959,13 +959,16 @@
       ],
       "latest_evidence": {
         "date": "2026-09-26",
-        "type": "Partial live E2 same-origin secondary Connection Profile",
-        "result": "DeepSeek secondary Connection Profile provisioned on dedicated Browser Profile/CDP 9340 while primary shared 9330 remained intact. Guest composer was correctly rejected as authenticated evidence; secondary lifecycle is LOGIN_REQUIRED. Real second-account login and post-login isolation verification remain pending.",
-        "record": "docs/evidence/HWG_DEEPSEEK_SECONDARY_CONNECTION_PROFILE_E2_PARTIAL_20260926.md"
+        "type": "E2 live multi-account isolation",
+        "result": "PASS: real secondary DeepSeek account is isolated on dedicated Browser Profile/CDP 9340, both accounts remain independently authenticated, storage/session fingerprints differ, secondary auth survives runtime restart, and shared 9330/Production 5000 remain unchanged.",
+        "record": "docs/evidence/HWG_DEEPSEEK_SECONDARY_CONNECTION_PROFILE_E2_20260926.md"
       },
       "evidence": [
-        "docs/evidence/HWG_DEEPSEEK_SECONDARY_CONNECTION_PROFILE_E2_PARTIAL_20260926.md"
-      ]
+        "docs/evidence/HWG_DEEPSEEK_SECONDARY_CONNECTION_PROFILE_E2_PARTIAL_20260926.md",
+        "docs/design/HWG_CONTROL_PLANE_CONNECTION_PROFILE_IA_V1_20260926.md",
+        "docs/evidence/HWG_DEEPSEEK_SECONDARY_CONNECTION_PROFILE_E2_20260926.md"
+      ],
+      "completed_at": "2026-09-26T01:14:14+03:30"
     },
     {
       "id": "HWG-WORK-027",
@@ -1127,13 +1130,14 @@
       ],
       "latest_evidence": {
         "date": "2026-09-26",
-        "type": "E1 implementation checkpoint",
-        "result": "Mission-driven primary IA, Provider child Connection Profile cards, guarded creation/rename metadata, and Live View scope header are implemented on Dev 5080. Full suite 633/633 PASS. Real second same-origin account E2 and human acceptance remain pending.",
-        "record": "docs/evidence/HWG_CONNECTION_PROFILE_IA_IMPLEMENTATION_E1_20260926.md"
+        "type": "E2 DeepSeek connection-profile scenario",
+        "result": "DeepSeek Provider workspace now renders two explicit authenticated Connection Profiles with visible account ownership and isolated Runtime mapping. HWG-WORK-026 multi-account E2 is closed; broader IA/human-acceptance scenarios remain in progress.",
+        "record": "docs/evidence/HWG_DEEPSEEK_SECONDARY_CONNECTION_PROFILE_E2_20260926.md"
       },
       "evidence": [
         "docs/design/HWG_CONTROL_PLANE_CONNECTION_PROFILE_IA_V1_20260926.md",
-        "docs/evidence/HWG_CONNECTION_PROFILE_IA_IMPLEMENTATION_E1_20260926.md"
+        "docs/evidence/HWG_CONNECTION_PROFILE_IA_IMPLEMENTATION_E1_20260926.md",
+        "docs/evidence/HWG_DEEPSEEK_SECONDARY_CONNECTION_PROFILE_E2_20260926.md"
       ]
     }
   ]

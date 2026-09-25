@@ -93,3 +93,12 @@ When the provider under investigation is also considered as the AI helper, expli
 - `HWG-REQ-024`: integrated Explorer live target is an existing E2 capability and is now a mandatory UX contract under `HWG-WORK-029`.
 - `HWG-REQ-025`: primary Control Plane IA is mission/workspace-driven and tracked under `HWG-WORK-030`.
 - Canonical design: `docs/design/HWG_CONTROL_PLANE_CONNECTION_PROFILE_IA_V1_20260926.md`.
+
+
+## 2026-09-26 Connection Profile multi-account E2 closure
+
+- `HWG-REQ-007` / `HWG-REQ-022`: E2 PASS on DeepSeek with two same-origin Accounts using distinct Browser Profiles and CDP ports.
+- `HWG-REQ-023`: editable/suggested Connection Profile naming is implemented; deterministic tests cover user confirmation semantics.
+- `HWG-REQ-024`: integrated live target view remains the Wizard interaction surface; unchanged by this E2.
+- Evidence: `docs/evidence/HWG_DEEPSEEK_SECONDARY_CONNECTION_PROFILE_E2_20260926.md`.
+- Scope: DeepSeek Dev only; no broader provider E2 inference.

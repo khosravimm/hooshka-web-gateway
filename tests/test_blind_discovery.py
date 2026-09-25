@@ -74,3 +74,9 @@ def test_access_semantics_accepts_safe_session_endpoint_without_auth_failure():
     out=classify_access_semantic_observations([{"endpoint":"/api/v2/userinfo","http_status":200,"message":""}])
     assert out.state=="ACCESS_AVAILABLE"
     assert out.confidence=="medium"
+
+def test_composer_plus_visible_account_identity_is_authenticated():
+    s=classify_auth_snapshot({'composer':True,'account_identity_visible':True})
+    assert s.state=='AUTHENTICATED'
+    assert s.confidence=='high'
+    assert 'account_identity_visible' in s.evidence

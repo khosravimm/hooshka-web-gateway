@@ -65,6 +65,9 @@ def classify_auth_snapshot(snapshot: dict) -> AuthState:
     if snapshot.get('login_control') and snapshot.get('composer'):
         evidence.extend(['login_control_visible','composer_visible'])
         return AuthState('UNKNOWN','medium',evidence,None)
+    if snapshot.get('composer') and snapshot.get('account_identity_visible'):
+        evidence.extend(['composer_visible','account_identity_visible'])
+        return AuthState('AUTHENTICATED','high',evidence,None)
     if snapshot.get('composer'):
         evidence.append('composer_visible_without_strong_auth_evidence')
         return AuthState('UNKNOWN','medium',evidence,'login')
@@ -82,12 +85,13 @@ AUTH_SNAPSHOT_JS = r"""() => {
   const challengeNodes = [...document.querySelectorAll('[id*=captcha i],[class*=captcha i],[data-testid*=captcha i],[aria-label*=captcha i],[id*=challenge i],[class*=challenge i],[role=dialog]')].filter(visible);
   const structuralText = challengeNodes.map(e => ((e.getAttribute('aria-label')||'')+' '+(e.innerText||'')).slice(0,500)).join(' ');
   const challenge = /captcha|verify you are|human verification|security check|challenge/i.test(frames+' '+structuralText);
-  const bodyText = (document.body?.innerText||'').trim().replace(/\s+/g,' ').slice(0,1500);
+  const bodyText = (document.body?.innerText||'').trim().replace(/\s+/g,' ').slice(0,12000);
+  const accountIdentityVisible = /[A-Z0-9._%+-]{1,24}\*{2,}[A-Z0-9._%+-]*@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(bodyText);
   let providerRestriction = '';
   if (!composer && bodyText.length < 600 && /not available in (your )?(region|country)|service unavailable in (your )?(region|country)/i.test(bodyText)) {
     providerRestriction = 'region_restriction';
   }
-  return {composer:!!composer,password_input:!!pass,email_input:!!email,credential_input:!!credentialLike,login_control:login||'',challenge_visible:challenge,provider_restriction:providerRestriction};
+  return {composer:!!composer,password_input:!!pass,email_input:!!email,credential_input:!!credentialLike,login_control:login||'',account_identity_visible:accountIdentityVisible,challenge_visible:challenge,provider_restriction:providerRestriction};
 }"""
 
 def classify_access_semantic_observations(rows: list[dict]) -> AuthState:
