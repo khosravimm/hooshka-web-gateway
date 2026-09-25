@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.52.0",
-  "updated_at": "2026-09-24T22:49:40.449010Z",
+  "version": "1.53.0",
+  "updated_at": "2026-09-24T23:55:00Z",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -1004,6 +1004,49 @@
         "docs/evidence/HWG_AGENT_TOOL_DOMAINS_E2_20260922.md",
         "docs/evidence/HWG_PROVIDER_TOOL_DISCOVERY_PROFILE_E2_20260922.md",
         "docs/evidence/HWG_AGENT_AUTHORIZATION_GATE_E1_20260923.md"
+      ]
+    },
+    {
+      "id": "HWG-WORK-029",
+      "title": "Mission-driven staged Provider Qualification Wizard",
+      "area": "discovery-ui",
+      "status": "IN_PROGRESS",
+      "priority": "P0",
+      "source": [
+        "Owner staged qualification directive 2026-09-24",
+        "HWG-KT-WEBCHAT-001 readiness model"
+      ],
+      "depends_on": [
+        "HWG-WORK-003",
+        "HWG-WORK-018",
+        "HWG-WORK-025",
+        "HWG-WORK-027"
+      ],
+      "target_version": "1.0.0-dev.8",
+      "evidence_required": [
+        "E1",
+        "E2",
+        "Human acceptance"
+      ],
+      "exit_criteria": [
+        "Wizard uses one canonical mission/stage model",
+        "S1 access bootstrap is explicit and visual-first",
+        "S2 model and entitlement inventory is early and account/session scoped",
+        "S3 baseline chat precedes tool qualification",
+        "S4 basic tool qualification yields AGENT_BASIC_READY checkpoint",
+        "S5-S7 qualify full tools, extended capabilities and models without cross-model inference",
+        "S8 materializes only proven facts with provider disabled",
+        "S9 terminates in explicit readiness state with evidence and revalidation policy",
+        "Human Gates are limited to genuine user authority/consent/risk decisions"
+      ],
+      "latest_evidence": {
+        "date": "2026-09-24",
+        "type": "E2 NoteGPT S1-S2 staged qualification",
+        "result": "Mission/Stage model registered. NoteGPT live run reached visual ready + ACCESS_AVAILABLE, discovered Auto mode and 19 visible model rows across five categories, then transitioned explicitly to S3 READY_TO_RUN.",
+        "record": "docs/evidence/HWG_PROVIDER_WIZARD_STAGE_MODEL_NOTEGPT_S1_S2_E2_20260924.md"
+      },
+      "evidence": [
+        "docs/evidence/HWG_PROVIDER_WIZARD_STAGE_MODEL_NOTEGPT_S1_S2_E2_20260924.md"
       ]
     }
   ]

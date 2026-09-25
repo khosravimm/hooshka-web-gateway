@@ -57,7 +57,7 @@ PATTERNS: list[tuple[str, list[tuple[str, str, int]]]] = [
         ("id", r"model.selector|modelselector", 3),
         ("testid", r"model.selector", 3),
         ("cls", r"modelSelector", 2),
-        ("text", r"^(glm|gpt|deepseek|qwen|qwen\d)[-\w.]*$", 1),
+        ("text", r"^(?:gpt|claude|gemini|deepseek|qwen|grok|llama|mistral|glm|kimi|minimax|perplexity|yi)(?:[ ._\-/A-Za-z0-9]{0,48})$", 3),
         ("role", r"^combobox$", 1),
         ("value", r"(?:gpt|claude|gemini|llama|mistral|qwen|deepseek|glm|model|مدل)|(?:[A-Za-z][A-Za-z0-9 ._-]{1,30}\d(?:\.\d+)?)", 2),
         ("parent", r"model|مدل", 2),

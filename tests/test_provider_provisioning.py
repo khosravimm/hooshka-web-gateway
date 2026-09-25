@@ -292,8 +292,10 @@ def test_provider_wizard_exposes_persistent_working_state():
     assert 'beginWizardActivity' in js
     assert 'updateWizardActivity' in js
     assert 'endWizardActivity' in js
-    assert 'مرحله ۲ از ۳ — مشاهده واقعی صفحه' in js
-    assert 'مرحله ۳ از ۳ — Qualification رفتاری E2' in js
+    assert 'S1 → S2 — دسترسی و کشف مدل‌ها' in js
+    assert 'S3 — چت پایه (Baseline Chat)' in js
+    assert 'id="pf-mission-card"' in html
+    assert 'id="pf-stage-track"' in html
     assert '.wizard-spinner' in css
     assert '.wizard-progress' in css
 
@@ -451,3 +453,44 @@ def test_ai_verify_blocker_requires_diagnosis(monkeypatch):
     resp=_client().post('/panel/api/provider-wizard/ai-verify-blocker/x',json={})
     assert resp.status_code==409
     assert resp.get_json()['error']=='ai_blocker_diagnosis_missing'
+
+
+def test_provider_wizard_target_creation_preserves_wizard_focus_contract():
+    import inspect
+    import core.provider_live_view as live
+    src=inspect.getsource(live.open_target)
+    assert 'Target.createTarget' in src
+    assert '"background": True' in src
+    assert 'await context.new_page()' not in src
+
+
+def test_provider_wizard_analyze_continues_to_visual_observation_automatically():
+    js=open('control_panel_ui/panel.js',encoding='utf-8').read()
+    marker="setStatus(status,'پیشنهاد اولیه آماده شد؛ کاوشگر خودکار وارد مشاهده واقعی صفحه می‌شود.','working');"
+    assert marker in js
+    assert 'await observeWizardPage();' in js[js.index(marker):js.index(marker)+300]
+
+def test_save_candidate_preserves_auto_probe_safety_counter(tmp_path):
+    from core.provider_onboarding import save_candidate
+    analysis={'suggested_provider_id':'x-web','origin':'https://x.example','url':'https://x.example','recommended_runtime_key':'shared-profile'}
+    first=save_candidate(tmp_path,analysis,None)['candidate']
+    first['auto_instrumented_probe_attempts']=1
+    from core.provider_onboarding import persist_candidate
+    persist_candidate(tmp_path,first)
+    second=save_candidate(tmp_path,analysis,None)['candidate']
+    assert second['auto_instrumented_probe_attempts']==1
+
+def test_provider_wizard_mission_api_exposes_stage_model():
+    resp=_client().get('/panel/api/provider-wizard/mission')
+    assert resp.status_code==200
+    data=resp.get_json()
+    assert data['stages'][0]['id']=='S1'
+    assert data['stages'][1]['id']=='S2'
+    assert any(x['id']=='S4' for x in data['stages'])
+    assert 'provider_enable' in data['human_gates']
+
+
+def test_model_selector_classifier_accepts_spaced_model_label():
+    from core.control_discovery import classify
+    controls=classify([{'tag':'BUTTON','text':'DeepSeek V4 Pro','aria':'','title':'','testid':'','eid':'','cls':'','role':'','value':'','parent':'','selector':'button:nth-of-type(2)'}])
+    assert any(c.kind=='model_selector' for c in controls)

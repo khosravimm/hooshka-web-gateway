@@ -60,13 +60,15 @@ async def visible_page_state(page, file_name: str | None = None) -> dict[str, An
     dialogs = dialogs_raw if isinstance(dialogs_raw, list) else []
     overlays_raw = await visible_blocking_overlays(page)
     overlays = overlays_raw if isinstance(overlays_raw, list) else []
+    popovers_raw = await visible_transient_popovers(page)
+    popovers = popovers_raw if isinstance(popovers_raw, list) else []
     upload_dialog = any(re.search(r"upload|آپلود", str(d.get("text") or ""), re.I) for d in dialogs if isinstance(d, dict))
     return {
         "schema_version": VISUAL_VERSION,
         "url": state.get("url"), "title": state.get("title"), "viewport": state.get("viewport"),
         "body_tail": body, "visible_control_text": control_text[-6000:], "attachment_visible": attached,
         "upload_busy": bool(UPLOAD_BUSY_RE.search(body)) or upload_dialog,
-        "blocking_dialogs": dialogs[:8], "blocking_overlays": overlays[:8],
+        "blocking_dialogs": dialogs[:8], "blocking_overlays": overlays[:8], "transient_popovers": popovers[:8],
         "send_present": bool(send), "send_enabled": send_enabled,
         "send_controls": send[:8], "composer_present": bool(composers),
         "composer_enabled": composer_enabled, "composer_controls": composers[:8],
@@ -191,6 +193,27 @@ async def visible_blocking_overlays(page) -> list[dict[str, Any]]:
         rows.push({kind:'viewport_blocking_overlay',tag:e.tagName,id:e.id||'',cls:String(e.className||'').slice(0,220),coverage:Number(coverage.toFixed(3)),z_index:Number.isFinite(zi)?zi:0,backdrop:!!backdrop,text:(e.innerText||e.textContent||'').trim().slice(0,1000)});
       }
       return rows.sort((a,b)=>(b.z_index-a.z_index)||(b.coverage-a.coverage)).slice(0,8);
+    }""")
+
+
+async def visible_transient_popovers(page) -> list[dict[str, Any]]:
+    return await page.evaluate(r"""() => {
+      const vw=innerWidth, vh=innerHeight, area=Math.max(1,vw*vh);
+      const composers=[...document.querySelectorAll('textarea,[contenteditable="true"]')].filter(e=>{const r=e.getBoundingClientRect(),s=getComputedStyle(e);return r.width>0&&r.height>0&&s.display!=='none'&&s.visibility!=='hidden'});
+      const cr=composers.length?composers[0].getBoundingClientRect():null;
+      const rows=[];
+      for(const e of document.querySelectorAll('body *')){
+        const s=getComputedStyle(e),r=e.getBoundingClientRect(),zi=parseInt(s.zIndex||'0',10);
+        if(r.width<120||r.height<40||s.display==='none'||s.visibility==='hidden'||Number(s.opacity||1)<0.1||s.pointerEvents==='none') continue;
+        if(!['fixed','absolute'].includes(s.position) || !Number.isFinite(zi) || zi<20) continue;
+        const w=Math.max(0,Math.min(r.right,vw)-Math.max(r.left,0)), h=Math.max(0,Math.min(r.bottom,vh)-Math.max(r.top,0));
+        const coverage=(w*h)/area; if(coverage<=0.005||coverage>=0.45) continue;
+        const text=(e.innerText||e.textContent||'').trim(); if(!text) continue;
+        let near=false, overlap=0;
+        if(cr){const ix=Math.max(0,Math.min(r.right,cr.right)-Math.max(r.left,cr.left)); const iy=Math.max(0,Math.min(r.bottom,cr.bottom)-Math.max(r.top,cr.top)); overlap=ix*iy; const gap=Math.max(0,Math.max(cr.top-r.bottom,r.top-cr.bottom,cr.left-r.right,r.left-cr.right)); near=overlap>0||gap<160;}
+        rows.push({kind:'transient_popover',tag:e.tagName,id:e.id||'',cls:String(e.className||'').slice(0,220),coverage:Number(coverage.toFixed(3)),z_index:zi,near_composer:near,overlap_with_composer:Number(overlap.toFixed(1)),text:text.slice(0,1000)});
+      }
+      return rows.sort((a,b)=>(Number(b.near_composer)-Number(a.near_composer))||(b.z_index-a.z_index)).slice(0,8);
     }""")
 
 

@@ -1,7 +1,7 @@
 {
   "matrix_id": "HWG-EXPLORER-CAPABILITY-TEST-MATRIX-V1",
   "schema_version": "1.0.0",
-  "updated_at": "2026-09-25",
+  "updated_at": "2026-09-24T23:55:00Z",
   "status_vocabulary": [
     "E2_LIVE",
     "E1_TESTED",
@@ -565,7 +565,43 @@
       "live_evidence": [
         "docs/evidence/HWG_EXPLORER_AI_BLOCKER_DIAGNOSIS_NOTEGPT_E2_20260924.md"
       ],
-      "limitation": "AI output remains E0/CANDIDATE. Side-effect actions require explicit Human Gate. Bounded response-body transport capture is implemented but remains E1 until an approved live probe exercises it."
+      "limitation": "AI output remains E0/CANDIDATE and is deterministically verified. Technical evidence sufficiency and one bounded synthetic retry are Explorer decisions; Human Gates remain only for login/challenge/terms/destructive/enable or other genuine user-authority decisions."
+    },
+    {
+      "id": "provider_qualification_stage_model",
+      "name": "Mission-driven staged Provider Qualification Wizard",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/provider_wizard_stages.py",
+        "core/provider_onboarding.py",
+        "control_panel.py",
+        "control_panel_ui/panel.js",
+        "control_panel_ui/index.html"
+      ],
+      "tests": [
+        "tests/test_provider_provisioning.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_PROVIDER_WIZARD_STAGE_MODEL_NOTEGPT_S1_S2_E2_20260924.md"
+      ],
+      "limitation": "E2 currently covers S1-S2 transition on NoteGPT. S3-S9 remain to be implemented/qualified progressively."
+    },
+    {
+      "id": "model_surface_discovery",
+      "name": "Account/session-scoped model and entitlement surface discovery",
+      "status": "E2_LIVE",
+      "implementation": [
+        "core/model_surface_discovery.py",
+        "core/control_discovery.py",
+        "core/provider_onboarding.py"
+      ],
+      "tests": [
+        "tests/test_provider_provisioning.py"
+      ],
+      "live_evidence": [
+        "docs/evidence/HWG_PROVIDER_WIZARD_STAGE_MODEL_NOTEGPT_S1_S2_E2_20260924.md"
+      ],
+      "limitation": "Visible model inventory and Premium/Upgrade labels are observed E2 evidence. Actual usability remains uncertified until per-model E2 selection/chat/tool qualification."
     }
   ]
 }

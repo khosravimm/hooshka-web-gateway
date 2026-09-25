@@ -181,6 +181,11 @@
           <div class="provider-live-note">برای تعامل، مستقیماً روی همین نما کلیک/اسکرول کنید. ورودی Password و برخی قابلیت‌های native مرورگر برای ایمنی در این نما مسدود می‌مانند.</div>
         </div>
         <div class="provider-wizard-pane">
+      <div id="pf-mission-card" class="card wizard-mission-card">
+        <div><strong>ماموریت ویزارد</strong><div id="pf-mission-text" class="hint">در حال بارگذاری Mission Model...</div></div>
+        <div id="pf-stage-track" class="wizard-stage-track"></div>
+        <div id="pf-stage-current" class="dependency-note mt"></div>
+      </div>
       <div id="pf-activity" class="wizard-activity wizard-hidden" role="status" aria-live="polite" aria-atomic="true">
         <div class="wizard-activity-head"><span class="wizard-spinner" aria-hidden="true"></span><div><strong id="pf-activity-title">کاوشگر در حال کار است</strong><div id="pf-activity-stage" class="wizard-activity-stage">در حال آماده‌سازی</div></div><span id="pf-activity-elapsed" class="wizard-elapsed ltr">00:00</span></div>
         <div id="pf-activity-message" class="wizard-activity-message">درخواست ثبت شده است. لطفاً منتظر بمانید و دوباره روی دکمه‌ها کلیک نکنید.</div>
@@ -188,19 +193,19 @@
         <div class="wizard-activity-note">کاوشگر ممکن است صفحه وب‌چت را باز کند، وضعیت قابل مشاهده را بررسی کند و چند مرحله آزمون خودکار انجام دهد. تا زمانی که این نوار فعال است، سیستم مشغول کار است.</div>
       </div>
       <div class="wizard-stack">
-        <div class="card provision-step"><span class="step-no">۱</span><h3 class="card-title">آدرس وب‌چت</h3>
+        <div class="card provision-step"><span class="step-no">ورودی</span><h3 class="card-title">آدرس وب‌چت</h3>
           <label class="field">URL<input id="pf-url" class="ctrl ltr" type="url" placeholder="https://example.ai/chat" autocomplete="off"></label>
           <p class="hint">نام، شناسه، نوع Adapter، Profile و Runtime را از شما نمی‌خواهیم؛ HWG ابتدا خودش پیشنهاد می‌دهد.</p>
           <div class="btn-row mt"><button id="pf-analyze" class="btn primary" type="button">بررسی و پیشنهاد</button><button id="pf-cancel" class="btn ghost" type="button">انصراف</button></div>
         </div>
-        <div class="card provision-step wizard-hidden" id="pf-proposal-card"><span class="step-no">۲</span><h3 class="card-title">پیشنهاد HWG</h3>
+        <div class="card provision-step wizard-hidden" id="pf-proposal-card"><span class="step-no">طرح</span><h3 class="card-title">پیشنهاد اولیه HWG</h3>
           <div id="pf-proposal" class="relationship-preview"></div>
           <label class="field">Runtime پیشنهادی<select id="pf-runtime" class="ctrl ltr"></select></label>
           <p class="hint">در حالت عادی همان پیشنهاد HWG را بپذیرید. فقط اگر دلیل مشخصی دارید Runtime دیگری انتخاب کنید.</p>
           <div class="dependency-note mt"><b>چرا صفحه وب‌چت باز می‌شود؟</b><br>HWG باید وضعیت واقعی ورود، شرایط استفاده، CAPTCHA/Verification و آماده‌بودن صفحه چت را همان‌طور که کاربر می‌بیند بررسی کند. اگر صفحه از شما Login یا تأییدی خواست، فقط همان را انجام دهید؛ لازم نیست خودتان پیام آزمایشی بفرستید. پس از آماده‌شدن صفحه، کاوشگر ممکن است یک پیام مصنوعی کوتاه و غیرحساس برای آزمون رفت‌وبرگشت ارسال کند و نتیجه را خودش ثبت کند.</div>
           <div class="btn-row mt"><button id="pf-observe" class="btn primary" type="button">باز کردن صفحه وب‌چت و شروع بررسی</button></div>
         </div>
-        <div class="card provision-step wizard-hidden" id="pf-observation-card"><span class="step-no">۳</span><h3 class="card-title">نتیجه بررسی و اقدام بعدی شما</h3>
+        <div class="card provision-step wizard-hidden" id="pf-observation-card"><span class="step-no">وضعیت</span><h3 class="card-title">وضعیت Qualification</h3>
           <div id="pf-observation" class="relationship-preview"></div>
           <div class="dependency-note mt" id="pf-next-action"></div>
           <div class="btn-row mt"><button id="pf-reobserve" class="btn ghost" type="button">انجام شد؛ ادامه بررسی</button><button id="pf-save" class="btn primary" type="button" disabled>ثبت با پیشنهاد HWG</button></div>

@@ -132,7 +132,12 @@ def verify_ai_blocker_plan(cdp_url:str,record:dict[str,Any],diagnosis:dict[str,A
     if result.get('transport_marker_found'):
         result['status']='E2_TRANSPORT_MARKER_VERIFIED'; result['next_required']='response_surface_mapping_without_resend'; return result
     gated={str(x.get('kind') or '') for x in (diagnosis.get('approval_required_steps') or []) if isinstance(x,dict)}
+    attempts=int(record.get('auto_instrumented_probe_attempts') or 0)
+    if attempts >= 1:
+        result['status']='FINAL_INCONCLUSIVE'; result['next_required']='stop_without_enable'; result['reason']='instrumented_probe_exhausted_without_verifiable_response'; return result
     if 'resend_probe' in gated:
-        result['status']='HUMAN_GATE_REQUIRED'; result['next_required']='approve_new_instrumented_probe'; return result
-    result['status']='UNRESOLVED_AFTER_AI_SAFE_VERIFICATION'; result['next_required']='more_evidence_required'
+        result['status']='AUTO_PROBE_REQUIRED'; result['next_required']='run_new_instrumented_probe'; result['reason']='technical_evidence_requires_new_probe'; return result
+    # Technical sufficiency is an Explorer decision, not a user decision. Once all read-only
+    # evidence is exhausted, request one bounded instrumented synthetic probe automatically.
+    result['status']='AUTO_PROBE_REQUIRED'; result['next_required']='run_new_instrumented_probe'; result['reason']='read_only_evidence_exhausted'
     return result

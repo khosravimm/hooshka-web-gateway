@@ -697,7 +697,7 @@ function initNav() {
     }
   };
 
-  let providerWizard = { analysis:null, observation:null, candidate:null, runtimes:[], liveTargetId:'', liveRuntimeKey:'', liveUrl:'', liveViewport:{width:0,height:0}, liveOwned:false };
+  let providerWizard = { analysis:null, observation:null, candidate:null, runtimes:[], mission:null, liveTargetId:'', liveRuntimeKey:'', liveUrl:'', liveViewport:{width:0,height:0}, liveOwned:false };
   let wizardActivityTimer=null, wizardActivityStarted=0;
   function formatWizardElapsed(ms){ const sec=Math.max(0,Math.floor(ms/1000)); return String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0'); }
   function setWizardControlsBusy(busy){
@@ -718,6 +718,7 @@ function initNav() {
       let resp=await fetch('/panel/api/provider-wizard/screencast/frame?'+q.toString(),{cache:'no-store'}); if(resp.status===425){ $('#pf-live-status').textContent='در حال شروع Screencast واقعی Provider...'; return; } if(!resp.ok){ resp=await fetch('/panel/api/provider-wizard/live-view?'+q.toString(),{cache:'no-store'}); if(!resp.ok) throw new Error('HTTP '+resp.status); }
       providerWizard.liveTargetId=resp.headers.get('X-HWG-Target-ID')||providerWizard.liveTargetId;
       providerWizard.liveViewport={width:Number(resp.headers.get('X-HWG-Viewport-Width')||0),height:Number(resp.headers.get('X-HWG-Viewport-Height')||0)};
+      const frame=$('#pf-live-frame'); if(frame && providerWizard.liveViewport.width>0 && providerWizard.liveViewport.height>0) frame.style.aspectRatio=`${providerWizard.liveViewport.width} / ${providerWizard.liveViewport.height}`;
       const blob=await resp.blob(); const next=URL.createObjectURL(blob); const img=$('#pf-live-image'); if(providerLiveObjectUrl)URL.revokeObjectURL(providerLiveObjectUrl); providerLiveObjectUrl=next; img.src=next;
       $('#pf-live-pane').classList.add('live-connected'); $('#pf-live-status').textContent='متصل به همان Target واقعی Provider · '+(providerWizard.liveTargetId||'target?');
     } catch(e) { $('#pf-live-status').textContent='در انتظار Target واقعی Provider...'; }
@@ -741,7 +742,7 @@ function initNav() {
   function resetProviderWizard() {
     endWizardActivity();
     stopProviderLiveView();
-    providerWizard = { analysis:null, observation:null, candidate:null, runtimes:[], liveTargetId:'', liveRuntimeKey:'', liveUrl:'', liveViewport:{width:0,height:0}, liveOwned:false };
+    providerWizard = { analysis:null, observation:null, candidate:null, runtimes:[], mission:providerWizard.mission, liveTargetId:'', liveRuntimeKey:'', liveUrl:'', liveViewport:{width:0,height:0}, liveOwned:false };
     $('#pf-url').value='';
     $('#pf-proposal-card').classList.add('wizard-hidden');
     $('#pf-observation-card').classList.add('wizard-hidden');
@@ -749,12 +750,21 @@ function initNav() {
     $('#pf-save').disabled=true; setStatus($('#provider-form-status'),'','');
   }
 
+  function renderWizardMission(stageId='S1',stageState='NOT_STARTED') {
+    const model=providerWizard.mission||{}; const stages=model.stages||[];
+    $('#pf-mission-text').textContent=model.mission||'ماموریت Wizard در دسترس نیست.';
+    const idx=Math.max(0,stages.findIndex(x=>x.id===stageId));
+    $('#pf-stage-track').innerHTML=stages.map((x,i)=>`<span class="wizard-stage-pill ${i<idx?'done':''} ${x.id===stageId?'active':''}" title="${esc(x.exit||'')}">${esc(x.id)} · ${esc(x.title||x.name)}</span>`).join('');
+    const cur=stages.find(x=>x.id===stageId)||stages[0]||{};
+    $('#pf-stage-current').innerHTML=`<b>مرحله جاری: ${esc(cur.id||stageId)} — ${esc(cur.title||cur.name||'-')}</b><br><span class="hint">وضعیت: ${esc(stageState||'-')} · معیار خروج: ${esc(cur.exit||'-')}</span>`;
+  }
+
   async function loadProviderForm() {
     await cleanupWizardOwnedTarget();
     resetProviderWizard();
     try {
-      const data=await api('/browser-runtimes'); providerWizard.runtimes=data.browser_runtimes||[];
-    } catch(e) { setStatus($('#provider-form-status'),'بارگذاری Runtimeها شکست خورد: '+e.message,'err'); }
+      const [data,mission]=await Promise.all([api('/browser-runtimes'),api('/provider-wizard/mission')]); providerWizard.runtimes=data.browser_runtimes||[]; providerWizard.mission=mission; renderWizardMission('S1','NOT_STARTED');
+    } catch(e) { setStatus($('#provider-form-status'),'بارگذاری Runtime/Mission شکست خورد: '+e.message,'err'); }
   }
 
   function fillWizardRuntimeSelect(recommendedKey) {
@@ -1291,20 +1301,23 @@ function initNav() {
     $('#pf-analyze').addEventListener('click', async () => {
       const url=($('#pf-url').value||'').trim(); const status=$('#provider-form-status');
       if (!url) { setStatus(status,'آدرس وب‌چت را وارد کنید.','err'); return; }
-      beginWizardActivity('مرحله ۱ از ۳ — تحلیل URL','درخواست شما ثبت شد. HWG در حال تحلیل آدرس و انتخاب مسیر مناسب است؛ لطفاً منتظر بمانید.');
+      beginWizardActivity('آماده‌سازی مأموریت — تحلیل URL','درخواست شما ثبت شد. HWG در حال تحلیل آدرس و انتخاب مسیر مناسب است؛ لطفاً منتظر بمانید.');
       setStatus(status,'در حال تحلیل URL و انتخاب پیشنهاد مناسب...','working');
       try {
         const a=await api('/provider-wizard/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url})});
         providerWizard.analysis=a; renderWizardProposal(a); $('#pf-observation-card').classList.add('wizard-hidden');
-        setStatus(status,'پیشنهاد اولیه آماده است. مرحله بعد مشاهده واقعی صفحه است.','ok');
+        setStatus(status,'پیشنهاد اولیه آماده شد؛ کاوشگر خودکار وارد مشاهده واقعی صفحه می‌شود.','working');
+        endWizardActivity();
+        await observeWizardPage();
       } catch(e) { setStatus(status,'تحلیل URL شکست خورد: '+e.message,'err'); }
       finally { endWizardActivity(); }
     });
 
     function renderAIProbeHumanGate(candidate,status,runtimeKey){
       const cid=(candidate||{}).candidate_id;
-      $('#pf-next-action').innerHTML='<b>نیاز به تصمیم شما</b><br>AI و verifier قطعی همه بررسی‌های read-only موجود را انجام داده‌اند، اما Evidence فعلی برای نتیجه قطعی کافی نیست.<br><span class="hint">ارسال مجدد خودکار ممنوع است. در صورت تأیید شما فقط یک probe مصنوعی جدید با capture کامل transport اجرا می‌شود.</span><div class="btn-row mt"><button id="pf-ai-approved-probe" class="btn primary" type="button">تأیید یک آزمون جدید با ثبت کامل شواهد</button></div>';
+      $('#pf-next-action').innerHTML='<b>نیاز به تصمیم شما</b><br>AI و verifier قطعی همه بررسی‌های read-only موجود را انجام داده‌اند، اما Evidence فعلی برای نتیجه قطعی کافی نیست.<br><span class="hint">ارسال مجدد خودکار ممنوع است. در صورت تأیید شما فقط یک آزمون مصنوعی جدید با ثبت کامل transport اجرا می‌شود.</span><div class="btn-row mt"><button id="pf-ai-approved-probe" class="btn primary" type="button">تأیید یک آزمون جدید با ثبت کامل شواهد</button></div>';
       setStatus(status,'فرایند متوقف نشده است؛ منتظر تصمیم شما برای یک آزمون جدیدِ کنترل‌شده است.','working');
+      setTimeout(()=>$('#pf-next-action')?.scrollIntoView({behavior:'smooth',block:'center'}),80);
       const btn=$('#pf-ai-approved-probe'); if(btn)btn.onclick=async()=>{
         btn.disabled=true; beginWizardActivity('Human Gate — probe جدید','با تأیید شما یک پیام مصنوعی جدید با capture کامل transport ارسال می‌شود.');
         try{ const pr=await api('/provider-wizard/approved-probe/'+encodeURIComponent(cid),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed_by_user:true,runtime_key:runtimeKey||providerWizard.liveRuntimeKey||''})}); providerWizard.candidate=pr.candidate||candidate; await autoQualifyWizardCandidate(providerWizard.candidate,runtimeKey||providerWizard.liveRuntimeKey||'',status); }
@@ -1327,9 +1340,10 @@ function initNav() {
         if(d.terminal_recommendation==='continue_readonly' && safe.length) next='AI یک مسیر read-only پیشنهاد داده که باید با ابزار قطعی Explorer راستی‌آزمایی شود.';
         else if((d.terminal_recommendation==='human_gate'||d.terminal_recommendation==='new_probe_requires_approval') && gated.length) next='AI به اقدامی رسیده که side effect دارد؛ Explorer بدون تأیید کاربر آن را اجرا نمی‌کند.';
         else if(d.terminal_recommendation==='cannot_resolve') next='AI نیز از Evidence فعلی نتیجه کافی نگرفت؛ Evidence بیشتری لازم است.';
-        $('#pf-next-action').innerHTML=`<b>AI-assisted diagnosis</b><br>${esc(d.summary||'تحلیل بدون خلاصه برگشت.')}<br><span class="hint">Analyst: ${esc(analyst||'-')} · نتیجه AI فقط E0/CANDIDATE است.</span><br>${esc(next)}`;
+        const blocker=String(d.blocker_kind||'blocker نامشخص').replaceAll('_',' ');
+        $('#pf-next-action').innerHTML=`<b>تحلیل هوش مصنوعی</b><br>AI وضعیت «${esc(blocker)}» را روی Evidence موجود بررسی کرد و ${safe.length} اقدام read-only و ${gated.length} اقدام نیازمند تأیید شناسایی کرد.<br><span class="hint">تحلیل‌گر: ${esc(analyst||'-')} · خروجی AI فقط E0/CANDIDATE است و مستقیماً به حقیقت Provider تبدیل نمی‌شود.</span><br>${esc(next)}`;
         setStatus(status,'AI diagnosis ثبت شد؛ Explorer در حال verification قطعی پیشنهادهای read-only است.','working');
-        if(safe.length){
+        {
           const v=await api('/provider-wizard/ai-verify-blocker/'+encodeURIComponent(cid),{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
           providerWizard.candidate=v.candidate||providerWizard.candidate; const vr=v.verification||{};
           if(vr.status==='E2_RECOVERED'){
@@ -1340,8 +1354,17 @@ function initNav() {
             $('#pf-next-action').textContent='Verifier قطعی marker را در transport تأیید کرد؛ مشکل فقط mapping سطح پاسخ UI است و Explorer باید بدون resend همان سطح را تکمیل کند.';
             setStatus(status,'Transport response تأیید شد؛ تکمیل response-surface ادامه دارد.','working'); return providerWizard.candidate;
           }
-          if(vr.status==='HUMAN_GATE_REQUIRED'){
-            return renderAIProbeHumanGate(providerWizard.candidate,status,providerWizard.liveRuntimeKey||'');
+          if(vr.status==='AUTO_PROBE_REQUIRED'){
+            updateWizardActivity('آزمون تکمیلی خودکار','Explorer تشخیص داده Evidence فعلی کافی نیست و خودش یک آزمون مصنوعی محدود با ثبت کامل transport اجرا می‌کند.');
+            setStatus(status,'Explorer در حال اجرای یک آزمون تکمیلی کنترل‌شده است؛ تصمیم فنی بر عهده خود سیستم است.','working');
+            const pr=await api('/provider-wizard/auto-probe/'+encodeURIComponent(cid),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runtime_key:providerWizard.liveRuntimeKey||''})});
+            providerWizard.candidate=pr.candidate||providerWizard.candidate;
+            return await autoQualifyWizardCandidate(providerWizard.candidate,providerWizard.liveRuntimeKey||'',status);
+          }
+          if(vr.status==='FINAL_INCONCLUSIVE'){
+            $('#pf-next-action').innerHTML='<b>پایان فنی کاوش</b><br>Explorer همه بررسی‌های read-only و یک آزمون تکمیلی instrumented را انجام داد، اما پاسخ قابل‌راستی‌آزمایی کافی به دست نیامد.<br><span class="hint">Provider فعال نمی‌شود و هیچ اقدام دیگری از کاربر لازم نیست. این نتیجه به‌عنوان E2_INCONCLUSIVE ثبت می‌شود.</span>';
+            setStatus(status,'کاوش کامل شد، اما Qualification قطعی به دست نیامد؛ Provider فعال نخواهد شد.','err');
+            return providerWizard.candidate;
           }
         }
         setStatus(status,'AI diagnosis و verification read-only کامل شد، اما Evidence کافی نیست.','err');
@@ -1357,6 +1380,17 @@ function initNav() {
       const tc=(candidate||{}).technical_candidate||{};
       const cid=(candidate||{}).candidate_id;
       if (tc.workflow_state==='ROUNDTRIP_QUALIFIED') { setStatus(status,'Evidence E2 رفت‌وبرگشت معتبر است؛ آزمون تکرار نمی‌شود.','ok'); return candidate; }
+      if (tc.workflow_state==='QUALIFICATION_INCONCLUSIVE_FINAL') {
+        $('#pf-next-action').innerHTML='<b>پایان فنی کاوش</b><br>Qualification قطعی به دست نیامد. Provider فعال نمی‌شود و اقدام دیگری از شما لازم نیست.<br><span class="hint">نتیجه: E2_INCONCLUSIVE</span>';
+        setStatus(status,'کاوش کامل شده است؛ نتیجه فنی نامعین و غیرقابل‌تأیید است.','err'); return candidate;
+      }
+      if (tc.workflow_state==='AUTO_INSTRUMENTED_PROBE_REQUIRED') {
+        if (Number((candidate||{}).auto_instrumented_probe_attempts||0) >= 1) return await runAIBlockerDiagnosis(candidate,status);
+        updateWizardActivity('آزمون تکمیلی خودکار','Explorer خودش ضرورت فنی آزمون تکمیلی را تشخیص داده است؛ نیازی به تصمیم تخصصی کاربر نیست.');
+        const pr=await api('/provider-wizard/auto-probe/'+encodeURIComponent(cid),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runtime_key:runtimeKey})});
+        providerWizard.candidate=pr.candidate||candidate;
+        return await autoQualifyWizardCandidate(providerWizard.candidate,runtimeKey,status);
+      }
       if (tc.workflow_state==='AI_DIAGNOSIS_HUMAN_GATE') { return renderAIProbeHumanGate(candidate,status,runtimeKey); }
       if (tc.user_action_required===true) { setStatus(status,'کاوشگر به یک گام انسانی واقعی رسیده است؛ دستور دقیق در همین صفحه نمایش داده شده است.','ok'); return candidate; }
       if (tc.workflow_state==='EXPLORER_DEEPENING') { setStatus(status,'کاوشگر در حال تکمیل Evidence است؛ اقدامی از شما لازم نیست.','working'); return candidate; }
@@ -1366,6 +1400,7 @@ function initNav() {
       if (tc.workflow_state==='QUALIFICATION_FAILED_AFTER_COMMIT') {
         if (!cid) { setStatus(status,'Qualification قبلی commit شده اما Candidate ID برای تشخیص موجود نیست.','err'); return candidate; }
         updateWizardActivity('تشخیص پس از commit — بدون ارسال مجدد','Explorer اکنون فقط Evidence موجود و DOM فعلی را بررسی می‌کند؛ هیچ پیام جدیدی ارسال نخواهد شد.');
+        $('#pf-next-action').textContent='Explorer در حال بررسی Evidence قبلی است. این مرحله read-only است و هیچ پیام جدیدی به Provider ارسال نمی‌شود.';
         setStatus(status,'در حال تحلیل خودکار failure قبلی بدون retry...','working');
         try {
           const d=await api('/provider-wizard/diagnose/'+encodeURIComponent(cid),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runtime_key:runtimeKey})});
@@ -1391,7 +1426,7 @@ function initNav() {
       }
       if (tc.workflow_state!=='TECHNICAL_CANDIDATE_READY') { setStatus(status,'مشاهده ثبت شد، اما این وضعیت موفقیت نهایی نیست. مرحله بعد باید از workflow_state تعیین شود.','working'); return candidate; }
       if (!cid) return candidate;
-      updateWizardActivity('مرحله ۳ از ۳ — Qualification رفتاری E2','مشاهده اولیه تمام شد. کاوشگر اکنون مسیر ارسال و دریافت پاسخ را با یک آزمون کنترل‌شده بررسی می‌کند؛ هنوز منتظر بمانید.');
+      updateWizardActivity('S3 — چت پایه (Baseline Chat)','S1 و S2 تکمیل شده‌اند. Explorer اکنون یک round-trip ساده و کنترل‌شده را برای اثبات مسیر ارسال/دریافت اجرا می‌کند.');
       $('#pf-next-action').textContent='Candidate فنی E1 آماده است. کاوشگر اکنون آزمون رفت‌وبرگشت کنترل‌شده را خودش اجرا می‌کند؛ فعلاً اقدامی از شما لازم نیست.';
       setStatus(status,'کاوشگر در حال آزمون رفتاری E2 است؛ یک پیام مصنوعی کوتاه ممکن است ارسال شود.','working');
       try {
@@ -1424,7 +1459,7 @@ function initNav() {
       const status=$('#provider-form-status'); const a=providerWizard.analysis;
       if (!a) { setStatus(status,'ابتدا URL را بررسی کنید.','err'); return; }
       const runtimeKey=$('#pf-runtime').value || a.recommended_runtime_key;
-      beginWizardActivity('مرحله ۲ از ۳ — مشاهده واقعی صفحه','HWG همان Target واقعی Provider را داخل Workspace نمایش می‌دهد و Explorer هم‌زمان آن را بررسی می‌کند.');
+      beginWizardActivity('S1 → S2 — دسترسی و کشف مدل‌ها','Explorer ابتدا وضعیت دسترسی را Visual بررسی می‌کند و سپس Model/Entitlement Surface همین Session را بدون انتخاب مدل استخراج می‌کند.');
       setStatus(status,'نمای زنده Provider در سمت چپ باز می‌شود. در صورت نیاز می‌توانید همان‌جا با صفحه تعامل کنید.','working');
       $('#pf-observe').disabled=true; $('#pf-reobserve').disabled=true;
       try {
@@ -1439,8 +1474,11 @@ function initNav() {
         startProviderLiveView(runtimeKey,a.url,preferred);
         const r=await api('/provider-wizard/observe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:a.url,runtime_key:runtimeKey,preferred_target_id:preferred})});
         providerWizard.observation=r.observation; providerWizard.candidate=r.candidate;
-        const o=r.observation||{}, c=o.classification||{}, m=o.interaction_summary||{};
-        $('#pf-observation').innerHTML=`<div class="kv"><span>وضعیت قابل مشاهده</span><b>${esc(c.state||'unknown')}</b><span>شاهد</span><b>${esc(c.evidence||'-')}</b><span>عنوان صفحه</span><b>${esc(o.title||'-')}</b><span>کنترل‌های قابل مشاهده</span><b>${m.controls??'-'}</b><span>ورودی فایل</span><b>${m.file_inputs??'-'}</b><span>ورودی پیام/متن</span><b>${m.editable_inputs??'-'}</b></div>`;
+        const o=r.observation||{}, c=o.classification||{}, m=o.interaction_summary||{}, tc=(r.candidate||{}).technical_candidate||{}, ms=tc.model_surface||{};
+        renderWizardMission(tc.qualification_stage||'S1',tc.stage_state||'RUNNING');
+        const models=ms.models||[], premium=models.filter(x=>x.requires_upgrade), accessible=models.filter(x=>!x.requires_upgrade);
+        const modelHtml=ms.status==='observed' ? `<div class="wizard-model-list"><div class="model-row"><span>حالت انتخاب</span><b>${esc(ms.selection_mode||'-')}</b></div><div class="model-row"><span>مدل/برچسب جاری</span><b>${esc(ms.current_label||'-')}</b></div><div class="model-row"><span>مدل‌های visible</span><b>${models.length}</b></div><div class="model-row"><span>بدون برچسب Upgrade</span><b>${accessible.length}</b></div><div class="model-row"><span>Premium / Upgrade</span><b>${premium.length}</b></div></div>` : `<div class="hint">Model Surface هنوز کامل کشف نشده است.</div>`;
+        $('#pf-observation').innerHTML=`<div class="kv"><span>Stage</span><b>${esc(tc.qualification_stage||'-')} · ${esc(tc.stage_state||'-')}</b><span>وضعیت قابل مشاهده</span><b>${esc(c.state||'unknown')}</b><span>شاهد</span><b>${esc(c.evidence||'-')}</b><span>عنوان صفحه</span><b>${esc(o.title||'-')}</b><span>کنترل‌های قابل مشاهده</span><b>${m.controls??'-'}</b><span>ورودی فایل</span><b>${m.file_inputs??'-'}</b><span>ورودی پیام/متن</span><b>${m.editable_inputs??'-'}</b></div><div class="dependency-note mt"><b>S2 — Model & Entitlement Discovery</b>${modelHtml}</div>`;
         const known=!!r.analysis?.reuse_existing_adapter && r.analysis?.register_new_provider!==false;
         const save=$('#pf-save'); save.disabled=!known;
         if (r.analysis?.register_new_provider===false) save.textContent='Provider موجود است';

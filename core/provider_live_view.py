@@ -43,12 +43,28 @@ async def open_target(cdp_url: str, url: str) -> dict[str, Any]:
     try:
         browser = await pw.chromium.connect_over_cdp(cdp_url)
         context = browser.contexts[0]
-        page = await context.new_page()
+        # Wizard-owned Provider targets must be created in background. context.new_page()
+        # activates the new tab in headed Chrome and steals focus from the Wizard.
+        browser_cdp = await browser.new_browser_cdp_session()
         try:
-            await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            created = await browser_cdp.send("Target.createTarget", {"url": url, "background": True})
+            target_id = str(created.get("targetId") or "")
+        finally:
+            await browser_cdp.detach()
+        if not target_id:
+            raise RuntimeError("background_target_creation_failed")
+        page = None
+        for _ in range(80):
+            page = await _find_page(context, target_id=target_id)
+            if page is not None:
+                break
+            await asyncio.sleep(0.05)
+        if page is None:
+            raise RuntimeError("background_target_not_attached")
+        try:
+            await page.wait_for_load_state("domcontentloaded", timeout=30000)
         except Exception:
             pass
-        target_id = await _target_id(context, page)
         _OWNED_TARGETS.add((cdp_url, target_id))
         return {
             "target_id": target_id,

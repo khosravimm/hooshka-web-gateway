@@ -286,6 +286,8 @@ async def observe_url(url: str, cdp_url: str, preferred_target_id: str | None = 
             behavior_evidence = []
             access_state = str(access_semantics.get("state") or "UNKNOWN").upper()
             interaction_allowed = classification.get("state") == "ready" or (classification.get("state") == "auth_ambiguous" and access_state == "ACCESS_AVAILABLE")
+            from core.model_surface_discovery import discover_model_surface
+            deterministic_discovery["model_surface"] = (await discover_model_surface(page, report.frontend.get("controls") or [])) if interaction_allowed else {"status":"blocked","reason":"access_gate","models":[]}
             if interaction_allowed and unknown_controls:
                 from core.browser_behavior_probe import run_behavior_probe, BehaviorAction, ProbePolicy
                 from core.control_discovery import classify
@@ -360,6 +362,8 @@ def synthesize_technical_candidate(analysis: dict[str, Any], observation: dict[s
         workflow_state = "OBSERVATION_IN_PROGRESS"
         next_required = "continue_observation"
         user_action_required = False
+    from core.provider_wizard_stages import infer_stage
+    stage_meta = infer_stage(observation, {"workflow_state": workflow_state, "model_surface": discovery.get("model_surface") or {}})
     return {
         "schema_version": SCHEMA_VERSION,
         "kind": "new_provider_technical_candidate",
@@ -367,6 +371,9 @@ def synthesize_technical_candidate(analysis: dict[str, Any], observation: dict[s
         "workflow_state": workflow_state,
         "next_required": next_required,
         "user_action_required": user_action_required,
+        "qualification_stage": stage_meta.get("stage_id"),
+        "stage_state": stage_meta.get("stage_state"),
+        "stage_next_required": stage_meta.get("next_required"),
         "provider_id": analysis.get("suggested_provider_id"),
         "origin": analysis.get("origin"),
         "home_url": analysis.get("url"),
@@ -383,6 +390,7 @@ def synthesize_technical_candidate(analysis: dict[str, Any], observation: dict[s
             "stream_transports": backend.get("stream_transports") or [],
         },
         "behavior_evidence": discovery.get("behavior_evidence") or [],
+        "model_surface": discovery.get("model_surface") or {},
         "submit_candidates": ((discovery.get("composer_submit_probe") or {}).get("candidates") or []),
         "composer_submit_probe": discovery.get("composer_submit_probe") or {},
         "unresolved_controls": [c for c in controls if c.get("kind") == "unclassified"],
@@ -488,7 +496,10 @@ async def enrich_existing_e2_response_surface(cdp_url: str, record: dict[str, An
             technical = record.setdefault("technical_candidate", {})
             technical["response_surface"] = dict(surface)
             if technical.get("workflow_state") == "ROUNDTRIP_QUALIFIED":
-                technical["next_required"] = "adapter_candidate_generation"
+                technical["next_required"] = "basic_agent_tool_qualification"
+                technical["qualification_stage"] = "S4"
+                technical["stage_state"] = "READY_TO_RUN"
+                technical["stage_next_required"] = "basic_agent_tool_qualification"
         return surface
     finally:
         await pw.stop()
@@ -819,8 +830,11 @@ def apply_submit_qualification(record: dict[str, Any], result: dict[str, Any]) -
         technical["response_surface"] = dict(result.get("response_surface") or {})
         technical["status"] = "PARTIAL_E2_UNCERTIFIED"
         technical["workflow_state"] = "ROUNDTRIP_QUALIFIED"
-        technical["next_required"] = "adapter_candidate_generation" if (result.get("response_surface") or {}).get("status") == "E2_VERIFIED" else "assistant_surface_discovery"
+        technical["next_required"] = "basic_agent_tool_qualification"
         technical["user_action_required"] = False
+        technical["qualification_stage"] = "S4"
+        technical["stage_state"] = "READY_TO_RUN"
+        technical["stage_next_required"] = "basic_agent_tool_qualification"
     elif result.get("submitted"):
         technical["workflow_state"] = "QUALIFICATION_FAILED_AFTER_COMMIT"
         technical["next_required"] = "explorer_diagnose_failed_roundtrip"
@@ -1060,6 +1074,8 @@ def save_candidate(root: Path, analysis: dict[str, Any], observation: dict[str, 
         "ai_assistance_history": list(previous.get("ai_assistance_history") or []),
         "ai_verification_history": list(previous.get("ai_verification_history") or []),
         "ai_blocker_diagnosis_history": list(previous.get("ai_blocker_diagnosis_history") or []),
+        "auto_instrumented_probe_attempts": int(previous.get("auto_instrumented_probe_attempts") or 0),
+        "auto_probe_authorization": previous.get("auto_probe_authorization") or {},
     }
     # Preserve AI audit history across re-observation, but do not blindly reuse an
     # active diagnosis/verification against newly observed evidence.

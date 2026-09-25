@@ -75,7 +75,8 @@ def test_apply_verified_submit_qualification_promotes_only_candidate_control():
     tc = out["technical_candidate"]
     assert tc["workflow_state"] == "ROUNDTRIP_QUALIFIED"
     assert tc["status"] == "PARTIAL_E2_UNCERTIFIED"
-    assert tc["next_required"] == "assistant_surface_discovery"
+    assert tc["next_required"] == "basic_agent_tool_qualification"
+    assert tc["qualification_stage"] == "S4"
     assert tc["user_action_required"] is False
     assert tc["submit_candidates"][0]["status"] == "E2_VERIFIED"
     assert tc["submit_candidates"][0]["evidence_level"] == "E2"
@@ -113,7 +114,8 @@ def test_verified_response_surface_unlocks_adapter_candidate_generation():
     record={"technical_candidate":{"workflow_state":"TECHNICAL_CANDIDATE_READY","submit_candidates":[{"selector":"#send","status":"candidate_unverified"}]}}
     result={"status":"E2_VERIFIED","submitted":True,"submit_selector":"#send","response_surface":{"status":"E2_VERIFIED","selector":".assistant","strategy":"marker_anchored_dom_surface"}}
     out=apply_submit_qualification(record,result)
-    assert out["technical_candidate"]["next_required"]=="adapter_candidate_generation"
+    assert out["technical_candidate"]["next_required"]=="basic_agent_tool_qualification"
+    assert out["technical_candidate"]["qualification_stage"]=="S4"
     assert out["technical_candidate"]["response_surface"]["selector"]==".assistant"
 
 

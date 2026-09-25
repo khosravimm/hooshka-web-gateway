@@ -49,6 +49,7 @@ from core.account_session import normalize_session
 from core.functional_readiness import run_functional_probe, save_readiness, load_readiness, invalidate_readiness
 from core.media_contract import provider_media_manifest
 from core.provider_onboarding import analyze_url as analyze_provider_url, observe_url_sync, save_candidate, load_candidate, persist_candidate, qualify_submit_candidate_sync, apply_submit_qualification, generate_adapter_candidate, qualify_materialized_adapter_sync, materialize_adapter_profile, refine_adapter_from_existing_conformance_sync, diagnose_committed_qualification_sync
+from core.provider_wizard_stages import public_model as provider_wizard_stage_model
 from adapters.discovered_web_provider import create_discovered_web_provider
 from core.provider_live_view import open_target_sync, capture_live_view_sync, dispatch_live_input_sync, close_owned_target_sync, start_screencast_sync, get_screencast_frame, stop_screencast_sync
 
@@ -1028,6 +1029,12 @@ def _browser_runtime_groups():
 
 
 
+
+
+@control_panel_bp.route('/api/provider-wizard/mission', methods=['GET'])
+def api_provider_wizard_mission():
+    return jsonify(provider_wizard_stage_model())
+
 @control_panel_bp.route('/api/provider-wizard/analyze', methods=['POST'])
 def api_provider_wizard_analyze():
     data = request.get_json(silent=True) or {}
@@ -1413,13 +1420,36 @@ def api_provider_wizard_ai_verify_blocker(candidate_id):
         apply_submit_qualification(record,verification.get('qualification') or {})
     elif verification.get('status')=='E2_TRANSPORT_MARKER_VERIFIED':
         technical['workflow_state']='RESPONSE_TRANSPORT_VERIFIED_UI_UNRESOLVED'; technical['next_required']='response_surface_mapping_without_resend'; technical['user_action_required']=False
-    elif verification.get('status')=='HUMAN_GATE_REQUIRED':
-        technical['workflow_state']='AI_DIAGNOSIS_HUMAN_GATE'; technical['next_required']='approve_new_instrumented_probe'; technical['user_action_required']=True
+    elif verification.get('status')=='AUTO_PROBE_REQUIRED':
+        technical['workflow_state']='AUTO_INSTRUMENTED_PROBE_REQUIRED'; technical['next_required']='run_new_instrumented_probe'; technical['user_action_required']=False
+    elif verification.get('status')=='FINAL_INCONCLUSIVE':
+        technical['workflow_state']='QUALIFICATION_INCONCLUSIVE_FINAL'; technical['next_required']='stop_without_enable'; technical['user_action_required']=False; technical['status']='E2_INCONCLUSIVE'
     else:
         technical['workflow_state']='AI_DIAGNOSIS_UNRESOLVED'; technical['next_required']=verification.get('next_required') or 'more_evidence_required'; technical['user_action_required']=False
     record['ai_blocker_verification']=verification
     persist_candidate(root,record)
     return jsonify({'candidate_id':candidate_id,'verification':verification,'candidate':record})
+
+
+@control_panel_bp.route('/api/provider-wizard/auto-probe/<candidate_id>', methods=['POST'])
+def api_provider_wizard_auto_probe(candidate_id):
+    root=Path(__file__).parent.resolve(); payload=request.get_json(silent=True) or {}
+    try: record=load_candidate(root,candidate_id)
+    except FileNotFoundError: return jsonify({'error':'candidate_not_found'}),404
+    technical=record.setdefault('technical_candidate',{})
+    if technical.get('workflow_state')!='AUTO_INSTRUMENTED_PROBE_REQUIRED':
+        return jsonify({'error':'auto_probe_not_applicable','workflow_state':technical.get('workflow_state')}),409
+    if int(record.get('auto_instrumented_probe_attempts') or 0) >= 1:
+        return jsonify({'error':'auto_probe_attempt_limit_reached'}),409
+    analysis=record.get('analysis') or {}; runtime_key=str(payload.get('runtime_key') or analysis.get('recommended_runtime_key') or '').strip()
+    runtime=_browser_runtime_by_key(runtime_key) if runtime_key else None
+    if runtime is None or not runtime.get('ready'): return jsonify({'error':'browser_runtime_not_ready'}),409
+    record['auto_instrumented_probe_attempts']=int(record.get('auto_instrumented_probe_attempts') or 0)+1
+    record['auto_probe_authorization']={'source':'explorer_policy','purpose':'bounded_instrumented_roundtrip_after_ai_diagnosis'}
+    technical['workflow_state']='TECHNICAL_CANDIDATE_READY'; technical['next_required']='automatic_instrumented_probe'; technical['user_action_required']=False
+    result=qualify_submit_candidate_sync(runtime['cdp_url'],record,timeout_seconds=20.0)
+    apply_submit_qualification(record,result); persist_candidate(root,record)
+    return jsonify({'candidate_id':candidate_id,'qualification':result,'candidate':record})
 
 
 @control_panel_bp.route('/api/provider-wizard/approved-probe/<candidate_id>', methods=['POST'])

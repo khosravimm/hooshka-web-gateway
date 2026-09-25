@@ -1,0 +1,120 @@
+{
+  "schema_version": "1.0.0",
+  "mission": "Convert an unknown Web Chat URL into an auditable, disabled Provider Profile with account/session-scoped access, model, chat, tool and capability evidence.",
+  "stages": [
+    {
+      "id": "S1",
+      "name": "ACCESS_BOOTSTRAP",
+      "purpose": "Open provider and classify guest/auth/login/challenge/terms/region state",
+      "exit": [
+        "page_interactive",
+        "usable_access_or_explicit_human_gate"
+      ]
+    },
+    {
+      "id": "S2",
+      "name": "MODEL_ENTITLEMENT_DISCOVERY",
+      "purpose": "Discover selection mode, current/resolved model and account/session-scoped model inventory",
+      "exit": [
+        "model_selector_or_explicit_absence",
+        "current_model_state_recorded",
+        "available_or_locked_model_inventory_recorded"
+      ]
+    },
+    {
+      "id": "S3",
+      "name": "BASELINE_CHAT",
+      "purpose": "Prove simple prompt/response roundtrip",
+      "exit": [
+        "E2_roundtrip",
+        "commitment_and_transport_evidence",
+        "response_surface_verified"
+      ]
+    },
+    {
+      "id": "S4",
+      "name": "BASIC_AGENT_TOOLS",
+      "purpose": "Prove bounded core tool calling and continuation",
+      "exit": [
+        "core_tool_request",
+        "tool_execution",
+        "tool_result_continuation"
+      ]
+    },
+    {
+      "id": "CP-A",
+      "name": "AGENT_BASIC_READY",
+      "purpose": "Usable basic HWG web-chat checkpoint",
+      "exit": [
+        "S1-S4_pass"
+      ]
+    },
+    {
+      "id": "S5",
+      "name": "FULL_TOOL_PROTOCOL",
+      "purpose": "Qualify full tool-call protocol and error/repair behavior",
+      "exit": [
+        "tool_matrix_scoped_evidence"
+      ]
+    },
+    {
+      "id": "S6",
+      "name": "EXTENDED_CAPABILITIES",
+      "purpose": "Search/thinking/media/upload/native capabilities",
+      "exit": [
+        "capability_matrix_scoped_evidence"
+      ]
+    },
+    {
+      "id": "S7",
+      "name": "PER_MODEL_QUALIFICATION",
+      "purpose": "Qualify relevant discovered models independently",
+      "exit": [
+        "per_model_baseline_and_core_tool_evidence"
+      ]
+    },
+    {
+      "id": "S8",
+      "name": "PROFILE_MATERIALIZATION",
+      "purpose": "Persist only proven facts into disabled adapter/profile",
+      "exit": [
+        "profile_materialized",
+        "enabled_false"
+      ]
+    },
+    {
+      "id": "S9",
+      "name": "FINAL_READINESS",
+      "purpose": "Record readiness, limitations and revalidation rules",
+      "exit": [
+        "terminal_readiness_state",
+        "evidence_index",
+        "staleness_rules"
+      ]
+    }
+  ],
+  "human_gates": [
+    "login",
+    "captcha_or_challenge",
+    "terms_or_consent",
+    "account_choice",
+    "destructive_action",
+    "provider_enable",
+    "ambiguous_high_impact_choice"
+  ],
+  "technical_decisions_owned_by_explorer": [
+    "evidence_sufficiency",
+    "retry_or_new_probe_policy",
+    "model_inventory_discovery",
+    "selector_rediscovery",
+    "ai_diagnosis",
+    "safe_probe_sequence"
+  ],
+  "readiness_levels": [
+    "ACCESS_READY",
+    "CHAT_READY",
+    "AGENT_BASIC_READY",
+    "AGENT_FULL_READY",
+    "PROVIDER_QUALIFIED"
+  ]
+}
