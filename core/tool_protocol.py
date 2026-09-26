@@ -36,14 +36,18 @@ def build_tool_instruction(tools: list[dict], tool_choice=None) -> str:
         + choice_rule
         + "Available tools/functions:\n"
         + json.dumps(definitions, ensure_ascii=False, indent=2)
-        + "\n\nYour response is parsed by a machine. ALWAYS reply with exactly one valid JSON object.\n"
-          "If a tool is required, use this exact envelope:\n"
-          '{"tool_calls":[{"name":"<function_name>","arguments":{}}]}\n'
+        + "\n\nYour response is parsed by a machine. ALWAYS reply with exactly one valid JSON object inside one fenced `json` code block.\n"
+          "The code block is required because the Web Chat renderer can otherwise alter underscores, backslashes, and quotes inside tool arguments.\n"
+          "Reliability rules: emit AT MOST ONE tool call per response; never batch multiple calls.\n"
+          "Every string argument MUST be valid JSON. Escape internal double quotes, backslashes, control characters, and newlines.\n"
+          "For write/edit/source-code arguments, keep the entire content inside one correctly escaped JSON string; never place raw triple quotes outside JSON escaping.\n"
+          "If a tool is required, use this envelope with exactly one item in `tool_calls`:\n"
+          '```json\n{"tool_calls":[{"name":"<function_name>","arguments":{}}]}\n```\n'
           "If no tool is required and you can answer now, use this exact envelope:\n"
-          '{"final":"<your complete answer>"}\n'
-          "Do not add prose, markdown, explanations, or an imagined result outside the JSON object.\n"
+          '```json\n{"final":"<your complete answer>"}\n```\n'
+          "Do not add prose, explanations, or an imagined result outside the single fenced JSON block.\n"
           "After the gateway sends a [TOOL RESULT ...] message, use that returned data to answer the user. "
-          "If another tool is still required, emit another tool call instead."
+          "If another tool is still required, emit exactly one next tool call instead."
     )
 
 
@@ -73,7 +77,10 @@ def serialize_messages(messages: list[dict], tools: Optional[list[dict]] = None,
                 except Exception:
                     args = raw_args
                 calls.append({"name": fn.get("name"), "arguments": args, "id": tc.get("id")})
-            content += "\n" + json.dumps({"tool_calls": calls}, ensure_ascii=False)
+            envelope = json.dumps({"tool_calls": calls}, ensure_ascii=False)
+            if content.strip():
+                content = content.rstrip() + "\n"
+            content += "```json\n" + envelope + "\n```"
         if role == "TOOL":
             call_id = msg.get("tool_call_id", "")
             name = msg.get("name", "")
@@ -169,6 +176,157 @@ def _repair_arguments_json_string(raw: str) -> str:
     return "".join(out)
 
 
+def _repair_deescaped_command_string(raw: str) -> str:
+    """Repair a de-escaped JSON string specifically for a shell `command` field.
+
+    Browser DOM extraction can remove the JSON escaping from a model response,
+    producing a shape such as::
+
+        {"command":"New-Item -Path "src\\taskflow", "tests" -Force", "description":"..."}
+
+    The command terminator is identified only when the quote is followed by a
+    JSON sibling key (`, "name":`) or by the enclosing object close. Quotes
+    inside the command are re-escaped, and backslashes are re-escaped so a
+    Windows path such as ``src\\taskflow`` is not decoded as a tab escape.
+    The repaired document is still required to pass normal ``json.loads``.
+    """
+    key_re = re.compile(r'"command"\s*:\s*"')
+    pos = 0
+    chunks: list[str] = []
+    changed = False
+    while True:
+        match = key_re.search(raw, pos)
+        if not match:
+            break
+        start = match.end()
+        idx = start
+        end = None
+        while idx < len(raw):
+            if raw[idx] != '"':
+                idx += 1
+                continue
+            # A real JSON string terminator is followed by either a sibling
+            # property or the closing brace of the arguments object.
+            tail = raw[idx + 1:]
+            if re.match(r'\s*,\s*"[A-Za-z_][A-Za-z0-9_]*"\s*:', tail) or re.match(r'\s*}', tail):
+                end = idx
+                break
+            idx += 1
+        if end is None:
+            break
+        body = raw[start:end]
+        # DOM de-escaping removes both path escaping and embedded-quote
+        # escaping. Restore them only inside the bounded command value.
+        repaired_body = body.replace('\\', '\\\\').replace('"', '\\"')
+        chunks.append(raw[pos:start])
+        chunks.append(repaired_body)
+        pos = end
+        changed = changed or repaired_body != body
+        # Continue after the closing quote; it is copied by the next slice.
+        key_next = key_re.search(raw, end + 1)
+        if key_next is None:
+            break
+    if not chunks:
+        return raw
+    chunks.append(raw[pos:])
+    return ''.join(chunks) if changed else raw
+
+
+def _repair_truncated_json_closers(raw: str, max_missing: int = 4) -> str:
+    """Append only missing terminal JSON closers for a bounded truncation.
+
+    The repair is accepted only when all observed closing delimiters match, the
+    payload does not end inside a JSON string, and at most ``max_missing``
+    terminal ``]``/``}`` characters are absent.  It never invents keys, values,
+    commas, quotes, or string contents.
+    """
+    stack: list[str] = []
+    in_string = False
+    escape = False
+    pairs = {"}": "{", "]": "["}
+    for ch in raw:
+        if in_string:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            continue
+        if ch == '"':
+            in_string = True
+        elif ch in "[{":
+            stack.append(ch)
+        elif ch in "}]":
+            if not stack or stack[-1] != pairs[ch]:
+                return raw
+            stack.pop()
+    if in_string or not stack or len(stack) > max_missing:
+        return raw
+    closers = ''.join('}' if ch == '{' else ']' for ch in reversed(stack))
+    return raw + closers
+
+
+def _repair_missing_container_closers(raw: str, max_repairs: int = 4) -> str:
+    """Insert only structurally implied missing ``}``/``]`` delimiters.
+
+    This is a bounded repair for Web-chat tool envelopes such as an object item
+    whose closing ``}`` was dropped immediately before the surrounding ``]``.
+    It never repairs strings, commas, keys, or values. Any unterminated string,
+    extra closer, or repair count above the bound fails closed by returning the
+    original input.
+    """
+    stack: list[str] = []
+    out: list[str] = []
+    in_string = False
+    escape = False
+    repairs = 0
+    opener_for = {"}": "{", "]": "["}
+    closer_for = {"{": "}", "[": "]"}
+
+    for ch in raw:
+        if in_string:
+            out.append(ch)
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            continue
+
+        if ch == '"':
+            out.append(ch)
+            in_string = True
+            continue
+        if ch in "[{":
+            stack.append(ch)
+            out.append(ch)
+            continue
+        if ch in "}]":
+            wanted = opener_for[ch]
+            while stack and stack[-1] != wanted:
+                if repairs >= max_repairs:
+                    return raw
+                out.append(closer_for[stack.pop()])
+                repairs += 1
+            if not stack:
+                return raw
+            stack.pop()
+            out.append(ch)
+            continue
+        out.append(ch)
+
+    if in_string:
+        return raw
+    while stack:
+        if repairs >= max_repairs:
+            return raw
+        out.append(closer_for[stack.pop()])
+        repairs += 1
+    return "".join(out) if repairs else raw
+
+
 def _json_loads_tolerant(raw: str):
     # A model may encode a Windows drive root as \"D:\\"; the trailing
     # backslash then escapes the JSON quote. Canonicalize only this narrow
@@ -177,6 +335,28 @@ def _json_loads_tolerant(raw: str):
     try:
         return json.loads(raw)
     except Exception as first_error:
+        truncated_repaired = _repair_truncated_json_closers(raw)
+        if truncated_repaired != raw:
+            try:
+                return json.loads(truncated_repaired)
+            except Exception:
+                pass
+        container_repaired = _repair_missing_container_closers(raw)
+        if container_repaired != raw:
+            try:
+                return json.loads(container_repaired)
+            except Exception:
+                pass
+        # A common coding-agent variant is a de-escaped shell command whose
+        # embedded quotes and Windows path separators make the surrounding JSON
+        # invalid. Repair only the bounded `command` field, then require strict
+        # JSON parsing.
+        command_repaired = _repair_deescaped_command_string(raw)
+        if command_repaired != raw:
+            try:
+                return json.loads(command_repaired)
+            except Exception:
+                pass
         # Some Web-chat DOM surfaces de-escape the JSON string carried in an
         # `arguments` field, yielding e.g.:
         # {"tool_calls":[{"function":{"arguments":"{"marker":"X"}"}}]}
@@ -204,27 +384,50 @@ def _json_loads_tolerant(raw: str):
 
 
 def _repair_unescaped_string_quotes(raw: str) -> str:
-    """Repair a narrow class of Web-chat JSON quoting defects.
+    """Repair unescaped quotes inside Web-chat JSON string values.
 
-    Some Web UIs emit command arguments like:
-    {"command":"bash -lc "find /tmp -name x""}
-
-    A quote encountered inside a JSON string is treated as literal only when
-    the following non-whitespace character cannot legally terminate that
-    string in JSON. No code is evaluated; the repaired text is still parsed by
-    json.loads and fails closed if it remains invalid.
+    The scanner tracks whether the current JSON string is an object key or a
+    value. A quote followed by ``:`` closes a key, but the same shape inside a
+    value (for example Python source ``"id": value``) is escaped as literal
+    content. Value strings close only at a structurally valid value boundary.
+    The repaired payload must still pass ``json.loads``; no code is evaluated.
     """
-    out = []
+    out: list[str] = []
     in_string = False
     escape = False
+    string_kind = "value"
+    containers: list[str] = []
     length = len(raw)
+
+    def previous_significant(index: int) -> str:
+        j = index - 1
+        while j >= 0 and raw[j].isspace():
+            j -= 1
+        return raw[j] if j >= 0 else ""
+
+    def next_significant(index: int) -> tuple[str, int]:
+        j = index + 1
+        while j < length and raw[j].isspace():
+            j += 1
+        return (raw[j] if j < length else "", j)
 
     for idx, ch in enumerate(raw):
         if not in_string:
-            out.append(ch)
             if ch == '"':
+                prev = previous_significant(idx)
+                top = containers[-1] if containers else ""
+                string_kind = "key" if top == "{" and prev in {"{", ","} else "value"
+                out.append(ch)
                 in_string = True
                 escape = False
+                continue
+            out.append(ch)
+            if ch in "[{":
+                containers.append(ch)
+            elif ch == "}" and containers and containers[-1] == "{":
+                containers.pop()
+            elif ch == "]" and containers and containers[-1] == "[":
+                containers.pop()
             continue
 
         if escape:
@@ -241,18 +444,82 @@ def _repair_unescaped_string_quotes(raw: str) -> str:
             out.append(ch)
             continue
 
-        next_idx = idx + 1
-        while next_idx < length and raw[next_idx].isspace():
-            next_idx += 1
-        next_ch = raw[next_idx] if next_idx < length else ""
+        next_ch, next_idx = next_significant(idx)
 
-        if next_ch in {":", ",", "}", "]"} or next_ch == "":
+        if string_kind == "key":
+            if next_ch == ":":
+                out.append(ch)
+                in_string = False
+            else:
+                out.append('\\"')
+            continue
+
+        # JSON value string. A colon cannot terminate a value string; this is
+        # commonly source code such as {"id": value} embedded in tool content.
+        if next_ch == "":
             out.append(ch)
             in_string = False
-        else:
-            out.append('\\"')
+            continue
+
+        if next_ch in {"}", "]"}:
+            # A brace/bracket immediately after a quote may belong to source
+            # code embedded in a tool string. Treat it as a real JSON value
+            # terminator only when the character after that delimiter also
+            # continues/finishes JSON structure rather than returning to text.
+            after_idx = next_idx + 1
+            while after_idx < length and raw[after_idx].isspace():
+                after_idx += 1
+            after = raw[after_idx] if after_idx < length else ""
+            if after in {",", "}", "]"} or after == "":
+                out.append(ch)
+                in_string = False
+            else:
+                out.append('\"')
+            continue
+
+        if next_ch == ",":
+            top = containers[-1] if containers else ""
+            if top == "{":
+                tail = raw[next_idx + 1:]
+                # In an object, a real value terminator must be followed by a
+                # JSON key. Shell/source text like "a", "b" is not a key pair.
+                if re.match(r'\s*"[^"\r\n]+"\s*:', tail):
+                    out.append(ch)
+                    in_string = False
+                else:
+                    out.append('\\"')
+            else:
+                # Array values may legitimately be followed by another value.
+                out.append(ch)
+                in_string = False
+            continue
+
+        out.append('\\"')
 
     return "".join(out)
+
+
+def _repair_path_control_chars(value: str) -> str:
+    """Recover Windows path separators swallowed by JSON control escapes.
+
+    Web-chat models sometimes emit a single backslash in JSON paths, so a
+    segment like ``\\taskflow`` is decoded as a tab plus ``askflow``. Windows
+    paths cannot contain ASCII control characters 0x00-0x1F, therefore these
+    decoded controls are unambiguous transport corruption for path-like tool
+    arguments and can be restored to their textual backslash escape.
+    """
+    if not isinstance(value, str):
+        return value
+    mapping = {
+        chr(9): r"\t",
+        chr(10): r"\n",
+        chr(13): r"\r",
+        chr(8): r"\b",
+        chr(12): r"\f",
+    }
+    for control, escaped in mapping.items():
+        value = value.replace(control, escaped)
+    return value
 
 
 def _normalize_tool_name_and_args(name: str, args):
@@ -286,6 +553,9 @@ def _normalize_tool_name_and_args(name: str, args):
                 if key in args:
                     args["pattern"] = args[key]
                     break
+        for key in ("filePath", "file_path", "filepath", "path", "file", "workdir", "cwd"):
+            if isinstance(args.get(key), str):
+                args[key] = _repair_path_control_chars(args[key])
     return name, args
 
 
@@ -381,7 +651,7 @@ def parse_tool_calls(text: str):
     text = re.sub(r'([A-Za-z]):\\(?=\"[,}])', r'\1:/', text)
 
     if "DSML" in text and "invoke" in text:
-        dsml = text.replace("｜", "|")
+        dsml = text.replace("\uff5c", "|")
         dsml = re.sub(r'\\(?=</\s*\|\s*\|\s*DSML)', '', dsml, flags=re.IGNORECASE)
         inv = re.compile(
             r'<\s*\|\s*\|\s*DSML\s*\|\s*\|\s*invoke\s+name="([^"]+)"\s*>\s*'
@@ -426,6 +696,23 @@ def parse_tool_calls(text: str):
         found = _first_json_object(text)
         if found:
             raw, span = found
+        else:
+            # A Web-chat response may be truncated only at the terminal outer
+            # delimiters. In addition, rendered fenced-code surfaces can expose
+            # small UI labels (json/Copy/Download) before the actual envelope.
+            # Accept only that known renderer chrome; arbitrary prose before a
+            # tool envelope remains fail-closed.
+            stripped = text.strip()
+            candidate = stripped
+            candidate_offset = text.find(stripped)
+            tool_pos = stripped.find('{"tool_calls"')
+            if tool_pos > 0:
+                prefix_lines = [line.strip().lower() for line in stripped[:tool_pos].splitlines() if line.strip()]
+                if prefix_lines and all(line in {"json", "copy", "download"} for line in prefix_lines):
+                    candidate = stripped[tool_pos:]
+                    candidate_offset += tool_pos
+            if candidate.startswith("{") and "\"tool_calls\"" in candidate[:160]:
+                raw, span = candidate, (candidate_offset, candidate_offset + len(candidate))
     if not raw:
         return text, None
     try:
@@ -451,6 +738,10 @@ def parse_tool_calls(text: str):
     if not calls:
         return text, None
     cleaned = (text[:span[0]] + text[span[1]:]).strip() if span else ""
+    if cleaned:
+        chrome_lines = [line.strip().lower() for line in cleaned.splitlines() if line.strip()]
+        if chrome_lines and all(line in {"json", "copy", "download"} for line in chrome_lines):
+            cleaned = ""
     return cleaned or None, calls
 
 
@@ -494,10 +785,10 @@ _TOOL_REFUSAL_PATTERNS = [
     re.compile(r"\b(can(?:no|')t|could\s+not|unable\s+to|won'?t)\b[^.]{0,64}\b(access|use|run|execute|call|reach)\b[^.]{0,64}\b(tool|tools|shell|workspace|command|file|files|filesystem|directory)\b", re.I),
     re.compile(r"\b(tool|tools|shell|workspace|file|files|filesystem|command)\b[^.]{0,64}\b(not\s+available|unavailable|not\s+accessible|no\s+access|disabled|restricted|blocked)\b", re.I),
     re.compile(r"\bdon'?t\s+have\s+access\b", re.I),
-    re.compile(r"در\s*دسترس\s*نیست"),
-    re.compile(r"دسترسی\s*ندار"),
-    re.compile(r"امکان\s*(اجرا|اجرای|دسترسی)[^.]{0,100}(وجود\s*ندارد|نیست)"),
-    re.compile(r"نمی[‌\s]?توان(م|ید|ست)?[^.]{0,64}(اجرا|دسترسی|استفاده|فراخوان)"),
+    re.compile(r"\u062f\u0631\s*\u062f\u0633\u062a\u0631\u0633\s*\u0646\u06cc\u0633\u062a"),
+    re.compile(r"\u062f\u0633\u062a\u0631\u0633\u06cc\s*\u0646\u062f\u0627\u0631"),
+    re.compile(r"\u0627\u0645\u06a9\u0627\u0646\s*(\u0627\u062c\u0631\u0627|\u0627\u062c\u0631\u0627\u06cc|\u062f\u0633\u062a\u0631\u0633\u06cc)[^.]{0,100}(\u0648\u062c\u0648\u062f\s*\u0646\u062f\u0627\u0631\u062f|\u0646\u06cc\u0633\u062a)"),
+    re.compile(r"\u0646\u0645\u06cc[\u200c\s]?\u062a\u0648\u0627\u0646(\u0645|\u06cc\u062f|\u0633\u062a)?[^.]{0,64}(\u0627\u062c\u0631\u0627|\u062f\u0633\u062a\u0631\u0633\u06cc|\u0627\u0633\u062a\u0641\u0627\u062f\u0647|\u0641\u0631\u0627\u062e\u0648\u0627\u0646)"),
 ]
 
 _SANDBOX_MARKERS = (
@@ -535,7 +826,7 @@ def strong_auto_tool_signal(
     # ordinary tool-aware chat turns untouched.
     for name in tool_names:
         token = name.lower()
-        if token and token in user_lower and re.search(r"\b(use|run|call|invoke|execute|اجرا|استفاده|فراخوان)\b", user_lower):
+        if token and token in user_lower and re.search(r"\b(use|run|call|invoke|execute|\u0627\u062c\u0631\u0627|\u0627\u0633\u062a\u0641\u0627\u062f\u0647|\u0641\u0631\u0627\u062e\u0648\u0627\u0646)\b", user_lower):
             return f"explicit_user_tool_request:{name}"
 
     for name in tool_names:

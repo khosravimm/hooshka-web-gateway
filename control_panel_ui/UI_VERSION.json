@@ -1,6 +1,6 @@
 {
   "name": "hwg-control-plane-ui",
-  "version": "2.1.1-dev.discovery-workspace-ux.20260926-1055",
+  "version": "2.1.1-dev.kilo-mission-e2.20260926-1336",
   "released": "2026-09-26",
   "direction": "rtl",
   "language": "fa",
@@ -258,8 +258,98 @@
       "date": "2026-09-26",
       "class": "UX_HIERARCHY",
       "notes": "Exploration and Preparation workspace now prioritizes existing Qualification resume, collapses technical Discovery process details, and visually separates advanced Discovery runs."
+    },
+    {
+      "version": "2.1.1-dev.kilo-agent-protocol.20260926-1145",
+      "date": "2026-09-26",
+      "class": "AGENT_PROTOCOL_FIX",
+      "notes": "Structured tool-bearing OpenAI-compatible requests bypass implicit human-chat CAG filtering; explicit boundary flags still remain authoritative."
+    },
+    {
+      "version": "2.1.1-dev.deepseek-tool-continuation.20260926-1153",
+      "date": "2026-09-26",
+      "class": "DEEPSEEK_TOOL_PROTOCOL_FIX",
+      "notes": "DeepSeek/Kilo continuation now repairs the observed DOM-deescaped PowerShell command envelope with embedded quotes and Windows path separators before strict JSON parsing."
+    },
+    {
+      "version": "2.1.1-dev.webchat-fenced-tool-envelope.20260926-1200",
+      "date": "2026-09-26",
+      "class": "WEBCHAT_TOOL_TRANSPORT_HARDENING",
+      "notes": "Tool protocol now requires one fenced JSON block and one combined tool_calls array so Web Chat Markdown rendering preserves underscores, backslashes, quotes, and code payloads."
+    },
+    {
+      "version": "2.1.1-dev.kilo-tool-parser.20260926-1156",
+      "date": "2026-09-26",
+      "class": "TOOL_PROTOCOL_REPAIR",
+      "notes": "Bounded parser repair accepts malformed Web-chat shell command JSON where quoted shell arguments are separated by commas, while retaining normal JSON-key termination and fail-closed parsing."
+    },
+    {
+      "version": "2.1.1-dev.kilo-tool-parser.20260926-1204",
+      "date": "2026-09-26",
+      "class": "TOOL_PROTOCOL_REPAIR",
+      "notes": "Bounded terminal-delimiter recovery now accepts structurally complete Web-chat tool envelopes missing only final array/object closers; unterminated strings and mismatched structures remain rejected."
+    },
+    {
+      "version": "2.1.1-dev.kilo-tool-reliability.20260926-1226",
+      "date": "2026-09-26",
+      "class": "AGENT_TOOL_RELIABILITY",
+      "notes": "Web-chat agent protocol now limits each turn to one tool call and requires explicit JSON escaping for code/file strings; bounded parser recovery remains fail-closed."
+    },
+    {
+      "version": "2.1.1-dev.kilo-tool-reliability.20260926-1229",
+      "date": "2026-09-26",
+      "class": "TEST_CONTRACT_SYNC",
+      "notes": "Tool-protocol regression contract synchronized with the new one-call-per-turn reliability rule."
+    },
+    {
+      "version": "2.1.1-dev.kilo-windows-path.20260926-1241",
+      "date": "2026-09-26",
+      "class": "WINDOWS_PATH_REPAIR",
+      "notes": "Path-like tool arguments now restore Windows separators that JSON decoded into forbidden ASCII control characters such as tab from \\t."
+    },
+    {
+      "version": "2.1.1-dev.kilo-history-fence.20260926-1258",
+      "date": "2026-09-26",
+      "class": "TOOL_HISTORY_FENCING",
+      "notes": "Serialized assistant tool-call history is now fenced as JSON so Web Chat continuation preserves underscores, backslashes and quoted source content across tool turns."
+    },
+    {
+      "version": "2.1.1-dev.kilo-container-repair.20260926-1239",
+      "date": "2026-09-26",
+      "class": "TOOL_PROTOCOL_REPAIR",
+      "notes": "Bounded structural recovery now inserts only an unambiguous missing object/array closer before an observed enclosing closer; unmatched extra closers remain rejected."
+    },
+    {
+      "version": "2.1.1-dev.kilo-renderer-chrome.20260926-1244",
+      "date": "2026-09-26",
+      "class": "WEBCHAT_RENDERER_NORMALIZATION",
+      "notes": "Tool parser now recognizes only known fenced-code renderer chrome labels (json/Copy/Download) before a tool envelope and removes those labels from normalized assistant content; arbitrary prose prefixes remain rejected."
+    },
+    {
+      "version": "2.1.1-dev.kilo-renderer-chrome.20260926-1247",
+      "date": "2026-09-26",
+      "class": "TEST_CONTRACT_SYNC",
+      "notes": "Negative renderer-chrome regression now targets prose-prefixed malformed JSON requiring repair; existing valid prose-plus-tool parsing behavior remains unchanged."
+    },
+    {
+      "version": "2.1.1-dev.kilo-mission-e2.20260926-1322",
+      "date": "2026-09-26",
+      "class": "KILO_MISSION_E2",
+      "notes": "Real VS Code/Kilo mission test completed through HWG/DeepSeek: project generation, 64 unittest PASS, real CLI add/list/done/search smoke PASS, with bounded tool-protocol remediation; clean fresh-workspace rerun remains required."
+    },
+    {
+      "version": "2.1.1-dev.kilo-mission-e2.20260926-1328",
+      "date": "2026-09-26",
+      "class": "TEST_CONTRACT_SYNC",
+      "notes": "Discovery architecture contract test synchronized to Work Register 1.63.0 after registering the Kilo/VS Code primary mission acceptance item."
+    },
+    {
+      "version": "2.1.1-dev.kilo-mission-e2.20260926-1336",
+      "date": "2026-09-26",
+      "class": "FINAL_HYGIENE",
+      "notes": "Final mission-E2 source hygiene: normalized tool_protocol EOF after Unicode literal restoration; no semantic protocol change."
     }
   ],
-  "build": "20260926-1055",
+  "build": "20260926-1336",
   "last_updated": "2026-09-26"
 }

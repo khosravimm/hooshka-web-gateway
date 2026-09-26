@@ -1,3 +1,66 @@
+## 2.1.1-dev.kilo-mission-e2.20260926-1336 - 2026-09-26 - Final Kilo Mission E2 Hygiene
+- Normalized final source EOF after restoring the pre-existing Unicode protocol literals.
+- No semantic protocol change; final build for mission-E2 evidence.
+
+## 2.1.1-dev.kilo-mission-e2.20260926-1328 - 2026-09-26 - Kilo Mission E2 Contract Sync
+- Synchronized the Work Register version assertion to `1.63.0` after registering HWG-WORK-031.
+- Final Dev build bump for the Kilo/VS Code mission E2 remediation set.
+
+## 2.1.1-dev.kilo-mission-e2.20260926-1322 - 2026-09-26 - Kilo / VS Code Primary Mission E2
+- Completed the real Kilo software-project mission through `hooshka/deepseek-web`: project generation, 64 unittest PASS and real CLI add/list/done/search smoke PASS.
+- Mission exposed and drove bounded fixes for agent-boundary routing, Web-chat tool JSON transport, Windows path control escapes, dunder/history preservation and renderer chrome.
+- Evidence is recorded as E2 PASS WITH REMEDIATION; a fresh-workspace clean rerun is intentionally still required before full mission certification.
+
+## 2.1.1-dev.kilo-renderer-chrome.20260926-1244 - 2026-09-26 - Web-chat Renderer Chrome Normalization
+- Recognizes only the known `json` / `Copy` / `Download` labels exposed by rendered fenced-code blocks before a tool envelope.
+- Removes those renderer labels from normalized assistant content while still rejecting arbitrary prose-prefixed tool JSON.
+- Added regression coverage from the live Kilo pyproject continuation failure.
+
+## 2.1.1-dev.kilo-container-repair.20260926-1239 - 2026-09-26 - Missing Container Closer Recovery
+- Added bounded structural repair for a dropped object/array closer immediately before an enclosing JSON delimiter in Web-chat tool envelopes.
+- Repair never invents keys, values, strings, or commas and rejects unmatched extra closing delimiters.
+- Added regression coverage from the live Kilo service.py continuation failure.
+
+## 2.1.1-dev.kilo-history-fence.20260926-1258 - 2026-09-26 - Tool History Fencing
+- Assistant tool-call history is serialized back to Web Chat inside fenced JSON blocks.
+- Continuation prompts now preserve dunder names, backslashes and code quotes instead of teaching the model an unsafe raw-JSON pattern.
+- Added regression coverage for `__init__.py` and `__future__` preservation in serialized tool history.
+
+## 2.1.1-dev.kilo-windows-path.20260926-1241 - 2026-09-26 - Windows Tool Path Recovery
+- Restored path separators when Web-chat JSON decodes sequences such as `\t` into forbidden Windows control characters.
+- Repair is scoped only to path-like tool arguments (`filePath`, `path`, `workdir`, etc.), never arbitrary content.
+- Added a regression matching the live Kilo `src\taskflow` failure.
+
+## 2.1.1-dev.kilo-tool-reliability.20260926-1226 - 2026-09-26 - Kilo Web-chat Tool Reliability
+- Limited Web-chat agent protocol to one tool call per turn to reduce renderer corruption and simplify continuation.
+- Required valid JSON escaping for quotes, backslashes, newlines and source-code file content.
+- Retained fenced JSON transport and bounded fail-closed parser recovery.
+
+## 2.1.1-dev.kilo-tool-parser.20260926-1204 - 2026-09-26 - Truncated Tool Envelope Recovery
+- Added bounded recovery for Web-chat tool envelopes missing only terminal JSON closers.
+- Recovery refuses unterminated strings, mismatched delimiters, and payloads requiring more than four invented closers.
+- Added live `todowrite` regression and negative fail-closed coverage.
+
+## 2.1.1-dev.kilo-tool-parser.20260926-1156 - 2026-09-26 - Web-chat Tool Parser Repair
+- Added bounded recovery for malformed tool JSON containing quoted shell arguments separated by commas inside a command string.
+- Preserved ordinary JSON field-boundary detection and fail-closed behavior for unrecoverable payloads.
+- Added regression coverage from the live DeepSeek/Kilo continuation failure.
+
+## 2.1.1-dev.webchat-fenced-tool-envelope.20260926-1200 - 2026-09-26 - Web Chat Tool Transport Hardening
+- Tool-capable Web Chat prompts now require exactly one fenced `json` block to prevent Markdown rendering from stripping code-significant syntax such as double underscores and escapes.
+- Parallel tool calls are explicitly required to share one `tool_calls` array instead of emitting sequential JSON objects.
+- Added regression coverage for the transport instruction contract.
+
+## 2.1.1-dev.deepseek-tool-continuation.20260926-1153 - 2026-09-26 - DeepSeek Kilo Continuation Repair
+- Added a bounded repair for the live DeepSeek/Kilo malformed JSON envelope where DOM extraction de-escapes embedded PowerShell quotes and Windows path separators inside a `command` argument.
+- The repair is limited to the `command` JSON field and still requires strict `json.loads` success before a tool call is accepted.
+- Added regression coverage from the exact live TaskFlow failure shape.
+
+## 2.1.1-dev.kilo-agent-protocol.20260926-1145 - 2026-09-26 - Kilo Agent Protocol Compatibility
+- Structured OpenAI-compatible requests that include `tools` are treated as an agent-protocol channel and no longer trigger implicit Hooshka human-chat/CAG filtering from prompt text.
+- Explicit `agent_boundary` / `hooshka_context` flags still force the human-chat boundary when deliberately requested.
+- Added regression coverage for implicit bypass and explicit-boundary precedence.
+
 ## 2.1.0 - 2026-09-25 - E2 Operational Release
 - Promoted RC3 after controlled Production cutover on port 5000.
 - Production Windows service `HooshkaWebGateway` installed with automatic start and isolated `config.production.yaml`.

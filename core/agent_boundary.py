@@ -120,6 +120,14 @@ def boundary_is_active_for_request(request: ChatCompletionRequest | None) -> boo
     opts = request.provider_options or {}
     if opts.get("agent_boundary") is True or opts.get("hooshka_context") is True:
         return True
+    # Requests that advertise structured tools are an agent-protocol channel,
+    # not a human-chat delivery surface.  Auto-detecting Hooshka context from
+    # the agent/system prompt here would inject the safe-chat CAG instruction
+    # and prevent the model from returning OpenAI-compatible tool_calls.
+    # Explicit boundary flags above still win when a caller intentionally
+    # requests the human-chat boundary for a tool-bearing request.
+    if request.tools:
+        return False
     haystack = "\n".join(_message_text(m) for m in (request.messages or []) if isinstance(m, dict)).lower()
     return any(marker in haystack for marker in HOOSHKA_CONTEXT_MARKERS)
 

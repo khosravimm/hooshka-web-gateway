@@ -36,6 +36,13 @@ def test_serialize_preserves_system_user_assistant_and_tool_result():
     assert "Default Version: 2" in text
 
 
+def test_tool_instruction_requires_single_fenced_json_envelope():
+    text = serialize_messages([{"role": "user", "content": "write files"}], tools=TOOLS, tool_choice="auto")
+    assert "one fenced `json` code block" in text
+    assert "AT MOST ONE tool call" in text
+    assert "```json" in text
+
+
 def test_parse_json_tool_call():
     content, calls = parse_tool_calls('{"tool_calls":[{"name":"bash","arguments":{"command":"wsl --status"}}]}')
     assert content is None
@@ -185,3 +192,138 @@ def test_parse_tool_envelope_repairs_dom_deescaped_json_string_arguments():
     assert json.loads(calls[0]["function"]["arguments"]) == {
         "marker": "HWG_TOOL_PROBE_395404"
     }
+
+
+def test_parse_tool_envelope_repairs_deescaped_powershell_command_with_windows_path_and_quotes():
+    raw = (
+        '{"tool_calls": [{"name": "bash", "arguments": {'
+        '"command": "New-Item -ItemType Directory -Path "src\\taskflow", "tests" -Force | Select-Object FullName", '
+        '"description": "Create package and tests directories"}, "id": "call_1cbfc894"}]}'
+    )
+    content, calls, valid = parse_tool_envelope(raw)
+    assert valid is True
+    assert content is None
+    assert calls and calls[0]["function"]["name"] == "bash"
+    args = json.loads(calls[0]["function"]["arguments"])
+    assert args["command"] == 'New-Item -ItemType Directory -Path "src\\taskflow", "tests" -Force | Select-Object FullName'
+    assert args["description"] == "Create package and tests directories"
+
+
+def test_parse_tool_envelope_repairs_unescaped_shell_argument_quotes_around_comma():
+    raw = (
+        '{"tool_calls": [{"name": "bash", "arguments": {'
+        '"command": "New-Item -ItemType Directory -Path "src\\taskflow", "tests" -Force | Select-Object FullName", '
+        '"description": "Create package and tests directories"}, "id": "call_live"}]}'
+    )
+    content, calls, valid = parse_tool_envelope(raw)
+    assert valid is True
+    assert content is None
+    args = json.loads(calls[0]["function"]["arguments"])
+    assert args["command"] == 'New-Item -ItemType Directory -Path "src\\taskflow", "tests" -Force | Select-Object FullName'
+    assert args["description"] == "Create package and tests directories"
+
+
+def test_parse_tool_envelope_repairs_missing_terminal_closers_from_live_todowrite():
+    raw = (
+        '{"tool_calls": [{"name": "todowrite", "arguments": {"todos": ['
+        '{"content": "Create package", "status": "in_progress", "priority": "high"}, '
+        '{"content": "Run tests", "status": "pending", "priority": "high"}]}}'
+    )
+    content, calls, valid = parse_tool_envelope(raw)
+    assert valid is True
+    assert content is None
+    assert calls[0]["function"]["name"] == "todowrite"
+    args = json.loads(calls[0]["function"]["arguments"])
+    assert args["todos"][1]["content"] == "Run tests"
+
+
+def test_truncated_json_repair_does_not_invent_unclosed_string_content():
+    raw = '{"tool_calls":[{"name":"bash","arguments":{"command":"echo unfinished'
+    content, calls, valid = parse_tool_envelope(raw)
+    assert valid is False
+    assert calls is None
+    assert content == raw
+
+
+def test_tool_instruction_requires_single_call_and_json_escaping():
+    from core.tool_protocol import build_tool_instruction
+    text = build_tool_instruction([{"type": "function", "function": {"name": "write", "description": "write", "parameters": {"type": "object"}}}])
+    assert "AT MOST ONE tool call" in text
+    assert "Every string argument MUST be valid JSON" in text
+    assert "never batch multiple calls" in text
+    assert "exactly one item in `tool_calls`" in text
+
+
+def test_parse_tool_envelope_repairs_json_control_escape_in_windows_path():
+    raw = r'{"tool_calls":[{"name":"write","arguments":{"filePath":"D:\Code\Repo\src\taskflow\init.py","content":"x"}}]}'
+    content, calls, valid = parse_tool_envelope(raw)
+    assert valid is True
+    assert content is None
+    args = json.loads(calls[0]["function"]["arguments"])
+    assert args["filePath"] == r"D:\Code\Repo\src\taskflow\init.py"
+    assert "\t" not in args["filePath"]
+
+
+def test_serialize_assistant_tool_history_is_fenced_json():
+    messages = [{
+        "role": "assistant",
+        "content": None,
+        "tool_calls": [{
+            "id": "call_1",
+            "function": {
+                "name": "write",
+                "arguments": '{"filePath":"src/taskflow/__init__.py","content":"from __future__ import annotations"}',
+            },
+        }],
+    }]
+    text = serialize_messages(messages, tools=TOOLS, tool_choice="auto")
+    assert '[ASSISTANT]\n```json\n{"tool_calls"' in text
+    assert "src/taskflow/__init__.py" in text
+    assert "from __future__ import annotations" in text
+    assert text.rstrip().endswith("```")
+
+
+def test_parse_tool_envelope_repairs_missing_object_closer_before_tool_calls_array_close():
+    raw = (
+        '{"tool_calls":[{"name":"write","arguments":{'
+        '"filePath":"src/taskflow/service.py",'
+        '"content":"from __future__ import annotations",'
+        '"id":"call_live"}]}'
+    )
+    content, calls, valid = parse_tool_envelope(raw)
+    assert valid is True
+    assert content is None
+    assert calls[0]["function"]["name"] == "write"
+    args = json.loads(calls[0]["function"]["arguments"])
+    assert args["filePath"] == "src/taskflow/service.py"
+    assert args["content"] == "from __future__ import annotations"
+
+
+def test_missing_container_repair_rejects_extra_unmatched_closer():
+    raw = '{"tool_calls":[{"name":"write","arguments":{}}]]}'
+    content, calls, valid = parse_tool_envelope(raw)
+    assert valid is False
+    assert calls is None
+
+
+def test_parse_tool_envelope_accepts_renderer_chrome_before_repairable_tool_json():
+    raw = (
+        'json\nCopy\nDownload\n'
+        '{"tool_calls":[{"name":"write","arguments":{'
+        '"filePath":"pyproject.toml","content":"[project]\\nname = \\\"taskflow\\\"",'
+        '"id":"call_live"}]}'
+    )
+    content, calls, valid = parse_tool_envelope(raw)
+    assert valid is True
+    assert content is None
+    assert calls[0]["function"]["name"] == "write"
+    args = json.loads(calls[0]["function"]["arguments"])
+    assert args["filePath"] == "pyproject.toml"
+    assert 'name = "taskflow"' in args["content"]
+
+
+def test_renderer_chrome_fallback_does_not_accept_arbitrary_prose_prefix():
+    raw = 'Here is your tool call:\n{"tool_calls":[{"name":"write","arguments":{"filePath":"x","content":"y"}]}'
+    content, calls, valid = parse_tool_envelope(raw)
+    assert valid is False
+    assert calls is None

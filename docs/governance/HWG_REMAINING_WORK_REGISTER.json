@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.62.0",
-  "updated_at": "2026-09-26T01:01:00+03:30",
+  "version": "1.63.0",
+  "updated_at": "2026-09-26T13:22:00+03:30",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -1142,6 +1142,41 @@
         "docs/evidence/HWG_CONNECTION_PROFILE_ACCEPTANCE_AUTOMATED_E2_20260926.md",
         "docs/evidence/HWG_UNIFIED_PROVIDER_WIZARD_IA_E1_E2_20260926.md",
         "docs/evidence/HWG_DISCOVERY_WORKSPACE_UX_HIERARCHY_E1_E2_20260926.md"
+      ]
+    },
+    {
+      "id": "HWG-WORK-031",
+      "title": "External coding-agent primary mission acceptance (Kilo / VS Code)",
+      "area": "agent-orchestration",
+      "status": "IN_PROGRESS",
+      "priority": "P0",
+      "source": [
+        "Owner primary HWG mission test directive 2026-09-26"
+      ],
+      "depends_on": [
+        "HWG-WORK-028"
+      ],
+      "target_version": "2.1.1-dev",
+      "evidence_required": [
+        "E2",
+        "Human acceptance"
+      ],
+      "exit_criteria": [
+        "Kilo in VS Code uses only the HWG OpenAI-compatible endpoint/provider for model turns",
+        "A fresh empty workspace is turned into a multi-file executable software project through the real agent tool loop",
+        "Agent executes tests, diagnoses at least one real failure when present, and completes the requested smoke scenario without hidden manual file authoring",
+        "Tool protocol survives multi-step continuation including Windows paths, dunder identifiers and source-code payloads without malformed-tool termination",
+        "A clean rerun on the final fixed build completes without gateway code changes or operator continuation prompts",
+        "Owner can observe the decisive tests and smoke commands in VS Code"
+      ],
+      "latest_evidence": {
+        "date": "2026-09-26",
+        "type": "E2 real VS Code/Kilo software-project mission test with remediation",
+        "result": "Kilo via hooshka/deepseek-web created TaskFlow, 64 unittest tests passed, real add/list/done/search smoke passed in VS Code, and final HWG suite passed 658/658 on build 2.1.1-dev.kilo-mission-e2.20260926-1336. Clean fresh-workspace rerun remains mandatory because gateway remediation occurred during this run.",
+        "record": "docs/evidence/HWG_KILO_VSCODE_SOFTWARE_PROJECT_MISSION_E2_20260926.md"
+      },
+      "evidence": [
+        "docs/evidence/HWG_KILO_VSCODE_SOFTWARE_PROJECT_MISSION_E2_20260926.md"
       ]
     }
   ]

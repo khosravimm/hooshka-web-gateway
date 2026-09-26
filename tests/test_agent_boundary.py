@@ -57,6 +57,39 @@ def test_hooshka_context_request_gets_gateway_boundary_prompt():
     assert "not Client Access Gateway" in out.messages[0]["content"]
 
 
+def test_tool_protocol_bypasses_implicit_hooshka_human_chat_boundary():
+    req = ChatCompletionRequest(
+        model="deepseek-web",
+        messages=[
+            {"role": "system", "content": "Hooshka coding agent with structured tools"},
+            {"role": "user", "content": "Create a file using the provided tool"},
+        ],
+        tools=[{
+            "type": "function",
+            "function": {
+                "name": "write",
+                "description": "write a file",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }],
+    )
+    assert boundary_is_active_for_request(req) is False
+    out = apply_request_context_boundary(req)
+    assert out.messages[0]["role"] == "system"
+    assert out.messages[0]["content"] == "Hooshka coding agent with structured tools"
+    assert not (out.provider_options or {}).get("agent_boundary")
+
+
+def test_explicit_human_boundary_still_wins_for_tool_request():
+    req = ChatCompletionRequest(
+        model="deepseek-web",
+        messages=[{"role": "user", "content": "Hooshka"}],
+        tools=[{"type": "function", "function": {"name": "write", "parameters": {"type": "object"}}}],
+        provider_options={"agent_boundary": True},
+    )
+    assert boundary_is_active_for_request(req) is True
+
+
 def test_agentic_response_boundary_removes_commands_copy_artifacts_and_bad_cag():
     raw = """CAG = Client Access Gateway
 
