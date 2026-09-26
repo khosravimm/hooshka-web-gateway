@@ -240,6 +240,7 @@
         </div>
         <div class="dependency-note">شروع جدید و ادامه Qualification دو قابلیت جدا نیستند؛ هر دو یک Provider Wizard هستند. Resume باید همان Candidate، Connection Profile و Runtime مربوط را ادامه دهد.</div>
       </div>
+      <div class="section-kicker">Qualificationهای موجود</div>
       <div class="card mt" id="wizard-candidate-card">
         <div class="card-head">
           <div><h3 class="card-title">Qualification موجود / ادامه Wizard</h3><p class="hint">این کارت فقط از رکورد واقعی Candidate خوانده می‌شود و اجرای S4/Advance را به‌صورت visible از همین پنل انجام می‌دهد.</p></div>
@@ -261,8 +262,9 @@
         <div id="wizard-candidate-activity" class="work-list mt"></div>
       </div>
 
-      <div class="card discovery-map">
-        <h3 class="card-title">نقشه اجرای Discovery</h3>
+      <details class="card discovery-map" id="discovery-technical-map">
+        <summary class="card-title">جزئیات فرایند Discovery</summary>
+        <h3 class="card-title wizard-hidden">نقشه اجرای Discovery</h3>
         <div class="flow-rail">
           <div><b>۱. Research</b><span>منبع رسمی/داخلی/پروژه بالغ؛ قبل از هر کاوش</span></div>
           <div><b>۲. Baseline</b><span>Runtime، Page، Account و وضعیت دسترسی</span></div>
@@ -272,7 +274,8 @@
           <div><b>۶. Certification</b><span>Automated E2 فنی یا Human Acceptance؛ دو مسیر مستقل</span></div>
         </div>
         <div class="dependency-note mt">اگر Login، Verification/CAPTCHA، Block یا وضعیت نامشخص تشخیص داده شود، Exploration متوقف و پس از رفع شرط Baseline دوباره اجرا می‌شود.</div>
-      </div>
+      </details>
+      <div class="section-kicker">شروع Run پژوهشی / Discovery پیشرفته</div>
       <div class="card mt">
         <div class="grid-3">
           <label class="field">Provider<select id="discovery-provider" class="ctrl ltr"></select></label>
@@ -282,6 +285,7 @@
         <div class="btn-row mt"><button id="discovery-new-run" class="btn primary" type="button">ایجاد Run کنترل‌شده</button><span id="discovery-create-status" class="status-line"></span></div>
         <p class="hint">ایجاد Run فقط state اولیه <span class="ltr">RESEARCH_REQUIRED</span> را می‌سازد. Research-first gate قابل دور زدن نیست.</p>
       </div>
+      <div class="section-kicker">Runهای Discovery</div>
       <div class="card mt">
         <div class="card-head"><div><h3 class="card-title">Runهای ثبت‌شده</h3><p class="hint">State، Evidence، Account و تاریخچه هر Run از رکورد نسخه‌دار خوانده می‌شود.</p></div><button id="discovery-refresh" class="btn ghost btn-sm" type="button">تازه‌سازی</button></div>
         <div id="discovery-runs" class="work-list"></div>

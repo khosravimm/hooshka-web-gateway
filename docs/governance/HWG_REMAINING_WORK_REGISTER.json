@@ -1,6 +1,6 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.61.0",
+  "version": "1.62.0",
   "updated_at": "2026-09-26T01:01:00+03:30",
   "status_vocabulary": [
     "OPEN",
@@ -1130,9 +1130,9 @@
       ],
       "latest_evidence": {
         "date": "2026-09-26",
-        "type": "E1 unified IA + bounded E2 Grok resume",
-        "result": "New Web Chat start and existing Candidate status/resume are unified under one Exploration/Preparation workspace. Providers no longer embeds the large live Wizard status card. Real grok-web Candidate resumed into the same Provider Wizard on shared runtime 9330. Human acceptance and account-scoped readiness remain pending.",
-        "record": "docs/evidence/HWG_UNIFIED_PROVIDER_WIZARD_IA_E1_E2_20260926.md"
+        "type": "E1 UX hierarchy + bounded E2 live rendering",
+        "result": "Exploration/Preparation now prioritizes existing Qualification resume and new Web Chat, collapses the technical Discovery process map by default, and separates advanced Discovery run creation/history. Human acceptance and account-scoped readiness remain pending.",
+        "record": "docs/evidence/HWG_DISCOVERY_WORKSPACE_UX_HIERARCHY_E1_E2_20260926.md"
       },
       "evidence": [
         "docs/design/HWG_CONTROL_PLANE_CONNECTION_PROFILE_IA_V1_20260926.md",
@@ -1140,7 +1140,8 @@
         "docs/evidence/HWG_DEEPSEEK_SECONDARY_CONNECTION_PROFILE_E2_20260926.md",
         "docs/evidence/HWG_CONNECTION_PROFILE_UNIFIED_WORKFLOW_E1_E2_20260926.md",
         "docs/evidence/HWG_CONNECTION_PROFILE_ACCEPTANCE_AUTOMATED_E2_20260926.md",
-        "docs/evidence/HWG_UNIFIED_PROVIDER_WIZARD_IA_E1_E2_20260926.md"
+        "docs/evidence/HWG_UNIFIED_PROVIDER_WIZARD_IA_E1_E2_20260926.md",
+        "docs/evidence/HWG_DISCOVERY_WORKSPACE_UX_HIERARCHY_E1_E2_20260926.md"
       ]
     }
   ]

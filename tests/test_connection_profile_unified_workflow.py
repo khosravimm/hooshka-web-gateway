@@ -76,3 +76,10 @@ def test_provider_wizard_start_and_resume_share_discovery_workspace():
     assert "showPanel('discovery'); await loadDiscovery()" in js
     assert 'async function resumeWizardCandidate()' in js
     assert 'await HwgExploreConnection(providerId,account.account_id)' in js
+
+def test_discovery_workspace_visual_hierarchy():
+    html=(ROOT/'control_panel_ui/index.html').read_text(encoding='utf-8-sig')
+    assert 'id="discovery-technical-map"' in html
+    assert '<summary class="card-title">' in html
+    assert 'class="section-kicker"' in html
+    assert html.index('id="wizard-candidate-card"') < html.index('id="discovery-technical-map"') < html.index('id="discovery-new-run"') < html.index('id="discovery-runs"')
