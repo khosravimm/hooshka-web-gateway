@@ -26,6 +26,14 @@
   const esc = (value) => String(value == null ? '' : value)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  function connectionDisplayName(providerId, accountId, explicitName) {
+    if (explicitName && String(explicitName).trim()) return String(explicitName).trim();
+    const names={'chatgpt-web':'ChatGPT','deepseek-web':'DeepSeek','zai-web':'Z.ai','grok-web':'Grok','qwen-web':'Qwen','gapgpt-web':'GapGPT'};
+    const provider=names[providerId] || String(providerId || 'Provider').replace(/-web$/,'');
+    const leaf=String(accountId || '').split(':').slice(1).join(':') || '';
+    if (!leaf || leaf==='default-account') return provider+' — حساب اصلی';
+    return provider+' — '+leaf;
+  }
 
   function setStatus(el, msg, kind) {
     if (!el) return;
@@ -485,19 +493,21 @@ function initNav() {
         const readinessReason=ready ? 'Evidence معتبر و جاری است.' : (rr.state==='READY' ? 'Evidence منقضی شده؛ Probe را دوباره اجرا کنید.' : (failedStage ? ('توقف در '+failedStage.stage) : 'Evidence آمادگی ثبت نشده است.'));
         const sessionCheckedAt=sess.validated_at ? new Date(sess.validated_at).toLocaleString('fa-IR') : 'not validated';
         const providerId=(a.provider_profile_id || '').split(':')[0] || a.provider_id || '';
-        const cp=a.connection_profile || {}; const displayName=cp.display_name || a.account_id;
+        const cp=a.connection_profile || {}; const displayName=connectionDisplayName(providerId,a.account_id,cp.display_name);
         const cert=certRows.find(r=>r.provider_id===providerId && r.account_id===a.account_id);
         const certLabel=cert ? (cert.status||cert.evidence_level||'ثبت‌شده') : 'گواهی نشده';
         const providerRuntime=groups.find(g => (g.providers || []).some(x => (typeof x === 'string' ? x : x.id) === providerId) || g.representative_provider === providerId);
         const runtimeReady=providerRuntime ? providerRuntime.ready === true : !!rg?.ready;
-        const readinessAllowed=!!providerId && runtimeReady;
+        const providerProbeOwnsAccount=a.account_id===providerId+':default-account';
+        const readinessAllowed=!!providerId && runtimeReady && providerProbeOwnsAccount;
+        const readinessActionLabel=providerProbeOwnsAccount ? 'اجرای Readiness' : 'Readiness مستقل: در انتظار';
         const conflict=b.sharing_mode==='same_origin_conflict';
         return `<div class="profile-card account-card ${conflict?'conflict':''}">
           <div class="profile-card-head"><div><b>${esc(displayName)}</b><div class="hint ltr">${esc(a.account_id)}</div><span class="badge neutral ltr">${a.provider_profile_id || '-'}</span></div><span class="badge ${access==='AUTHENTICATED'?'ok':(access==='BLOCKED'?'bad':'warn')}">${access}</span></div>
           <div class="relationship-preview"><b>Provider Profile</b> <span class="ltr">${a.provider_profile_id || '-'}</span> → <b>Account</b> <span class="ltr">${a.account_id}</span> → <b>Profile/Origin</b> <span class="ltr">${b.path || '-'} · ${b.origin || '-'}</span> → <b>Runtime</b> <span class="ltr">${rg?.cdp_url || a.runtime?.cdp_url || 'provider runtime'}</span></div>
           <div class="kv"><span>Isolation</span><b>${b.sharing_mode || b.ownership || 'unknown'}</b><span>Session</span><b>${access}</b><span>Session Evidence</span><b>${sessionCheckedAt}</b><span>Readiness</span><b>${readinessText}</b><span>Readiness Evidence</span><b>${checkedAt}</b><span>گواهی همین Scope</span><b>${esc(certLabel)}</b><span>چرا/قدم بعد</span><b>${readinessReason}</b></div>
           ${conflict ? '<div class="dependency-note warn">Same-origin multi-account conflict: این Account باید Profile/Runtime مستقل داشته باشد.</div>' : ''}
-          <div class="btn-row mt"><button class="btn ghost btn-xs" data-account="${a.account_id}" data-aa="validate">Validate Session</button><button class="btn primary btn-xs" data-account="${a.account_id}" data-aa="login">Open / Login</button><button class="btn ghost btn-xs" data-account="${a.account_id}" data-aa="reauth">Re-auth</button><button class="btn primary btn-xs" data-account="${a.account_id}" data-provider-ready="${providerId}" ${readinessAllowed ? '' : 'disabled'} title="${readinessAllowed ? 'اجرای Readiness Probe' : 'ابتدا Browser Runtime باید آماده باشد'}">اجرای Readiness</button><button class="btn primary btn-xs" data-explore-provider="${providerId}" data-explore-account="${a.account_id}">ادامه در کاوشگر</button><button class="btn danger btn-xs" data-account="${a.account_id}" data-aa="logout">Logout</button></div>
+          <div class="btn-row mt"><button class="btn ghost btn-xs" data-account="${a.account_id}" data-aa="validate">Validate Session</button><button class="btn primary btn-xs" data-account="${a.account_id}" data-aa="login">Open / Login</button><button class="btn ghost btn-xs" data-account="${a.account_id}" data-aa="reauth">Re-auth</button><button class="btn primary btn-xs" data-account="${a.account_id}" data-provider-ready="${providerId}" ${readinessAllowed ? '' : 'disabled'} title="${readinessAllowed ? 'اجرای Readiness Probe همین حساب پیش‌فرض' : (providerProbeOwnsAccount ? 'ابتدا Browser Runtime باید آماده باشد' : 'Readiness حساب اختصاصی باید با Probe حساب‌محور اجرا شود؛ Provider-level Probe عمداً غیرفعال است')}">${readinessActionLabel}</button><button class="btn primary btn-xs" data-explore-provider="${providerId}" data-explore-account="${a.account_id}">ادامه در کاوشگر</button><button class="btn danger btn-xs" data-account="${a.account_id}" data-aa="logout">Logout</button></div>
           <div class="status-line" id="account-status-${a.account_id}"></div></div>`;
       }).join('') || '<div class="hint">Account Instance ثبت نشده است.</div>';
       box.querySelectorAll('[data-aa]').forEach(btn => btn.addEventListener('click', () => accountAction(btn.dataset.account, btn.dataset.aa, btn)));
@@ -577,16 +587,18 @@ function initNav() {
       const connectionProfiles = providerAccounts.map(a => {
         const cp=a.connection_profile || {}; const sess=a.session || {}; const bp=a.browser_profile || {}; const rt=a.runtime || {};
         const leaf=(a.account_id || '').split(':').slice(1).join(':') || a.account_id || 'حساب';
-        const display=cp.display_name || `${p.id} — ${leaf}`;
+        const display=connectionDisplayName(p.id,a.account_id,cp.display_name);
         const access=sess.access_state || sess.state || 'UNKNOWN';
         const isolation=bp.sharing_mode || bp.ownership || (rt.cdp_url ? 'exclusive_profile' : 'shared/current');
+        const runtimeLabel=rt.cdp_url ? 'اختصاصی این حساب' : 'مشترک Provider';
         const exactReady=(p.readiness?.account_id===a.account_id) ? p.readiness : null;
         const readinessLabel=exactReady ? ((exactReady.ready===true && exactReady.current===true) ? 'READY' : (exactReady.state==='READY' ? 'STALE' : (exactReady.state||'UNKNOWN'))) : 'بدون شاهد برای این پروفایل';
         const cert=certRows.find(r=>r.provider_id===p.id && r.account_id===a.account_id && (!r.model || r.model===(p.model?.default||p.id)));
         const certLabel=cert ? (cert.status||cert.evidence_level||'ثبت‌شده') : 'گواهی نشده';
         return `<div class="connection-profile-card">
           <div class="connection-profile-head"><div><b>${esc(display)}</b><div class="hint ltr">${esc(a.account_id || '-')}</div></div><span class="badge ${access==='AUTHENTICATED'?'ok':(access==='BLOCKED'?'bad':'warn')}">${esc(access)}</span></div>
-          <div class="connection-profile-meta"><span>حساب</span><b class="ltr">${esc(a.account_id || '-')}</b><span>دسترسی</span><b>${esc(access)}</b><span>جداسازی</span><b>${esc(isolation)}</b><span>Runtime</span><b class="ltr">${esc(rt.cdp_url || 'shared/current')}</b><span>آمادگی</span><b>${esc(readinessLabel)}</b><span>گواهی همین Scope</span><b>${esc(certLabel)}</b></div>
+          <div class="connection-profile-meta"><span>حساب</span><b class="ltr">${esc(a.account_id || '-')}</b><span>دسترسی</span><b>${esc(access)}</b><span>جداسازی</span><b>${esc(isolation)}</b><span>محیط اتصال</span><b>${esc(runtimeLabel)}</b><span>آمادگی</span><b>${esc(readinessLabel)}</b><span>گواهی همین Scope</span><b>${esc(certLabel)}</b></div>
+          <details class="connection-technical"><summary>جزئیات فنی</summary><div class="hint ltr">Account: ${esc(a.account_id || '-')} · CDP: ${esc(rt.cdp_url || 'provider-shared-runtime')} · Profile: ${esc(bp.path || 'provider-shared-profile')}</div></details>
           <div class="btn-row mt"><button class="btn primary btn-xs" onclick="window.HwgExploreConnection && HwgExploreConnection('${esc(p.id)}','${esc(a.account_id)}')">${access==='AUTHENTICATED'?'ادامه در کاوشگر':'ورود و ادامه'}</button><button class="btn ghost btn-xs" onclick="window.HwgConnectionOpen && HwgConnectionOpen('${esc(a.account_id)}')">باز کردن / ورود</button><button class="btn ghost btn-xs" onclick="window.HwgGoAccounts && HwgGoAccounts()">دسترسی و Session</button></div>
           <div class="connection-profile-rename"><input class="ctrl" id="cp-name-${esc(a.account_id)}" value="${esc(display)}"><button class="btn ghost btn-xs" onclick="window.HwgRenameConnectionProfile && HwgRenameConnectionProfile('${esc(a.account_id)}')">ذخیره نام</button></div>
         </div>`;
@@ -659,12 +671,12 @@ function initNav() {
       const account=(accountsData.accounts||[]).find(a=>a.account_id===accountId);
       if(!account) throw new Error('Connection Profile پیدا نشد');
       const cp=account.connection_profile||{}, art=account.runtime||{}, bp=account.browser_profile||{};
-      const runtime=(runtimeData.browser_runtimes||[]).find(r=>r.account_id===accountId) || (runtimeData.browser_runtimes||[]).find(r=>art.cdp_url && r.cdp_url===art.cdp_url);
+      const runtime=(runtimeData.browser_runtimes||[]).find(r=>r.account_id===accountId) || (runtimeData.browser_runtimes||[]).find(r=>art.cdp_url && r.cdp_url===art.cdp_url) || (runtimeData.browser_runtimes||[]).find(r=>r.scope==='provider' && ((r.providers||[]).some(x=>(typeof x==='string'?x:x.id)===providerId) || r.representative_provider===providerId));
       if(!runtime) throw new Error('Runtime این پروفایل در دسترس نیست');
       showPanel('provider-form');
       await loadProviderForm();
       const url=art.home_url || ((bp.origin||'').replace(/\/$/,'')+'/');
-      const display=cp.display_name || accountId;
+      const display=connectionDisplayName(providerId,accountId,cp.display_name);
       providerWizard.connectionProfile={provider_id:providerId,account_id:accountId,display_name:display,access_state:(account.session||{}).access_state||'UNKNOWN'};
       providerWizard.analysis={url,origin:bp.origin||'',suggested_provider_id:providerId,suggested_name:display,existing_origin_provider_ids:[providerId],register_new_provider:false,reuse_existing_adapter:true,known_adapter_type:null,recommended_runtime_key:runtime.runtime_key};
       $('#pf-url').value=url;

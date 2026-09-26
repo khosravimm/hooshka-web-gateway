@@ -47,7 +47,7 @@ def test_work_register_tracks_assisted_discovery_and_routing():
     doc=_json('docs/governance/HWG_REMAINING_WORK_REGISTER.json')
     ids={x['id'] for x in doc['items']}
     assert {'HWG-WORK-018','HWG-WORK-019','HWG-WORK-020','HWG-WORK-021','HWG-WORK-022'}.issubset(ids)
-    assert doc['version']=='1.59.0'
+    assert doc['version']=='1.60.0'
 
 
 def test_target_provider_self_use_policy_requires_deterministic_transport_qualification():

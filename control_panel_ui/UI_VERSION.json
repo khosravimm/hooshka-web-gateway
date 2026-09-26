@@ -1,6 +1,6 @@
 {
   "name": "hwg-control-plane-ui",
-  "version": "2.1.1-dev.connection-profile-workflow.20260926-0140",
+  "version": "2.1.1-dev.connection-profile-acceptance.20260926-0920",
   "released": "2026-09-26",
   "direction": "rtl",
   "language": "fa",
@@ -234,8 +234,20 @@
       "date": "2026-09-26",
       "class": "IA_WORKFLOW",
       "notes": "Connection Profile workflow: dedicated Account runtimes become first-class Explorer targets; exact-scope certification is visible; create profile starts isolated runtime and opens login; existing profiles can continue into Explorer with scoped Live View."
+    },
+    {
+      "version": "2.1.1-dev.connection-profile-acceptance.20260926-0905",
+      "date": "2026-09-26",
+      "class": "HUMAN_ACCEPTANCE_PREP",
+      "notes": "Existing default Connection Profiles resolve their owning shared Provider runtime in Explorer and use human-readable Provider / حساب اصلی labels; dedicated accounts retain exact-account runtime routing."
+    },
+    {
+      "version": "2.1.1-dev.connection-profile-acceptance.20260926-0920",
+      "date": "2026-09-26",
+      "class": "HUMAN_ACCEPTANCE_PREP",
+      "notes": "Primary Provider workspace replaces raw Runtime/CDP with a human connection-environment label and collapsed technical details; secondary-account Provider-level readiness is fail-closed to prevent probing the wrong account."
     }
   ],
-  "build": "20260926-0140",
+  "build": "20260926-0920",
   "last_updated": "2026-09-26"
 }

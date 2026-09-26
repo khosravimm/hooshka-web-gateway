@@ -111,3 +111,13 @@ When the provider under investigation is also considered as the AI helper, expli
 - `HWG-REQ-024`: integrated Live View remains E2 from the existing Explorer evidence; this checkpoint adds bounded E2 proof that an existing secondary Connection Profile routes to its exact dedicated runtime.
 - `HWG-REQ-025`: mission-driven IA and Provider/Connection Profile/Account/Runtime/Readiness/Certification traceability are E1 and remain under human-acceptance review.
 - Evidence: `docs/evidence/HWG_CONNECTION_PROFILE_UNIFIED_WORKFLOW_E1_E2_20260926.md`.
+
+
+## Connection Profile automated acceptance checkpoint — 2026-09-26
+
+- `HWG-REQ-022`: DeepSeek multi-account remains bounded E2; exact Account runtime precedence is preserved.
+- `HWG-REQ-023`: human-readable default profile labels and editable explicit names are E1; automated visual verification exists, but human acceptance is still pending.
+- `HWG-REQ-024`: real Provider target observation remains partial/E2 and provider-specific; no generalized qualification claim.
+- `HWG-REQ-025`: normal Provider workflow no longer requires understanding raw CDP/Profile values; advanced technical values remain traceable under collapsed details. Human acceptance remains pending.
+- Fail-closed rule: non-default dedicated accounts cannot trigger the Provider-level readiness probe because it would evaluate the wrong account scope.
+- Evidence: `docs/evidence/HWG_CONNECTION_PROFILE_ACCEPTANCE_AUTOMATED_E2_20260926.md`.
