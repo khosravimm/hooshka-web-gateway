@@ -572,8 +572,6 @@ function initNav() {
 
     const grid = $('#providers-grid');
     if ($('#wizard-candidate-refresh')) {
-      if ($('#wizard-candidate-refresh')) { $('#wizard-candidate-refresh').onclick = loadWizardCandidateStatus; $('#wizard-candidate-run-s4').onclick = (ev) => runWizardCandidateAction('s4', ev.currentTarget); $('#wizard-candidate-advance').onclick = (ev) => runWizardCandidateAction('advance', ev.currentTarget); }
-      await loadWizardCandidateStatus();
     }
 
     grid.innerHTML = providers.map(p => {
@@ -1336,6 +1334,15 @@ function initNav() {
       if (current && Array.from(select.options).some(o => o.value === current)) select.value = current;
       renderDiscoveryRuns(runsData.runs || [], runsData.self_use || {});
       $('#discovery-refresh').onclick = loadDiscovery;
+      if ($('#discovery-new-webchat')) $('#discovery-new-webchat').onclick = async () => { showPanel('provider-form'); await loadProviderForm(); };
+      if ($('#wizard-candidate-refresh')) {
+        $('#wizard-candidate-refresh').onclick = loadWizardCandidateStatus;
+        $('#wizard-candidate-run-s4').onclick = (ev) => runWizardCandidateAction('s4', ev.currentTarget);
+        $('#wizard-candidate-advance').onclick = (ev) => runWizardCandidateAction('advance', ev.currentTarget);
+        $('#wizard-candidate-resume').onclick = resumeWizardCandidate;
+        $('#wizard-candidate-id').onchange = loadWizardCandidateStatus;
+        await loadWizardCandidateStatus();
+      }
       $('#discovery-new-run').onclick = async () => {
         const provider_id = select.value;
         const account_id = ($('#discovery-account').value || '').trim() || null;
@@ -1382,6 +1389,26 @@ function initNav() {
       box.innerHTML = `<div class="hint">خطا: ${htmlEscape(e.message)}</div>`;
       setStatus(status, 'خطا در خواندن Candidate: ' + e.message, 'err');
     }
+  }
+
+  async function resumeWizardCandidate() {
+    const select=$('#wizard-candidate-id');
+    const status=$('#wizard-candidate-status');
+    const providerId=(select && select.value) || '';
+    if(!providerId) return;
+    setStatus(status,'در حال باز کردن همان Qualification در Wizard...','working');
+    try {
+      const data=await api('/accounts');
+      const account=(data.accounts||[]).find(a=>(((a.provider_profile_id||'').split(':')[0]||a.provider_id||'')===providerId));
+      if(account){
+        await HwgExploreConnection(providerId,account.account_id);
+        setStatus(status,'Qualification موجود در همان Wizard باز شد.','ok');
+        return;
+      }
+      showPanel('provider-form');
+      await loadProviderForm();
+      setStatus($('#provider-form-status'),'Candidate موجود است اما Account/Connection Profile فعال پیدا نشد؛ URL را بررسی و همین Wizard را ادامه دهید.','working');
+    } catch(e){ setStatus(status,'خطا در ادامه Wizard: '+e.message,'err'); }
   }
 
   async function runWizardCandidateAction(action, btn) {
@@ -1531,9 +1558,9 @@ function initNav() {
     $('#svc-restart').addEventListener('click', () => serviceAction('restart'));
 
     // URL-driven Provider onboarding wizard
-    $('#btn-add-provider').addEventListener('click', async () => { showPanel('provider-form'); await loadProviderForm(); });
-    $('#btn-close-provider-form').addEventListener('click', async () => { await cleanupWizardOwnedTarget(); resetProviderWizard(); showPanel('providers'); });
-    $('#pf-cancel').addEventListener('click', async () => { await cleanupWizardOwnedTarget(); resetProviderWizard(); showPanel('providers'); });
+    $('#btn-add-provider').addEventListener('click', async () => { showPanel('discovery'); await loadDiscovery(); });
+    $('#btn-close-provider-form').addEventListener('click', async () => { await cleanupWizardOwnedTarget(); resetProviderWizard(); showPanel('discovery'); });
+    $('#pf-cancel').addEventListener('click', async () => { await cleanupWizardOwnedTarget(); resetProviderWizard(); showPanel('discovery'); });
 
     $('#pf-analyze').addEventListener('click', async () => {
       const url=($('#pf-url').value||'').trim(); const status=$('#provider-form-status');

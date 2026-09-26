@@ -1,6 +1,6 @@
 {
   "name": "hwg-control-plane-ui",
-  "version": "2.1.1-dev.connection-profile-acceptance.20260926-0920",
+  "version": "2.1.1-dev.unified-provider-wizard.20260926-1040",
   "released": "2026-09-26",
   "direction": "rtl",
   "language": "fa",
@@ -246,8 +246,14 @@
       "date": "2026-09-26",
       "class": "HUMAN_ACCEPTANCE_PREP",
       "notes": "Primary Provider workspace replaces raw Runtime/CDP with a human connection-environment label and collapsed technical details; secondary-account Provider-level readiness is fail-closed to prevent probing the wrong account."
+    },
+    {
+      "version": "2.1.1-dev.unified-provider-wizard.20260926-1040",
+      "date": "2026-09-26",
+      "class": "IA_UNIFICATION",
+      "notes": "New Web Chat start and existing Provider Wizard qualification/resume are unified under the Exploration & Preparation workspace; the large live Wizard status panel is removed from Providers."
     }
   ],
-  "build": "20260926-0920",
+  "build": "20260926-1040",
   "last_updated": "2026-09-26"
 }

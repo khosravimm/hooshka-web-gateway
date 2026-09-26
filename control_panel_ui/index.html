@@ -28,7 +28,7 @@
       <button class="nav-item" data-panel="providers"><span class="nav-chip">P</span><span>فراهم‌کننده‌ها و پروفایل‌ها</span></button>
       <button class="nav-item" data-panel="accounts"><span class="nav-chip">A</span><span>حساب‌ها و دسترسی</span></button>
       <button class="nav-item" data-panel="runtimes"><span class="nav-chip">R</span><span>محیط اجرا</span></button>
-      <button class="nav-item" data-panel="discovery"><span class="nav-chip">Q</span><span>آمادگی و گواهی</span></button>
+      <button class="nav-item" data-panel="discovery"><span class="nav-chip">Q</span><span>کاوش و آماده‌سازی</span></button>
       <button class="nav-item" data-panel="models"><span class="nav-chip">M</span><span>ماتریس قابلیت‌ها</span></button>
 
       <div class="nav-group-title">گفتگو و مصرف</div>
@@ -154,31 +154,11 @@
           <p class="hint">هر Provider می‌تواند چند پروفایل اتصال برای اکانت‌های مختلف داشته باشد. رابطه پروفایل، اکانت، Session، Runtime و آمادگی باید از همین صفحه قابل فهم باشد.</p>
         </div>
         <div class="btn-row">
-          <button id="btn-add-provider" class="btn success btn-sm" type="button">اضافه‌کردن</button>
+          <button id="btn-add-provider" class="btn success btn-sm" type="button">کاوش / افزودن Provider</button>
 
         </div>
       </div>
       <div class="dependency-note">Connection Profile نمای کاربرپسند Provider + Account + Browser Profile/Runtime است. جزئیات فنی Browser Profile و CDP در «محیط اجرا» باقی می‌ماند.</div>
-      <div class="card mt" id="wizard-candidate-card">
-        <div class="card-head">
-          <div><h3 class="card-title">وضعیت زنده Wizard Provider</h3><p class="hint">این کارت فقط از رکورد واقعی Candidate خوانده می‌شود و اجرای S4/Advance را به‌صورت visible از همین پنل انجام می‌دهد.</p></div>
-          <span class="badge ltr" id="wizard-candidate-version">panel-visible</span>
-        </div>
-        <div class="grid-3">
-          <label class="field">Candidate<select id="wizard-candidate-id" class="ctrl ltr"><option value="grok-web">grok-web</option></select></label>
-          <div class="field"><span>Stage</span><b class="ltr" id="wizard-candidate-stage">-</b></div>
-          <div class="field"><span>State</span><b class="ltr" id="wizard-candidate-state">-</b></div>
-        </div>
-        <div id="wizard-candidate-stages" class="flow-rail mt"></div>
-        <div class="btn-row mt">
-          <button id="wizard-candidate-refresh" class="btn ghost btn-sm" type="button">تازه‌سازی وضعیت Wizard</button>
-          <button id="wizard-candidate-run-s4" class="btn primary btn-sm" type="button">اجرای S4 از پنل</button>
-          <button id="wizard-candidate-advance" class="btn ghost btn-sm" type="button">Advance / Materialize</button>
-          <span id="wizard-candidate-status" class="status-line"></span>
-        </div>
-        <div id="wizard-candidate-activity" class="work-list mt"></div>
-      </div>
-
       <div id="providers-grid" class="provider-performance-grid mt"></div>
     </section>
 
@@ -253,6 +233,34 @@
         <div><h3 class="card-title">آمادگی و گواهی</h3><p class="hint">Research-first → Baseline → Deterministic Exploration → Behavior Lab / AI-assisted analysis when needed → Synthesis → Update Candidate → Automated E2 or Human Acceptance. هیچ Run جدیدی مستقیم به Profile عملیاتی اعمال نمی‌شود.</p></div>
         <span class="badge">Discovery Engine 2.x</span>
       </div>
+      <div class="card mt discovery-entry-card">
+        <div class="card-head">
+          <div><h3 class="card-title">کاوش و آماده‌سازی Provider</h3><p class="hint">برای Web Chat جدید یک Wizard تازه شروع کنید؛ برای Provider موجود همان Qualification قبلی را ادامه دهید. هر دو مسیر از یک Workspace و یک مدل Stage/Evidence استفاده می‌کنند.</p></div>
+          <button id="discovery-new-webchat" class="btn success btn-sm" type="button">+ افزودن Web Chat جدید</button>
+        </div>
+        <div class="dependency-note">شروع جدید و ادامه Qualification دو قابلیت جدا نیستند؛ هر دو یک Provider Wizard هستند. Resume باید همان Candidate، Connection Profile و Runtime مربوط را ادامه دهد.</div>
+      </div>
+      <div class="card mt" id="wizard-candidate-card">
+        <div class="card-head">
+          <div><h3 class="card-title">Qualification موجود / ادامه Wizard</h3><p class="hint">این کارت فقط از رکورد واقعی Candidate خوانده می‌شود و اجرای S4/Advance را به‌صورت visible از همین پنل انجام می‌دهد.</p></div>
+          <span class="badge ltr" id="wizard-candidate-version">panel-visible</span>
+        </div>
+        <div class="grid-3">
+          <label class="field">Candidate<select id="wizard-candidate-id" class="ctrl ltr"><option value="grok-web">grok-web</option></select></label>
+          <div class="field"><span>Stage</span><b class="ltr" id="wizard-candidate-stage">-</b></div>
+          <div class="field"><span>State</span><b class="ltr" id="wizard-candidate-state">-</b></div>
+        </div>
+        <div id="wizard-candidate-stages" class="flow-rail mt"></div>
+        <div class="btn-row mt">
+          <button id="wizard-candidate-resume" class="btn success btn-sm" type="button">ادامه در Wizard</button>
+          <button id="wizard-candidate-refresh" class="btn ghost btn-sm" type="button">تازه‌سازی وضعیت Wizard</button>
+          <button id="wizard-candidate-run-s4" class="btn primary btn-sm" type="button">اجرای S4 از پنل</button>
+          <button id="wizard-candidate-advance" class="btn ghost btn-sm" type="button">Advance / Materialize</button>
+          <span id="wizard-candidate-status" class="status-line"></span>
+        </div>
+        <div id="wizard-candidate-activity" class="work-list mt"></div>
+      </div>
+
       <div class="card discovery-map">
         <h3 class="card-title">نقشه اجرای Discovery</h3>
         <div class="flow-rail">

@@ -60,3 +60,19 @@ def test_secondary_account_cannot_accidentally_run_provider_level_readiness():
     js=(ROOT/'control_panel_ui/panel.js').read_text(encoding='utf-8-sig')
     assert "providerProbeOwnsAccount=a.account_id===providerId+':default-account'" in js
     assert 'Readiness حساب اختصاصی باید با Probe حساب‌محور اجرا شود' in js
+
+
+def test_provider_wizard_start_and_resume_share_discovery_workspace():
+    html=(ROOT/'control_panel_ui/index.html').read_text(encoding='utf-8-sig')
+    js=(ROOT/'control_panel_ui/panel.js').read_text(encoding='utf-8-sig')
+    p0=html.index('id="panel-providers"')
+    p1=html.index('id="panel-provider-form"')
+    d0=html.index('id="panel-discovery"')
+    assert 'id="wizard-candidate-card"' not in html[p0:p1]
+    assert 'id="wizard-candidate-card"' in html[d0:]
+    assert 'id="discovery-new-webchat"' in html[d0:]
+    assert 'id="wizard-candidate-resume"' in html[d0:]
+    assert 'کاوش و آماده‌سازی' in html
+    assert "showPanel('discovery'); await loadDiscovery()" in js
+    assert 'async function resumeWizardCandidate()' in js
+    assert 'await HwgExploreConnection(providerId,account.account_id)' in js

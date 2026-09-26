@@ -1,6 +1,6 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.60.0",
+  "version": "1.61.0",
   "updated_at": "2026-09-26T01:01:00+03:30",
   "status_vocabulary": [
     "OPEN",
@@ -1130,16 +1130,17 @@
       ],
       "latest_evidence": {
         "date": "2026-09-26",
-        "type": "E1 UX hardening + bounded automated E2 multi-provider routing audit",
-        "result": "Default Connection Profiles now resolve owning shared Provider runtimes; dedicated accounts retain exact-runtime precedence; human-readable labels and collapsed technical details reduce raw CDP/Profile dependency; secondary-account Provider-level readiness is fail-closed. Automated UI routing was exercised on ChatGPT, Z.ai, Grok and DeepSeek real sessions. Human acceptance and account-scoped readiness remain pending.",
-        "record": "docs/evidence/HWG_CONNECTION_PROFILE_ACCEPTANCE_AUTOMATED_E2_20260926.md"
+        "type": "E1 unified IA + bounded E2 Grok resume",
+        "result": "New Web Chat start and existing Candidate status/resume are unified under one Exploration/Preparation workspace. Providers no longer embeds the large live Wizard status card. Real grok-web Candidate resumed into the same Provider Wizard on shared runtime 9330. Human acceptance and account-scoped readiness remain pending.",
+        "record": "docs/evidence/HWG_UNIFIED_PROVIDER_WIZARD_IA_E1_E2_20260926.md"
       },
       "evidence": [
         "docs/design/HWG_CONTROL_PLANE_CONNECTION_PROFILE_IA_V1_20260926.md",
         "docs/evidence/HWG_CONNECTION_PROFILE_IA_IMPLEMENTATION_E1_20260926.md",
         "docs/evidence/HWG_DEEPSEEK_SECONDARY_CONNECTION_PROFILE_E2_20260926.md",
         "docs/evidence/HWG_CONNECTION_PROFILE_UNIFIED_WORKFLOW_E1_E2_20260926.md",
-        "docs/evidence/HWG_CONNECTION_PROFILE_ACCEPTANCE_AUTOMATED_E2_20260926.md"
+        "docs/evidence/HWG_CONNECTION_PROFILE_ACCEPTANCE_AUTOMATED_E2_20260926.md",
+        "docs/evidence/HWG_UNIFIED_PROVIDER_WIZARD_IA_E1_E2_20260926.md"
       ]
     }
   ]

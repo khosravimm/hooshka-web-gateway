@@ -1,6 +1,6 @@
 {
   "name": "hwg-next",
-  "version": "2.1.1-dev.connection-profile-acceptance.20260926-0920",
+  "version": "2.1.1-dev.unified-provider-wizard.20260926-1040",
   "canonical_id": "hooshka-web-gateway-next",
   "release_channel": "dev",
   "build_date": "2026-09-26",
@@ -173,7 +173,7 @@
     "discovery_ai_policy": "discovery/policies/ai-assistance-v1.json",
     "discovery_routing_policy": "discovery/policies/routing-v1.json",
     "provider_self_use_schema": "urn:hwg:schema:provider-self-use-qualification:1.0.0",
-    "work_register": "HWG-WORK-REGISTER-001@1.60.0",
+    "work_register": "HWG-WORK-REGISTER-001@1.61.0",
     "functional_readiness_api": "/panel/api/readiness",
     "ui_audit_register": "HWG-UI-AUDIT-REGISTER-001@1.3.0",
     "provider_certification_matrix": "HWG-PROVIDER-CERT-MATRIX-001@1.1.0"
@@ -190,6 +190,6 @@
     "evidence": "docs/evidence/HWG_SECURITY_RELEASE_GATE_E2_20260922.md"
   },
   "governance": {
-    "work_register": "HWG-WORK-REGISTER-001@1.60.0"
+    "work_register": "HWG-WORK-REGISTER-001@1.61.0"
   }
 }
