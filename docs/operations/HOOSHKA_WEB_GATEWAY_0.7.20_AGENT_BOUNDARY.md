@@ -1,4 +1,7 @@
-﻿# Hooshka Web Gateway 0.7.20 — Agent Boundary Fix
+> **SUPERSEDED ? historical evidence only (2026-09-26).**
+> CAG is not an HWG subsystem. HWG does not call, embed, infer, or enforce CAG. Any caller that uses CAG must do so outside HWG and pass only generic policy/approval context to HWG when required.
+
+# Hooshka Web Gateway 0.7.20 — Agent Boundary Fix
 
 ## Scope
 

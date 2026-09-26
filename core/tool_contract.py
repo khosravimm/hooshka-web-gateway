@@ -17,7 +17,6 @@ class ToolAuthorizationMode(str, Enum):
     NONE = "none"
     POLICY = "policy"
     APPROVAL = "approval"
-    CAG = "cag"
 
 
 @dataclass(frozen=True)

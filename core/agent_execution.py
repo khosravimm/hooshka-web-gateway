@@ -35,8 +35,6 @@ class ToolAuthorizationContext:
     approved_tools: tuple[str, ...] = field(default_factory=tuple)
     approval_id: str | None = None
     approved_by: str | None = None
-    cag_decision: str | None = None
-    cag_evidence_id: str | None = None
 
 
 def authorize_tool_execution(
@@ -64,9 +62,6 @@ def authorize_tool_execution(
     if mode == "approval":
         ok = bool(auth.approval_id and auth.approved_by)
         return ok, "human_approval_verified" if ok else "human_approval_required"
-    if mode == "cag":
-        ok = auth.cag_decision == "approved" and bool(auth.cag_evidence_id)
-        return ok, "cag_approved" if ok else "cag_approval_required"
     return False, "unknown_authorization_mode"
 
 

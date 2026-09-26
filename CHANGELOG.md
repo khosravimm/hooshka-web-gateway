@@ -1,3 +1,9 @@
+## 2.1.1-dev.cag-externalized.20260926-1342 - 2026-09-26 - CAG Externalized from HWG
+- Removed the Hooshka/CAG request/response boundary and Gateway-to-CAG Action Candidate bridge from active HWG runtime.
+- HWG no longer injects CAG prompts, filters executable model output into Action Plan messages, or contacts a CAG endpoint.
+- Removed CAG-specific tool authorization mode/evidence fields; callers may supply generic policy/approval decisions.
+- Historical CAG-in-HWG operational documents are explicitly superseded.
+
 ## 2.1.1-dev.kilo-mission-e2.20260926-1336 - 2026-09-26 - Final Kilo Mission E2 Hygiene
 - Normalized final source EOF after restoring the pre-existing Unicode protocol literals.
 - No semantic protocol change; final build for mission-E2 evidence.

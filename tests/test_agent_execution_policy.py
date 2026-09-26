@@ -68,7 +68,7 @@ def test_loop_budget_reaches_zero():
 
 
 class GuardedRegistry(FakeRegistry):
-    def __init__(self, mode='cag', risk='EXECUTION'):
+    def __init__(self, mode='approval', risk='EXECUTION'):
         super().__init__()
         self.mode=mode
         self.risk=risk
@@ -82,7 +82,7 @@ class GuardedRegistry(FakeRegistry):
 
 
 def test_non_read_only_tool_fails_closed_without_trusted_authorization():
-    registry=GuardedRegistry(mode='cag')
+    registry=GuardedRegistry(mode='approval')
     msg, ev, _dup=execute_tool_call(registry,call('run_command'),AgentLoopPolicy(),{},1)
     assert registry.executions == 0
     assert ev['execution_state'] == 'authorization_blocked'
@@ -90,18 +90,18 @@ def test_non_read_only_tool_fails_closed_without_trusted_authorization():
     assert 'blocked' in msg['content'].lower()
 
 
-def test_cag_tool_requires_scoped_verified_evidence():
-    registry=GuardedRegistry(mode='cag')
+def test_approval_tool_requires_scoped_verified_evidence():
+    registry=GuardedRegistry(mode='approval')
     auth=ToolAuthorizationContext(
         trusted=True,
         approved_tools=('run_command',),
-        cag_decision='approved',
-        cag_evidence_id='CAG-EVIDENCE-001',
+        approval_id='approval-1',
+        approved_by='caller-policy',
     )
     _msg, ev, _dup=execute_tool_call(registry,call('run_command'),AgentLoopPolicy(),{},1,authorization=auth)
     assert registry.executions == 1
     assert ev['execution_state'] == 'ok'
-    assert ev['authorization_state'] == 'cag_approved'
+    assert ev['authorization_state'] == 'human_approval_verified'
 
 
 def test_authorized_scope_blocks_other_tool():
@@ -131,7 +131,7 @@ def test_tool_without_descriptor_fails_closed():
 
 
 def test_authorization_gate_can_be_disabled_for_development():
-    registry=GuardedRegistry(mode='cag', risk='EXECUTION')
+    registry=GuardedRegistry(mode='approval', risk='EXECUTION')
     _msg, ev, _dup=execute_tool_call(
         registry, call('run_command'), AgentLoopPolicy(), {}, 1, enforce_authorization=False
     )

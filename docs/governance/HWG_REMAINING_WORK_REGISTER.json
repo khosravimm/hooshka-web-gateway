@@ -1,7 +1,7 @@
 {
   "register_id": "HWG-WORK-REGISTER-001",
-  "version": "1.63.0",
-  "updated_at": "2026-09-26T13:22:00+03:30",
+  "version": "1.64.0",
+  "updated_at": "2026-09-26T13:42:00+03:30",
   "status_vocabulary": [
     "OPEN",
     "IN_PROGRESS",
@@ -1177,6 +1177,43 @@
       },
       "evidence": [
         "docs/evidence/HWG_KILO_VSCODE_SOFTWARE_PROJECT_MISSION_E2_20260926.md"
+      ]
+    },
+    {
+      "id": "HWG-WORK-032",
+      "title": "Externalize CAG from HWG runtime and contracts",
+      "area": "architecture-governance",
+      "status": "IN_PROGRESS",
+      "priority": "P0",
+      "source": [
+        "Owner architecture correction 2026-09-26",
+        "HWG-REQ-026"
+      ],
+      "depends_on": [
+        "HWG-WORK-028",
+        "HWG-WORK-031"
+      ],
+      "target_version": "2.1.1-dev",
+      "evidence_required": [
+        "E1",
+        "E2 clean Kilo mission rerun"
+      ],
+      "exit_criteria": [
+        "HWG runtime contains no CAG boundary or Gateway-to-CAG Action Candidate bridge",
+        "OpenAI-compatible request/response path does not inject CAG prompts or rewrite executable model output",
+        "Tool authorization contract contains only generic HWG modes and no CAG-specific fields",
+        "Historical CAG-in-HWG documents are explicitly superseded",
+        "Kilo clean mission on Dev completes through normal tool protocol without any CAG interception"
+      ],
+      "latest_evidence": {
+        "date": "2026-09-26",
+        "type": "E1 architecture/runtime removal + full regression",
+        "result": "CAG removed from active HWG runtime and domain contracts; targeted tests 25/25 PASS and full suite 650/650 PASS on Dev build 2.1.1-dev.cag-externalized.20260926-1342. Clean Kilo E2 remains pending only because DeepSeek default session became LOGIN_REQUIRED.",
+        "record": "docs/evidence/HWG_CAG_EXTERNALIZATION_E1_20260926.md"
+      },
+      "evidence": [
+        "docs/architecture/HWG_CAG_EXTERNALITY_DECISION_20260926.md",
+        "docs/evidence/HWG_CAG_EXTERNALIZATION_E1_20260926.md"
       ]
     }
   ]

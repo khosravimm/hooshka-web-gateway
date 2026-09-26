@@ -26,7 +26,6 @@ from core.mcp import mcp_translator, mcp_normalizer, mcp_session_manager
 from core.governance import init_governance, auth_manager, rate_limiter, enforce_provider_rate_limit
 from core.config import load_config
 from core.tool_compat import drop_optional_tools_for_text_only_provider, request_requires_tools
-from core.agent_boundary import boundary_is_active_for_request, enforce_response_boundary, register_action_candidate_for_boundary
 from core.functional_readiness import load_readiness
 from core.agent_tools import AgentToolRegistry, agent_tool_definitions
 from core.agent_execution import AgentLoopPolicy, execute_tool_call, remaining_loop_seconds, summarize_terminal_state
@@ -1295,42 +1294,6 @@ def create_app(config_path: str | None = None) -> Flask:
 
             async def produce():
                 try:
-                    if boundary_is_active_for_request(req):
-                        buffered_text = []
-                        last_chunk = None
-                        for_finish_reason = "stop"
-                        async for chunk in provider.chat_completion_stream(req, session):
-                            normalized = mcp_normalizer.normalize_chunk(chunk, provider)
-                            normalized = _annotate_inference_target(normalized, req)
-                            last_chunk = normalized
-                            for choice in normalized.choices:
-                                if choice.delta and choice.delta.content:
-                                    buffered_text.append(choice.delta.content)
-                                if choice.finish_reason:
-                                    for_finish_reason = choice.finish_reason
-                        result = enforce_response_boundary("".join(buffered_text))
-                        meta = dict((last_chunk.provider_meta if last_chunk else {}) or {})
-                        meta["provider_id"] = provider.provider_id
-                        meta["provider_type"] = provider.provider_type.value
-                        meta["agent_boundary"] = result.meta()
-                        if result.changed:
-                            meta["agent_boundary"]["action_candidate"] = register_action_candidate_for_boundary(req, meta["agent_boundary"], provider.provider_id)
-                        payload = {
-                            "id": getattr(last_chunk, "id", f"chatcmpl-{int(time.time() * 1000)}") if last_chunk else f"chatcmpl-{int(time.time() * 1000)}",
-                            "object": "chat.completion.chunk",
-                            "created": getattr(last_chunk, "created", int(time.time())) if last_chunk else int(time.time()),
-                            "model": getattr(last_chunk, "model", req.model) if last_chunk else req.model,
-                            "choices": [{
-                                "index": 0,
-                                "delta": {"role": None, "content": result.safe_content, "tool_calls": None},
-                                "finish_reason": None,
-                            }],
-                            "provider_meta": meta,
-                        }
-                        event_queue.put(("data", payload))
-                        event_queue.put(("done", sentinel))
-                        return
-
                     async for chunk in provider.chat_completion_stream(req, session):
                         normalized = mcp_normalizer.normalize_chunk(chunk, provider)
                         normalized = _annotate_inference_target(normalized, req)

@@ -1,6 +1,6 @@
 {
   "name": "hwg-control-plane-ui",
-  "version": "2.1.1-dev.kilo-mission-e2.20260926-1336",
+  "version": "2.1.1-dev.cag-externalized.20260926-1342",
   "released": "2026-09-26",
   "direction": "rtl",
   "language": "fa",
@@ -348,8 +348,14 @@
       "date": "2026-09-26",
       "class": "FINAL_HYGIENE",
       "notes": "Final mission-E2 source hygiene: normalized tool_protocol EOF after Unicode literal restoration; no semantic protocol change."
+    },
+    {
+      "version": "2.1.1-dev.cag-externalized.20260926-1342",
+      "date": "2026-09-26",
+      "class": "ARCHITECTURE_CORRECTION",
+      "notes": "CAG removed from HWG runtime/domain contracts. Callers own external CAG workflows; HWG retains only generic none/policy/approval authorization."
     }
   ],
-  "build": "20260926-1336",
+  "build": "20260926-1342",
   "last_updated": "2026-09-26"
 }

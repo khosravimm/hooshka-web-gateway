@@ -156,7 +156,7 @@ def auth_middleware():
         g.api_key = None
         return
 
-    # Localhost is the trusted same-host control plane for Hooshka Console, CAG,
+    # Localhost is the trusted same-host control plane for Hooshka Console and other callers;
     # and internal provider probes. Do not require a bearer token for true
     # loopback clients, but do not extend this to LAN/private ranges or forwarded
     # headers. request.remote_addr is the socket peer address observed by Flask.

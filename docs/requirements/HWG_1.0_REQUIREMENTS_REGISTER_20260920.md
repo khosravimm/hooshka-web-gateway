@@ -204,3 +204,10 @@ DoD: کارکرد کامل Chat کافی نیست؛ تکمیل با Profile/Disc
 | A23 / HWG-REQ-023 | Profile UX | Suggest human-readable profile name from Provider/account evidence; user edits/confirms; no silent overwrite after confirmation. | E1 + automated visual E2 / HUMAN ACCEPTANCE PENDING | `HWG-WORK-030`, `HWG_CONNECTION_PROFILE_ACCEPTANCE_AUTOMATED_E2_20260926.md` |
 | A24 / HWG-REQ-024 | Explorer UX | Real Provider target remains visible/interactable inside Wizard workspace with safe native-tab fallback. | PARTIAL/E2 — unified Wizard workspace verified; human acceptance pending | `HWG-WORK-029`, `HWG_INTEGRATED_EXPLORER_WORKSPACE_E2_20260924.md` |
 | A25 / HWG-REQ-025 | Control Plane IA | Primary navigation is mission/workspace-driven and makes Provider→Connection Profile→Account→Runtime/Readiness/Certification traceable. | E1 + automated scenario audit / HUMAN ACCEPTANCE PENDING | `HWG-WORK-030`, `HWG_CONNECTION_PROFILE_ACCEPTANCE_AUTOMATED_E2_20260926.md` |
+
+## Owner clarification ? 2026-09-26 / CAG externality
+
+| ID | Area | Owner requirement | Status | Primary trace |
+|---|---|---|---|---|
+
+| A26 / HWG-REQ-026 | Architecture / Governance Boundary | CAG is external to HWG. HWG must not embed/call/infer/enforce CAG or rewrite normal API responses into CAG/Action Plan output. Caller applications own any CAG workflow and may pass generic policy/approval authorization into HWG. | E1 PASS / E2 clean mission pending | `HWG_CAG_EXTERNALITY_DECISION_20260926.md`, `HWG-WORK-032` |
