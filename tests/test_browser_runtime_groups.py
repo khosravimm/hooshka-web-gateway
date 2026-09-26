@@ -8,6 +8,7 @@ def test_browser_runtime_groups_collapse_shared_runtime(monkeypatch):
       'qwen-web':{'id':'qwen-web','label':'Qwen','cdp_url':'http://127.0.0.1:9325','port':9325,'profile':'Q','home_url':'https://chat.qwen.ai/','enabled':False},
     }
     monkeypatch.setattr(control_panel,'inventory_by_id',lambda path:inv)
+    monkeypatch.setattr(control_panel,'load_ng_inventory',lambda path:{'account_instances':[]})
     monkeypatch.setattr(control_panel,'_check_cdp',lambda url:{'ready':True,'status':'ready'})
     groups=control_panel._browser_runtime_groups()
     assert len(groups)==2
@@ -19,5 +20,5 @@ def test_browser_runtime_groups_collapse_shared_runtime(monkeypatch):
 def test_runtime_ui_uses_browser_groups_not_provider_cards():
     js=open('control_panel_ui/panel.js',encoding='utf-8-sig').read()
     assert "api('/browser-runtimes')" in js
-    assert 'Browser Runtime مشترک' in js
-    assert 'Session/Auth در سطح Provider' in js
+    assert 'provider_count' in js
+    assert 'representative_provider' in js

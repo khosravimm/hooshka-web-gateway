@@ -200,7 +200,7 @@ DoD: کارکرد کامل Chat کافی نیست؛ تکمیل با Profile/Disc
 
 | ID | Area | Owner requirement | Status | Primary trace |
 |---|---|---|---|---|
-| A22 / HWG-REQ-022 | Profile/Account UX | Multi-account Provider must expose explicit user-facing Connection Profiles; same-origin accounts require isolated Browser Profile/Runtime. | IN_PROGRESS | `HWG-WORK-026`, `HWG-WORK-030` |
-| A23 / HWG-REQ-023 | Profile UX | Suggest human-readable profile name from Provider/account evidence; user edits/confirms; no silent overwrite after confirmation. | OPEN | `HWG-WORK-030` |
+| A22 / HWG-REQ-022 | Profile/Account UX | Multi-account Provider must expose explicit user-facing Connection Profiles; same-origin accounts require isolated Browser Profile/Runtime. | PARTIAL/E2 — DeepSeek multi-account proven; generalized UX continues | `HWG-WORK-026`, `HWG-WORK-030` |
+| A23 / HWG-REQ-023 | Profile UX | Suggest human-readable profile name from Provider/account evidence; user edits/confirms; no silent overwrite after confirmation. | E1 / IN_PROGRESS | `HWG-WORK-030`, `HWG_CONNECTION_PROFILE_UNIFIED_WORKFLOW_E1_E2_20260926.md` |
 | A24 / HWG-REQ-024 | Explorer UX | Real Provider target remains visible/interactable inside Wizard workspace with safe native-tab fallback. | PARTIAL/E2 | `HWG-WORK-029`, `HWG_INTEGRATED_EXPLORER_WORKSPACE_E2_20260924.md` |
-| A25 / HWG-REQ-025 | Control Plane IA | Primary navigation is mission/workspace-driven and makes Provider→Connection Profile→Account→Runtime/Readiness/Certification traceable. | IN_PROGRESS | `HWG-WORK-030` |
+| A25 / HWG-REQ-025 | Control Plane IA | Primary navigation is mission/workspace-driven and makes Provider→Connection Profile→Account→Runtime/Readiness/Certification traceable. | E1 / IN_PROGRESS | `HWG-WORK-030` |

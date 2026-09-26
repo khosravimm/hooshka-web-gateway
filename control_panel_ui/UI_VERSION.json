@@ -1,6 +1,6 @@
 {
   "name": "hwg-control-plane-ui",
-  "version": "2.1.1-dev.connection-profile-ia.20260926-0120",
+  "version": "2.1.1-dev.connection-profile-workflow.20260926-0140",
   "released": "2026-09-26",
   "direction": "rtl",
   "language": "fa",
@@ -228,8 +228,14 @@
       "date": "2026-09-26",
       "class": "IA_REMEDIATION",
       "notes": "Account lifecycle maps fail-closed guest candidates requiring login to LOGIN_REQUIRED while raw discovery remains UNKNOWN."
+    },
+    {
+      "version": "2.1.1-dev.connection-profile-workflow.20260926-0140",
+      "date": "2026-09-26",
+      "class": "IA_WORKFLOW",
+      "notes": "Connection Profile workflow: dedicated Account runtimes become first-class Explorer targets; exact-scope certification is visible; create profile starts isolated runtime and opens login; existing profiles can continue into Explorer with scoped Live View."
     }
   ],
-  "build": "20260926-0120",
+  "build": "20260926-0140",
   "last_updated": "2026-09-26"
 }

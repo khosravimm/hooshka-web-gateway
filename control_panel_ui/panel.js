@@ -471,9 +471,10 @@ function initNav() {
     const box=$('#accounts-grid'), global=$('#accounts-global-status');
     if (global) setStatus(global,'','');
     try {
-      const [data, readiness, runtimes] = await Promise.all([api('/accounts'), api('/readiness'), api('/browser-runtimes')]);
+      const [data, readiness, runtimes, certData] = await Promise.all([api('/accounts'), api('/readiness'), api('/browser-runtimes'), api('/provider-certification-matrix').catch(()=>({rows:[]}))]);
       const rmap = new Map((readiness.providers || []).map(r => [r.account_id, r]));
       const groups = runtimes.browser_runtimes || [];
+      const certRows = certData.rows || [];
       box.innerHTML = (data.accounts || []).map(a => {
         const b=a.browser_profile || {}, sess=a.session || {}, rr=rmap.get(a.account_id) || {};
         const pnorm=normPath(b.path); const rg=groups.find(g => {const gp=normPath(g.profile); return pnorm && (gp.endsWith(pnorm)||pnorm.endsWith(gp));});
@@ -484,19 +485,23 @@ function initNav() {
         const readinessReason=ready ? 'Evidence معتبر و جاری است.' : (rr.state==='READY' ? 'Evidence منقضی شده؛ Probe را دوباره اجرا کنید.' : (failedStage ? ('توقف در '+failedStage.stage) : 'Evidence آمادگی ثبت نشده است.'));
         const sessionCheckedAt=sess.validated_at ? new Date(sess.validated_at).toLocaleString('fa-IR') : 'not validated';
         const providerId=(a.provider_profile_id || '').split(':')[0] || a.provider_id || '';
+        const cp=a.connection_profile || {}; const displayName=cp.display_name || a.account_id;
+        const cert=certRows.find(r=>r.provider_id===providerId && r.account_id===a.account_id);
+        const certLabel=cert ? (cert.status||cert.evidence_level||'ثبت‌شده') : 'گواهی نشده';
         const providerRuntime=groups.find(g => (g.providers || []).some(x => (typeof x === 'string' ? x : x.id) === providerId) || g.representative_provider === providerId);
         const runtimeReady=providerRuntime ? providerRuntime.ready === true : !!rg?.ready;
         const readinessAllowed=!!providerId && runtimeReady;
         const conflict=b.sharing_mode==='same_origin_conflict';
         return `<div class="profile-card account-card ${conflict?'conflict':''}">
-          <div class="profile-card-head"><div><b class="ltr">${a.account_id}</b><span class="badge neutral ltr">${a.provider_profile_id || '-'}</span></div><span class="badge ${access==='AUTHENTICATED'?'ok':(access==='BLOCKED'?'bad':'warn')}">${access}</span></div>
+          <div class="profile-card-head"><div><b>${esc(displayName)}</b><div class="hint ltr">${esc(a.account_id)}</div><span class="badge neutral ltr">${a.provider_profile_id || '-'}</span></div><span class="badge ${access==='AUTHENTICATED'?'ok':(access==='BLOCKED'?'bad':'warn')}">${access}</span></div>
           <div class="relationship-preview"><b>Provider Profile</b> <span class="ltr">${a.provider_profile_id || '-'}</span> → <b>Account</b> <span class="ltr">${a.account_id}</span> → <b>Profile/Origin</b> <span class="ltr">${b.path || '-'} · ${b.origin || '-'}</span> → <b>Runtime</b> <span class="ltr">${rg?.cdp_url || a.runtime?.cdp_url || 'provider runtime'}</span></div>
-          <div class="kv"><span>Isolation</span><b>${b.sharing_mode || b.ownership || 'unknown'}</b><span>Session</span><b>${access}</b><span>Session Evidence</span><b>${sessionCheckedAt}</b><span>Readiness</span><b>${readinessText}</b><span>Readiness Evidence</span><b>${checkedAt}</b><span>چرا/قدم بعد</span><b>${readinessReason}</b></div>
+          <div class="kv"><span>Isolation</span><b>${b.sharing_mode || b.ownership || 'unknown'}</b><span>Session</span><b>${access}</b><span>Session Evidence</span><b>${sessionCheckedAt}</b><span>Readiness</span><b>${readinessText}</b><span>Readiness Evidence</span><b>${checkedAt}</b><span>گواهی همین Scope</span><b>${esc(certLabel)}</b><span>چرا/قدم بعد</span><b>${readinessReason}</b></div>
           ${conflict ? '<div class="dependency-note warn">Same-origin multi-account conflict: این Account باید Profile/Runtime مستقل داشته باشد.</div>' : ''}
-          <div class="btn-row mt"><button class="btn ghost btn-xs" data-account="${a.account_id}" data-aa="validate">Validate Session</button><button class="btn primary btn-xs" data-account="${a.account_id}" data-aa="login">Open / Login</button><button class="btn ghost btn-xs" data-account="${a.account_id}" data-aa="reauth">Re-auth</button><button class="btn primary btn-xs" data-account="${a.account_id}" data-provider-ready="${providerId}" ${readinessAllowed ? '' : 'disabled'} title="${readinessAllowed ? 'اجرای Readiness Probe' : 'ابتدا Browser Runtime باید آماده باشد'}">اجرای Readiness</button><button class="btn danger btn-xs" data-account="${a.account_id}" data-aa="logout">Logout</button></div>
+          <div class="btn-row mt"><button class="btn ghost btn-xs" data-account="${a.account_id}" data-aa="validate">Validate Session</button><button class="btn primary btn-xs" data-account="${a.account_id}" data-aa="login">Open / Login</button><button class="btn ghost btn-xs" data-account="${a.account_id}" data-aa="reauth">Re-auth</button><button class="btn primary btn-xs" data-account="${a.account_id}" data-provider-ready="${providerId}" ${readinessAllowed ? '' : 'disabled'} title="${readinessAllowed ? 'اجرای Readiness Probe' : 'ابتدا Browser Runtime باید آماده باشد'}">اجرای Readiness</button><button class="btn primary btn-xs" data-explore-provider="${providerId}" data-explore-account="${a.account_id}">ادامه در کاوشگر</button><button class="btn danger btn-xs" data-account="${a.account_id}" data-aa="logout">Logout</button></div>
           <div class="status-line" id="account-status-${a.account_id}"></div></div>`;
       }).join('') || '<div class="hint">Account Instance ثبت نشده است.</div>';
       box.querySelectorAll('[data-aa]').forEach(btn => btn.addEventListener('click', () => accountAction(btn.dataset.account, btn.dataset.aa, btn)));
+      box.querySelectorAll('[data-explore-account]').forEach(btn => btn.addEventListener('click', () => HwgExploreConnection(btn.dataset.exploreProvider, btn.dataset.exploreAccount)));
       box.querySelectorAll('[data-provider-ready]').forEach(btn => btn.addEventListener('click', async () => { btn.disabled=true; const orig=btn.textContent; btn.textContent='در حال Probe...'; try { await api('/providers/'+encodeURIComponent(btn.dataset.providerReady)+'/readiness/probe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({execution_authority:'automated_validation',ttl_seconds:300})}); toast('Readiness Probe اجرا شد','ok'); await loadAccounts(); } catch(e){ toast('Readiness: '+e.message,'err'); } finally { btn.disabled=false; btn.textContent=orig; } }));
     } catch(e) { if(box) box.innerHTML=`<div class="hint">خطا: ${e.message}</div>`; }
   }
@@ -522,14 +527,15 @@ function initNav() {
 
   /* ---------------- Providers ---------------- */
   async function loadProviders(opts) {
-    let data, accountData = {accounts:[]};
+    let data, accountData = {accounts:[]}, certData = {rows:[]};
     try {
       if (opts && opts.quiet) data = await api('/providers');
-      else [data, accountData] = await Promise.all([api('/providers'), api('/accounts')]);
+      else [data, accountData, certData] = await Promise.all([api('/providers'), api('/accounts'), api('/provider-certification-matrix').catch(()=>({rows:[]}))]);
     }
     catch (e) { return; }
     const providers = data.providers || [];
     const accounts = accountData.accounts || [];
+    const certRows = certData.rows || [];
     $('#stat-providers').textContent = providers.length;
     const enabled = providers.filter(p => p.enabled === true);
     const ready = enabled.filter(p => p.readiness?.ready === true && p.readiness?.current === true).length;
@@ -574,10 +580,14 @@ function initNav() {
         const display=cp.display_name || `${p.id} — ${leaf}`;
         const access=sess.access_state || sess.state || 'UNKNOWN';
         const isolation=bp.sharing_mode || bp.ownership || (rt.cdp_url ? 'exclusive_profile' : 'shared/current');
+        const exactReady=(p.readiness?.account_id===a.account_id) ? p.readiness : null;
+        const readinessLabel=exactReady ? ((exactReady.ready===true && exactReady.current===true) ? 'READY' : (exactReady.state==='READY' ? 'STALE' : (exactReady.state||'UNKNOWN'))) : 'بدون شاهد برای این پروفایل';
+        const cert=certRows.find(r=>r.provider_id===p.id && r.account_id===a.account_id && (!r.model || r.model===(p.model?.default||p.id)));
+        const certLabel=cert ? (cert.status||cert.evidence_level||'ثبت‌شده') : 'گواهی نشده';
         return `<div class="connection-profile-card">
           <div class="connection-profile-head"><div><b>${esc(display)}</b><div class="hint ltr">${esc(a.account_id || '-')}</div></div><span class="badge ${access==='AUTHENTICATED'?'ok':(access==='BLOCKED'?'bad':'warn')}">${esc(access)}</span></div>
-          <div class="connection-profile-meta"><span>Account</span><b class="ltr">${esc(a.account_id || '-')}</b><span>Isolation</span><b>${esc(isolation)}</b><span>Runtime</span><b class="ltr">${esc(rt.cdp_url || 'shared/current')}</b></div>
-          <div class="btn-row mt"><button class="btn primary btn-xs" onclick="window.HwgConnectionOpen && HwgConnectionOpen('${esc(a.account_id)}')">باز کردن / ورود</button><button class="btn ghost btn-xs" onclick="window.HwgGoAccounts && HwgGoAccounts()">دسترسی و Session</button></div>
+          <div class="connection-profile-meta"><span>حساب</span><b class="ltr">${esc(a.account_id || '-')}</b><span>دسترسی</span><b>${esc(access)}</b><span>جداسازی</span><b>${esc(isolation)}</b><span>Runtime</span><b class="ltr">${esc(rt.cdp_url || 'shared/current')}</b><span>آمادگی</span><b>${esc(readinessLabel)}</b><span>گواهی همین Scope</span><b>${esc(certLabel)}</b></div>
+          <div class="btn-row mt"><button class="btn primary btn-xs" onclick="window.HwgExploreConnection && HwgExploreConnection('${esc(p.id)}','${esc(a.account_id)}')">${access==='AUTHENTICATED'?'ادامه در کاوشگر':'ورود و ادامه'}</button><button class="btn ghost btn-xs" onclick="window.HwgConnectionOpen && HwgConnectionOpen('${esc(a.account_id)}')">باز کردن / ورود</button><button class="btn ghost btn-xs" onclick="window.HwgGoAccounts && HwgGoAccounts()">دسترسی و Session</button></div>
           <div class="connection-profile-rename"><input class="ctrl" id="cp-name-${esc(a.account_id)}" value="${esc(display)}"><button class="btn ghost btn-xs" onclick="window.HwgRenameConnectionProfile && HwgRenameConnectionProfile('${esc(a.account_id)}')">ذخیره نام</button></div>
         </div>`;
       }).join('') || '<div class="hint">هنوز پروفایل اتصال برای این Provider ثبت نشده است.</div>';
@@ -620,6 +630,8 @@ function initNav() {
     setStatus(status,'در حال ایجاد Browser Profile و Runtime ایزوله...','working');
     try {
       await api('/accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider_id:providerId,account_id:accountId,display_name:display || null,display_name_confirmed:true,confirm:true})});
+      await api('/accounts/'+encodeURIComponent(accountId)+'/runtime/start',{method:'POST'});
+      await api('/accounts/'+encodeURIComponent(accountId)+'/login/open',{method:'POST'});
       setStatus(status,'پروفایل اتصال ساخته شد. برای ورود «باز کردن / ورود» را بزنید.','ok');
       toast('پروفایل اتصال ساخته شد','ok');
       await loadProviders();
@@ -639,6 +651,29 @@ function initNav() {
       toast('پنجره ورود/اکانت باز شد','ok');
       await loadProviders();
     } catch(e){toast('باز کردن پروفایل اتصال: '+e.message,'err');}
+  };
+
+  window.HwgExploreConnection = async function (providerId, accountId) {
+    try {
+      const [accountsData, runtimeData] = await Promise.all([api('/accounts'), api('/browser-runtimes')]);
+      const account=(accountsData.accounts||[]).find(a=>a.account_id===accountId);
+      if(!account) throw new Error('Connection Profile پیدا نشد');
+      const cp=account.connection_profile||{}, art=account.runtime||{}, bp=account.browser_profile||{};
+      const runtime=(runtimeData.browser_runtimes||[]).find(r=>r.account_id===accountId) || (runtimeData.browser_runtimes||[]).find(r=>art.cdp_url && r.cdp_url===art.cdp_url);
+      if(!runtime) throw new Error('Runtime این پروفایل در دسترس نیست');
+      showPanel('provider-form');
+      await loadProviderForm();
+      const url=art.home_url || ((bp.origin||'').replace(/\/$/,'')+'/');
+      const display=cp.display_name || accountId;
+      providerWizard.connectionProfile={provider_id:providerId,account_id:accountId,display_name:display,access_state:(account.session||{}).access_state||'UNKNOWN'};
+      providerWizard.analysis={url,origin:bp.origin||'',suggested_provider_id:providerId,suggested_name:display,existing_origin_provider_ids:[providerId],register_new_provider:false,reuse_existing_adapter:true,known_adapter_type:null,recommended_runtime_key:runtime.runtime_key};
+      $('#pf-url').value=url;
+      renderWizardProposal(providerWizard.analysis);
+      fillWizardRuntimeSelect(runtime.runtime_key);
+      const profile=$('#pf-live-profile'); if(profile) profile.textContent='پروفایل: '+display+' · '+accountId;
+      const access=$('#pf-live-access'); if(access) access.textContent='دسترسی: '+providerWizard.connectionProfile.access_state;
+      setStatus($('#provider-form-status'),'پروفایل انتخاب شد. برای ادامه، «باز کردن و مشاهده از دید کاربر» را اجرا کنید تا Live View روی همین حساب باز شود.','ok');
+    } catch(e) { toast('کاوشگر: '+e.message,'err'); }
   };
 
   window.HwgProviderEnabled = async function (providerId, enabled) {
@@ -773,7 +808,7 @@ function initNav() {
     }
   };
 
-  let providerWizard = { analysis:null, observation:null, candidate:null, runtimes:[], mission:null, missionRunId:'', liveTargetId:'', liveRuntimeKey:'', liveUrl:'', liveViewport:{width:0,height:0}, liveOwned:false };
+  let providerWizard = { analysis:null, observation:null, candidate:null, runtimes:[], mission:null, missionRunId:'', connectionProfile:null, liveTargetId:'', liveRuntimeKey:'', liveUrl:'', liveViewport:{width:0,height:0}, liveOwned:false };
   let wizardActivityTimer=null, wizardActivityStarted=0;
   function formatWizardElapsed(ms){ const sec=Math.max(0,Math.floor(ms/1000)); return String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0'); }
   function setWizardControlsBusy(busy){
@@ -807,7 +842,27 @@ function initNav() {
     } catch(e) { clearProviderLiveFrame('Target واقعی Provider در دسترس نیست؛ Explorer در حال resolve مجدد است...'); }
     finally { providerLiveBusy=false; }
   }
-  function startProviderLiveView(runtimeKey,url,targetId){ providerWizard.liveRuntimeKey=runtimeKey||''; providerWizard.liveUrl=url||''; providerWizard.liveTargetId=targetId||''; const a=providerWizard.analysis||{}; const provider=$('#pf-live-provider'); if(provider)provider.textContent='Provider: '+(a.suggested_provider_id||a.suggested_name||'در حال شناسایی'); const profile=$('#pf-live-profile'); if(profile)profile.textContent='پروفایل: '+(a.existing_origin_provider_ids?.length?'اکانت/پروفایل موجود یا جدید':'در حال ساخت/شناسایی'); const access=$('#pf-live-access'); if(access)access.textContent='دسترسی: در حال بررسی'; const target=$('#pf-live-target'); if(target)target.textContent='Target: '+(providerWizard.liveTargetId||'—'); $('#pf-live-pane').classList.remove('wizard-hidden'); api('/provider-wizard/screencast/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runtime_key:providerWizard.liveRuntimeKey,target_id:providerWizard.liveTargetId,url:providerWizard.liveUrl})}).catch(()=>{}); pollProviderLiveView(); if(providerLiveTimer)clearInterval(providerLiveTimer); providerLiveTimer=setInterval(pollProviderLiveView,250); }
+  function startProviderLiveView(runtimeKey,url,targetId){
+    providerWizard.liveRuntimeKey=runtimeKey||'';
+    providerWizard.liveUrl=url||'';
+    providerWizard.liveTargetId=targetId||'';
+    const a=providerWizard.analysis||{};
+    const cp=providerWizard.connectionProfile;
+    const provider=$('#pf-live-provider');
+    if(provider) provider.textContent='Provider: '+(cp?.provider_id||a.suggested_provider_id||a.suggested_name||'در حال شناسایی');
+    const profile=$('#pf-live-profile');
+    if(profile) profile.textContent=cp ? ('پروفایل: '+cp.display_name+' · '+cp.account_id) : ('پروفایل: '+(a.existing_origin_provider_ids?.length?'اکانت/پروفایل موجود یا جدید':'در حال ساخت/شناسایی'));
+    const access=$('#pf-live-access');
+    if(access) access.textContent='دسترسی: '+(cp?.access_state||'در حال بررسی');
+    const target=$('#pf-live-target');
+    if(target) target.textContent='Target: '+(providerWizard.liveTargetId||'-');
+    $('#pf-live-pane').classList.remove('wizard-hidden');
+    api('/provider-wizard/screencast/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runtime_key:providerWizard.liveRuntimeKey,target_id:providerWizard.liveTargetId,url:providerWizard.liveUrl})}).catch(()=>{});
+    pollProviderLiveView();
+    if(providerLiveTimer) clearInterval(providerLiveTimer);
+    providerLiveTimer=setInterval(pollProviderLiveView,250);
+  }
+
   async function cleanupWizardOwnedTarget(){
     const runtimeKey=providerWizard.liveRuntimeKey, targetId=providerWizard.liveTargetId, owned=providerWizard.liveOwned===true;
     stopProviderLiveView();
@@ -825,7 +880,7 @@ function initNav() {
   function resetProviderWizard() {
     endWizardActivity();
     stopProviderLiveView();
-    providerWizard = { analysis:null, observation:null, candidate:null, runtimes:[], mission:providerWizard.mission, liveTargetId:'', liveRuntimeKey:'', liveUrl:'', liveViewport:{width:0,height:0}, liveOwned:false };
+    providerWizard = { analysis:null, observation:null, candidate:null, runtimes:[], mission:providerWizard.mission, connectionProfile:null, liveTargetId:'', liveRuntimeKey:'', liveUrl:'', liveViewport:{width:0,height:0}, liveOwned:false };
     $('#pf-url').value='';
     $('#pf-proposal-card').classList.add('wizard-hidden');
     $('#pf-observation-card').classList.add('wizard-hidden');

@@ -102,3 +102,12 @@ When the provider under investigation is also considered as the AI helper, expli
 - `HWG-REQ-024`: integrated live target view remains the Wizard interaction surface; unchanged by this E2.
 - Evidence: `docs/evidence/HWG_DEEPSEEK_SECONDARY_CONNECTION_PROFILE_E2_20260926.md`.
 - Scope: DeepSeek Dev only; no broader provider E2 inference.
+
+
+## Connection Profile unified workflow checkpoint — 2026-09-26
+
+- `HWG-REQ-022` / `HWG-WORK-026`: real DeepSeek same-origin multi-account isolation has E2; broader Connection Profile UX remains under `HWG-WORK-030`.
+- `HWG-REQ-023`: suggested/editable/confirmable display names are implemented at E1.
+- `HWG-REQ-024`: integrated Live View remains E2 from the existing Explorer evidence; this checkpoint adds bounded E2 proof that an existing secondary Connection Profile routes to its exact dedicated runtime.
+- `HWG-REQ-025`: mission-driven IA and Provider/Connection Profile/Account/Runtime/Readiness/Certification traceability are E1 and remain under human-acceptance review.
+- Evidence: `docs/evidence/HWG_CONNECTION_PROFILE_UNIFIED_WORKFLOW_E1_E2_20260926.md`.

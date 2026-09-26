@@ -1013,6 +1013,12 @@ def api_discovery_certification_complete(provider_id, run_id):
 
 
 def _browser_runtime_groups():
+    """Return shared Provider runtimes plus dedicated Account runtimes.
+
+    Account runtimes are first-class Explorer targets.  They remain explicitly
+    scoped to their account so a second same-origin identity can never be
+    mistaken for the Provider's shared/default browser context.
+    """
     inventory = inventory_by_id(CONFIG_PATH)
     groups = {}
     for item in inventory.values():
@@ -1022,6 +1028,7 @@ def _browser_runtime_groups():
         group = groups.setdefault(key, {
             "runtime_id": f"browser-{len(groups)+1}",
             "runtime_key": key,
+            "scope": "provider",
             "cdp_url": cdp, "port": item.get("port"), "profile": profile,
             "providers": [],
         })
@@ -1029,13 +1036,46 @@ def _browser_runtime_groups():
             "id": item.get("id"), "label": item.get("label"),
             "home_url": item.get("home_url"), "enabled": item.get("enabled"),
         })
+
+    ng = load_ng_inventory(CONFIG_PATH)
+    root = Path(__file__).parent.resolve()
+    for account in ng.get("account_instances", []) or []:
+        runtime = account.get("runtime") or {}
+        cdp = str(runtime.get("cdp_url") or "").strip()
+        if not cdp:
+            continue
+        raw_profile = str(runtime.get("profile_dir") or (account.get("browser_profile") or {}).get("path") or "").strip()
+        profile_path = Path(raw_profile) if raw_profile else Path()
+        if raw_profile and not profile_path.is_absolute():
+            profile_path = (root / profile_path).resolve()
+        profile = str(profile_path) if raw_profile else ""
+        key = f"{cdp}|{profile}"
+        if key in groups:
+            continue
+        provider_id = str((account.get("provider_profile_id") or "").split(":")[0] or account.get("provider_id") or "").strip()
+        cp = account.get("connection_profile") or {}
+        groups[key] = {
+            "runtime_id": f"account-{len(groups)+1}",
+            "runtime_key": key,
+            "scope": "account",
+            "account_id": account.get("account_id"),
+            "connection_profile_name": cp.get("display_name"),
+            "provider_id": provider_id,
+            "cdp_url": cdp,
+            "port": runtime.get("port"),
+            "profile": profile,
+            "home_url": runtime.get("home_url") or (account.get("browser_profile") or {}).get("origin"),
+            "providers": [{"id": provider_id, "label": runtime.get("label"), "home_url": runtime.get("home_url"), "enabled": account.get("enabled")}],
+        }
+
     rows = []
     for group in groups.values():
         live = _check_cdp(group.get("cdp_url"))
         providers = group["providers"]
         group.update({
             "ready": live.get("ready"), "status": live.get("status"),
-            "shared": len(providers) > 1, "provider_count": len(providers),
+            "shared": group.get("scope") == "provider" and len(providers) > 1,
+            "provider_count": len(providers),
             "representative_provider": providers[0]["id"] if providers else None,
         })
         rows.append(group)
@@ -1761,6 +1801,17 @@ def api_runtimes():
 @control_panel_bp.route('/api/browser-runtimes')
 def api_browser_runtimes():
     return jsonify({"browser_runtimes": _browser_runtime_groups()})
+
+
+@control_panel_bp.route('/api/provider-certification-matrix', methods=['GET'])
+def api_provider_certification_matrix():
+    """Expose certification evidence as exact-scope, read-only UI metadata."""
+    path = Path(__file__).parent / "docs" / "governance" / "HWG_PROVIDER_CERTIFICATION_MATRIX_V1.json"
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError):
+        return jsonify({"id": "HWG-PROVIDER-CERT-MATRIX-001", "version": None, "rows": [], "status": "unavailable"}), 503
+    return jsonify(doc)
 
 
 from flask import make_response
